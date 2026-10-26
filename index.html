@@ -3269,20 +3269,53 @@ if(SR){
     "no-speech": "No te he oído 🤔. Toca 🎤 y habla un poco más alto o más cerca.",
     "language-not-supported": "El dictado por voz no funciona en este idioma.",
   };
-  const startMic = ()=>{
+  // quita palabras o trozos repetidos seguidos que a veces mete el dictado ("hola hola cómo cómo estás")
+  const dedupeWords = t => { let w = t.split(/\s+/).filter(Boolean);
+    for(let L = Math.floor(w.length/2); L >= 1; L--) for(let i = 0; i + 2*L <= w.length; i++){
+      const a = w.slice(i, i+L).join(" ").toLowerCase(), b = w.slice(i+L, i+2*L).join(" ").toLowerCase();
+      if(a === b && (L > 1 || a.length >= 2)){ w.splice(i+L, L); i--; } }
+    return w.join(" "); };
+  // pedir permiso del micrófono "a la manera normal" antes del dictado: en el ordenador, sin esto a veces no pregunta y falla
+  let micOk = false;
+  const askMic = async ()=>{ if(micOk || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+    try{ const st = await navigator.mediaDevices.getUserMedia({audio:true}); st.getTracks().forEach(t=>t.stop()); micOk = true; return true; }
+    catch(e){ const k = e && e.name==="NotFoundError" ? "audio-capture" : "not-allowed"; micFail(k); return false; } };
+  const WEBV = "https://toni-games.github.io/chispa/";
+  const micFail = code => {
+    const fileMode = location.protocol === "file:";
+    const m = MIC_ERR[code] || "El micrófono ha fallado. Prueba otra vez.";
+    if(fileMode && (code==="not-allowed" || code==="service-not-allowed" || code==="network")){
+      const a = "🎤 En el archivo chispa.html, Chrome no deja usar bien el micrófono. En la versión web sí funciona (y además va más rápida):";
+      history.push({role:"assistant", content:a}); const o = add("bot", a);
+      o.row.querySelector(".msg").after(el("a",{class:"src g", href:WEBV, target:"_blank", rel:"noopener", text:"🌐 Abrir Chispa web"})); saveHist(); return;
+    }
+    toast(tr(m) + (code ? ` (${code})` : ""), "🎤", 7000);
+  };
+  const startMic = async ()=>{
     if(busy){ toast(tr("Espera a que termine de contestar (o pulsa ■ para pararla)"),"⏳"); return; }
     try{ speechSynthesis.cancel(); }catch(e){}
-    rec = new SR(); rec.lang = LANGS[LANG].voice; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 1;
+    if(!(await askMic())) return;
+    // En el móvil, el modo "continuo" de Chrome repite la frase cada vez más larga ("hola", "hola cómo"…): allí escuchamos frase a frase
+    const PHONE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    rec = new SR(); rec.lang = LANGS[LANG].voice; rec.interimResults = true; rec.continuous = !PHONE; rec.maxAlternatives = 1;
     base = $("text").value.trim(); finalText = ""; errored = false; heard = false;
     rec.onstart = ()=>{ ui(true); maxT = setTimeout(()=>{ try{ rec.stop(); }catch(e){} }, 30000); };
     rec.onresult = e=>{
-      let interim = "";
-      for(let i=e.resultIndex;i<e.results.length;i++){ const r = e.results[i]; if(r.isFinal) finalText += r[0].transcript + " "; else interim += r[0].transcript; }
+      // se rehace el texto entero cada vez (antes se iba añadiendo y en algunos móviles salía repetido)
+      const segs = [], inter = [];
+      for(let i=0;i<e.results.length;i++){ const r = e.results[i], t = (r[0].transcript||"").trim(); if(!t) continue; (r.isFinal ? segs : inter).push(t); }
+      const n = x => norm(x).replace(/[^a-z0-9ñ ]/g,"").trim();
+      // si un trozo es el principio del siguiente ("hola" → "hola cómo estás"), nos quedamos solo con el largo
+      const fin = segs.filter((t,k)=>!(segs[k+1] && n(segs[k+1]).startsWith(n(t))));
+      let interim = inter.join(" ");
+      if(fin.length && interim && n(interim).startsWith(n(fin[fin.length-1]))) fin.pop();
+      finalText = fin.length ? dedupeWords(fin.join(" ")) + " " : "";
+      interim = dedupeWords(interim);
       heard = true;
       $("text").value = ((base ? base + " " : "") + finalText + interim).replace(/\s+/g," ").trim(); autoGrow();
       clearTimeout(silenceT); silenceT = setTimeout(()=>{ try{ rec.stop(); }catch(e){} }, 1800);   // te has callado: enviamos
     };
-    rec.onerror = e=>{ if(e.error==="aborted") return; errored = true; const m = MIC_ERR[e.error]; toast(tr(m || "El micrófono ha fallado. Prueba otra vez."), "🎤", 6500); };
+    rec.onerror = e=>{ if(e.error==="aborted") return; errored = true; if(e.error==="no-speech"){ toast(tr(MIC_ERR["no-speech"]), "🎤", 5000); return; } micFail(e.error); };
     rec.onend = ()=>{ ui(false); const t = $("text").value.trim(); if(!errored && heard && t && t!==base) send(t); };
     try{ rec.start(); }catch(e){ ui(false); toast(tr("El micrófono ha fallado. Prueba otra vez."), "🎤"); }
   };
