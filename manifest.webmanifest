@@ -1,0 +1,19 @@
+{
+  "name": "Chispa",
+  "short_name": "Chispa",
+  "description": "Tu chatbot: dibujos, fotos en píxeles, juegos, exámenes y búsquedas.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#16151f",
+  "theme_color": "#16151f",
+  "lang": "es",
+  "categories": ["education", "entertainment"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
