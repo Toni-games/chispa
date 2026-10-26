@@ -578,7 +578,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 </div>
 
 <script src="config.js"></script>
-<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:")addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(e=>console.warn("sw",e)));</script>
+<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(e=>console.warn("sw",e)));}</script>
 <script type="module">
 /* ===================== 👤 CUENTAS DE CHISPA ===================== */
 // Cada persona entra con su Gmail y una contraseña que se inventa PARA CHISPA.
@@ -3482,7 +3482,7 @@ async function send(text){
     try{ web = await webSearch(text); }catch(e){ console.warn(e); }
     busy = false; searching.row.remove();
     // "¿Qué es…?" / "¿Quién fue…?" o sin cerebro: contestamos directamente con lo encontrado (al instante y sin inventar)
-    if(web && (!engine || (web.define && web.score >= 4))){
+    if(web && (!engine || (web.define && web.score >= 4) || (engine.cpu && web.score >= 6 && !/c[oó]mo|por qu[eé]|explica|resume|how|why/i.test(text)))){
       const body = trimSentences(web.define ? web.intro || web.text : web.text, engine ? 480 : 700);
       const t0 = norm(web.title.replace(/\s*\(.*\)$/,""));
       const a = norm(body).startsWith(t0) || norm(body.slice(0,80)).includes(t0) ? "📖 " + body.replace(new RegExp("^(" + web.title.replace(/\s*\(.*\)$/,"").replace(/[.*+?^${}()|[\]\\]/g,"\\$&") + ")"), "**$1**") : `**${web.title}**: ${body}`;
@@ -3538,7 +3538,9 @@ async function send(text){
     const looped = lastLooped;
     const es = LANG==="es";
     const empty = es && EMPTYREPLY.test(reply) && text.length > 12;
-    const silly = (es && ((REFUSAL.test(reply) && !RISKY.test(norm(text))) || FOREIGN.test(reply))) || reply.length < 2 || empty || looped;
+    let silly = (es && ((REFUSAL.test(reply) && !RISKY.test(norm(text))) || FOREIGN.test(reply))) || reply.length < 2 || empty || looped;
+    // con el procesador, repetir la respuesta tarda el doble: solo si ha salido vacía o en otro idioma
+    if(engine.cpu && reply.length >= 2 && !(es && FOREIGN.test(reply))) silly = false;
     if(silly && !stopped){
       out.row.classList.add("thinking"); out.set(tr("Pensándolo mejor…"));
       // El aviso va pegado a tu mensaje (no al principio) para que el cerebro reaproveche lo que ya había leído
@@ -3635,6 +3637,8 @@ async function startBrain(){
 let CPU_MODEL = null;   // depende del modelo elegido (Basic, Ultra o Hyper)
 const WLLAMA = "https://cdn.jsdelivr.net/npm/@wllama/wllama@2.3.5/esm/";
 let brainKind = "";
+// Cuántos núcleos usar: todos en un portátil de 2; en móviles con muchos, dejamos 2 libres para que no se cuelgue
+function cpuThreads(){ const hc = navigator.hardwareConcurrency || 2; return self.crossOriginIsolated ? Math.max(1, Math.min(6, hc > 4 ? hc - 2 : hc)) : 1; }
 function cpuEngine(w){
   let ctrl = null;
   const opts = (temperature, max_tokens, signal, fp=0, pp=0)=>({nPredict:Math.min(max_tokens||300, 400), useCache:true, abortSignal:signal,
@@ -3698,7 +3702,7 @@ async function startCpuBrain(fail, why){
     $("loadText").textContent = got.from==="carpeta" ? "Abriendo el cerebro desde tu carpeta 📁… (sin descargar nada)" : got.from==="navegador" ? "Abriendo el cerebro guardado… (sin descargar nada)" : "Abriendo el cerebro…";
     try{
       const w = new lib.WL.Wllama(lib.paths);
-      await w.loadModel([new File([got.blob], CPU_MODEL.file)], {n_ctx:2048, n_batch:256});
+      await w.loadModel([new File([got.blob], CPU_MODEL.file)], {n_ctx:2048, n_batch:256, n_threads:cpuThreads()});
       engine = cpuEngine(w); brainKind = "cpu"; brainModel = CPU_MODEL.name; brainFrom = got.from;
       brainLoadSecs = Math.round((performance.now() - tStart)/100)/10;
       $("load").hidden = true; setStatus("on","Lista para pensar (procesador)");
@@ -6272,7 +6276,9 @@ async function loadEngineLib(base){
       let WL; try{ WL = await import(URL.createObjectURL(new Blob([js], {type:"text/javascript"}))); }catch(_){ WL = await import(await toData(js, "text/javascript")); }
       // el .wasm lo abre un "trabajador" aparte: con una dirección data: lo puede leer seguro
       const wurl = await toData(wasm, "application/wasm");
-      if(WL && WL.Wllama) return {WL, paths:{"single-thread/wllama.wasm":wurl, "multi-thread/wllama.wasm":wurl}, local:true};
+      // con varios núcleos hace falta el motor "multi-hilo", que se coge de internet (el navegador lo guarda)
+      const multi = self.crossOriginIsolated && navigator.onLine !== false ? base + "multi-thread/wllama.wasm" : wurl;
+      if(WL && WL.Wllama) return {WL, paths:{"single-thread/wllama.wasm":wurl, "multi-thread/wllama.wasm":multi}, local:true};
     }
   }catch(e){ console.warn("Motor local no válido, lo cojo de internet:", e); }
   // 2) si no hay copia (o está estropeada): de internet, y lo guardamos para la próxima vez
