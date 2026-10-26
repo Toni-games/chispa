@@ -378,6 +378,15 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .show canvas{max-width:92vw;max-height:78vh;image-rendering:pixelated}
 .show .cap{font:400 1.4rem var(--display);text-align:center;padding:0 16px}
 
+/* soporte de respuestas */
+.fixl{display:flex;flex-direction:column;gap:5px;font:600 .85rem var(--body);margin:8px 0}
+.fixin{font:1rem var(--body);padding:10px 12px;border-radius:11px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%;box-sizing:border-box;resize:vertical}
+.fixwrong{font-size:.88rem;color:var(--muted);background:var(--hover);border-radius:10px;padding:8px 10px;margin:4px 0;white-space:pre-wrap}
+.fixitem{cursor:default !important;color:var(--ink) !important;background:var(--bg) !important;border:1px solid var(--line);border-radius:12px;padding:10px 12px !important;margin-bottom:6px;display:grid !important;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;white-space:normal !important}
+.fixitem > div:first-child{display:grid;gap:2px;min-width:0}
+.fixbtns{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.fixitem b{color:var(--ink)} .fixitem small{color:var(--muted)}
+
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -3158,10 +3167,12 @@ function add(role, text, extra){
   if(role!=="user"){
     const acts = document.createElement("div"); acts.className="acts";
     const bCopy = document.createElement("button"); bCopy.type="button"; bCopy.className="act"; bCopy.textContent=tr("Copiar");
+    const bFix = document.createElement("button"); bFix.type="button"; bFix.className="act"; bFix.textContent="✋ "+tr("Corregir"); bFix.title = "¿Me he equivocado? Enséñame la respuesta correcta";
+    bFix.onclick = ()=>{ let p = row.previousElementSibling; while(p && !p.classList.contains("me")) p = p.previousElementSibling; openFix(p ? p.textContent.trim() : "", m.textContent.trim()); };
     bCopy.onclick = async()=>{ try{ await navigator.clipboard.writeText(m.textContent); bCopy.textContent=tr("Copiado ✓"); }catch(e){ bCopy.textContent=tr("No se pudo"); } setTimeout(()=>bCopy.textContent=tr("Copiar"),1500); };
     const bRead = document.createElement("button"); bRead.type="button"; bRead.className="act"; bRead.textContent=tr("Leer en voz alta");
     bRead.onclick = ()=>say(m.textContent);
-    acts.append(bCopy,bRead); row.appendChild(acts);
+    acts.append(bCopy,bRead,bFix); row.appendChild(acts);
   }
   $("chat").appendChild(row); $("chat").scrollTop = $("chat").scrollHeight;
   // como mucho un repintado por fotograma (antes era uno por palabra: eso daba tirones)
@@ -3479,6 +3490,8 @@ async function send(text){
   const learned = memLearn(text);
   const memA = memAnswer(text);
   if(memA){ history.push({role:"assistant",content:memA}); add("bot",memA); saveHist(); return; }
+  const fixA = fixAnswer(text);
+  if(fixA){ history.push({role:"assistant",content:fixA}); add("bot",fixA); saveHist(); if(cfg.speak) say(fixA); return; }
   const modA = modelAnswer(text);
   if(modA){ history.push({role:"assistant",content:modA}); add("bot",modA); saveHist(); return; }
   // 📸➜🟥 foto de internet convertida en píxeles
@@ -6768,6 +6781,146 @@ function pixFotoActs(h, btn, acts, redraw, msgEl){
 const PIX_IDEAS = ["un gato","un perro","una pizza","la Torre Eiffel","un coche de carreras","un loro","una fresa","un astronauta","un volcán","un pingüino",
   "una guitarra","un tiburón","una mariposa","un búho","una hamburguesa","un cohete","un girasol","un camaleón","un tren","una tortuga","un pulpo","una sandía","un faro","un koala"];
 
+/* ===================== 🛟 SOPORTE DE RESPUESTAS: CORREGIR A CHISPA ===================== */
+// Si Chispa contesta algo mal, le puedes enseñar la respuesta correcta. Antes de aprenderla, Chispa
+// la COMPRUEBA: las cuentas las rehace ella misma y los datos los busca en Wikipedia. Si no cuadra,
+// no la aprende (así nadie le puede enseñar cosas falsas). Lo aprendido lo usa la próxima vez.
+let fixes = store.get("fixes", []);
+const saveFixes = () => store.set("fixes", fixes.slice(-200));
+const FIX_STATUS = {ok:"✅ Comprobada", math:"🧮 Cuentas comprobadas", owner:"👑 Aprobada por un owner", pending:"⏳ Sin comprobar", bad:"❌ Rechazada"};
+const fixLearned = f => f.status==="ok" || f.status==="math" || f.status==="owner";
+
+function fixKeys(q){ return [...new Set(webKeywords(q).map(w=>stem(norm(w))).filter(w=>w.length>=3))]; }
+// ¿Esta pregunta es la misma que una que ya me corrigieron?
+function fixFind(text){
+  const k = fixKeys(text); if(!k.length) return null;
+  let best = null, bestS = 0;
+  for(const f of fixes){
+    if(!fixLearned(f)) continue;
+    const fk = f.keys || fixKeys(f.q); const shared = k.filter(w=>fk.includes(w)).length;
+    const s = shared / Math.max(k.length, fk.length);
+    if((s >= .6 && shared >= Math.min(2, fk.length)) || norm(text)===norm(f.q)) if(s > bestS){ best = f; bestS = s; }
+  }
+  return best;
+}
+function fixAnswer(text){
+  const f = fixFind(text); if(!f) return null;
+  f.used = (f.used||0) + 1; saveFixes();
+  const why = f.status==="math" ? "lo comprobé haciendo las cuentas" : f.status==="owner" ? "lo aprobó un owner" : "lo comprobé en Wikipedia";
+  return `📝 ${f.a}\n\n(Esto me lo enseñaste tú y ${why}.)`;
+}
+
+/* ---------- comprobar una corrección ---------- */
+const NUM_RE = /-?\d+(?:[.,]\d+)?/g;
+const nums = t => (String(t).match(NUM_RE) || []).map(n=>n.replace(",", "."));
+async function pageText(p){
+  try{
+    const j = await getJSON(`${p.api}?action=query&format=json&origin=*&prop=extracts&explaintext=1&redirects=1&titles=${encodeURIComponent(p.title)}`, 9000);
+    return Object.values(j.query.pages)[0].extract || "";
+  }catch(e){ return p.intro || ""; }
+}
+async function verifyFix(q, a, wrong){
+  const A = a.trim();
+  // 1) filtros básicos: nada de tonterías, insultos, enlaces o cosas peligrosas
+  if(A.length < 2) return {status:"bad", why:"La respuesta está vacía."};
+  if(/https?:\/\/|www\./i.test(A)) return {status:"bad", why:"No se pueden enseñar enlaces."};
+  if(RISKY.test(norm(A)) || RISKY.test(norm(q))) return {status:"bad", why:"De ese tema no puedo aprender cosas nuevas."};
+  if(/(.)\1{5,}/.test(A) || /(..)\1{3,}/i.test(A.replace(/\s/g,"")) || (A.replace(/[^a-záéíóúñü]/gi,"").length < 2 && !nums(A).length)) return {status:"bad", why:"Eso no parece una respuesta de verdad."};
+  if(wrong && norm(A)===norm(wrong)) return {status:"bad", why:"Es la misma respuesta que ya te di."};
+  // 2) cuentas: las rehago yo
+  const m = tryMath(q);
+  if(m){
+    const good = nums(m), mine = nums(A);
+    const last = good[good.length-1];
+    if(last && mine.some(n=>Math.abs(+n - +last) < 1e-6)) return {status:"math", why:`He rehecho la cuenta y da ${last}: ¡tienes razón!`};
+    if(last) return {status:"bad", why:`He rehecho la cuenta y da ${last}, no lo que me dices.`};
+  }
+  // 3) datos: los busco en Wikipedia
+  if(navigator.onLine === false) return {status:"pending", why:"No hay internet para comprobarlo. Lo guardo y lo compruebo cuando haya."};
+  const kq = webKeywords(q), ka = webKeywords(A);
+  let pages = [];
+  try{ pages = await wikiQuery(wikiHost(false), [...kq, ...ka].join(" "), [...kq, ...ka]); }catch(e){}
+  try{ if(pages.length < 2) pages = pages.concat(await wikiQuery(wikiHost(false), kq.join(" "), kq)); }catch(e){}
+  if(!pages.length) return {status:"pending", why:"No he encontrado nada en Wikipedia para comprobarlo."};
+  const ranked = pages.map(p=>({p, s:scorePage(p, kq, q)})).sort((x,y)=>y.s-x.s).slice(0,2);
+  const texts = []; for(const {p} of ranked) texts.push(norm(await pageText(p)));
+  // la respuesta tiene que salir EN LA MISMA FRASE y MUY CERCA de lo que se pregunta ("capital… Canberra"),
+  // salvo lo que ya dice el título del artículo (en "Torre Eiffel", la frase "Mide 330 metros" no repite el nombre)
+  const sentences = texts.join("\n").split(/(?<=[.!?])\s+|\n+/).filter(x=>x.length > 10);
+  const qs = [...new Set(kq.map(w=>stem(norm(w))).filter(w=>w.length>=3))];
+  const terms = [...new Set(ka.map(w=>stem(norm(w))).filter(w=>w.length>=3 && !/^\d/.test(w) && !qs.includes(w)))];
+  const numA = nums(A).filter(n=>!nums(q).includes(n));
+  const src = ranked[0].p.title, titleN = norm(ranked.map(r=>r.p.title).join(" "));
+  const prop = qs.filter(w=>!titleN.includes(w));          // lo que se pregunta del tema: "capital", "altura", "año"…
+  const toks = x => x.split(/[^a-z0-9ñü]+/).filter(Boolean);
+  const isNum = (t, n) => t === n || t === n.replace(".", "") || t.replace(/[.,]/g,"") === n.replace(/[.,]/g,"");
+  let best = 0, numSeen = false;
+  for(const x of sentences){
+    const T2 = toks(x);
+    const pos = (pred) => T2.map((t,i)=>pred(t)?i:-1).filter(i=>i>=0);
+    const propPos = prop.length ? pos(t=>prop.some(w=>t.startsWith(w))) : null;
+    if(prop.length && !propPos.length) continue;
+    const near = i => !propPos || propPos.some(j=>Math.abs(i-j) <= 6);
+    const tOk = terms.filter(w=>pos(t=>t.startsWith(w)).some(near)).length;
+    const nOk = numA.filter(n=>pos(t=>isNum(t, n)).some(near)).length;
+    if(numA.some(n=>pos(t=>isNum(t, n)).length)) numSeen = true;
+    const sc = Math.min(terms.length ? tOk/terms.length : 1, numA.length ? nOk/numA.length : 1);
+    if(sc > best) best = sc;
+  }
+  const bestHit = best;
+  if(!terms.length && !numA.length) return {status:"pending", why:"Tu respuesta repite la pregunta y no dice nada nuevo que pueda comprobar."};
+  if(bestHit >= .66) return {status:"ok", why:`Lo he comprobado en Wikipedia («${src}»): ¡tienes razón!`, src};
+  if(numA.length && !numSeen) return {status:"bad", why:`He mirado en Wikipedia («${src}») y ese número no aparece. Creo que no es correcto.`, src};
+  return {status:"pending", why:`He mirado en Wikipedia («${src}») pero no he podido confirmarlo. No lo usaré hasta que se compruebe.`, src};
+}
+
+/* ---------- ventana para corregir una respuesta ---------- */
+function openFix(q, wrong){
+  const w = openWin("✋ Corregir a " + botName);
+  const qi = el("input",{type:"text",maxlength:"200",value:q||"",class:"fixin"});
+  const ai = el("textarea",{rows:"3",maxlength:"400",class:"fixin",placeholder:"Escribe aquí la respuesta correcta (ej: La capital de Australia es Canberra)"});
+  const out = el("p",{class:"hint"});
+  const go = el("button",{class:"btn2",type:"button",text:"🔎 Comprobar y enseñar",onclick:async()=>{
+    const Q = qi.value.trim(), A = ai.value.trim();
+    if(!Q || !A){ out.textContent = "Escribe la pregunta y la respuesta correcta."; return; }
+    go.disabled = true; out.textContent = "🔎 Comprobándolo…";
+    const r = await verifyFix(Q, A, wrong).catch(()=>({status:"pending", why:"No he podido comprobarlo ahora."}));
+    const f = {id:Date.now(), q:Q, a:A, wrong:(wrong||"").slice(0,300), keys:fixKeys(Q), status:r.status, why:r.why, src:r.src||"", ts:Date.now()};
+    if(r.status!=="bad"){ fixes = fixes.filter(x=>norm(x.q)!==norm(Q)); fixes.push(f); saveFixes(); }
+    out.textContent = (fixLearned(f) ? "🎉 " : r.status==="bad" ? "🤔 " : "⏳ ") + r.why + (fixLearned(f) ? " La próxima vez que me lo preguntes, lo sabré." : "");
+    go.disabled = false; if(fixLearned(f)) bump("fixes",1,10);
+  }});
+  w.body.append(
+    el("p",{class:"hint",text:`¿${botName} se ha equivocado? Enséñale la respuesta correcta. Antes de aprenderla la comprobará: las cuentas las rehace y los datos los busca en Wikipedia. Si no cuadra, no la aprende.`}),
+    el("label",{class:"fixl"}, "Pregunta", qi),
+    wrong ? el("div",{class:"fixwrong"}, el("b",{text:"Lo que contestó: "}), document.createTextNode(wrong.slice(0,300))) : "",
+    el("label",{class:"fixl"}, "Respuesta correcta", ai),
+    el("div",{class:"row-btns"}, go, el("button",{class:"ghost",type:"button",text:"🛟 Ver todas las correcciones",onclick:()=>{ w.close(); openSupport(); }})),
+    out);
+  setTimeout(()=>ai.focus(), 50);
+}
+
+/* ---------- 🛟 soporte: lista de correcciones ---------- */
+function openSupport(){
+  const w = openWin("🛟 Soporte de respuestas");
+  const owner = accRole()==="owner";
+  const render = ()=>{
+    w.body.innerHTML = "";
+    const list = fixes.slice().reverse();
+    w.body.append(
+      el("p",{class:"hint",text:`Aquí están las respuestas que le has enseñado a ${botName}. Las ✅ comprobadas ya las usa. Las ⏳ sin comprobar no las usa${owner?"; como owner, puedes aprobarlas tú":""}. Para corregir una respuesta nueva, pulsa «✋ Corregir» debajo de cualquier mensaje de ${botName}.`}),
+      el("div",{class:"row-btns"}, el("button",{class:"btn2",type:"button",text:"✋ Enseñar algo nuevo",onclick:()=>{ w.close(); openFix("", ""); }})),
+      list.length ? el("div",{class:"tools"}, list.map(f=>el("div",{class:"chatitem fixitem"},
+        el("div",{}, el("b",{text:f.q}), el("div",{text:f.a}), el("small",{class:"muted",text:`${FIX_STATUS[f.status]||f.status}${f.used?` · usada ${f.used} ${f.used===1?"vez":"veces"}`:""}`})),
+        el("div",{class:"fixbtns"},
+          f.status==="pending" ? el("button",{class:"ghost",type:"button",text:"🔄 Comprobar",onclick:async e=>{ e.target.textContent="…"; const r = await verifyFix(f.q, f.a, f.wrong).catch(()=>({status:"pending",why:""})); f.status = r.status==="bad" ? "bad" : r.status; f.why = r.why; saveFixes(); toast(r.why||"No se ha podido comprobar", fixLearned(f)?"✅":"⏳"); render(); }}) : "",
+          owner && f.status==="pending" ? el("button",{class:"ghost",type:"button",text:"👑 Aprobar",onclick:()=>{ f.status = "owner"; saveFixes(); render(); }}) : "",
+          el("button",{class:"cm",style:"opacity:1",type:"button",title:"Borrar",text:"✕",onclick:()=>{ fixes = fixes.filter(x=>x!==f); saveFixes(); render(); }}))))) :
+        el("p",{class:"hint",text:"Todavía no le has corregido nada."}));
+  };
+  render();
+}
+
 /* ===================== FUNCIONES DESDE EL CHAT ===================== */
 function featureRequest(text){
   const n = norm(text);
@@ -6818,7 +6971,7 @@ function renderDock(){
   [["🧠","Memoria",()=>openMemory()],["😊","Personalidad",()=>openPersonality()],["🖼️","Fondo",()=>openBg()],
    ["📚","Examen",()=>openQuiz()],["📖","Cuento",()=>{ history.push({role:"user",content:"Cuéntame un cuento"}); add("user","Cuéntame un cuento"); saveHist(); startStory(""); }],
    ["🎵","Música",()=>openMusic()],["✏️","Pintar",()=>openEditor({})],["🎮","Juegos",()=>openGames()],["🌍","Mundo",()=>openWorld()],
-   ["🐉","Mascota",()=>startPet()],["🗂️","Galería",()=>openGallery()],["🏆","Logros",()=>openProfile()],
+   ["🐉","Mascota",()=>startPet()],["🗂️","Galería",()=>openGallery()],["🏆","Logros",()=>openProfile()],["🛟","Soporte",()=>openSupport()],
    ["📤","Exportar",()=>exportChat(),"exportChat"],["📌","Instalar app",()=>openInstall()]]
     .forEach(([i,t,f,need])=>d.appendChild(el("button",{type:"button",class:need && !can(need) ? "locked" : null,title:need && !can(need) ? "Chispa Hyper" : null,onclick:()=>{ close(); f(); }}, el("span",{class:"ti",text:i}), tr(t), need && !can(need) ? el("span",{class:"lock",text:"🔒"}) : null)));
 }
@@ -6929,7 +7082,7 @@ if(ACC){ if(IS_PHONE && !store.get("phoneBrain", false)) phoneNoBrain(); else st
 if(ACC && WEB_AUTH) webCheck();
 
 $("lvl").onclick=openProfile;
-window.__t={fixNames,accRole,accEmail,leftToday,usedToday,pixRequest,pixelize,pixCandidates,drawRequest,getBrainFile,copyStoredToFolder,setFolderForTest:h=>{chispaDir=h;},kvKeys:()=>kv.keys(),setPlan,photoRequest,weatherPlace,searchesLeft,modelAnswer,stripFiller,EMPTY2:()=>EMPTYREPLY,runBg,tidyStorage,usedMB,webSearch,webWanted,webKeywords,findLoop,cleanCut,EMPTYREPLY,tidyInput,setEngine:e=>{engine=e;brainKind=e.cpu?"cpu":"gpu";setStatus("on","Lista para pensar (procesador)");},quickAnswer,tryMath,mathHints,cpuEngine,openGames,openWorld,openEditor,openQuiz,openGallery,openProfile,startPet,startStory,makeSong,send,sceneGIF,mathQ,genWorld,prog};
+window.__t={fixFind,verifyFix,getFixes:()=>fixes,fixNames,accRole,accEmail,leftToday,usedToday,pixRequest,pixelize,pixCandidates,drawRequest,getBrainFile,copyStoredToFolder,setFolderForTest:h=>{chispaDir=h;},kvKeys:()=>kv.keys(),setPlan,photoRequest,weatherPlace,searchesLeft,modelAnswer,stripFiller,EMPTY2:()=>EMPTYREPLY,runBg,tidyStorage,usedMB,webSearch,webWanted,webKeywords,findLoop,cleanCut,EMPTYREPLY,tidyInput,setEngine:e=>{engine=e;brainKind=e.cpu?"cpu":"gpu";setStatus("on","Lista para pensar (procesador)");},quickAnswer,tryMath,mathHints,cpuEngine,openGames,openWorld,openEditor,openQuiz,openGallery,openProfile,startPet,startStory,makeSong,send,sceneGIF,mathQ,genWorld,prog};
 </script>
 </body>
 </html>
