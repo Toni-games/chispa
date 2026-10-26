@@ -1,5 +1,5 @@
 // Service worker de Chispa: hace que la app se abra aunque no haya internet.
-const CACHE = "chispa-20261026122721";
+const CACHE = "chispa-20261026134920";
 const SHELL = ["./", "index.html", "config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
