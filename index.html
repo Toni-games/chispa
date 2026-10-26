@@ -40,12 +40,12 @@ button{font-family:inherit}
 #bgLayer{position:fixed;inset:0;z-index:0;background-size:cover;background-position:center;pointer-events:none}
 #bgLayer::after{content:"";position:absolute;inset:0;background:var(--bg);opacity:var(--bgdim,.75)}
 body.hasbg .main{background:transparent}
-body.hasbg .side{background:var(--glass);backdrop-filter:blur(10px)}
+body.hasbg .side{background:var(--glass)}
 body.hasbg .composer form{background:var(--panel)}
 
 /* ---------- barra lateral (de noche) ---------- */
 .side{width:272px;flex:0 0 272px;background:var(--side);color:var(--s-ink);display:flex;flex-direction:column;min-height:0;transition:margin .2s;position:relative;overflow:hidden}
-.side::before{content:"";position:absolute;width:260px;height:260px;left:-110px;top:-120px;border-radius:50%;background:var(--grad);opacity:.22;filter:blur(60px);pointer-events:none}
+.side::before{content:"";position:absolute;width:260px;height:260px;left:-110px;top:-120px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--accent) 55%,transparent) 0,color-mix(in srgb,var(--accent2) 25%,transparent) 40%,transparent 70%);opacity:.5;pointer-events:none}
 .side > *{position:relative}
 .side.closed{margin-left:-272px}
 .side-top{display:flex;align-items:center;gap:8px;padding:16px 14px 12px}
@@ -119,7 +119,8 @@ body.hasbg .composer form{background:var(--panel)}
 .msg .lnk{border:0;background:none;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;padding:0;text-decoration:underline}
 .thinking .msg{color:var(--muted);display:flex;align-items:center;gap:10px}
 .sparks{display:inline-flex;gap:5px;align-items:center}
-.sparks i{width:7px;height:7px;border-radius:2px;background:var(--grad);transform:rotate(45deg);animation:zap 1s ease-in-out infinite}
+.sparks i{width:7px;height:7px;border-radius:2px;background:var(--grad);transform:rotate(45deg);animation:zap 1s ease-in-out infinite;will-change:transform,opacity}
+.noanim .sparks i{animation:none;opacity:.8}
 .sparks i:nth-child(2){animation-delay:.15s}.sparks i:nth-child(3){animation-delay:.3s}
 @keyframes zap{0%,100%{opacity:.25;transform:rotate(45deg) scale(.7)}50%{opacity:1;transform:rotate(45deg) scale(1.15)}}
 .row.draw{max-width:760px}
@@ -163,12 +164,11 @@ body.hasbg .composer form{background:var(--panel)}
 .hero .logo{width:72px;height:72px;border-radius:22px;box-shadow:0 14px 40px color-mix(in srgb,var(--accent) 45%,transparent)}
 .hero .logo svg{width:42px;height:42px}
 .hero .ember{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:2px;background:var(--accent2);opacity:0;transform:rotate(45deg)}
-@media (prefers-reduced-motion: no-preference){
-  .hero .logo{animation:breathe 3.2s ease-in-out infinite}
-  .hero .ember{animation:fly 2.6s ease-out infinite}
-  @keyframes breathe{50%{transform:scale(1.05) rotate(-3deg)}}
-  @keyframes fly{0%{opacity:0;transform:translate(-50%,-50%) rotate(45deg) scale(.4)}15%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(45deg) scale(1)}}
-}
+/* animaciones: las decide el ajuste de Chispa (Ajustes → Aspecto → Animaciones), no Windows */
+.animfull .hero .logo{animation:breathe 3.2s ease-in-out infinite;will-change:transform}
+.animfull .hero .ember{animation:fly 2.6s ease-out infinite;will-change:transform,opacity}
+@keyframes breathe{50%{transform:scale(1.05) rotate(-3deg)}}
+@keyframes fly{0%{opacity:0;transform:translate(-50%,-50%) rotate(45deg) scale(.4)}15%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(45deg) scale(1)}}
 .welcome h2{font:700 2.3rem var(--display);margin:4px 0 0;letter-spacing:-.03em}
 .welcome h2 em{font-style:normal;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .welcome p{color:var(--muted);margin:0;font-size:1.02rem}
@@ -193,7 +193,7 @@ form#form:focus-within{border-color:var(--accent);box-shadow:0 8px 28px color-mi
 .mic{border:0;background:transparent;color:var(--muted);border-radius:10px;width:40px;height:40px;font-size:1.1rem;cursor:pointer;flex:0 0 auto}
 .mic:hover{background:var(--hover)}
 .mic.rec{background:var(--danger);color:#fff}
-@media (prefers-reduced-motion: no-preference){ .mic.rec{animation:micpulse 1.2s ease-in-out infinite} @keyframes micpulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--danger) 55%,transparent)}50%{box-shadow:0 0 0 8px transparent}} }
+.anim .mic.rec{animation:micpulse 1.2s ease-in-out infinite} @media all{ @keyframes micpulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--danger) 55%,transparent)}50%{box-shadow:0 0 0 8px transparent}} }
 .modelpick{position:relative;flex:0 0 auto}
 .modelbtn{border:0;background:transparent;color:var(--ink);font:600 .9rem var(--body);padding:6px 10px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap}
 .modelbtn:hover,.modelbtn[aria-expanded="true"]{background:var(--hover)}
@@ -270,7 +270,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
   .sub .stxt{display:none}
   .pix.scene{width:100%}
 }
-@media (prefers-reduced-motion: no-preference){.row{animation:pop .18s ease-out}@keyframes pop{from{transform:translateY(4px);opacity:.5}to{transform:none;opacity:1}}}
+.anim .row{animation:pop .18s ease-out} @media all{@keyframes pop{from{transform:translateY(4px);opacity:.5}to{transform:none;opacity:1}}}
 /* ---------- ventanas de funciones ---------- */
 .win-ov{position:fixed;inset:0;background:var(--shade);z-index:30;display:flex;align-items:center;justify-content:center;padding:12px}
 .win{background:var(--panel);border:1px solid var(--line);border-radius:18px;width:min(980px,100%);max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)}
@@ -304,7 +304,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .toasts{position:fixed;right:max(16px,env(safe-area-inset-right,0px));top:62px;display:grid;gap:8px;z-index:60;pointer-events:none;width:min(340px,92vw)}
 .toast{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-weight:600;font-size:.88rem;box-shadow:0 10px 30px rgba(0,0,0,.3);display:flex;gap:10px;align-items:center}
 .toast .ic{font-size:1.6rem}
-@media (prefers-reduced-motion: no-preference){.toast{animation:tin .3s ease-out}@keyframes tin{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}}
+.anim .toast{animation:tin .3s ease-out} @media all{@keyframes tin{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}}
 
 /* ---------- barra de funciones ---------- */
 .dock{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
@@ -556,6 +556,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
       <label>Tamaño de letra
         <div class="seg" id="fsSeg" role="group">
           <button type="button" data-v="15">Pequeña</button><button type="button" data-v="16">Normal</button><button type="button" data-v="18">Grande</button><button type="button" data-v="20">Enorme</button>
+        </div>
+      </label>
+      <label>Animaciones y partículas
+        <div class="seg" id="animSeg" role="group">
+          <button type="button" data-v="on">Todas</button><button type="button" data-v="lite">Pocas</button><button type="button" data-v="off">Ninguna</button>
         </div>
       </label>
       <div class="row-btns"><button class="ghost" type="button" id="openBg">Cambiar el fondo…</button></div>
@@ -3108,7 +3113,7 @@ const DEFAULT_BRAIN = "0.5B";   // el de siempre: ligero y rápido
 const cfg = {
   name: store.get("name","Chispa"), about: store.get("about",""), brain: store.get("brain",DEFAULT_BRAIN),
   speak: store.get("speak",false), voice: store.get("voice",""), rate: store.get("rate",1),
-  color: store.get("color3",COLORS[0]), theme: store.get("theme","auto"), fs: store.get("fs",16),
+  anim: store.get("anim","on"), color: store.get("color3",COLORS[0]), theme: store.get("theme","auto"), fs: store.get("fs",16),
   style: store.get("style","normal"), length: store.get("length","normal"), emojis: store.get("emojis",true),
 };
 if(cfg.brain==="cpu"){ cfg.brain = "0.5B"; store.set("brain","0.5B"); store.set("forceCpu", true); }
@@ -3140,7 +3145,14 @@ function add(role, text, extra){
   const row = document.createElement("div");
   row.className = "row " + (role==="user"?"me":"bot") + (extra?" "+extra:"");
   const m = document.createElement("div"); m.className="msg";
-  const paint = t => { m.innerHTML = row.classList.contains("thinking") ? `<span class="sparks"><i></i><i></i><i></i></span><span>${fmt(t)}</span>` : fmt(t); };
+  // mientras piensa, los puntitos se quedan (no se reinician con cada palabra) y solo cambia el texto
+  const paint = t => {
+    if(row.classList.contains("thinking")){
+      let tx = m.querySelector(":scope > .ttx");
+      if(!tx){ m.innerHTML = `<span class="sparks"><i></i><i></i><i></i></span><span class="ttx"></span>`; tx = m.querySelector(".ttx"); }
+      tx.innerHTML = fmt(t);
+    } else m.innerHTML = fmt(t);
+  };
   paint(text);
   row.appendChild(m);
   if(role!=="user"){
@@ -3152,7 +3164,10 @@ function add(role, text, extra){
     acts.append(bCopy,bRead); row.appendChild(acts);
   }
   $("chat").appendChild(row); $("chat").scrollTop = $("chat").scrollHeight;
-  return {row, m, set(t){ paint(t); $("chat").scrollTop = $("chat").scrollHeight; }};
+  // como mucho un repintado por fotograma (antes era uno por palabra: eso daba tirones)
+  let pend = null, rq = 0;
+  const flush = ()=>{ rq = 0; if(pend===null) return; const t = pend; pend = null; paint(t); const c = $("chat"); if(c.scrollHeight - c.scrollTop - c.clientHeight < 400) c.scrollTop = c.scrollHeight; };
+  return {row, m, set(t){ pend = t; if(document.hidden){ flush(); return; } if(!rq) rq = requestAnimationFrame(flush); }};
 }
 function greetText(){ const h = new Date().getHours(); const n = memName(); return tr(h<6?"Buenas noches":h<13?"Buenos días":h<21?"Buenas tardes":"Buenas noches") + (n?", "+n:""); }
 function renderChat(){
@@ -3185,6 +3200,8 @@ function applyLook(){
   if(ACCENT2[cfg.color]) document.documentElement.style.setProperty("--accent2", ACCENT2[cfg.color]); else document.documentElement.style.removeProperty("--accent2");
   if(cfg.theme==="auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", cfg.theme);
   document.documentElement.style.setProperty("--fs", cfg.fs+"px");
+  const H = document.documentElement.classList; H.toggle("anim", cfg.anim!=="off"); H.toggle("animfull", cfg.anim==="on"); H.toggle("noanim", cfg.anim==="off");
+  if($("animSeg")) segSet("animSeg", cfg.anim);
   [...$("swatches").children].forEach(s=>s.setAttribute("aria-pressed", s.dataset.c===cfg.color));
   segSet("themeSeg", cfg.theme); segSet("fsSeg", String(cfg.fs)); segSet("lengthSeg", cfg.length);
 }
@@ -3321,8 +3338,23 @@ function turboPrompt(extra){
   const un = memName();
   const mood = {normal:"amable", seria:"directa", especial:"creativa", divertida:"divertida", profe:"como una profe paciente"}[cfg.style] || "amable";
   const facts = (mem && mem.on ? mem.facts.slice(-3).map(f=>f.text).join("; ") : "");
-  if(LANG!=="es") return `You are ${botName}, a ${{normal:"kind",seria:"direct",especial:"creative",divertida:"funny",profe:"patient teacher-like"}[cfg.style]||"kind"} assistant for young people.${un?` The user is ${un}.`:""} Answer in ${LANGS[LANG].en}, in 2-4 short, correct sentences. If unsure, say so.${extra?" "+extra:""}`;
-  return `Eres ${botName}, una asistente ${mood} para jóvenes.${un?` El usuario se llama ${un}.`:""} Responde en español, en 2 a 4 frases cortas, claras y correctas. Si no sabes algo, dilo.${facts?` Sabes del usuario: ${facts}.`:""}${extra?" "+extra:""}`;
+  if(LANG!=="es") return `You are ${botName} and you speak in first person ("I"). The person writing to you is someone else, never call them ${botName}. You are ${botName}, a ${{normal:"kind",seria:"direct",especial:"creative",divertida:"funny",profe:"patient teacher-like"}[cfg.style]||"kind"} assistant for young people.${un?` The user is ${un}.`:""} Answer in ${LANGS[LANG].en}, in 2-4 short, correct sentences. If unsure, say so.${extra?" "+extra:""}`;
+  return `Eres ${botName}, una asistente ${mood} para jóvenes. Hablas tú, en primera persona («yo»). Quien te escribe es otra persona${un?` que se llama ${un}`:""}: trátale de «tú»; nunca le llames ${botName}. Responde en español, en 2 a 4 frases cortas, claras y correctas. Si no sabes algo, dilo.${facts?` Sabes del usuario: ${facts}.`:""}${extra?" "+extra:""}`;
+}
+// El cerebro pequeño a veces llama "Chispa" al usuario o habla de sí misma en tercera persona: lo corregimos
+const SELF_VERBS = {puede:"puedo", sabe:"sé", está:"estoy", esta:"estoy", es:"soy", tiene:"tengo", quiere:"quiero", cree:"creo", piensa:"pienso", ha:"he", va:"voy", te:"te", también:"también", siempre:"siempre", recuerda:"recuerdo", prefiere:"prefiero", ayuda:"ayudo"};
+function fixNames(t){
+  if(!t || LANG!=="es") return t;
+  const B = botName.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"), un = memName();
+  let s = t.replace(new RegExp("^\\s*" + B + "\\s*:\\s*", "i"), "");                       // "Chispa: ..."
+  // "¡Hola, Chispa!", "Gracias, Chispa", "Vale Chispa" → el nombre del usuario (o nada)
+  s = s.replace(new RegExp("(\\b(?:hola|hey|oye|buenas|gracias|claro|vale|genial|perfecto|bien|bienvenid[oa]|tranquil[oa]|mira|venga)\\b),?\\s+" + B + "\\b", "gi"), (m, w) => un ? `${w}, ${un}` : w);
+  s = s.replace(new RegExp(",\\s*" + B + "\\s*([!?.])", "g"), (m, p) => un ? `, ${un}${p}` : p);   // "..., Chispa!"
+  s = s.replace(new RegExp("\\b(tú|tu),?\\s+" + B + "\\b", "gi"), "$1");                        // "tú, Chispa"
+  // "Chispa puede ayudarte" / "Chispa es…" al empezar frase → "Puedo ayudarte" / "Soy…"
+  s = s.replace(new RegExp("(^|[.!?¡¿]\\s*)" + B + "\\s+(" + Object.keys(SELF_VERBS).join("|") + ")\\b", "gi"), (m, pre, v) => {
+    const r = SELF_VERBS[v.toLowerCase()] || v; return pre + (r==="te"||r==="también"||r==="siempre" ? "Yo " + r : r[0].toUpperCase() + r.slice(1)); });
+  return s.replace(/\s{2,}/g, " ").replace(/^./, c => c.toUpperCase());
 }
 function systemPrompt(extra){
   if(engine && engine.cpu) return turboPrompt(extra);
@@ -3394,10 +3426,10 @@ async function generate(messages, out, maxTokens, temperature, strict=false){
     const d = chunk.choices[0]?.delta?.content || ""; if(d){ lastTok = Date.now(); gotAny = true; }
     reply += d;
     const shown = stripFiller(reply);
-    if(shown.trim() || reply.length > 140){ out.row.classList.remove("thinking"); out.set(shown || reply); }
+    if(shown.trim() || reply.length > 140){ out.row.classList.remove("thinking"); out.set(fixNames(shown || reply)); }
     if(reply.length - checked >= 12){ checked = reply.length;
       const cut = findLoop(reply);
-      if(cut > 0){ lastLooped = true; try{ engine.interruptGenerate(); }catch(e){} reply = cleanCut(reply.slice(0, cut)); out.set(stripFiller(reply)); break; }
+      if(cut > 0){ lastLooped = true; try{ engine.interruptGenerate(); }catch(e){} reply = cleanCut(reply.slice(0, cut)); out.set(fixNames(stripFiller(reply))); break; }
     }
   }
   }finally{ clearInterval(dog); }
@@ -3566,7 +3598,7 @@ async function send(text){
     if(!reply) reply = `Ups, mi cerebro ha fallado 😕. Prueba a darle a «Chat nuevo». Si sigue pasando, ve a ⚙️ Ajustes → Cerebro → «Cargar de nuevo».\n(Error: ${lastBrainError})`;
   }finally{
     stopped = false;
-    reply = (reply||"").trim() || "…";
+    reply = fixNames((reply||"").trim()) || "…";
     out.row.classList.remove("thinking"); out.set(reply);
     const src = web ? webSources(web) : null, imgs = web ? webImages(web) : [];
     const item = src ? {role:"assistant", content:reply, src, q:text} : {role:"assistant", content:reply, q:text}; if(imgs.length) item.imgs = imgs;
@@ -3775,11 +3807,11 @@ $("speak").addEventListener("change", ()=>{ setCfg("speak", $("speak").checked);
 $("voice").addEventListener("change", ()=>setCfg("voice", $("voice").value));
 $("rate").addEventListener("input", ()=>setCfg("rate", +$("rate").value));
 $("testVoice").onclick = ()=>say(`Hola, soy ${botName}. Así sueno yo.`);
-for(const [id,key,num] of [["lengthSeg","length"],["themeSeg","theme"],["fsSeg","fs",true]])
+for(const [id,key,num] of [["lengthSeg","length"],["themeSeg","theme"],["fsSeg","fs",true],["animSeg","anim"]])
   $(id).addEventListener("click", e=>{ const v=e.target.dataset.v; if(!v) return; setCfg(key, num?+v:v); applyLook(); });
 $("go").innerHTML = SEND_SVG;
 function sparkBurst(from){
-  if(matchMedia("(prefers-reduced-motion: reduce)").matches || !from) return;
+  if(cfg.anim!=="on" || !from) return;
   const r = from.getBoundingClientRect(), cx = r.left+r.width/2, cy = r.top+r.height/2;
   for(let i=0;i<10;i++){ const d = document.createElement("i"); d.className = "burst"; if(i%2) d.style.background = "var(--accent)";
     d.style.left = cx+"px"; d.style.top = cy+"px"; document.body.appendChild(d);
@@ -6897,7 +6929,7 @@ if(ACC){ if(IS_PHONE && !store.get("phoneBrain", false)) phoneNoBrain(); else st
 if(ACC && WEB_AUTH) webCheck();
 
 $("lvl").onclick=openProfile;
-window.__t={accRole,accEmail,leftToday,usedToday,pixRequest,pixelize,pixCandidates,drawRequest,getBrainFile,copyStoredToFolder,setFolderForTest:h=>{chispaDir=h;},kvKeys:()=>kv.keys(),setPlan,photoRequest,weatherPlace,searchesLeft,modelAnswer,stripFiller,EMPTY2:()=>EMPTYREPLY,runBg,tidyStorage,usedMB,webSearch,webWanted,webKeywords,findLoop,cleanCut,EMPTYREPLY,tidyInput,setEngine:e=>{engine=e;brainKind=e.cpu?"cpu":"gpu";setStatus("on","Lista para pensar (procesador)");},quickAnswer,tryMath,mathHints,cpuEngine,openGames,openWorld,openEditor,openQuiz,openGallery,openProfile,startPet,startStory,makeSong,send,sceneGIF,mathQ,genWorld,prog};
+window.__t={fixNames,accRole,accEmail,leftToday,usedToday,pixRequest,pixelize,pixCandidates,drawRequest,getBrainFile,copyStoredToFolder,setFolderForTest:h=>{chispaDir=h;},kvKeys:()=>kv.keys(),setPlan,photoRequest,weatherPlace,searchesLeft,modelAnswer,stripFiller,EMPTY2:()=>EMPTYREPLY,runBg,tidyStorage,usedMB,webSearch,webWanted,webKeywords,findLoop,cleanCut,EMPTYREPLY,tidyInput,setEngine:e=>{engine=e;brainKind=e.cpu?"cpu":"gpu";setStatus("on","Lista para pensar (procesador)");},quickAnswer,tryMath,mathHints,cpuEngine,openGames,openWorld,openEditor,openQuiz,openGallery,openProfile,startPet,startStory,makeSong,send,sceneGIF,mathQ,genWorld,prog};
 </script>
 </body>
 </html>
