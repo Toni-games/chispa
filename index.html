@@ -594,13 +594,15 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
         <button class="ghost danger" type="button" id="resetAll">Volver a los ajustes de fábrica</button>
       </div>
       <p class="hint" id="resetHint">Todo se guarda solo en este ordenador.</p>
+      <p class="hint" id="verInfo"></p>
     </section>
   </div>
 </div>
 
 <script src="config.js"></script>
-<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(e=>console.warn("sw",e)));}</script>
+<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261027124709";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
 <script type="module">
+const CHISPA_VER = "20261027124709";
 /* ===================== 👤 CUENTAS DE CHISPA ===================== */
 // Cada persona entra con su Gmail y una contraseña que se inventa PARA CHISPA.
 // Las cuentas se guardan en este ordenador (no hay servidor). La contraseña nunca se guarda:
@@ -7130,6 +7132,7 @@ renderFolderInfo(); $("folderPick").onclick = ()=>chooseFolder(); $("folderForge
 if(accRole()==="owner") $("planSel").append(el("option",{value:"hyperpro",text:"👑 Chispa Hyper Pro · solo owners, todo ilimitado"}));
 $("accInfo").textContent = accEmail() ? `Has entrado como ${accEmail()}${accRole()==="owner"?" · 👑 owner":accRole()==="vip"?" · ⭐ VIP":""}.` : "";
 $("logoutBtn").onclick = accLogout;
+{ const v = CHISPA_VER; $("verInfo").textContent = `Versión de Chispa: ${v.slice(6,8)}/${v.slice(4,6)}/${v.slice(0,4)} ${v.slice(8,10)}:${v.slice(10,12)}` + (location.protocol==="file:" ? " (archivo)" : " · se actualiza sola"); }
 // botón ⏻ abajo a la izquierda: hay que pulsarlo dos veces para no salir sin querer
 { let armed = null; const ob = $("outBtn"); ob.hidden = !ACC;
   ob.onclick = ()=>{ if(armed){ clearTimeout(armed); accLogout(); return; }

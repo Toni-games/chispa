@@ -2,7 +2,7 @@
 //  1) hace que la app se abra aunque no haya internet;
 //  2) añade a la página los permisos COOP/COEP que el navegador pide para dejar usar VARIOS núcleos
 //     del procesador (el cerebro piensa mucho más rápido). GitHub Pages no deja ponerlos de otra forma.
-const CACHE = "chispa-20261027124358";
+const CACHE = "chispa-20261027124709";
 const SHELL = ["./", "index.html", "config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png"];
 let ISOLATE = true;   // con "Entrar con Google" (Firebase) no se puede: la ventana de Google dejaría de funcionar
 
@@ -27,6 +27,8 @@ self.addEventListener("fetch", e => {
   const r = e.request;
   if (r.method !== "GET" || new URL(r.url).origin !== location.origin) return; // lo de fuera (Google, Wikipedia…) va directo
   // primero internet (para tener siempre la última versión); si no hay, lo guardado
-  e.respondWith(fetch(r).then(res => { if (res.ok) { const c = res.clone(); caches.open(CACHE).then(k => k.put(r, c)); } return withIsolation(res); })
+  // "no-cache": pregunta siempre a GitHub si hay algo nuevo (si no ha cambiado, no se descarga otra vez)
+  const net = r.mode === "navigate" ? fetch(r.url, { cache: "no-cache", credentials: "same-origin" }) : fetch(r, { cache: "no-cache" });
+  e.respondWith(net.then(res => { if (res.ok) { const c = res.clone(); caches.open(CACHE).then(k => k.put(r, c)); } return withIsolation(res); })
     .catch(() => caches.match(r).then(m => withIsolation(m || null)).then(m => m || caches.match("index.html").then(withIsolation))));
 });
