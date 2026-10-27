@@ -386,6 +386,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .fixitem > div:first-child{display:grid;gap:2px;min-width:0}
 .fixbtns{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .fixitem b{color:var(--ink)} .fixitem small{color:var(--muted)}
+.pix.photo.bigphoto{width:min(100%,512px);height:auto;aspect-ratio:1}
 
 </style>
 <link rel="manifest" href="manifest.webmanifest">
@@ -2953,6 +2954,7 @@ const toColor = v => { if(!v) return null; const k = norm(String(v)).replace(/\s
 
 function pixToCanvas(P, cls){
   const cv = document.createElement("canvas"); cv.width = P.w; cv.height = P.h; cv.className = "pix " + cls;
+  if(P.pid) cv.dataset.pid = P.pid;   // dibujo grande que todavía se está abriendo
   const ctx = cv.getContext("2d"); const img = ctx.createImageData(P.w, P.h);
   P.d.forEach((c,i)=>{ if(!c) return; const n=parseInt(c.slice(1),16); img.data[i*4]=n>>16; img.data[i*4+1]=n>>8&255; img.data[i*4+2]=n&255; img.data[i*4+3]=255; });
   ctx.putImageData(img,0,0); return cv;
@@ -2961,11 +2963,12 @@ function drawPix(draw){
   if(draw.type==="sprite") return spritePix(draw.s, draw.c);
   if(draw.type==="scene") return genScene(draw.sc, draw.seed);
   if(draw.type==="creature") return creaturePix(draw.p, draw.seed);
+  if(draw.png) return pngPix(draw);
   if(draw.pk) return unpackPix(draw.pk);
   const P = new Pix(draw.w||16, draw.h||16); (draw.p||[]).forEach((c,i)=>{ P.d[i]=c; }); return P;
 }
 function saveCanvas(cv, name){
-  const k = cv.width<=16 ? 20 : 8;
+  const k = Math.max(1, Math.min(cv.width<=16 ? 20 : 8, Math.round(1100 / cv.width)));
   const big = document.createElement("canvas"); big.width = cv.width*k; big.height = cv.height*k;
   const ctx = big.getContext("2d"); ctx.imageSmoothingEnabled = false; ctx.drawImage(cv,0,0,big.width,big.height);
   const a = document.createElement("a"); a.href = big.toDataURL("image/png"); a.download = "chispa-" + norm(name).replace(/[^a-z0-9]+/g,"-").slice(0,40) + ".png";
@@ -2975,11 +2978,12 @@ function addDrawing(h){
   const row = document.createElement("div"); row.className = "row bot draw";
   const m = document.createElement("div"); m.className = "msg"; m.innerHTML = fmt(h.content);
   const big = h.draw.type==="scene" || (h.draw.pk && h.draw.pk.w>32 && h.draw.type!=="pixfoto");
-  let cv = pixToCanvas(drawPix(h.draw), h.draw.type==="pixfoto" ? "sprite photo" : big ? "scene" : "sprite");
+  const drawCls = d => d.type==="pixfoto" ? "sprite photo" + (d.size > 64 ? " bigphoto" : "") : big ? "scene" : "sprite";
+  let cv = pixToCanvas(drawPix(h.draw), drawCls(h.draw));
   let stopAnim = null;
   const acts = document.createElement("div"); acts.className = "acts";
   const btn = (label, fn)=>{ const b=document.createElement("button"); b.type="button"; b.className="act"; b.textContent=label; b.onclick=fn; acts.appendChild(b); };
-  const redraw = ()=>{ if(stopAnim){ stopAnim(); stopAnim=null; animB && (animB.textContent="▶️ Animar"); } const nc = pixToCanvas(drawPix(h.draw), cv.className.replace("pix ","")); cv.replaceWith(nc); cv = nc; saveHist(); if(h.gid) galUpdate(h.gid, h.draw); };
+  const redraw = ()=>{ if(stopAnim){ stopAnim(); stopAnim=null; animB && (animB.textContent="▶️ Animar"); } const nc = pixToCanvas(drawPix(h.draw), h.draw.type==="pixfoto" ? drawCls(h.draw) : cv.className.replace("pix ","")); cv.replaceWith(nc); cv = nc; saveHist(); if(h.gid) galUpdate(h.gid, h.draw); };
   let animB = null;
   if(h.draw.type==="scene") btn("🎲 Otra versión", ()=>{ h.draw.seed = Math.floor(Math.random()*1e9); redraw(); });
   if(h.draw.type==="scene"){ btn("▶️ Animar", e=>{ animB = e.target; if(stopAnim){ stopAnim(); stopAnim=null; animB.textContent="▶️ Animar"; return; } stopAnim = animateCanvas(cv, h.draw.sc, h.draw.seed); animB.textContent="⏸️ Parar"; bump("anims",1,3); });
@@ -2992,7 +2996,7 @@ function addDrawing(h){
   if(h.draw.type==="sprite") btn("🎨 Otro color", ()=>{ h.draw.c = pick(ALL_COLORS.filter(c=>c!==h.draw.c)); redraw(); });
   if(h.draw.type==="creature") btn("🎨 Otro color", ()=>{ h.draw.p = {...h.draw.p, c: pick(ALL_COLORS.filter(c=>c!==h.draw.p.c && c!==h.draw.p.c2))}; h.draw.seed = Math.floor(Math.random()*1e9); redraw(); });
   if(h.draw.type==="pixfoto") btn("🖼️ Usar de fondo", ()=>bgFromPix(drawPix(h.draw), h.draw.name));
-  btn("✏️ Editar", ()=>openEditor({pix:drawPix(h.draw), name:h.draw.name||"dibujo"}));
+  btn("✏️ Editar", ()=>{ const P = drawPix(h.draw); if(P.w > 128){ toast("Para editar a mano, elige 128×128 o menos (si no, hay demasiados píxeles)", "✏️", 5000); return; } openEditor({pix:P, name:h.draw.name||"dibujo"}); });
   btn("💾 Guardar", ()=>saveCanvas(pixToCanvas(drawPix(h.draw),""), h.draw.name || "dibujo"));
   row.append(m, cv, acts);
   $("chat").appendChild(row); $("chat").scrollTop = $("chat").scrollHeight;
@@ -5466,7 +5470,7 @@ function openGallery(mode){
     d.body.append(big, el("div",{class:"row-btns",style:"justify-content:center"},
       el("button",{class:"ghost",type:"button",text:g.fav?"⭐ Quitar de favoritos":"☆ Favorito",onclick:e=>{ g.fav=!g.fav; if(g.fav) bump("favs",1,2); saveGal(); e.target.textContent=g.fav?"⭐ Quitar de favoritos":"☆ Favorito"; render(); }}),
       g.draw.type==="scene" ? el("button",{class:"ghost",type:"button",text:"▶️ Animar",onclick:()=>{ if(stop){ stop(); stop=null; return; } stop = animateCanvas(big, g.draw.sc, g.draw.seed); bump("anims",1,3); }}) : "",
-      el("button",{class:"ghost",type:"button",text:"✏️ Editar",onclick:()=>{ d.close(); w.close(); openEditor({pix:drawPix(g.draw), name:g.title}); }}),
+      el("button",{class:"ghost",type:"button",text:"✏️ Editar",onclick:()=>{ const P = drawPix(g.draw); if(P.w > 128){ toast("Para editar a mano, elige 128×128 o menos", "✏️", 5000); return; } d.close(); w.close(); openEditor({pix:P, name:g.title}); }}),
       el("button",{class:"ghost",type:"button",text:"💾 Descargar",onclick:()=>saveCanvas(galThumb(g), g.title)}),
       folderSel, del));
   };
@@ -6617,8 +6621,10 @@ function openInstall(){
 // que otras páginas lean sus imágenes) y la convierte en pixel art de 16×16, 32×32 o 64×64
 // con pocos colores. Si el fondo es liso, lo quita y le pone un borde, como en un videojuego.
 
-const PIX_SIZES = [16, 32, 64];
-const PIX_COLORS = {16:10, 32:14, 64:22};
+const PIX_SIZES = [16, 32, 64, 128, 256, 550];
+const PIX_MAX = 550;
+// más píxeles = más colores (si no, una foto grande se ve "a manchas")
+const pixColors = S => S<=16 ? 10 : S<=32 ? 14 : S<=64 ? 22 : S<=128 ? 28 : S<=256 ? 32 : 40;
 const pixImgCache = new Map();
 
 // "dibuja un gato en píxeles", "pixel art de la torre eiffel", "pixela un coche 64x64"...
@@ -6631,9 +6637,13 @@ function pixRequest(text){
   if(!subject) return null;
   return {subject, size};
 }
-function pixSizeOf(n){ const m = n.match(/\b(16|32|64)\s*(x|por|\*)?\s*(16|32|64)?\b/); return m ? +m[1] : null; }
+// "64x64", "200 por 200", "300 px", "de 550 píxeles"… (entre 8 y 550)
+function pixSizeOf(n){
+  const m = n.match(/\b(\d{1,4})\s*(?:x|por|\*)\s*\d{1,4}\b/) || n.match(/\b(\d{1,4})\s*(?:px|pixel(?:es|s)?|pixeles)\b/) || n.match(/\b(16|32|64|128|256)\b/);
+  return m ? Math.max(8, Math.min(PIX_MAX, +m[1])) : null;
+}
 function pixSubject(text){
-  const t = norm(text).replace(/\b(16|32|64)\s*(x|por|\*)?\s*(16|32|64)?\b/g," ")
+  const t = norm(text).replace(/\b\d{1,4}\s*(x|por|\*)\s*\d{1,4}\b/g," ").replace(/\b(\d{1,4})\s*(px)\b/g," ").replace(/\b(de\s+)?\d{1,4}\s+(pixeles|pixels?)\b/g," pixeles ").replace(/\b(16|32|64|128|256|550)\b/g," ")
     .replace(/\b(en|de|con|a)\s+(pixel(es)?|pixels?|pixel ?art)\b/g," ")
     .replace(/\b(pixel(es|ado|ada|ar|alo|ala|ame)?|pixels?|pixela\w*|art|colores|convierte|convierteme|pasa|pasame|foto|fotos|real|verdad|google|internet|busca|buscame|mirando|tamano)\b/g," ");
   return subjectOf(t).trim();
@@ -6645,10 +6655,10 @@ async function pixCandidates(q){
   const push = (src, page, t) => { if(!src || seen.has(src)) return; seen.add(src); out.push({src, page, t}); };
   const host = wikiHost(false);
   const tasks = [
-    getJSON(`https://${host}/w/api.php?action=query&format=json&origin=*&generator=search&gsrlimit=4&gsrsearch=${encodeURIComponent(q)}&prop=pageimages&piprop=thumbnail&pithumbsize=320`, 7000)
+    getJSON(`https://${host}/w/api.php?action=query&format=json&origin=*&generator=search&gsrlimit=4&gsrsearch=${encodeURIComponent(q)}&prop=pageimages&piprop=thumbnail&pithumbsize=800`, 7000)
       .then(j=>Object.values((j.query&&j.query.pages)||{}).sort((a,b)=>(a.index||0)-(b.index||0)).map(p=>p.thumbnail ? {src:p.thumbnail.source, page:`https://${host}/wiki/${encodeURIComponent(p.title.replace(/ /g,"_"))}`, t:p.title} : null).filter(Boolean))
       .catch(()=>[]),
-    getJSON(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch=${encodeURIComponent(q + " filetype:bitmap")}&prop=imageinfo&iiprop=url|mime|size&iiurlwidth=320`, 7000)
+    getJSON(`https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=12&gsrsearch=${encodeURIComponent(q + " filetype:bitmap")}&prop=imageinfo&iiprop=url|mime|size&iiurlwidth=800`, 7000)
       .then(j=>Object.values((j.query&&j.query.pages)||{}).sort((a,b)=>(a.index||0)-(b.index||0)).map(p=>({p, ii:(p.imageinfo||[])[0]}))
         .filter(({ii})=>ii && /jpe?g|png|webp/i.test(ii.mime||"") && ii.width>=200 && ii.height>=150)
         .map(({p,ii})=>({src:ii.thumburl||ii.url, page:ii.descriptionurl||ii.url, t:p.title.replace(/^(File|Archivo):/,"").replace(/\.[a-z]+$/i,"")})))
@@ -6677,7 +6687,7 @@ function pixelize(bmp, S, opts={}){
   // recorte cuadrado del centro, un poco hacia arriba (las cosas suelen estar en el centro)
   const side = Math.min(bmp.width, bmp.height);
   const sx = (bmp.width - side)/2, sy = Math.max(0, (bmp.height - side)*0.4);
-  const K = 4, big = document.createElement("canvas"); big.width = big.height = S*K;
+  const K = S>=200 ? 1 : S>=100 ? 2 : 4, big = document.createElement("canvas"); big.width = big.height = S*K;
   const bx = big.getContext("2d", {willReadFrequently:true}); bx.imageSmoothingEnabled = true; bx.imageSmoothingQuality = "high";
   bx.drawImage(bmp, sx, sy, side, side, 0, 0, S*K, S*K);
   const src = bx.getImageData(0, 0, S*K, S*K).data;
@@ -6694,7 +6704,7 @@ function pixelize(bmp, S, opts={}){
     px[k*3+1] = clamp255(((m + (g-m)*sat) - 128)*con + 128);
     px[k*3+2] = clamp255(((m + (b-m)*sat) - 128)*con + 128);
   }
-  const k = opts.colors || PIX_COLORS[S] || 14;
+  const k = opts.colors || pixColors(S);
   const {pal, lab} = kmeans(px, S*S, k);
   const P = new Pix(S, S);
   for(let i=0;i<S*S;i++) P.d[i] = alpha[i] < 0.4 ? null : pal[lab[i]];
@@ -6702,7 +6712,36 @@ function pixelize(bmp, S, opts={}){
   return P;
 }
 const clamp255 = v => v<0?0:v>255?255:v;
-function kmeans(px, N, k){
+// Hasta 64×64 se guarda como siempre; las grandes, como imagen PNG (ocupa muchísimo menos)
+function pixStore(d, P){
+  delete d.pk; delete d.png; delete d.w; delete d.h;
+  if(P.w <= 64) d.pk = packPix(P);
+  else { d.png = pixToCanvas(P, "").toDataURL("image/png"); d.w = P.w; d.h = P.h; d.pid = "p" + Date.now().toString(36) + Math.floor(Math.random()*1e4); PNG_PIX.set(d.pid, P); }
+  return d;
+}
+const PNG_PIX = new Map(), PNG_DEC = new Set();
+function pngPix(d){
+  if(PNG_PIX.has(d.pid)) return PNG_PIX.get(d.pid);
+  const P = new Pix(d.w, d.h); P.pid = d.pid; decodePng(d); return P;
+}
+async function decodePng(d){
+  if(PNG_DEC.has(d.pid)) return; PNG_DEC.add(d.pid);
+  try{
+    const img = new Image(); img.src = d.png; await img.decode();
+    const cv = document.createElement("canvas"); cv.width = d.w; cv.height = d.h;
+    const c = cv.getContext("2d", {willReadFrequently:true}); c.drawImage(img, 0, 0);
+    const D = c.getImageData(0, 0, d.w, d.h).data, P = new Pix(d.w, d.h);
+    for(let i=0;i<d.w*d.h;i++){ const o=i*4; P.d[i] = D[o+3] < 128 ? null : "#" + ((1<<24) | (D[o]<<16) | (D[o+1]<<8) | D[o+2]).toString(16).slice(1); }
+    PNG_PIX.set(d.pid, P);
+    // repintar los dibujos que estaban esperando
+    document.querySelectorAll(`canvas[data-pid="${d.pid}"]`).forEach(cvs=>{ const n = pixToCanvas(P, ""); cvs.getContext("2d").drawImage(n, 0, 0); });
+  }catch(e){ console.warn("png", e); }
+}
+function kmeans(pxAll, NAll, k){
+  // con muchas píxeles, los colores se eligen con una muestra (rápido) y luego se pinta todo
+  const step = Math.max(1, Math.floor(NAll / 20000));
+  let px = pxAll, N = NAll;
+  if(step > 1){ N = Math.floor(NAll/step); px = new Float32Array(N*3); for(let i=0;i<N;i++){ const s = i*step; px[i*3]=pxAll[s*3]; px[i*3+1]=pxAll[s*3+1]; px[i*3+2]=pxAll[s*3+2]; } }
   // empieza con los colores más distintos entre sí (siempre sale igual para la misma foto)
   const cent = []; let sum=[0,0,0]; for(let i=0;i<N;i++){ sum[0]+=px[i*3]; sum[1]+=px[i*3+1]; sum[2]+=px[i*3+2]; }
   cent.push([sum[0]/N, sum[1]/N, sum[2]/N]);
@@ -6721,7 +6760,11 @@ function kmeans(px, N, k){
     acc.forEach((a,j)=>{ if(a[3]) cent[j] = [a[0]/a[3], a[1]/a[3], a[2]/a[3]]; });
   }
   const hex = c => "#" + c.map(v=>Math.round(clamp255(v)).toString(16).padStart(2,"0")).join("");
-  return {pal: cent.map(hex), lab};
+  if(step === 1) return {pal: cent.map(hex), lab};
+  const labAll = new Uint8Array(NAll);
+  for(let i=0;i<NAll;i++){ let bd=1e12, bj=0; const r=pxAll[i*3], g=pxAll[i*3+1], b=pxAll[i*3+2];
+    for(let j=0;j<cent.length;j++){ const c=cent[j], dr=r-c[0], dg=g-c[1], db=b-c[2], d=dr*dr*.3+dg*dg*.59+db*db*.11; if(d<bd){ bd=d; bj=j; } } labAll[i]=bj; }
+  return {pal: cent.map(hex), lab: labAll};
 }
 // Si el borde de la foto es casi todo de un mismo color (cielo, pared, fondo blanco…), lo quita.
 function cutBackground(P, pal, lab, alpha){
@@ -6770,7 +6813,7 @@ async function pixPhoto(subject, size){
         const bmp = await loadPixImage(cands[i].src);
         out.row.querySelector(".msg").innerHTML = fmt(LANG==="es" ? "🎨 Convirtiéndola en píxeles…" : "🎨 Turning it into pixels…");
         const P = pixelize(bmp, size);
-        const draw = {type:"pixfoto", pk:packPix(P), size, q:subject, cands, i, name:subject};
+        const draw = pixStore({type:"pixfoto", size, q:subject, cands, i, name:subject}, P);
         out.row.remove();
         bump("pixfotos",1,3);
         return pushDrawing(pixText(draw), draw);
@@ -6798,7 +6841,7 @@ function pixFotoActs(h, btn, acts, redraw, msgEl){
   const remake = async (size, next) => {
     const order = next ? d.cands.map((_,k)=>(d.i+1+k) % d.cands.length) : [d.i];
     for(const j of order){
-      try{ const bmp = await loadPixImage(d.cands[j].src); d.pk = packPix(pixelize(bmp, size)); d.size = size; d.i = j;
+      try{ const bmp = await loadPixImage(d.cands[j].src); pixStore(d, pixelize(bmp, size)); d.size = size; d.i = j;
         h.content = pixText(d); msgEl.innerHTML = fmt(h.content); redraw(); sizeBtns(); return true; }catch(e){ console.warn(e); }
     }
     toast(LANG==="es" ? "No he podido cargar la foto (¿hay internet?)" : "Couldn't load the photo", "😕"); return false;
@@ -7041,7 +7084,7 @@ function nextFact(){
 }
 function randomImagePrompt(){
   const r = Math.random;
-  if(r() < .4) return "Dibuja en píxeles " + pick(PIX_IDEAS) + pick([""," 16x16"," 64x64",""]);
+  if(r() < .4) return "Dibuja en píxeles " + pick(PIX_IDEAS) + pick([""," 16x16"," 64x64"," 128x128"," 256x256",""]);
   if(r() < .6){
     const biome = pick(["un bosque","una pradera","un desierto","un paisaje nevado","unas montañas","una playa","un mundo de lava"]);
     const time = pick(["", " de noche", " al atardecer", ""]);
@@ -7115,7 +7158,7 @@ if(ACC){ if(IS_PHONE && !store.get("phoneBrain", false)) phoneNoBrain(); else st
 if(ACC && WEB_AUTH) webCheck();
 
 $("lvl").onclick=openProfile;
-window.__t={fixFind,verifyFix,getFixes:()=>fixes,fixNames,accRole,accEmail,leftToday,usedToday,pixRequest,pixelize,pixCandidates,drawRequest,getBrainFile,copyStoredToFolder,setFolderForTest:h=>{chispaDir=h;},kvKeys:()=>kv.keys(),setPlan,photoRequest,weatherPlace,searchesLeft,modelAnswer,stripFiller,EMPTY2:()=>EMPTYREPLY,runBg,tidyStorage,usedMB,webSearch,webWanted,webKeywords,findLoop,cleanCut,EMPTYREPLY,tidyInput,setEngine:e=>{engine=e;brainKind=e.cpu?"cpu":"gpu";setStatus("on","Lista para pensar (procesador)");},quickAnswer,tryMath,mathHints,cpuEngine,openGames,openWorld,openEditor,openQuiz,openGallery,openProfile,startPet,startStory,makeSong,send,sceneGIF,mathQ,genWorld,prog};
+window.__t={pixSizeOf,pixSubject,fixFind,verifyFix,getFixes:()=>fixes,fixNames,accRole,accEmail,leftToday,usedToday,pixRequest,pixelize,pixCandidates,drawRequest,getBrainFile,copyStoredToFolder,setFolderForTest:h=>{chispaDir=h;},kvKeys:()=>kv.keys(),setPlan,photoRequest,weatherPlace,searchesLeft,modelAnswer,stripFiller,EMPTY2:()=>EMPTYREPLY,runBg,tidyStorage,usedMB,webSearch,webWanted,webKeywords,findLoop,cleanCut,EMPTYREPLY,tidyInput,setEngine:e=>{engine=e;brainKind=e.cpu?"cpu":"gpu";setStatus("on","Lista para pensar (procesador)");},quickAnswer,tryMath,mathHints,cpuEngine,openGames,openWorld,openEditor,openQuiz,openGallery,openProfile,startPet,startStory,makeSong,send,sceneGIF,mathQ,genWorld,prog};
 </script>
 </body>
 </html>

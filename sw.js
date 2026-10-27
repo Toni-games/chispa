@@ -2,7 +2,7 @@
 //  1) hace que la app se abra aunque no haya internet;
 //  2) añade a la página los permisos COOP/COEP que el navegador pide para dejar usar VARIOS núcleos
 //     del procesador (el cerebro piensa mucho más rápido). GitHub Pages no deja ponerlos de otra forma.
-const CACHE = "chispa-20261026141845";
+const CACHE = "chispa-20261027123209";
 const SHELL = ["./", "index.html", "config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png"];
 let ISOLATE = true;   // con "Entrar con Google" (Firebase) no se puede: la ventana de Google dejaría de funcionar
 
