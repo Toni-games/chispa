@@ -393,6 +393,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .psz:hover{border-color:var(--accent)}
 .psz.on{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 2px 8px color-mix(in srgb,var(--accent) 35%,transparent)}
 .psizes.busy .psz:not(.on){opacity:.55;cursor:wait}
+.updcard{margin:10px auto 0;max-width:760px;width:calc(100% - 32px);display:grid;gap:6px;border:1px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--panel))}
+.impov{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:16px;background:rgba(10,9,16,.75)}
+.impov .lcard h2{margin:0;font:700 1.3rem var(--display)}
 
 </style>
 <link rel="manifest" href="manifest.webmanifest">
@@ -595,14 +598,15 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
       </div>
       <p class="hint" id="resetHint">Todo se guarda solo en este ordenador.</p>
       <p class="hint" id="verInfo"></p>
+      <div class="row-btns"><button class="ghost" type="button" id="moveBtn"></button></div>
     </section>
   </div>
 </div>
 
 <script src="config.js"></script>
-<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261027124709";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
+<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261027130030";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
 <script type="module">
-const CHISPA_VER = "20261027124709";
+const CHISPA_VER = "20261027130030";
 /* ===================== 👤 CUENTAS DE CHISPA ===================== */
 // Cada persona entra con su Gmail y una contraseña que se inventa PARA CHISPA.
 // Las cuentas se guardan en este ordenador (no hay servidor). La contraseña nunca se guarda:
@@ -7008,6 +7012,98 @@ function openSupport(){
   render();
 }
 
+/* ===================== 📦 DEL ARCHIVO A LA APP WEB (que se actualiza sola) ===================== */
+// El archivo chispa.html no puede actualizarse solo. La app web (toni-games.github.io/chispa) sí.
+// Aquí: el archivo avisa cuando hay versión nueva, y puedes llevarte tus chats, cuentas, galería y memoria a la web.
+const WEB_URL = "https://toni-games.github.io/chispa/";
+const MOVE_TAG = "CHISPA-DATOS-1:";
+const IS_FILE = location.protocol === "file:";
+
+function exportAll(){
+  const o = {};
+  for(const k of Object.keys(localStorage)){
+    if(k === "chispa_accounts" || /^cb_|^cbu_/.test(k)) o[k] = localStorage.getItem(k);
+  }
+  return MOVE_TAG + btoa(unescape(encodeURIComponent(JSON.stringify(o))));
+}
+function importAll(txt){
+  const t = String(txt||"").trim(), i = t.indexOf(MOVE_TAG);
+  if(i < 0) throw new Error("Eso no son datos de Chispa. Vuelve a copiarlos desde el archivo.");
+  const o = JSON.parse(decodeURIComponent(escape(atob(t.slice(i + MOVE_TAG.length).replace(/\s+/g,"")))));
+  let n = 0;
+  const arr = v => { try{ const a = JSON.parse(v); return Array.isArray(a) ? a : null; }catch(e){ return null; } };
+  for(const [k, v] of Object.entries(o)){
+    if(typeof v !== "string" || !(k === "chispa_accounts" || /^cb_|^cbu_/.test(k))) continue;
+    const cur = localStorage.getItem(k);
+    if(cur === null){ localStorage.setItem(k, v); n++; continue; }
+    if(cur === v) continue;
+    // listas (cuentas, chats, galería, correcciones): se juntan sin repetir; lo que ya había en la web se queda
+    const A = arr(cur), B = arr(v);
+    if(A && B){
+      const key = x => x && (x.id || x.email);
+      const seen = new Set(A.map(key));
+      const merged = A.concat(B.filter(x => !seen.has(key(x))));
+      if(merged.length !== A.length){ localStorage.setItem(k, JSON.stringify(merged)); n++; }
+    }
+  }
+  return n;
+}
+
+/* ---------- en el ARCHIVO: llevarse las cosas a la web ---------- */
+async function moveToWeb(){
+  const data = exportAll();
+  let copied = false;
+  try{ await navigator.clipboard.writeText(data); copied = true; }catch(e){}
+  const w = openWin("📦 Llevar tus cosas a la app web");
+  const ta = el("textarea",{class:"fixin", rows:"3", readonly:"readonly"}); ta.value = data;
+  w.body.append(
+    el("p",{text: copied ? "✅ He copiado tus chats, cuentas, galería y memoria. Ahora:" : "Copia este texto (Ctrl+A y Ctrl+C) y luego:"}),
+    copied ? "" : ta,
+    el("ol",{}, el("li",{text:"Pulsa «Abrir la app web»."}), el("li",{text:"Allí sale una ventana: pulsa «Pegar mis cosas» (o pega con Ctrl+V)."}),
+      el("li",{text:"Entra con tu Gmail y la misma contraseña de siempre."}), el("li",{text:"Para tenerla como programa: en la barra de arriba de Chrome, pulsa el icono de instalar (o menú ⋮ → Enviar, guardar y compartir → Instalar página como app)."})),
+    el("p",{class:"hint",text:"Tus cosas no se borran del archivo: es una copia. El cerebro se descargará una vez en la web (allí piensa más rápido, con varios núcleos)."}),
+    el("div",{class:"row-btns"}, el("a",{class:"btn2", href:WEB_URL + "#importar", target:"_blank", rel:"noopener", text:"🌐 Abrir la app web"})));
+  if(!copied){ ta.focus(); ta.select(); }
+}
+// ¿Hay una versión nueva publicada? (el archivo no se actualiza solo, así que avisa)
+async function fileUpdateCheck(){
+  if(!IS_FILE || navigator.onLine === false) return;
+  try{
+    const r = await fetch(WEB_URL + "version.json?t=" + Date.now(), {cache:"no-store"}); const j = await r.json();
+    if(!j.v || j.v <= CHISPA_VER || store.get("updSnooze","") === j.v) return;
+    const box = el("div",{class:"card updcard"},
+      el("strong",{text:"✨ Hay una versión nueva de Chispa"}),
+      el("small",{text:"Este archivo no se actualiza solo. La app web sí (y va más rápida). Puedes llevarte allí tus chats, cuentas y dibujos."}),
+      el("div",{class:"row-btns"},
+        el("button",{class:"btn2", type:"button", text:"📦 Llevar mis cosas y abrir la web", onclick:()=>{ box.remove(); moveToWeb(); }}),
+        el("button",{class:"ghost", type:"button", text:"Más tarde", onclick:()=>{ store.set("updSnooze", j.v); box.remove(); }})));
+    const chat = $("chat"); chat.parentElement.insertBefore(box, chat);
+  }catch(e){ /* sin internet o sin acceso: no pasa nada */ }
+}
+
+/* ---------- en la WEB: traer las cosas del archivo ---------- */
+function showImport(){
+  const ov = el("div",{class:"impov"});
+  const ta = el("textarea",{class:"fixin", rows:"4", placeholder:"Pega aquí (Ctrl+V) lo que copiaste en el archivo"});
+  const msg = el("p",{class:"hint"});
+  const doImport = txt => { try{ const n = importAll(txt); msg.textContent = `✅ ¡Hecho! He traído tus cosas (${n} ${n===1?"parte":"partes"}). Ahora entra con tu Gmail y tu contraseña.`; setTimeout(()=>{ window.history.replaceState(null, "", location.pathname); location.reload(); }, 1600); }catch(e){ msg.textContent = "😕 " + e.message; } };
+  const card = el("div",{class:"lcard"},
+    el("h2",{text:"📦 Traer tus cosas del archivo"}),
+    el("p",{class:"hint",text:"Pulsa el botón para pegar lo que copiaste en chispa.html. Si Chrome pregunta, dale a «Permitir»."}),
+    el("button",{class:"lgo", type:"button", text:"📋 Pegar mis cosas", onclick:async()=>{ try{ doImport(await navigator.clipboard.readText()); }catch(e){ msg.textContent = "No he podido leer el portapapeles: pega el texto abajo con Ctrl+V."; ta.focus(); } }}),
+    ta, el("button",{class:"ghost", type:"button", text:"Importar lo pegado", onclick:()=>doImport(ta.value)}),
+    msg,
+    el("button",{class:"ghost", type:"button", text:"Ahora no", onclick:()=>{ ov.remove(); window.history.replaceState(null, "", location.pathname); }}));
+  ov.append(card); document.body.appendChild(ov);
+}
+function migrateBoot(){
+  if(IS_FILE){ setTimeout(fileUpdateCheck, 3000); }
+  else if(location.hash === "#importar") showImport();
+  const b = $("moveBtn"); if(!b) return;
+  b.textContent = IS_FILE ? "📦 Pasar mis cosas a la app web (se actualiza sola)" : "📥 Traer mis cosas del archivo chispa.html";
+  b.onclick = ()=>{ closeSettings && closeSettings(); IS_FILE ? moveToWeb() : showImport(); };
+}
+
 /* ===================== FUNCIONES DESDE EL CHAT ===================== */
 function featureRequest(text){
   const n = norm(text);
@@ -7132,6 +7228,7 @@ renderFolderInfo(); $("folderPick").onclick = ()=>chooseFolder(); $("folderForge
 if(accRole()==="owner") $("planSel").append(el("option",{value:"hyperpro",text:"👑 Chispa Hyper Pro · solo owners, todo ilimitado"}));
 $("accInfo").textContent = accEmail() ? `Has entrado como ${accEmail()}${accRole()==="owner"?" · 👑 owner":accRole()==="vip"?" · ⭐ VIP":""}.` : "";
 $("logoutBtn").onclick = accLogout;
+migrateBoot();
 { const v = CHISPA_VER; $("verInfo").textContent = `Versión de Chispa: ${v.slice(6,8)}/${v.slice(4,6)}/${v.slice(0,4)} ${v.slice(8,10)}:${v.slice(10,12)}` + (location.protocol==="file:" ? " (archivo)" : " · se actualiza sola"); }
 // botón ⏻ abajo a la izquierda: hay que pulsarlo dos veces para no salir sin querer
 { let armed = null; const ob = $("outBtn"); ob.hidden = !ACC;
