@@ -387,6 +387,12 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .fixbtns{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .fixitem b{color:var(--ink)} .fixitem small{color:var(--muted)}
 .pix.photo.bigphoto{width:min(100%,512px);height:auto;aspect-ratio:1}
+.psizes{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0 2px}
+.psizes .psl{font:600 .78rem var(--body);color:var(--muted);margin-right:2px}
+.psz{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:5px 11px;font:600 .8rem var(--body);cursor:pointer;transition:background .15s,border-color .15s}
+.psz:hover{border-color:var(--accent)}
+.psz.on{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 2px 8px color-mix(in srgb,var(--accent) 35%,transparent)}
+.psizes.busy .psz:not(.on){opacity:.55;cursor:wait}
 
 </style>
 <link rel="manifest" href="manifest.webmanifest">
@@ -2992,13 +2998,14 @@ function addDrawing(h){
       const seed=Math.floor(Math.random()*1e9), title=songTitle(seed); const hh={role:"assistant",content:`🎵 Música para tu paisaje: «${title}». ¡Dale a Tocar!`,song:{mood,seed,title}}; history.push(hh); saveHist(); addSongCard(hh); bump("songs",1,10); });
     btn("🌍 Explorar", ()=>openWorld({biome:h.draw.sc.biome}));
     btn("🖼️ Usar de fondo", ()=>bgFromPix(drawPix(h.draw), h.draw.name)); }
-  if(h.draw.type==="pixfoto") pixFotoActs(h, btn, acts, redraw, m);
+  let sizesRow = null;
+  if(h.draw.type==="pixfoto") sizesRow = pixFotoActs(h, btn, acts, redraw, m);
   if(h.draw.type==="sprite") btn("🎨 Otro color", ()=>{ h.draw.c = pick(ALL_COLORS.filter(c=>c!==h.draw.c)); redraw(); });
   if(h.draw.type==="creature") btn("🎨 Otro color", ()=>{ h.draw.p = {...h.draw.p, c: pick(ALL_COLORS.filter(c=>c!==h.draw.p.c && c!==h.draw.p.c2))}; h.draw.seed = Math.floor(Math.random()*1e9); redraw(); });
   if(h.draw.type==="pixfoto") btn("🖼️ Usar de fondo", ()=>bgFromPix(drawPix(h.draw), h.draw.name));
   btn("✏️ Editar", ()=>{ const P = drawPix(h.draw); if(P.w > 128){ toast("Para editar a mano, elige 128×128 o menos (si no, hay demasiados píxeles)", "✏️", 5000); return; } openEditor({pix:P, name:h.draw.name||"dibujo"}); });
   btn("💾 Guardar", ()=>saveCanvas(pixToCanvas(drawPix(h.draw),""), h.draw.name || "dibujo"));
-  row.append(m, cv, acts);
+  row.append(m, cv); if(sizesRow) row.append(sizesRow); row.append(acts);
   $("chat").appendChild(row); $("chat").scrollTop = $("chat").scrollHeight;
 }
 function pushDrawing(content, draw){
@@ -6846,13 +6853,15 @@ function pixFotoActs(h, btn, acts, redraw, msgEl){
     }
     toast(LANG==="es" ? "No he podido cargar la foto (¿hay internet?)" : "Couldn't load the photo", "😕"); return false;
   };
-  const sbs = {};
-  const sizeBtns = () => PIX_SIZES.forEach(s=>sbs[s] && sbs[s].classList.toggle("on", d.size===s));
-  PIX_SIZES.forEach(s=>{ btn(`${s}×${s}`, async e=>{ if(d.size===s) return; const b=e.target, t=b.textContent; b.textContent="…"; await remake(s,false); b.textContent=t; }); sbs[s] = acts.lastChild; });
+  // fila propia de botones de tamaño, justo debajo de la imagen
+  const sbs = {}, sizes = el("div",{class:"psizes", role:"group", "aria-label":"Tamaño en píxeles"}, el("span",{class:"psl",text:"Píxeles:"}));
+  const sizeBtns = () => PIX_SIZES.forEach(s=>{ if(sbs[s]){ sbs[s].classList.toggle("on", d.size===s); sbs[s].setAttribute("aria-pressed", String(d.size===s)); } });
+  PIX_SIZES.forEach(s=>{ const b = el("button",{type:"button", class:"psz", text:`${s}×${s}`, onclick:async()=>{ if(d.size===s || sizes.classList.contains("busy")) return; const t = b.textContent; b.textContent = "…"; sizes.classList.add("busy"); await remake(s,false); sizes.classList.remove("busy"); b.textContent = t; }}); sbs[s] = b; sizes.append(b); });
   sizeBtns();
   if(d.cands.length > 1) btn(LANG==="es" ? "🔄 Otra foto" : "🔄 Another photo", async e=>{ const b=e.target, t=b.textContent; b.textContent="…"; await remake(d.size,true); b.textContent=t; });
   btn(LANG==="es" ? "📷 Ver la foto" : "📷 See photo", ()=>{ const c = d.cands[d.i]; if(c) window.open(c.page || c.src, "_blank", "noopener"); });
   btn("🔎 Google", ()=>window.open("https://www.google.com/search?tbm=isch&q="+encodeURIComponent(d.q), "_blank", "noopener"));
+  return sizes;
 }
 const PIX_IDEAS = ["un gato","un perro","una pizza","la Torre Eiffel","un coche de carreras","un loro","una fresa","un astronauta","un volcán","un pingüino",
   "una guitarra","un tiburón","una mariposa","un búho","una hamburguesa","un cohete","un girasol","un camaleón","un tren","una tortuga","un pulpo","una sandía","un faro","un koala"];
