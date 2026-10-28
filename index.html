@@ -397,6 +397,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .impov{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:16px;background:rgba(10,9,16,.75)}
 .impov .lcard h2{margin:0;font:700 1.3rem var(--display)}
 .moremsgs{display:block;margin:6px auto 10px}
+.askbox{margin:8px 0 4px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);display:grid;gap:8px}
+.askbox .hint{margin:0}
 
 </style>
 <link rel="manifest" href="manifest.webmanifest">
@@ -607,9 +609,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 </div>
 
 <script src="config.js"></script>
-<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261028111306";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
+<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261028190337";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
 <script type="module">
-const CHISPA_VER = "20261028111306";
+const CHISPA_VER = "20261028190337";
 /* ===================== 👤 CUENTAS DE CHISPA ===================== */
 // Cada persona entra con su Gmail y una contraseña que se inventa PARA CHISPA.
 // Las cuentas se guardan en este ordenador (no hay servidor). La contraseña nunca se guarda:
@@ -3193,10 +3195,12 @@ function add(role, text, extra){
     const bCopy = document.createElement("button"); bCopy.type="button"; bCopy.className="act"; bCopy.textContent=tr("Copiar");
     const bFix = document.createElement("button"); bFix.type="button"; bFix.className="act"; bFix.textContent="✋ "+tr("Corregir"); bFix.title = "¿Me he equivocado? Enséñame la respuesta correcta";
     bFix.onclick = ()=>{ let p = row.previousElementSibling; while(p && !p.classList.contains("me")) p = p.previousElementSibling; openFix(p ? p.textContent.trim() : "", m.textContent.trim()); };
+    const bAsk = document.createElement("button"); bAsk.type="button"; bAsk.className="act"; bAsk.textContent="🤖 "+tr("Preguntar a Claude"); bAsk.title = "Copia tu pregunta, abre Claude y luego pegas aquí su respuesta";
+    bAsk.onclick = ()=>{ let p = row.previousElementSibling; while(p && !p.classList.contains("me")) p = p.previousElementSibling; askClaude(row, p ? p.querySelector(".msg").textContent.trim() : ""); };
     bCopy.onclick = async()=>{ try{ await navigator.clipboard.writeText(m.textContent); bCopy.textContent=tr("Copiado ✓"); }catch(e){ bCopy.textContent=tr("No se pudo"); } setTimeout(()=>bCopy.textContent=tr("Copiar"),1500); };
     const bRead = document.createElement("button"); bRead.type="button"; bRead.className="act"; bRead.textContent=tr("Leer en voz alta");
     bRead.onclick = ()=>say(m.textContent);
-    acts.append(bCopy,bRead,bFix); row.appendChild(acts);
+    acts.append(bCopy,bRead,bFix); if(brainKind!=="cloud") acts.append(bAsk); row.appendChild(acts);
   }
   $("chat").appendChild(row); $("chat").scrollTop = $("chat").scrollHeight;
   // como mucho un repintado por fotograma (antes era uno por palabra: eso daba tirones)
@@ -7132,6 +7136,40 @@ function migrateBoot(){
   const b = $("moveBtn"); if(!b) return;
   b.textContent = IS_FILE ? "📦 Pasar mis cosas a la app web (se actualiza sola)" : "📥 Traer mis cosas del archivo chispa.html";
   b.onclick = ()=>{ closeSettings && closeSettings(); IS_FILE ? moveToWeb() : showImport(); };
+}
+
+/* ===================== 🤖 PREGUNTAR A CLAUDE (a mano, en 3 clics) ===================== */
+// Chispa no puede usar la página de Claude ella sola, así que te ayuda: copia tu pregunta,
+// abre Claude en otra pestaña y luego pega aquí la respuesta que copies de allí.
+const CLAUDE_URL = "https://claude.ai/new";
+async function askClaude(row, q){
+  if(!q){ toast("No encuentro tu pregunta 🤔", "🤖"); return; }
+  let copied = false;
+  try{ await navigator.clipboard.writeText(q); copied = true; }catch(e){}
+  window.open(CLAUDE_URL, "_blank", "noopener");
+  // panel para pegar la respuesta, justo debajo del mensaje
+  row.querySelector(".askbox")?.remove();
+  const ta = el("textarea",{class:"fixin", rows:"3", placeholder:"Pega aquí la respuesta de Claude (Ctrl + V)"});
+  const put = txt => {
+    const t = String(txt||"").trim();
+    if(t.length < 2){ toast("Primero copia la respuesta de Claude (selecciónala y Ctrl + C)", "📋", 5000); return; }
+    const a = "🤖 **Claude dice:**\n\n" + t.slice(0, 6000);
+    history.push({role:"assistant", content:a, fromClaude:true}); add("bot", a); saveHist(); box.remove();
+    if(cfg.speak) say(t);
+  };
+  const box = el("div",{class:"askbox"},
+    el("p",{class:"hint", text: copied
+      ? "✅ He copiado tu pregunta y he abierto Claude en otra pestaña. Allí pégala (Ctrl + V) y envíala. Cuando conteste, copia su respuesta y vuelve aquí:"
+      : "He abierto Claude en otra pestaña. Copia tu pregunta, pégala allí y, cuando conteste, copia su respuesta y vuelve aquí:"}),
+    copied ? "" : el("div",{class:"fixwrong", text:q}),
+    el("div",{class:"row-btns"},
+      el("button",{class:"btn2", type:"button", text:"📋 Pegar la respuesta de Claude", onclick:async()=>{ try{ put(await navigator.clipboard.readText()); }catch(e){ toast("No puedo leer el portapapeles: pégala en el cuadro de abajo", "📋", 5000); ta.focus(); } }}),
+      el("button",{class:"ghost", type:"button", text:"Abrir Claude otra vez", onclick:()=>window.open(CLAUDE_URL, "_blank", "noopener")}),
+      el("button",{class:"ghost", type:"button", text:"Cancelar", onclick:()=>box.remove()})),
+    ta,
+    el("div",{class:"row-btns"}, el("button",{class:"ghost", type:"button", text:"Poner lo pegado", onclick:()=>put(ta.value)})));
+  row.append(box);
+  box.scrollIntoView({block:"nearest", behavior:"smooth"});
 }
 
 /* ===================== FUNCIONES DESDE EL CHAT ===================== */
