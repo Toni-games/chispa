@@ -396,6 +396,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .updcard{margin:10px auto 0;max-width:760px;width:calc(100% - 32px);display:grid;gap:6px;border:1px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--panel))}
 .impov{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:16px;background:rgba(10,9,16,.75)}
 .impov .lcard h2{margin:0;font:700 1.3rem var(--display)}
+.moremsgs{display:block;margin:6px auto 10px}
 
 </style>
 <link rel="manifest" href="manifest.webmanifest">
@@ -582,6 +583,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
           <button type="button" data-v="on">Todas</button><button type="button" data-v="lite">Pocas</button><button type="button" data-v="off">Ninguna</button>
         </div>
       </label>
+      <label class="check"><input type="checkbox" id="liteChk"> 🪶 Modo ligero (para ordenadores con poca memoria)</label>
+      <p class="hint" id="liteHint"></p>
       <div class="row-btns"><button class="ghost" type="button" id="openBg">Cambiar el fondo…</button></div>
     </section>
 
@@ -604,9 +607,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 </div>
 
 <script src="config.js"></script>
-<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261027130030";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
+<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261028111306";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
 <script type="module">
-const CHISPA_VER = "20261027130030";
+const CHISPA_VER = "20261028111306";
 /* ===================== 👤 CUENTAS DE CHISPA ===================== */
 // Cada persona entra con su Gmail y una contraseña que se inventa PARA CHISPA.
 // Las cuentas se guardan en este ordenador (no hay servidor). La contraseña nunca se guarda:
@@ -3135,11 +3138,13 @@ const store = {
   set(k,v){ try{ localStorage.setItem(SP+k, JSON.stringify(v)) }catch(e){} },
 };
 const MEM = navigator.deviceMemory || 0;          // GB aproximados (Chrome)
+// 🪶 Ordenador con poca memoria (4 GB o menos) o con solo 2 núcleos: modo ligero automático
+const LOW_END = (MEM > 0 && MEM <= 4) || (navigator.hardwareConcurrency || 4) <= 2;
 const DEFAULT_BRAIN = "0.5B";   // el de siempre: ligero y rápido
 const cfg = {
   name: store.get("name","Chispa"), about: store.get("about",""), brain: store.get("brain",DEFAULT_BRAIN),
   speak: store.get("speak",false), voice: store.get("voice",""), rate: store.get("rate",1),
-  anim: store.get("anim","on"), color: store.get("color3",COLORS[0]), theme: store.get("theme","auto"), fs: store.get("fs",16),
+  lite: store.get("lite", null), anim: store.get("anim", null), color: store.get("color3",COLORS[0]), theme: store.get("theme","auto"), fs: store.get("fs",16),
   style: store.get("style","normal"), length: store.get("length","normal"), emojis: store.get("emojis",true),
 };
 if(cfg.brain==="cpu"){ cfg.brain = "0.5B"; store.set("brain","0.5B"); store.set("forceCpu", true); }
@@ -3156,6 +3161,8 @@ if(!store.get("roleMig_"+accRole(), false) && accRole()){ plan = accRole()==="ow
 const can = f => !!PLANS[plan][f];
 let forceCpu = store.get("forceCpu", false);
 let botName = cfg.name;
+const liteOn = () => cfg.lite === true || (cfg.lite === null && LOW_END);
+if(cfg.anim === null) cfg.anim = liteOn() ? "lite" : "on";   // si no lo has elegido tú, en modo ligero pocas animaciones
 let history = [];
 let engine = null, busy = false, aiState = "loading", brainModel = "", brainProblem = "";
 const pick = arr => arr[Math.floor(Math.random()*arr.length)];
@@ -3208,7 +3215,10 @@ function renderChat(){
     if(k>0){ h2.append(g.slice(0,k+2), el("em",{text:g.slice(k+2)})); } else h2.append(g);
     $("chat").appendChild(el("div",{class:"welcome"}, hero, h2, el("p",{text:tr("Soy {n}. ¿Qué hacemos hoy?",{n:botName})})));
   }
-  history.forEach(h=>{ if(h.song) addSongCard(h); else if(h.draw){ addDrawing(h); if(h.story) addStoryChoices(h); } else { const o = add(h.role, h.content); if(h.role!=="user"){ if(h.imgs) addImages(o.row, h.imgs, h.iq); if(h.src || h.q) addSources(o.row, h.src, h.q); } } });
+  // en chats muy largos solo se pintan los últimos (así no se atasca); el resto con un botón
+  const LIM = liteOn() ? 40 : 120, from = Math.max(0, history.length - (renderChat.more || LIM));
+  if(from > 0) $("chat").appendChild(el("button",{class:"ghost moremsgs", type:"button", text:`⬆️ Ver ${from} ${from===1?"mensaje anterior":"mensajes anteriores"}`, onclick:()=>{ renderChat.more = history.length; renderChat(); renderChat.more = 0; }}));
+  history.slice(from).forEach(h=>{ if(h.song) addSongCard(h); else if(h.draw){ addDrawing(h); if(h.story) addStoryChoices(h); } else { const o = add(h.role, h.content); if(h.role!=="user"){ if(h.imgs) addImages(o.row, h.imgs, h.iq); if(h.src || h.q) addSources(o.row, h.src, h.q); } } });
   $("chatTitle").textContent = currentChatTitle();
 }
 function renderIdeas(){
@@ -3797,7 +3807,7 @@ async function startCpuBrain(fail, why){
     $("loadText").textContent = got.from==="carpeta" ? "Abriendo el cerebro desde tu carpeta 📁… (sin descargar nada)" : got.from==="navegador" ? "Abriendo el cerebro guardado… (sin descargar nada)" : "Abriendo el cerebro…";
     try{
       const w = new lib.WL.Wllama(lib.paths);
-      await w.loadModel([new File([got.blob], CPU_MODEL.file)], {n_ctx:2048, n_batch:256, n_threads:cpuThreads()});
+      await w.loadModel([new File([got.blob], CPU_MODEL.file)], {n_ctx: liteOn() ? 1024 : 2048, n_batch: liteOn() ? 128 : 256, n_threads:cpuThreads()});
       engine = cpuEngine(w); brainKind = "cpu"; brainModel = CPU_MODEL.name; brainFrom = got.from;
       brainLoadSecs = Math.round((performance.now() - tStart)/100)/10;
       $("load").hidden = true; setStatus("on","Lista para pensar (procesador)");
@@ -6325,19 +6335,34 @@ async function renderBrainStore(){
   if(brainKind==="cloud"){ box.textContent = "☁️ " + tr("Chispa Nube no necesita guardar ningún cerebro."); return; }
   if(!CPU_MODEL){ box.textContent = ""; return; }
   const dir = await folderReady(false);
-  const inFolder = dir ? await readFolderFile(dir, "cerebro", CPU_MODEL.file) : null;
-  let inBrowser = null; try{ inBrowser = await kv.get(CPU_MODEL.file); }catch(e){}
+  const T = SIZES[cfg.brain] || SIZES["0.5B"], found = await findBrain({...T.cpu}, dir);
+  const inFolder = found && found.from==="carpeta" ? found.blob : null, inBrowser = found && found.from==="navegador" ? found.blob : null;
+  let persisted = false; try{ persisted = await navigator.storage.persisted(); }catch(e){}
   const mb = b => Math.round(b.size/1048576) + " MB";
   box.textContent = inFolder ? "✅ " + tr("Cerebro guardado en tu carpeta ({s}). No se volverá a descargar.",{s:mb(inFolder)})
-    : (inBrowser && inBrowser.size > 1e6) ? "✅ " + tr("Cerebro guardado en el navegador ({s}). Para que nunca se borre, elige la carpeta de Chispa.",{s:mb(inBrowser)})
+    : (inBrowser && inBrowser.size > 1e6) ? "✅ " + tr("Cerebro guardado en el navegador ({s}). Para que nunca se borre, elige la carpeta de Chispa.",{s:mb(inBrowser)}) + (persisted ? " 🔒" : "")
     : (await savedFolder() && !dir) ? "📁 " + tr("Tienes una carpeta elegida, pero Chrome necesita permiso para abrirla. Toca «Cambiar carpeta…» y elige otra vez la carpeta Chispa.")
     : "❌ " + tr("El cerebro NO está guardado: se descargará otra vez. Toca «Elegir carpeta…» y elige la carpeta Chispa de Descargas.");
 }
+// Busca el cerebro en TODOS los sitios donde puede estar guardado y con sus dos nombres posibles
+// (antes, si se había descargado el de repuesto, al volver a abrir no lo encontraba y lo bajaba otra vez)
+const BRAIN_CACHE = "chispa-cerebro";
+async function findBrain(model, dir){
+  const names = [...new Set([localStorage.getItem("brainFile_" + model.repo), model.file, model.alt].filter(Boolean))];
+  for(const n of names){
+    if(dir){ const f = await readFolderFile(dir, "cerebro", n); if(f && f.size > 1e6) return {blob:f, from:"carpeta", file:n}; }
+    try{ const b = await kv.get(n); if(b && b.size > 1e6) return {blob:b, from:"navegador", file:n}; }catch(e){}
+    try{ const c = await caches.open(BRAIN_CACHE); const r = await c.match(`https://huggingface.co/${model.repo}/resolve/main/${n}`); if(r){ const b = await r.blob(); if(b.size > 1e6) return {blob:b, from:"navegador", file:n}; } }catch(e){}
+  }
+  return null;
+}
 async function getBrainFile(model, onProgress, skipFolder){
-  const url = `https://huggingface.co/${model.repo}/resolve/main/${model.file}`;
   const dir = await folderReady(false);
-  if(dir){ const f = await readFolderFile(dir, "cerebro", model.file); if(f) return {blob:f, from:"carpeta"}; }
-  try{ const b = await kv.get(model.file); if(b && b.size > 1e6) return {blob:b, from:"navegador"}; }catch(e){}
+  const found = await findBrain(model, dir);
+  if(found){ model.file = found.file; localStorage.setItem("brainFile_" + model.repo, found.file); return found; }
+  // ¿Lo habíamos descargado antes y ya no está? El navegador lo ha borrado (por falta de espacio o por una norma del ordenador)
+  if(localStorage.getItem("brainGot_" + model.repo) && !dir) setTimeout(()=>toast(tr("El navegador ha borrado el cerebro que tenía guardado (suele pasar cuando falta espacio). Para que no vuelva a pasar, guárdalo en la carpeta de Chispa: Ajustes → Cerebro → «Elegir carpeta…»."), "⚠️", 12000), 1500);
+  const url = `https://huggingface.co/${model.repo}/resolve/main/${model.file}`;
   // ¿Hay carpeta pero falta el permiso? Mejor pedirlo que descargar 500 MB
   if(!dir && !skipFolder && await savedFolder()) return {needFolder:true};
   // Sin carpeta: proponemos elegirla ANTES de descargar (en la carpeta, Chrome nunca lo borra)
@@ -6349,9 +6374,14 @@ async function getBrainFile(model, onProgress, skipFolder){
     if(/HTTP 404/.test(String(e && e.message)) && model.alt && model.alt !== model.file){ model.file = model.alt; model.alt = null; return getBrainFile(model, onProgress, true); }
     throw e;
   }
+  localStorage.setItem("brainFile_" + model.repo, model.file); localStorage.setItem("brainGot_" + model.repo, String(Date.now()));
   if(!dir){
     let ok = false;
+    // ¿cabe? (en ordenadores con el disco casi lleno, el navegador no deja guardar 400 MB)
+    try{ const e = await navigator.storage.estimate(); if(e.quota && e.quota - e.usage < blob.size * 1.2) console.warn("Poco espacio para guardar el cerebro", e); }catch(e){}
     try{ await kv.put(model.file, blob); const back = await kv.get(model.file); ok = !!back && back.size === blob.size; }catch(e){ console.warn("No se ha podido guardar el cerebro:", e); }
+    // copia de seguridad en otro almacén del navegador (si uno falla, el otro suele funcionar)
+    if(!ok){ try{ const c = await caches.open(BRAIN_CACHE); await c.put(`https://huggingface.co/${model.repo}/resolve/main/${model.file}`, new Response(blob, {headers:{"content-type":"application/octet-stream","content-length":String(blob.size)}})); ok = true; }catch(e){ console.warn("caché", e); } }
     if(!ok) setTimeout(()=>toast(tr("No he podido guardar el cerebro en el navegador (puede que falte espacio en el disco). Elige la carpeta de Chispa en Ajustes → Cerebro y no se volverá a descargar."), "⚠️", 12000), 1500);
   }
   // borramos cerebros del procesador de otros tamaños (para ocupar menos)
@@ -7229,6 +7259,10 @@ if(accRole()==="owner") $("planSel").append(el("option",{value:"hyperpro",text:"
 $("accInfo").textContent = accEmail() ? `Has entrado como ${accEmail()}${accRole()==="owner"?" · 👑 owner":accRole()==="vip"?" · ⭐ VIP":""}.` : "";
 $("logoutBtn").onclick = accLogout;
 migrateBoot();
+// 🪶 modo ligero
+$("liteChk").checked = liteOn();
+$("liteHint").textContent = (LOW_END ? `Tu ordenador tiene ${MEM ? "unos " + MEM + " GB de memoria" : "pocos núcleos"}: ${cfg.lite===null ? "lo he activado yo" : "te lo recomiendo"}. ` : "") + "Usa menos memoria: el cerebro recuerda menos texto a la vez, hay pocas animaciones y en los chats largos solo se ven los últimos mensajes.";
+$("liteChk").onchange = e => { setCfg("lite", e.target.checked); if(store.get("anim", null) === null){ cfg.anim = e.target.checked ? "lite" : "on"; applyLook(); } toast(e.target.checked ? "Modo ligero activado. Del todo cuando vuelvas a abrir Chispa." : "Modo ligero desactivado.", "🪶"); };
 { const v = CHISPA_VER; $("verInfo").textContent = `Versión de Chispa: ${v.slice(6,8)}/${v.slice(4,6)}/${v.slice(0,4)} ${v.slice(8,10)}:${v.slice(10,12)}` + (location.protocol==="file:" ? " (archivo)" : " · se actualiza sola"); }
 // botón ⏻ abajo a la izquierda: hay que pulsarlo dos veces para no salir sin querer
 { let armed = null; const ob = $("outBtn"); ob.hidden = !ACC;
