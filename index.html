@@ -399,6 +399,10 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .moremsgs{display:block;margin:6px auto 10px}
 .askbox{margin:8px 0 4px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);display:grid;gap:8px}
 .askbox .hint{margin:0}
+/* sin botones de herramientas: se piden escribiendo */
+html.notools #dockWrap, html.notools #quick{display:none !important}
+/* sin emojis: fuera también los iconos decorativos (tarjetas de bienvenida, modelo, ventanas) */
+html.noemoji .idea .ie, html.noemoji #modelBtn > span:first-child, html.noemoji .mopt .mi, html.noemoji .toast .ic{display:none !important}
 
 </style>
 <link rel="manifest" href="manifest.webmanifest">
@@ -418,8 +422,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
     <button class="newchat" id="clear" type="button"><span class="plus">+</span> Nuevo chat</button>
     <input class="search" id="chatSearch" type="search" placeholder="Buscar en tus chats">
     <div class="side-scroll">
-      <h4>Herramientas</h4>
-      <nav class="tools" id="dock"></nav>
+      <div id="dockWrap"><h4>Herramientas</h4>
+      <nav class="tools" id="dock"></nav></div>
       <div id="chatList"></div>
     </div>
     <div class="side-foot">
@@ -585,6 +589,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
           <button type="button" data-v="on">Todas</button><button type="button" data-v="lite">Pocas</button><button type="button" data-v="off">Ninguna</button>
         </div>
       </label>
+      <label class="check"><input type="checkbox" id="emoChk"> Mostrar emojis en la pantalla</label>
+      <label class="check"><input type="checkbox" id="toolsChk"> Mostrar los botones de herramientas (si no, se las pides escribiendo)</label>
       <label class="check"><input type="checkbox" id="liteChk"> 🪶 Modo ligero (para ordenadores con poca memoria)</label>
       <p class="hint" id="liteHint"></p>
       <div class="row-btns"><button class="ghost" type="button" id="openBg">Cambiar el fondo…</button></div>
@@ -609,9 +615,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 </div>
 
 <script src="config.js"></script>
-<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261028190337";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
+<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261029180452";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
 <script type="module">
-const CHISPA_VER = "20261028190337";
+const CHISPA_VER = "20261029180452";
 /* ===================== 👤 CUENTAS DE CHISPA ===================== */
 // Cada persona entra con su Gmail y una contraseña que se inventa PARA CHISPA.
 // Las cuentas se guardan en este ordenador (no hay servidor). La contraseña nunca se guarda:
@@ -820,6 +826,48 @@ function webCount(kind){
 
 // arranque: si no has entrado, sale la pantalla de entrar
 if(!ACC){ if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", showLogin); else showLogin(); }
+
+/* ===================== SIN EMOJIS EN LA PANTALLA (opcional) ===================== */
+// Con "Mostrar emojis" apagado, se quitan los emojis de todo lo que se ve (mensajes de Chispa,
+// botones, ventanas…). No se tocan: lo que escribes tú, las cajas de texto y los botones que
+// SOLO son un icono (el engranaje, el micrófono…), que si no se quedarían vacíos.
+const EMO_RE = /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}{2})(?:️|⃣|[\u{1F3FB}-\u{1F3FF}])*(?:‍\p{Extended_Pictographic}(?:️)*)*[  ]?/gu;
+const noEmo = s => String(s).replace(EMO_RE, "").replace(/^[  ]+/, "");
+const EMO_SKIP = "input,textarea,script,style,svg,canvas,[contenteditable],.row.me,.keepemo";
+function emojiNode(t){
+  const p = t.parentElement; if(!p || p.closest(EMO_SKIP)) return;
+  const v = t.nodeValue; if(!v || !EMO_RE.test(v)) { EMO_RE.lastIndex = 0; return; }
+  EMO_RE.lastIndex = 0;
+  // botón o etiqueta que es solo un icono: se deja
+  const box = p.closest("button,a,label,.ti,.mi,span") || p;
+  if(!noEmo(box.textContent).trim()) return;
+  const nv = noEmo(v);
+  if(nv !== v) t.nodeValue = nv;
+}
+function emojiWalk(root){
+  if(!root) return;
+  if(root.nodeType === 3){ emojiNode(root); return; }
+  if(root.nodeType !== 1 || root.closest?.(EMO_SKIP)) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n; const list = [];
+  while((n = w.nextNode())) list.push(n);
+  list.forEach(emojiNode);
+}
+let emoObs = null, emoQueue = new Set(), emoRaf = 0;
+function emojiSweep(){
+  const on = !cfg.uiEmoji;
+  if(!on){ if(emoObs){ emoObs.disconnect(); emoObs = null; } return; }
+  emojiWalk(document.body);
+  if(emoObs) return;
+  emoObs = new MutationObserver(ms => {
+    for(const m of ms){
+      if(m.type === "characterData") emoQueue.add(m.target);
+      else m.addedNodes.forEach(x => emoQueue.add(x));
+    }
+    if(!emoRaf) emoRaf = requestAnimationFrame(() => { emoRaf = 0; const q = [...emoQueue]; emoQueue.clear(); q.forEach(emojiWalk); });
+  });
+  emoObs.observe(document.body, {childList:true, subtree:true, characterData:true});
+}
+// los toasts y avisos que se crean con textContent también pasan por aquí (los vigila el observador)
 
 /* ===================== DATOS QUE CHISPA SABE SIN CEREBRO ===================== */
 const CHISTES = [
@@ -3146,7 +3194,7 @@ const DEFAULT_BRAIN = "0.5B";   // el de siempre: ligero y rápido
 const cfg = {
   name: store.get("name","Chispa"), about: store.get("about",""), brain: store.get("brain",DEFAULT_BRAIN),
   speak: store.get("speak",false), voice: store.get("voice",""), rate: store.get("rate",1),
-  lite: store.get("lite", null), anim: store.get("anim", null), color: store.get("color3",COLORS[0]), theme: store.get("theme","auto"), fs: store.get("fs",16),
+  uiEmoji: store.get("uiEmoji", false), tools: store.get("toolsBtns", false), lite: store.get("lite", null), anim: store.get("anim", null), color: store.get("color3",COLORS[0]), theme: store.get("theme","auto"), fs: store.get("fs",16),
   style: store.get("style","normal"), length: store.get("length","normal"), emojis: store.get("emojis",true),
 };
 if(cfg.brain==="cpu"){ cfg.brain = "0.5B"; store.set("brain","0.5B"); store.set("forceCpu", true); }
@@ -3217,7 +3265,8 @@ function renderChat(){
       e.style.setProperty("--dx", Math.cos(a)*r+"px"); e.style.setProperty("--dy", Math.sin(a)*r+"px"); e.style.animationDelay = (i*.29).toFixed(2)+"s"; if(i%2) e.style.background = "var(--accent)"; hero.append(e); }
     const g = greetText(), k = g.indexOf(", "); const h2 = el("h2");
     if(k>0){ h2.append(g.slice(0,k+2), el("em",{text:g.slice(k+2)})); } else h2.append(g);
-    $("chat").appendChild(el("div",{class:"welcome"}, hero, h2, el("p",{text:tr("Soy {n}. ¿Qué hacemos hoy?",{n:botName})})));
+    $("chat").appendChild(el("div",{class:"welcome"}, hero, h2, el("p",{text:tr("Soy {n}. ¿Qué hacemos hoy?",{n:botName})}),
+      cfg.tools ? "" : el("p",{class:"hint welcomehint",text:"Pídeme lo que quieras escribiendo: «juguemos al tres en raya», «mi mascota», «abre la galería», «un dato random», «genera una imagen», «hazme un examen», «cuéntame un cuento», «ponme música»…"})));
   }
   // en chats muy largos solo se pintan los últimos (así no se atasca); el resto con un botón
   const LIM = liteOn() ? 40 : 120, from = Math.max(0, history.length - (renderChat.more || LIM));
@@ -3242,7 +3291,8 @@ function applyLook(){
   if(ACCENT2[cfg.color]) document.documentElement.style.setProperty("--accent2", ACCENT2[cfg.color]); else document.documentElement.style.removeProperty("--accent2");
   if(cfg.theme==="auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", cfg.theme);
   document.documentElement.style.setProperty("--fs", cfg.fs+"px");
-  const H = document.documentElement.classList; H.toggle("anim", cfg.anim!=="off"); H.toggle("animfull", cfg.anim==="on"); H.toggle("noanim", cfg.anim==="off");
+  const H = document.documentElement.classList; H.toggle("notools", !cfg.tools); H.toggle("noemoji", !cfg.uiEmoji); if(typeof emojiSweep==="function") emojiSweep();
+  H.toggle("anim", cfg.anim!=="off"); H.toggle("animfull", cfg.anim==="on"); H.toggle("noanim", cfg.anim==="off");
   if($("animSeg")) segSet("animSeg", cfg.anim);
   [...$("swatches").children].forEach(s=>s.setAttribute("aria-pressed", s.dataset.c===cfg.color));
   segSet("themeSeg", cfg.theme); segSet("fsSeg", String(cfg.fs)); segSet("lengthSeg", cfg.length);
@@ -6518,7 +6568,7 @@ function modelAnswer(text){
   const P = PLANS[plan];
   const list = P.perks.map(x=>"• "+tr(x)).join("\n");
   return LANG==="es"
-    ? `Soy **${P.name}** ${P.icon}. Con este modelo puedo:\n${list}\n\n${searchesLeftText()} Hay tres modelos (⚡ Basic, 🔥 Ultra y 🚀 Hyper): todos usan el mismo cerebro, pero los más altos tienen más funciones. Puedes cambiarlo arriba, al lado del título del chat.`
+    ? `Soy **${P.name}** ${P.icon}. Con este modelo puedo:\n${list}\n\n${toolsHelp()}\n\n${searchesLeftText()} Hay tres modelos (⚡ Basic, 🔥 Ultra y 🚀 Hyper): todos usan el mismo cerebro, pero los más altos tienen más funciones. Puedes cambiarlo arriba, al lado del título del chat.`
     : `I'm **${P.name}** ${P.icon}. With this model I can:\n${list}\n\n${searchesLeftText()} There are three models (⚡ Basic, 🔥 Ultra and 🚀 Hyper): same brain, more features the higher you go. Switch at the top, next to the chat title.`;
 }
 
@@ -7173,12 +7223,32 @@ async function askClaude(row, q){
 }
 
 /* ===================== FUNCIONES DESDE EL CHAT ===================== */
+// Lo que se le puede pedir a Chispa escribiendo (en vez de con botones)
+function toolsHelp(){
+  return "Me puedes pedir todo escribiendo:\n• «juguemos» o «tres en raya», «snake», «meteoritos», «plataformas»\n• «mi mascota»\n• «abre la galería» o «hazme un cómic»\n• «hazme un examen de mates de 2º de la ESO»\n• «cuéntame un cuento»\n• «ponme música»\n• «quiero pintar yo» (editor)\n• «quiero explorar un desierto» (mundo)\n• «un dato random» o «genera una imagen»\n• «dibuja en píxeles un gato 128x128»\n• «mis logros», «tu memoria», «cambia el fondo», «tu personalidad»\n• «soporte» (lo que me has corregido), «exporta el chat», «instalar app», «ajustes»";
+}
 function featureRequest(text){
   const n = norm(text);
   const say1 = a => { history.push({role:"assistant",content:a}); add("bot",a); saveHist(); };
+  const short = n.split(/\s+/).filter(Boolean).length <= 6;
+  // ayuda: qué se puede pedir
+  if(/\b(ayuda|comandos|herramientas|que te puedo pedir|que cosas puedes hacer)\b/.test(n) && short){ say1(toolsHelp()); return true; }
+  // dato random
+  if(/\b(dato|datos) (random|curioso|curiosos|aleatorio|interesante)\b/.test(n) || /^(otro )?dato\W*$/.test(n)){ say1("🤓 " + nextFact()); bump("facts",1,1); renderIdeas(); return true; }
+  // generar una imagen (sin decir de qué): una al azar
+  if(/^(genera|generame|crea|creame|haz|hazme|dame|quiero)\s+(una\s+)?(imagen|dibujo)(\s+(random|aleatoria|aleatorio|al azar|cualquiera))?\W*$/.test(n)){
+    if(leftToday("draws") <= 0){ say1(limitText("draws")); return true; }
+    const t = randomImagePrompt().trim(), pq = pixRequest(t);
+    if(pq) pixPhoto(pq.subject, pq.size); else { const dr = drawRequest(t); if(dr) doDraw(dr, t); }
+    return true; }
+  // soporte, exportar, instalar, ajustes
+  if(/\b(soporte|correcciones|lo que te he ensenado|respuestas corregidas)\b/.test(n)){ say1("🛟 Aquí está todo lo que me has enseñado."); openSupport(); return true; }
+  if(/\b(exporta|exportar|descarga|descargar|guarda|guardar)\b.*\b(chat|conversacion)\b/.test(n)){ exportChat(); return true; }
+  if(/\b(instala|instalar|instalame)\b.*\b(app|aplicacion|chispa)\b/.test(n)){ say1("📌 Así me puedes instalar como app."); openInstall(); return true; }
+  if(/^(abre |abreme |ver )?(los )?(ajustes|configuracion|opciones)\W*$/.test(n)){ say1("⚙️ Te abro los ajustes."); $("setBtn").click(); return true; }
   // juegos
   const game = /\bsnake|serpiente\b.*\bjuego|juego\b.*\bserpiente/.test(n) ? "snake" : /tres en raya|3 en raya|tic tac/.test(n) ? "ttt" : /meteorit/.test(n) ? "meteoritos" : /plataforma/.test(n) ? "plataformas" : null;
-  if(game && /\b(jug|juego|partida|abre|pon)/.test(n)){ say1("🎮 ¡Vamos a jugar! Te abro el juego."); openGames(game); return true; }
+  if(game && (/\b(jug|juego|partida|abre|pon)/.test(n) || short)){ say1("🎮 ¡Vamos a jugar! Te abro el juego."); openGames(game); return true; }
   if(/\b(juguemos|minijuegos?)\b/.test(n) || /\b(quiero|vamos a|podemos|me apetece|quieres)\s+jugar\b/.test(n) || /\b(abre|ponme|pon|ensename)\s+(los\s+|un\s+|unos\s+)?juegos?\b/.test(n) || /^(jugar|juegos?)\W*$/.test(n)){
     say1("🎮 ¡Vamos a jugar! Elige un juego."); openGames(); return true; }
   // mundo explorable
@@ -7297,6 +7367,10 @@ if(accRole()==="owner") $("planSel").append(el("option",{value:"hyperpro",text:"
 $("accInfo").textContent = accEmail() ? `Has entrado como ${accEmail()}${accRole()==="owner"?" · 👑 owner":accRole()==="vip"?" · ⭐ VIP":""}.` : "";
 $("logoutBtn").onclick = accLogout;
 migrateBoot();
+// emojis y botones de herramientas
+$("emoChk").checked = !!cfg.uiEmoji; $("toolsChk").checked = !!cfg.tools;
+$("emoChk").onchange = e => { setCfg("uiEmoji", e.target.checked); if(e.target.checked){ toast("Emojis activados", "🙂"); setTimeout(()=>location.reload(), 600); } else applyLook(); };
+$("toolsChk").onchange = e => { setCfg("tools", e.target.checked); store.set("toolsBtns", e.target.checked); applyLook(); renderChat(); };
 // 🪶 modo ligero
 $("liteChk").checked = liteOn();
 $("liteHint").textContent = (LOW_END ? `Tu ordenador tiene ${MEM ? "unos " + MEM + " GB de memoria" : "pocos núcleos"}: ${cfg.lite===null ? "lo he activado yo" : "te lo recomiendo"}. ` : "") + "Usa menos memoria: el cerebro recuerda menos texto a la vez, hay pocas animaciones y en los chats largos solo se ven los últimos mensajes.";
