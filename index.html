@@ -615,9 +615,9 @@ html.noemoji .idea .ie, html.noemoji #modelBtn > span:first-child, html.noemoji 
 </div>
 
 <script src="config.js"></script>
-<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261029180452";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
+<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261029180537";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
 <script type="module">
-const CHISPA_VER = "20261029180452";
+const CHISPA_VER = "20261029180537";
 /* ===================== 👤 CUENTAS DE CHISPA ===================== */
 // Cada persona entra con su Gmail y una contraseña que se inventa PARA CHISPA.
 // Las cuentas se guardan en este ordenador (no hay servidor). La contraseña nunca se guarda:
@@ -841,7 +841,7 @@ function emojiNode(t){
   // botón o etiqueta que es solo un icono: se deja
   const box = p.closest("button,a,label,.ti,.mi,span") || p;
   if(!noEmo(box.textContent).trim()) return;
-  const nv = noEmo(v);
+  const nv = noEmo(v).replace(/[ \u00A0]+([.,!?;:)])/g, "$1").replace(/[ \u00A0]{2,}/g, " ");
   if(nv !== v) t.nodeValue = nv;
 }
 function emojiWalk(root){
