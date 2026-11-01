@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.bahiaos.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.bahiaos.app'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        bahia {
+            // Clave fija: así cada versión nueva se instala encima de la anterior
+            storeFile file('bahia.jks')
+            storePassword 'bahiaos123'
+            keyAlias 'bahia'
+            keyPassword 'bahiaos123'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.bahia
+        }
+        debug {
+            signingConfig signingConfigs.bahia
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    androidResources {
+        // Que no se salte archivos de juegos que empiecen por "_" o "."
+        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+}

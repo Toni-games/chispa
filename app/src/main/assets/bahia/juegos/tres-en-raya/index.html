@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tres en raya</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  html { overflow: auto; }
+  body { background: linear-gradient(160deg, #13234d, #1e3f8f); color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 16px; user-select: none; }
+  .modos { display: flex; background: rgba(255,255,255,.12); padding: 3px; border-radius: 10px; }
+  .modos button { font: 600 13px -apple-system, "Segoe UI", sans-serif; color: #fff; background: none; border: 0; padding: 7px 14px; border-radius: 8px; cursor: pointer; }
+  .modos button.on { background: #fff; color: #1e3f8f; }
+  .marcador { display: flex; gap: 22px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .marcador b { font-size: 22px; display: block; text-align: center; }
+  .x { color: #ff8a65; } .o { color: #64d2ff; }
+  .tablero { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: min(300px, 80vw, 50vh); aspect-ratio: 1; }
+  .tablero button { border: 0; border-radius: 16px; background: rgba(255,255,255,.1); font: 800 clamp(36px, 12vmin, 64px) -apple-system, "Segoe UI", sans-serif; cursor: pointer; transition: background .15s; }
+  .tablero button:hover:not(:disabled) { background: rgba(255,255,255,.18); }
+  .tablero button.gana { background: rgba(255,255,255,.35); }
+  .estado { font-size: 15px; font-weight: 600; min-height: 22px; }
+  .otra { font: 600 13px -apple-system, "Segoe UI", sans-serif; border: 0; border-radius: 9px; padding: 8px 16px; background: #fff; color: #1e3f8f; cursor: pointer; }
+</style>
+</head>
+<body tabindex="0">
+  <div class="modos"><button data-m="cpu" class="on">Contra el ordenador</button><button data-m="dos">Dos jugadores</button></div>
+  <div class="marcador"><div><b class="x" id="mx">0</b>Jugador X</div><div><b id="me">0</b>Empates</div><div><b class="o" id="mo">0</b><span id="no">Ordenador</span></div></div>
+  <div class="tablero" id="tablero"></div>
+  <div class="estado" id="estado"></div>
+  <button class="otra" id="otra">Otra partida</button>
+<script>
+const LINEAS = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const tab = document.getElementById('tablero'), estado = document.getElementById('estado');
+let b, turno, modo = 'cpu', fin, puntos = { X: 0, O: 0, E: 0 }, empieza = 'X';
+const ganador = t => { for (const l of LINEAS) if (t[l[0]] && t[l[0]] === t[l[1]] && t[l[1]] === t[l[2]]) return { j: t[l[0]], l }; return t.every(Boolean) ? { j: 'E' } : null; };
+function minimax(t, j) {
+  const g = ganador(t);
+  if (g) return { p: g.j === 'O' ? 10 : g.j === 'X' ? -10 : 0 };
+  let mejor = { p: j === 'O' ? -99 : 99 };
+  t.forEach((v, i) => {
+    if (v) return;
+    t[i] = j; const r = minimax(t, j === 'O' ? 'X' : 'O'); t[i] = null;
+    const p = r.p * .9;
+    if (j === 'O' ? p > mejor.p : p < mejor.p) mejor = { p, i };
+  });
+  return mejor;
+}
+function nueva() {
+  b = Array(9).fill(null); fin = false; turno = empieza; empieza = empieza === 'X' ? 'O' : 'X';
+  pintar();
+  if (modo === 'cpu' && turno === 'O') setTimeout(cpu, 350);
+}
+function pintar(linea) {
+  tab.innerHTML = '';
+  b.forEach((v, i) => {
+    const c = document.createElement('button');
+    c.textContent = v || ''; c.className = (v ? v.toLowerCase() : '') + (linea && linea.includes(i) ? ' gana' : '');
+    c.disabled = !!v || fin; c.setAttribute('aria-label', `Casilla ${i + 1}`);
+    c.onclick = () => jugar(i);
+    tab.appendChild(c);
+  });
+  if (!fin) estado.textContent = modo === 'cpu' ? (turno === 'X' ? 'Tu turno (X)' : 'Pensando…') : `Turno de ${turno}`;
+}
+function jugar(i) {
+  if (b[i] || fin || (modo === 'cpu' && turno === 'O')) return;
+  poner(i);
+  if (!fin && modo === 'cpu') setTimeout(cpu, 380);
+}
+function poner(i) {
+  b[i] = turno;
+  const g = ganador(b);
+  if (g) {
+    fin = true; puntos[g.j]++;
+    estado.textContent = g.j === 'E' ? 'Empate' : modo === 'cpu' ? (g.j === 'X' ? '¡Has ganado!' : 'Gana el ordenador') : `¡Gana ${g.j}!`;
+    document.getElementById('mx').textContent = puntos.X; document.getElementById('mo').textContent = puntos.O; document.getElementById('me').textContent = puntos.E;
+    pintar(g.l); return;
+  }
+  turno = turno === 'X' ? 'O' : 'X';
+  pintar();
+}
+function cpu() {
+  if (fin) return;
+  const libres = b.map((v, i) => v ? -1 : i).filter(i => i >= 0);
+  const i = Math.random() < .15 ? libres[Math.random() * libres.length | 0] : minimax(b.slice(), 'O').i;
+  poner(i);
+}
+document.querySelectorAll('.modos button').forEach(x => x.onclick = () => {
+  modo = x.dataset.m;
+  document.querySelectorAll('.modos button').forEach(y => y.classList.toggle('on', y === x));
+  document.getElementById('no').textContent = modo === 'cpu' ? 'Ordenador' : 'Jugador O';
+  puntos = { X: 0, O: 0, E: 0 }; ['mx', 'mo', 'me'].forEach(id => document.getElementById(id).textContent = 0);
+  empieza = 'X'; nueva();
+});
+document.getElementById('otra').onclick = nueva;
+document.addEventListener('keydown', e => { const n = +e.key; if (n >= 1 && n <= 9) jugar(n - 1); });
+nueva();
+</script>
+</body>
+</html>

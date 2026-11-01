@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memoria</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  html { overflow: auto; }
+  body { background: #2a0f22; background: radial-gradient(120% 80% at 50% 0%, #6a1b4d, #2a0f22); color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 14px; user-select: none; }
+  .marcador { display: flex; gap: 22px; align-items: center; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .marcador b { font-size: 18px; }
+  button.nueva { font: 600 13px -apple-system, "Segoe UI", sans-serif; border: 0; border-radius: 9px; padding: 8px 14px; background: #fff; color: #8a1f5c; cursor: pointer; }
+  .tablero { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: min(420px, 90vw, 66vh); }
+  .carta { aspect-ratio: 1; perspective: 600px; cursor: pointer; border: 0; padding: 0; background: none; }
+  .dentro { position: relative; width: 100%; height: 100%; transition: transform .35s; transform-style: preserve-3d; }
+  .carta.vuelta .dentro, .carta.hecha .dentro { transform: rotateY(180deg); }
+  .cara { position: absolute; inset: 0; border-radius: 14px; backface-visibility: hidden; display: grid; place-items: center; }
+  .dorso { background: linear-gradient(135deg, #ff6aa9, #b0256e); box-shadow: inset 0 0 0 3px rgba(255,255,255,.25); }
+  .dorso::after { content: ""; width: 34%; height: 34%; border-radius: 50%; border: 3px solid rgba(255,255,255,.4); }
+  .frente { background: #fff7fb; transform: rotateY(180deg); font-size: clamp(26px, 8vmin, 48px); }
+  .carta.hecha .frente { background: #d9fbe3; }
+  .fin { font-size: 15px; font-weight: 600; min-height: 20px; }
+</style>
+</head>
+<body tabindex="0">
+  <div class="marcador"><span>Movimientos <b id="mov">0</b></span><span>Tiempo <b id="t">0:00</b></span><span>Mejor <b id="mejor">—</b></span><button class="nueva" id="nueva">Nueva partida</button></div>
+  <div class="tablero" id="tablero"></div>
+  <div class="fin" id="fin"></div>
+<script>
+const SIMBOLOS = ['🦊', '🐼', '🐙', '🦄', '🐸', '🦁', '🐳', '🦉'];
+const tab = document.getElementById('tablero');
+let cartas, abiertas, mov, hechas, bloqueo, reloj, seg;
+const tiempo = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+function mejorTxt() { try { const m = localStorage.getItem('memoria.mejor'); document.getElementById('mejor').textContent = m ? m + ' mov.' : '—'; } catch (e) {} }
+function nueva() {
+  clearInterval(reloj); seg = 0; mov = 0; hechas = 0; abiertas = []; bloqueo = false; reloj = null;
+  document.getElementById('mov').textContent = 0; document.getElementById('t').textContent = '0:00'; document.getElementById('fin').textContent = '';
+  cartas = [...SIMBOLOS, ...SIMBOLOS].sort(() => Math.random() - .5);
+  tab.innerHTML = '';
+  cartas.forEach((s, i) => {
+    const c = document.createElement('button'); c.className = 'carta'; c.setAttribute('aria-label', 'Carta ' + (i + 1));
+    c.innerHTML = `<div class="dentro"><div class="cara dorso"></div><div class="cara frente">${s}</div></div>`;
+    c.onclick = () => girar(c, s);
+    tab.appendChild(c);
+  });
+  mejorTxt();
+}
+function girar(c, s) {
+  if (bloqueo || c.classList.contains('vuelta') || c.classList.contains('hecha')) return;
+  if (!reloj) reloj = setInterval(() => { seg++; document.getElementById('t').textContent = tiempo(seg); }, 1000);
+  c.classList.add('vuelta'); abiertas.push([c, s]);
+  if (abiertas.length < 2) return;
+  mov++; document.getElementById('mov').textContent = mov;
+  const [[a, sa], [b, sb]] = abiertas; abiertas = [];
+  if (sa === sb) {
+    a.classList.add('hecha'); b.classList.add('hecha'); hechas++;
+    if (hechas === SIMBOLOS.length) {
+      clearInterval(reloj);
+      document.getElementById('fin').textContent = `¡Completado en ${mov} movimientos y ${tiempo(seg)}!`;
+      try { const m = +localStorage.getItem('memoria.mejor') || Infinity; if (mov < m) localStorage.setItem('memoria.mejor', mov); } catch (e) {}
+      mejorTxt();
+    }
+  } else {
+    bloqueo = true;
+    setTimeout(() => { a.classList.remove('vuelta'); b.classList.remove('vuelta'); bloqueo = false; }, 800);
+  }
+}
+document.getElementById('nueva').onclick = nueva;
+nueva();
+</script>
+</body>
+</html>

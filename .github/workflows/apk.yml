@@ -1,0 +1,56 @@
+name: Crear APK de BahíaOS
+
+on:
+  push:
+    branches: [bahiaos-apk]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recuperar imágenes y clave (vienen en base64)
+        run: |
+          find . -name '*.b64' -print0 | while IFS= read -r -d '' f; do
+            base64 -d "$f" > "${f%.b64}"
+            rm "$f"
+          done
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Compilar la APK
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Preparar el archivo
+        run: cp app/build/outputs/apk/release/app-release.apk BahiaOS.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BahiaOS-apk
+          path: BahiaOS.apk
+
+      - name: Publicar la APK para descargar
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: bahiaos-v1.0.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: BahíaOS para Android (versión ${{ github.run_number }})
+          body: |
+            Descarga **BahiaOS.apk** desde el móvil o la tablet y ábrelo para instalarlo.
+            Si Android lo pide, permite «Instalar aplicaciones de origen desconocido» para tu navegador.
+          files: BahiaOS.apk
+          make_latest: false

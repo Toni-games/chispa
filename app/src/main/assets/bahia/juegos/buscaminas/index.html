@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buscaminas</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: #e9edf3; color: #1d2433; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 12px; padding: 12px; box-sizing: border-box; user-select: none; overflow: auto; }
+  .barra { display: flex; align-items: center; gap: 10px; }
+  .dato { min-width: 64px; padding: 6px 10px; border-radius: 8px; background: #1d2433; color: #ff6b5b; font: 700 20px "SF Mono", Menlo, Consolas, monospace; text-align: center; font-variant-numeric: tabular-nums; }
+  .cara { width: 44px; height: 44px; border-radius: 10px; border: 0; background: #fff; font-size: 24px; box-shadow: 0 1px 3px rgba(0,0,0,.18); cursor: pointer; }
+  select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid #c3cad6; background: #fff; }
+  .tablero { display: grid; gap: 2px; padding: 8px; background: #c3cad6; border-radius: 10px; }
+  .c { width: var(--t); height: var(--t); border: 0; padding: 0; border-radius: 4px; background: linear-gradient(#f9fbff, #dfe5ee); box-shadow: inset 0 -2px 0 rgba(0,0,0,.08); font: 800 calc(var(--t) * .58) -apple-system, "Segoe UI", sans-serif; display: grid; place-items: center; cursor: pointer; }
+  .c:hover:not(.abierta) { background: #fff; }
+  .c.abierta { background: #f0f2f6; box-shadow: none; cursor: default; }
+  .c.mina { background: #ff453a; }
+  .ayuda { font-size: 12px; color: #5f6a7d; }
+</style>
+</head>
+<body tabindex="0">
+  <div class="barra">
+    <div class="dato" id="minas">010</div>
+    <button class="cara" id="cara" aria-label="Nueva partida">🙂</button>
+    <div class="dato" id="tiempo">000</div>
+    <select id="nivel" aria-label="Nivel"><option value="9,9,10">Principiante</option><option value="16,16,40">Intermedio</option><option value="16,30,99">Experto</option></select>
+  </div>
+  <div class="tablero" id="tablero"></div>
+  <div class="ayuda">Clic para descubrir · Clic derecho para poner una bandera</div>
+<script>
+const COL = ['', '#0a63d8', '#1c8a32', '#d7263d', '#3a2ca8', '#8f1d2c', '#0f8a8a', '#222', '#777'];
+const tab = document.getElementById('tablero'), cara = document.getElementById('cara');
+let F, C, M, celdas, minas, abiertas, banderas, empezado, acabado, reloj, seg;
+const pad = n => String(Math.max(-99, Math.min(999, n))).padStart(3, '0');
+function nueva() {
+  [F, C, M] = document.getElementById('nivel').value.split(',').map(Number);
+  clearInterval(reloj); seg = 0; empezado = false; acabado = false; abiertas = 0; banderas = 0;
+  celdas = Array.from({ length: F * C }, () => ({ mina: false, n: 0, abierta: false, bandera: false }));
+  const t = Math.max(22, Math.min(34, Math.floor((innerWidth - 60) / C), Math.floor((innerHeight - 150) / F)));
+  tab.style.setProperty('--t', t + 'px');
+  tab.style.gridTemplateColumns = `repeat(${C}, var(--t))`;
+  tab.innerHTML = '';
+  celdas.forEach((c, i) => {
+    const b = document.createElement('button'); b.className = 'c'; b.dataset.i = i;
+    b.setAttribute('aria-label', `Casilla ${Math.floor(i / C) + 1}, ${i % C + 1}`);
+    c.el = b; tab.appendChild(b);
+  });
+  cara.textContent = '🙂';
+  document.getElementById('minas').textContent = pad(M);
+  document.getElementById('tiempo').textContent = '000';
+}
+const vecinos = i => { const f = Math.floor(i / C), c = i % C, r = []; for (let df = -1; df <= 1; df++) for (let dc = -1; dc <= 1; dc++) { if (!df && !dc) continue; const nf = f + df, nc = c + dc; if (nf >= 0 && nf < F && nc >= 0 && nc < C) r.push(nf * C + nc); } return r; };
+function colocar(seguro) {
+  const prohibidas = new Set([seguro, ...vecinos(seguro)]);
+  let n = 0;
+  while (n < M) { const i = Math.random() * F * C | 0; if (!celdas[i].mina && !prohibidas.has(i)) { celdas[i].mina = true; n++; } }
+  celdas.forEach((c, i) => { c.n = vecinos(i).filter(j => celdas[j].mina).length; });
+}
+function abrir(i) {
+  const c = celdas[i];
+  if (c.abierta || c.bandera || acabado) return;
+  if (!empezado) { empezado = true; colocar(i); reloj = setInterval(() => { seg++; document.getElementById('tiempo').textContent = pad(seg); }, 1000); }
+  if (c.mina) return perder(i);
+  const pila = [i];
+  while (pila.length) {
+    const k = pila.pop(), d = celdas[k];
+    if (d.abierta || d.bandera) continue;
+    d.abierta = true; abiertas++;
+    d.el.classList.add('abierta');
+    d.el.textContent = d.n || ''; d.el.style.color = COL[d.n];
+    if (!d.n) vecinos(k).forEach(j => { if (!celdas[j].abierta) pila.push(j); });
+  }
+  if (abiertas === F * C - M) ganar();
+}
+function acorde(i) {
+  const c = celdas[i]; if (!c.abierta || !c.n) return;
+  const v = vecinos(i);
+  if (v.filter(j => celdas[j].bandera).length === c.n) v.forEach(abrir);
+}
+function perder(i) {
+  acabado = true; clearInterval(reloj); cara.textContent = '😵';
+  celdas.forEach((c, k) => { if (c.mina) { c.el.classList.add('abierta'); c.el.textContent = '💣'; } else if (c.bandera) c.el.textContent = '❌'; });
+  celdas[i].el.classList.add('mina');
+}
+function ganar() {
+  acabado = true; clearInterval(reloj); cara.textContent = '😎';
+  celdas.forEach(c => { if (c.mina) c.el.textContent = '🚩'; });
+  document.getElementById('minas').textContent = '000';
+  try {
+    const k = 'buscaminas.mejor.' + M, m = +localStorage.getItem(k) || Infinity;
+    if (seg < m) localStorage.setItem(k, seg);
+  } catch (e) {}
+}
+tab.addEventListener('click', e => { const b = e.target.closest('.c'); if (!b) return; const i = +b.dataset.i; celdas[i].abierta ? acorde(i) : abrir(i); });
+tab.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const b = e.target.closest('.c'); if (!b || acabado) return;
+  const c = celdas[+b.dataset.i]; if (c.abierta) return;
+  c.bandera = !c.bandera; banderas += c.bandera ? 1 : -1;
+  b.textContent = c.bandera ? '🚩' : '';
+  document.getElementById('minas').textContent = pad(M - banderas);
+});
+tab.addEventListener('pointerdown', e => { if (!acabado && e.button === 0 && e.target.closest('.c')) cara.textContent = '😮'; });
+document.addEventListener('pointerup', () => { if (!acabado) cara.textContent = '🙂'; });
+cara.onclick = nueva;
+document.getElementById('nivel').onchange = nueva;
+document.addEventListener('keydown', e => { if (e.key === 'n' || e.key === 'F2') nueva(); });
+nueva();
+window.addEventListener('load', () => window.focus());
+</script>
+</body>
+</html>

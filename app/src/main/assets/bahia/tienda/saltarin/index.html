@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saltarín</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd3ff; }
+  body { display: grid; place-items: center; user-select: none; }
+  canvas { max-width: 100vw; max-height: 100vh; aspect-ratio: 760 / 320; width: 100%; touch-action: none; }
+</style>
+</head>
+<body tabindex="0">
+<canvas id="c" width="760" height="320"></canvas>
+<script>
+const cv = document.getElementById('c'), x = cv.getContext('2d'), W = 760, H = 320, SUELO = 262;
+let p, obst, vel, dist, estado = 'listo', marco = 0, ultimo = 0, acum = 0, colinas = [];
+let record = 0; try { record = +localStorage.getItem('saltarin.record') || 0; } catch (e) {}
+for (let i = 0; i < 6; i++) colinas.push({ x: i * 170, h: 40 + Math.random() * 50 });
+function reiniciar() { p = { y: SUELO, vy: 0, agachado: false }; obst = []; vel = 6; dist = 0; estado = 'jugando'; }
+function saltar() { if (estado !== 'jugando') { reiniciar(); return; } if (p.y >= SUELO - .5) p.vy = -12.5; }
+function paso() {
+  marco++;
+  colinas.forEach(c => { c.x -= estado === 'jugando' ? vel * .2 : .4; if (c.x < -180) { c.x += 6 * 170; c.h = 40 + Math.random() * 50; } });
+  if (estado !== 'jugando') return;
+  vel = Math.min(14, 6 + dist / 900);
+  dist += vel / 6;
+  p.vy += .62; p.y = Math.min(SUELO, p.y + p.vy); if (p.y >= SUELO) p.vy = 0;
+  const ultimoObs = obst[obst.length - 1];
+  if (!ultimoObs || ultimoObs.x < W - (260 + Math.random() * 260)) {
+    const vuela = dist > 250 && Math.random() < .25;
+    obst.push(vuela ? { x: W + 20, y: SUELO - 62 - Math.random() * 20, w: 34, h: 18, ave: true } : { x: W + 20, y: SUELO, w: 18 + Math.random() * 22, h: 26 + Math.random() * 30 });
+  }
+  obst.forEach(o => o.x -= vel);
+  obst = obst.filter(o => o.x > -60);
+  const px = 92, pw = 30, ph = 34, py = p.y - ph;
+  for (const o of obst) {
+    const oy = o.ave ? o.y : o.y - o.h;
+    if (px + pw - 6 > o.x && px + 6 < o.x + o.w && py + ph - 4 > oy && py + 4 < oy + o.h) { morir(); break; }
+  }
+}
+function morir() {
+  estado = 'fin';
+  const m = Math.floor(dist);
+  if (m > record) { record = m; try { localStorage.setItem('saltarin.record', record); } catch (e) {} }
+  try { parent.postMessage({ bahiaPuntos: m }, '*'); } catch (e) {}
+}
+function personaje(X, Y) {
+  // Saltarín: una bolita naranja con orejas y bufanda (personaje original)
+  const bote = p.y >= SUELO && estado === 'jugando' ? Math.abs(Math.sin(marco / 4)) * 3 : 0;
+  Y -= bote;
+  x.fillStyle = 'rgba(0,0,0,.15)'; x.beginPath(); x.ellipse(X + 15, SUELO + 3, 16 - (SUELO - p.y) / 12, 4, 0, 0, 7); x.fill();
+  x.fillStyle = '#ff8a3d'; x.beginPath(); x.ellipse(X + 9, Y - 34, 5, 10, -.3, 0, 7); x.ellipse(X + 22, Y - 34, 5, 10, .3, 0, 7); x.fill();
+  x.beginPath(); x.arc(X + 15, Y - 17, 17, 0, 7); x.fill();
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(X + 21, Y - 21, 5, 0, 7); x.fill();
+  x.fillStyle = '#1d1d1f'; x.beginPath(); x.arc(X + 22.5, Y - 21, 2.4, 0, 7); x.fill();
+  x.fillStyle = '#ff375f'; x.fillRect(X + 2, Y - 9, 26, 5); x.fillRect(X + 2 - (marco % 10 < 5 ? 8 : 10), Y - 9, 9, 4);
+}
+function dibujar() {
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#6cc4ff'); g.addColorStop(1, '#d6f0ff'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.fillStyle = '#a8dcb0'; colinas.forEach(c => { x.beginPath(); x.ellipse(c.x + 85, SUELO, 110, c.h, 0, Math.PI, 0); x.fill(); });
+  x.fillStyle = '#7bbf5a'; x.fillRect(0, SUELO, W, H - SUELO); x.fillStyle = '#5ea543'; for (let i = -(dist * 6 % 40); i < W; i += 40) x.fillRect(i, SUELO + 10, 18, 4);
+  obst.forEach(o => {
+    if (o.ave) { x.fillStyle = '#5e5ce6'; x.beginPath(); x.ellipse(o.x + 17, o.y + 9, 17, 8, 0, 0, 7); x.fill(); x.fillStyle = '#7d7aff'; const a = marco % 16 < 8 ? -10 : 6; x.beginPath(); x.moveTo(o.x + 10, o.y + 8); x.lineTo(o.x + 18, o.y + 8 + a); x.lineTo(o.x + 26, o.y + 8); x.fill(); x.fillStyle = '#ffd60a'; x.fillRect(o.x - 4, o.y + 7, 6, 3); }
+    else { x.fillStyle = '#8e6b4a'; x.beginPath(); x.roundRect ? x.roundRect(o.x, o.y - o.h, o.w, o.h, 5) : x.rect(o.x, o.y - o.h, o.w, o.h); x.fill(); x.fillStyle = '#a98a68'; x.fillRect(o.x + 3, o.y - o.h + 3, o.w - 6, 4); }
+  });
+  personaje(92, p ? p.y : SUELO);
+  x.fillStyle = '#1d3b5a'; x.textAlign = 'right'; x.font = '700 16px -apple-system, Segoe UI, sans-serif';
+  x.fillText(`${Math.floor(dist || 0)} m   Récord ${record} m`, W - 16, 28);
+  x.textAlign = 'center';
+  if (estado === 'listo') { x.font = '800 40px -apple-system, Segoe UI, sans-serif'; x.fillText('Saltarín', W / 2, 120); x.font = '600 16px -apple-system, Segoe UI, sans-serif'; x.fillText('Espacio, ↑ o toque para saltar', W / 2, 152); }
+  if (estado === 'fin') { x.font = '800 34px -apple-system, Segoe UI, sans-serif'; x.fillText('¡Uy, te has chocado!', W / 2, 116); x.font = '600 16px -apple-system, Segoe UI, sans-serif'; x.fillText(`Has llegado a ${Math.floor(dist)} m · Espacio o toque para repetir`, W / 2, 148); }
+}
+function bucle(t) { acum += Math.min(100, t - ultimo); ultimo = t; while (acum >= 16.67) { paso(); acum -= 16.67; } dibujar(); requestAnimationFrame(bucle); }
+document.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') { e.preventDefault(); saltar(); } });
+cv.addEventListener('pointerdown', e => { e.preventDefault(); window.focus(); saltar(); });
+p = { y: SUELO, vy: 0 }; obst = []; dist = 0; requestAnimationFrame(t => { ultimo = t; bucle(t); });
+window.addEventListener('load', () => { window.focus(); document.body.focus(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rompeladrillos</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a0f08; }
+  body { display: grid; place-items: center; user-select: none; }
+  canvas { max-width: 100vw; max-height: 100vh; aspect-ratio: 540 / 580; width: 100%; touch-action: none; }
+</style>
+</head>
+<body tabindex="0">
+<canvas id="c" width="540" height="580"></canvas>
+<script>
+const cv = document.getElementById('c'), x = cv.getContext('2d'), W = 540, H = 580;
+const COLS = 10, FILAS = 6, BW = 48, BH = 18, GAP = 4, OX = (W - COLS * (BW + GAP) + GAP) / 2, OY = 70;
+const TONOS = ['#ff453a', '#ff9f0a', '#ffd60a', '#30d158', '#64d2ff', '#bf5af2'];
+let pala, bola, ladrillos, pts, vidas, nivel, estado = 'listo', teclas = {}, ratonX = null;
+let record = 0; try { record = +localStorage.getItem('ladrillos.record') || 0; } catch (e) {}
+function nivelNuevo() { ladrillos = []; for (let f = 0; f < FILAS; f++) for (let c = 0; c < COLS; c++) ladrillos.push({ x: OX + c * (BW + GAP), y: OY + f * (BH + GAP), c: TONOS[f], vivo: true, duro: f === 0 && nivel > 1 ? 2 : 1 }); colocar(); }
+function colocar() { pala = { x: W / 2 - 45, w: 90 }; bola = { x: W / 2, y: H - 70, vx: 3.2 * (Math.random() < .5 ? 1 : -1), vy: -4.6 - nivel * .4, r: 7, pegada: true }; }
+function reiniciar() { pts = 0; vidas = 3; nivel = 1; nivelNuevo(); estado = 'jugando'; }
+function fin(gana) { estado = gana ? 'ganado' : 'fin'; if (pts > record) { record = pts; try { localStorage.setItem('ladrillos.record', record); } catch (e) {} } try { parent.postMessage({ bahiaPuntos: pts }, '*'); } catch (e) {} }
+function actualizar() {
+  if (estado !== 'jugando') return;
+  if (teclas.ArrowLeft) pala.x -= 8; if (teclas.ArrowRight) pala.x += 8;
+  if (ratonX != null) pala.x = ratonX - pala.w / 2;
+  pala.x = Math.max(6, Math.min(W - pala.w - 6, pala.x));
+  if (bola.pegada) { bola.x = pala.x + pala.w / 2; bola.y = H - 48 - bola.r; return; }
+  bola.x += bola.vx; bola.y += bola.vy;
+  if (bola.x < bola.r || bola.x > W - bola.r) { bola.vx *= -1; bola.x = Math.max(bola.r, Math.min(W - bola.r, bola.x)); }
+  if (bola.y < bola.r + 40) { bola.vy = Math.abs(bola.vy); }
+  if (bola.vy > 0 && bola.y + bola.r > H - 48 && bola.y < H - 34 && bola.x > pala.x - 4 && bola.x < pala.x + pala.w + 4) {
+    const rel = (bola.x - (pala.x + pala.w / 2)) / (pala.w / 2), v = Math.hypot(bola.vx, bola.vy);
+    bola.vx = v * Math.sin(rel * 1.05); bola.vy = -Math.abs(v * Math.cos(rel * 1.05));
+  }
+  for (const l of ladrillos) {
+    if (!l.vivo) continue;
+    if (bola.x + bola.r > l.x && bola.x - bola.r < l.x + BW && bola.y + bola.r > l.y && bola.y - bola.r < l.y + BH) {
+      const solX = Math.min(bola.x + bola.r - l.x, l.x + BW - (bola.x - bola.r)), solY = Math.min(bola.y + bola.r - l.y, l.y + BH - (bola.y - bola.r));
+      if (solX < solY) bola.vx *= -1; else bola.vy *= -1;
+      if (--l.duro <= 0) { l.vivo = false; pts += 10 * nivel; }
+      break;
+    }
+  }
+  if (bola.y > H + 20) { vidas--; if (vidas <= 0) fin(false); else colocar(); }
+  if (ladrillos.every(l => !l.vivo)) { nivel++; if (nivel > 5) fin(true); else nivelNuevo(); }
+}
+function texto(t, y, tam) { x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = `700 ${tam}px -apple-system, Segoe UI, sans-serif`; x.fillText(t, W / 2, y); }
+function dibujar() {
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2b1a10'); g.addColorStop(1, '#120a05'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.fillStyle = '#fff'; x.font = '600 15px -apple-system, Segoe UI, sans-serif'; x.textAlign = 'left';
+  x.fillText(`Puntos ${pts ?? 0}`, 14, 26); x.textAlign = 'center'; x.fillText(`Nivel ${nivel ?? 1}`, W / 2, 26); x.textAlign = 'right'; x.fillText(`${'♥'.repeat(Math.max(0, vidas ?? 3))}  Récord ${record}`, W - 14, 26);
+  (ladrillos || []).forEach(l => { if (!l.vivo) return; x.fillStyle = l.duro > 1 ? '#e5e5ea' : l.c; x.beginPath(); x.roundRect ? x.roundRect(l.x, l.y, BW, BH, 4) : x.rect(l.x, l.y, BW, BH); x.fill(); x.fillStyle = 'rgba(255,255,255,.25)'; x.fillRect(l.x + 3, l.y + 2, BW - 6, 4); });
+  if (pala) { x.fillStyle = '#f2f2f7'; x.beginPath(); x.roundRect ? x.roundRect(pala.x, H - 48, pala.w, 12, 6) : x.rect(pala.x, H - 48, pala.w, 12); x.fill(); }
+  if (bola) { x.fillStyle = '#ffd60a'; x.beginPath(); x.arc(bola.x, bola.y, bola.r, 0, 7); x.fill(); }
+  if (estado === 'listo') { texto('Rompeladrillos', H / 2, 40); texto('Clic o Espacio para empezar · ratón o ← → para mover', H / 2 + 36, 15); }
+  if (bola && bola.pegada && estado === 'jugando') texto('Clic o Espacio para lanzar la bola', H / 2 + 80, 15);
+  if (estado === 'fin' || estado === 'ganado') { x.fillStyle = 'rgba(0,0,0,.55)'; x.fillRect(0, 0, W, H); texto(estado === 'ganado' ? '¡Has ganado los 5 niveles!' : 'Fin de la partida', H / 2 - 10, 34); texto(`Puntos: ${pts}`, H / 2 + 26, 18); texto('Clic o Espacio para jugar otra vez', H / 2 + 58, 15); }
+}
+function accion() { if (estado !== 'jugando') reiniciar(); else if (bola.pegada) bola.pegada = false; }
+function bucle() { actualizar(); dibujar(); requestAnimationFrame(bucle); }
+document.addEventListener('keydown', e => { teclas[e.key] = true; if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); accion(); } if (e.key.startsWith('Arrow')) e.preventDefault(); });
+document.addEventListener('keyup', e => { teclas[e.key] = false; });
+cv.addEventListener('pointermove', e => { const r = cv.getBoundingClientRect(); ratonX = (e.clientX - r.left) / r.width * W; });
+cv.addEventListener('pointerdown', e => { window.focus(); const r = cv.getBoundingClientRect(); ratonX = (e.clientX - r.left) / r.width * W; accion(); });
+requestAnimationFrame(bucle);
+window.addEventListener('load', () => { window.focus(); document.body.focus(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aleteo</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #6fc6f2; }
+  body { display: grid; place-items: center; outline: 0; user-select: none; }
+  canvas { display: block; height: 100vh; max-width: 100vw; aspect-ratio: 400 / 580; cursor: pointer; }
+</style>
+</head>
+<body tabindex="0">
+<canvas id="lienzo" width="400" height="580"></canvas>
+<script>
+const cv = document.getElementById('lienzo'), x = cv.getContext('2d');
+const W = cv.width, H = cv.height, SUELO = 520, HUECO = 150, ANCHO = 64;
+let pajaro, tubos, puntos, estado = 'listo', marco = 0, desplaz = 0, ultimo = 0;
+let mejor = 0; try { mejor = +localStorage.getItem('aleteo.mejor') || 0; } catch (e) {}
+const nubes = Array.from({ length: 5 }, (_, i) => ({ x: i * 110 + 20, y: 50 + Math.random() * 140, s: .6 + Math.random() * .6 }));
+function reiniciar() { pajaro = { y: H / 2 - 40, v: 0 }; tubos = []; puntos = 0; marco = 0; estado = 'listo'; }
+function aletear() {
+  if (estado === 'fin') { if (performance.now() - ultimo > 500) reiniciar(); return; }
+  if (estado === 'listo') estado = 'jugando';
+  pajaro.v = -7.2;
+}
+function actualizar() {
+  if (estado !== 'fin') desplaz = (desplaz + 2.4) % 24;
+  if (estado !== 'jugando') { if (estado === 'listo') pajaro.y = H / 2 - 40 + Math.sin(marco / 12) * 6; marco++; return; }
+  marco++;
+  pajaro.v = Math.min(pajaro.v + .42, 10);
+  pajaro.y += pajaro.v;
+  if (marco % 92 === 0) tubos.push({ x: W, h: 70 + Math.random() * (SUELO - HUECO - 140), pasado: false });
+  tubos.forEach(t => t.x -= 2.4);
+  tubos = tubos.filter(t => t.x > -ANCHO);
+  const px = 110, r = 14;
+  for (const t of tubos) {
+    if (px + r > t.x && px - r < t.x + ANCHO && (pajaro.y - r < t.h || pajaro.y + r > t.h + HUECO)) return morir();
+    if (!t.pasado && t.x + ANCHO < px) { t.pasado = true; puntos++; }
+  }
+  if (pajaro.y + r > SUELO || pajaro.y < -40) morir();
+}
+function morir() {
+  estado = 'fin'; ultimo = performance.now();
+  if (puntos > mejor) { mejor = puntos; try { localStorage.setItem('aleteo.mejor', mejor); } catch (e) {} }
+}
+function tubo(px, py, h, arriba) {
+  const g = x.createLinearGradient(px, 0, px + ANCHO, 0);
+  g.addColorStop(0, '#5cc93b'); g.addColorStop(.5, '#8fe36a'); g.addColorStop(1, '#3d9e27');
+  x.fillStyle = g; x.fillRect(px, py, ANCHO, h);
+  x.fillRect(px - 5, arriba ? py + h - 26 : py, ANCHO + 10, 26);
+  x.strokeStyle = '#2b6e1b'; x.lineWidth = 2; x.strokeRect(px, py, ANCHO, h); x.strokeRect(px - 5, arriba ? py + h - 26 : py, ANCHO + 10, 26);
+}
+function texto(t, y, tam, borde) {
+  x.font = `800 ${tam}px -apple-system, "Segoe UI", sans-serif`; x.textAlign = 'center';
+  x.lineJoin = 'round'; x.lineWidth = borde; x.strokeStyle = '#1b3550'; x.strokeText(t, W / 2, y); x.fillStyle = '#fff'; x.fillText(t, W / 2, y);
+}
+function dibujar() {
+  const cielo = x.createLinearGradient(0, 0, 0, SUELO);
+  cielo.addColorStop(0, '#5ab8f0'); cielo.addColorStop(1, '#bfe9ff');
+  x.fillStyle = cielo; x.fillRect(0, 0, W, SUELO);
+  x.fillStyle = 'rgba(255,255,255,.85)';
+  nubes.forEach(n => { if (estado !== 'fin') n.x -= .3 * n.s; if (n.x < -80) n.x = W + 20; x.beginPath(); x.ellipse(n.x, n.y, 34 * n.s, 14 * n.s, 0, 0, 7); x.ellipse(n.x + 22 * n.s, n.y - 8 * n.s, 22 * n.s, 14 * n.s, 0, 0, 7); x.fill(); });
+  x.fillStyle = '#8fd3a0'; x.beginPath(); x.moveTo(0, SUELO);
+  for (let i = 0; i <= W; i += 40) x.lineTo(i, SUELO - 40 - Math.sin(i / 60) * 18); x.lineTo(W, SUELO); x.fill();
+  tubos.forEach(t => { tubo(t.x, 0, t.h, true); tubo(t.x, t.h + HUECO, SUELO - t.h - HUECO, false); });
+  x.fillStyle = '#ded895'; x.fillRect(0, SUELO, W, H - SUELO);
+  x.fillStyle = '#7ec850'; x.fillRect(0, SUELO, W, 14);
+  x.fillStyle = '#6ab43e'; for (let i = -24; i < W + 24; i += 24) x.fillRect(i - desplaz, SUELO, 12, 14);
+  // pájaro
+  x.save(); x.translate(110, pajaro.y); x.rotate(Math.max(-.5, Math.min(1.2, pajaro.v / 10)));
+  x.fillStyle = '#ffd23f'; x.beginPath(); x.ellipse(0, 0, 18, 14, 0, 0, 7); x.fill();
+  x.strokeStyle = '#c9971a'; x.lineWidth = 2; x.stroke();
+  x.fillStyle = '#ffe98a'; x.beginPath(); x.ellipse(-6, 3 + Math.sin(marco / 3) * 3, 9, 6, -.3, 0, 7); x.fill();
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(7, -5, 5.5, 0, 7); x.fill();
+  x.fillStyle = '#111'; x.beginPath(); x.arc(8.5, -5, 2.5, 0, 7); x.fill();
+  x.fillStyle = '#ff7a2f'; x.beginPath(); x.moveTo(13, 0); x.lineTo(24, 3); x.lineTo(13, 7); x.fill();
+  x.restore();
+  if (estado === 'jugando') texto(puntos, 80, 48, 6);
+  if (estado === 'listo') { texto('Aleteo', 150, 50, 7); texto('Clic o Espacio para volar', 400, 20, 4); }
+  if (estado === 'fin') {
+    texto('¡Fin!', 170, 50, 7); texto(`Puntos: ${puntos}`, 230, 26, 5); texto(`Mejor: ${mejor}`, 266, 22, 4);
+    texto('Clic o Espacio para repetir', 400, 20, 4);
+  }
+}
+let acum = 0, antes = performance.now();
+function bucle(t) { acum += Math.min(100, t - antes); antes = t; while (acum >= 16.67) { actualizar(); acum -= 16.67; } dibujar(); requestAnimationFrame(bucle); }
+document.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') { e.preventDefault(); aletear(); } });
+cv.addEventListener('pointerdown', e => { e.preventDefault(); window.focus(); aletear(); });
+reiniciar(); requestAnimationFrame(bucle);
+window.addEventListener('load', () => { window.focus(); document.body.focus(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2048</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  html { overflow: auto; }
+  body { background: #faf6ee; color: #5b4d3f; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 14px; outline: 0; user-select: none; touch-action: none; }
+  .cab { width: min(400px, 90vw); display: flex; align-items: center; gap: 8px; }
+  h1 { margin: 0 auto 0 0; font-size: 44px; font-weight: 800; color: #6b5a48; }
+  .caja { background: #bcae9e; color: #fff; border-radius: 8px; padding: 6px 14px; text-align: center; min-width: 70px; font-variant-numeric: tabular-nums; }
+  .caja small { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #f3ebe0; }
+  .caja b { font-size: 19px; }
+  .boton { width: min(400px, 90vw); display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  button { font-family: inherit; font-weight: 600; font-size: 14px; border: 0; border-radius: 8px; padding: 9px 16px; background: #8f7a66; color: #fff; cursor: pointer; }
+  .tablero { position: relative; width: min(400px, 90vw, 62vh); aspect-ratio: 1; background: #bcae9e; border-radius: 10px; padding: 2.6%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.6%; box-sizing: border-box; }
+  .celda { border-radius: 6px; background: #cdc1b3; display: grid; place-items: center; font-weight: 800; font-size: clamp(18px, 7.5vmin, 38px); color: #776e65; transition: background .1s; }
+  .celda.nueva { animation: sale .18s ease-out; }
+  .celda.unida { animation: late .18s ease-out; }
+  @keyframes sale { from { transform: scale(.2); } }
+  @keyframes late { 50% { transform: scale(1.14); } }
+  .capa { position: absolute; inset: 0; border-radius: 10px; background: rgba(250,246,238,.75); display: flex; flex-direction: column; align-items: center; justify-content: safe center; gap: 14px; font-size: 34px; font-weight: 800; }
+</style>
+</head>
+<body tabindex="0">
+  <div class="cab"><h1>2048</h1><div class="caja"><small>Puntos</small><b id="pts">0</b></div><div class="caja"><small>Récord</small><b id="rec">0</b></div></div>
+  <div class="boton"><span>Junta las fichas con las flechas o deslizando.</span><button id="nuevo">Nueva partida</button></div>
+  <div class="tablero" id="tablero"></div>
+<script>
+const COLORES = { 2: ['#eee4da', '#776e65'], 4: ['#ede0c8', '#776e65'], 8: ['#f2b179', '#fff'], 16: ['#f59563', '#fff'], 32: ['#f67c5f', '#fff'], 64: ['#f65e3b', '#fff'], 128: ['#edcf72', '#fff'], 256: ['#edcc61', '#fff'], 512: ['#edc850', '#fff'], 1024: ['#edc53f', '#fff'], 2048: ['#edc22e', '#fff'] };
+const tablero = document.getElementById('tablero');
+let g, pts, gano, nuevas = new Set(), unidas = new Set();
+let rec = 0; try { rec = +localStorage.getItem('2048.record') || 0; } catch (e) {}
+document.getElementById('rec').textContent = rec;
+
+function vacias() { return g.map((v, i) => v ? -1 : i).filter(i => i >= 0); }
+function añadir() { const v = vacias(); if (!v.length) return; const i = v[Math.random() * v.length | 0]; g[i] = Math.random() < .9 ? 2 : 4; nuevas.add(i); }
+function nueva() { g = Array(16).fill(0); pts = 0; gano = false; nuevas.clear(); añadir(); añadir(); pintar(); }
+function pintar() {
+  tablero.innerHTML = '';
+  g.forEach((v, i) => {
+    const c = document.createElement('div');
+    c.className = 'celda' + (nuevas.has(i) ? ' nueva' : '') + (unidas.has(i) ? ' unida' : '');
+    if (v) { const col = COLORES[v] || ['#3c3a32', '#fff']; c.style.background = col[0]; c.style.color = col[1]; c.textContent = v; if (v >= 1024) c.style.fontSize = 'clamp(14px, 5.5vmin, 28px)'; }
+    tablero.appendChild(c);
+  });
+  nuevas.clear(); unidas.clear();
+  document.getElementById('pts').textContent = pts;
+  if (pts > rec) { rec = pts; try { localStorage.setItem('2048.record', rec); } catch (e) {} document.getElementById('rec').textContent = rec; }
+}
+function mover(dir) {
+  const antes = g.join();
+  for (let k = 0; k < 4; k++) {
+    let idx = [0, 1, 2, 3].map(i => dir < 2 ? k * 4 + i : i * 4 + k);
+    if (dir === 1 || dir === 3) idx.reverse();
+    const fila = idx.map(i => g[i]).filter(v => v), res = [], marcas = [];
+    for (let i = 0; i < fila.length; i++) {
+      if (fila[i] === fila[i + 1]) { res.push(fila[i] * 2); pts += fila[i] * 2; marcas.push(res.length - 1); i++; }
+      else res.push(fila[i]);
+    }
+    while (res.length < 4) res.push(0);
+    idx.forEach((i, j) => { g[i] = res[j]; if (marcas.includes(j)) unidas.add(i); });
+  }
+  if (g.join() === antes) { unidas.clear(); return; }
+  añadir(); pintar();
+  if (!gano && g.includes(2048)) { gano = true; capa('¡Has llegado a 2048!', 'Seguir jugando'); }
+  else if (sinMovimientos()) capa('Sin movimientos', 'Intentar de nuevo', true);
+}
+function sinMovimientos() {
+  if (vacias().length) return false;
+  for (let i = 0; i < 16; i++) { if (i % 4 < 3 && g[i] === g[i + 1]) return false; if (i < 12 && g[i] === g[i + 4]) return false; }
+  return true;
+}
+function capa(texto, boton, reiniciar) {
+  const c = document.createElement('div'); c.className = 'capa';
+  c.innerHTML = `<span>${texto}</span><button>${boton}</button>`;
+  c.querySelector('button').onclick = () => { c.remove(); if (reiniciar) nueva(); document.body.focus(); };
+  tablero.appendChild(c);
+}
+document.addEventListener('keydown', e => {
+  const m = { ArrowLeft: 0, a: 0, ArrowRight: 1, d: 1, ArrowUp: 2, w: 2, ArrowDown: 3, s: 3 }[e.key];
+  if (m !== undefined && !tablero.querySelector('.capa')) { e.preventDefault(); mover(m); }
+});
+let ini = null;
+tablero.addEventListener('pointerdown', e => { ini = [e.clientX, e.clientY]; window.focus(); });
+tablero.addEventListener('pointerup', e => {
+  if (!ini) return;
+  const dx = e.clientX - ini[0], dy = e.clientY - ini[1]; ini = null;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 25 || tablero.querySelector('.capa')) return;
+  mover(Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 0 : 1) : (dy < 0 ? 2 : 3));
+});
+document.getElementById('nuevo').onclick = () => { nueva(); document.body.focus(); };
+nueva();
+window.addEventListener('load', () => { window.focus(); document.body.focus(); });
+</script>
+</body>
+</html>

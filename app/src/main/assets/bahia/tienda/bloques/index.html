@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bloques</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: radial-gradient(120% 90% at 50% 0%, #3a2280, #120a2e); color: #fff; font-family: -apple-system, "Segoe UI", system-ui, sans-serif; display: flex; align-items: center; justify-content: safe center; gap: 16px; padding: 12px; box-sizing: border-box; user-select: none; overflow: hidden; }
+  canvas { background: rgba(0,0,0,.35); border-radius: 10px; box-shadow: 0 0 0 1px rgba(255,255,255,.12); height: min(560px, 92vh); width: auto; aspect-ratio: 1 / 2; touch-action: none; }
+  .lado { display: flex; flex-direction: column; gap: 12px; min-width: 96px; font-size: 13px; }
+  .caja { background: rgba(255,255,255,.08); border-radius: 10px; padding: 8px 10px; }
+  .caja small { display: block; opacity: .7; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  .caja b { font-size: 20px; font-variant-numeric: tabular-nums; }
+  #sig { width: 76px; height: 76px; display: block; }
+  .ayuda { opacity: .6; font-size: 11px; line-height: 1.5; }
+</style>
+</head>
+<body tabindex="0">
+<canvas id="c" width="200" height="400"></canvas>
+<div class="lado">
+  <div class="caja"><small>Siguiente</small><canvas id="sig" width="80" height="80"></canvas></div>
+  <div class="caja"><small>Puntos</small><b id="pts">0</b></div>
+  <div class="caja"><small>Filas</small><b id="fil">0</b></div>
+  <div class="caja"><small>Récord</small><b id="rec">0</b></div>
+  <div class="ayuda">← → mover<br>↑ girar<br>↓ bajar<br>Espacio: soltar<br>P: pausa</div>
+</div>
+<script>
+const W = 10, H = 20, T = 20, cv = document.getElementById('c'), x = cv.getContext('2d'), sx = document.getElementById('sig').getContext('2d');
+const PIEZAS = [
+  [[1,1,1,1]], [[1,1],[1,1]], [[0,1,0],[1,1,1]], [[1,0,0],[1,1,1]], [[0,0,1],[1,1,1]], [[1,1,0],[0,1,1]], [[0,1,1],[1,1,0]]
+];
+const COLORES = ['#64d2ff', '#ffd60a', '#bf5af2', '#0a84ff', '#ff9f0a', '#ff375f', '#30d158'];
+let tab, pieza, sig, px, py, pts, filas, nivel, fin, pausa, ultimo = 0, acum = 0;
+let record = 0; try { record = +localStorage.getItem('bloques.record') || 0; } catch (e) {}
+document.getElementById('rec').textContent = record;
+const nueva = () => { const i = Math.random() * PIEZAS.length | 0; return { m: PIEZAS[i].map(f => f.slice()), c: i + 1 }; };
+function reiniciar() { tab = Array.from({ length: H }, () => Array(W).fill(0)); pts = 0; filas = 0; nivel = 1; fin = false; pausa = false; sig = nueva(); sacar(); pintarDatos(); }
+function sacar() { pieza = sig; sig = nueva(); px = (W - pieza.m[0].length) >> 1; py = 0; if (choca(pieza.m, px, py)) { fin = true; guardar(); } }
+function choca(m, ox, oy) { return m.some((f, y) => f.some((v, xx) => v && (oy + y >= H || ox + xx < 0 || ox + xx >= W || (oy + y >= 0 && tab[oy + y][ox + xx])))); }
+function girar() { const m = pieza.m[0].map((_, i) => pieza.m.map(f => f[i]).reverse()); for (const d of [0, -1, 1, -2, 2]) if (!choca(m, px + d, py)) { pieza.m = m; px += d; return; } }
+function fijar() {
+  pieza.m.forEach((f, y) => f.forEach((v, xx) => { if (v && py + y >= 0) tab[py + y][px + xx] = pieza.c; }));
+  let n = 0;
+  for (let y = H - 1; y >= 0; y--) if (tab[y].every(Boolean)) { tab.splice(y, 1); tab.unshift(Array(W).fill(0)); n++; y++; }
+  if (n) { pts += [0, 100, 300, 500, 800][n] * nivel; filas += n; nivel = 1 + Math.floor(filas / 10); }
+  sacar(); pintarDatos();
+}
+function bajar() { if (!choca(pieza.m, px, py + 1)) py++; else fijar(); }
+function guardar() { if (pts > record) { record = pts; try { localStorage.setItem('bloques.record', record); } catch (e) {} } try { parent.postMessage({ bahiaPuntos: pts }, '*'); } catch (e) {} pintarDatos(); }
+function pintarDatos() { document.getElementById('pts').textContent = pts; document.getElementById('fil').textContent = filas; document.getElementById('rec').textContent = Math.max(record, pts); }
+function celda(cx, X, Y, c, t) { cx.fillStyle = COLORES[c - 1]; cx.fillRect(X * t + 1, Y * t + 1, t - 2, t - 2); cx.fillStyle = 'rgba(255,255,255,.25)'; cx.fillRect(X * t + 1, Y * t + 1, t - 2, 4); }
+function dibujar() {
+  x.clearRect(0, 0, cv.width, cv.height);
+  x.strokeStyle = 'rgba(255,255,255,.05)';
+  for (let i = 1; i < W; i++) { x.beginPath(); x.moveTo(i * T, 0); x.lineTo(i * T, H * T); x.stroke(); }
+  tab.forEach((f, y) => f.forEach((c, xx) => c && celda(x, xx, y, c, T)));
+  if (!fin) {
+    let gy = py; while (!choca(pieza.m, px, gy + 1)) gy++;
+    x.globalAlpha = .22; pieza.m.forEach((f, y) => f.forEach((v, xx) => v && celda(x, px + xx, gy + y, pieza.c, T))); x.globalAlpha = 1;
+    pieza.m.forEach((f, y) => f.forEach((v, xx) => v && celda(x, px + xx, py + y, pieza.c, T)));
+  }
+  sx.clearRect(0, 0, 80, 80);
+  const t = 18, ox = (80 - sig.m[0].length * t) / 2, oy = (80 - sig.m.length * t) / 2;
+  sig.m.forEach((f, y) => f.forEach((v, xx) => { if (v) { sx.save(); sx.translate(ox, oy); celda(sx, xx, y, sig.c, t); sx.restore(); } }));
+  if (fin || pausa) {
+    x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(0, 0, cv.width, cv.height);
+    x.fillStyle = '#fff'; x.textAlign = 'center'; x.font = '700 20px -apple-system, Segoe UI, sans-serif';
+    x.fillText(fin ? 'Fin de la partida' : 'Pausa', cv.width / 2, cv.height / 2 - 6);
+    x.font = '12px -apple-system, Segoe UI, sans-serif'; x.fillText(fin ? 'Espacio o toque para jugar' : 'P para seguir', cv.width / 2, cv.height / 2 + 16);
+  }
+}
+function bucle(t) {
+  const dt = Math.min(100, t - ultimo); ultimo = t;
+  if (!fin && !pausa) { acum += dt; const vel = Math.max(90, 650 - (nivel - 1) * 55); while (acum > vel) { acum -= vel; bajar(); } }
+  dibujar(); requestAnimationFrame(bucle);
+}
+document.addEventListener('keydown', e => {
+  const k = e.key;
+  if (fin) { if (k === ' ' || k === 'Enter') { e.preventDefault(); reiniciar(); } return; }
+  if (k === 'p' || k === 'P') { pausa = !pausa; return; }
+  if (pausa) return;
+  if (k === 'ArrowLeft' && !choca(pieza.m, px - 1, py)) px--;
+  else if (k === 'ArrowRight' && !choca(pieza.m, px + 1, py)) px++;
+  else if (k === 'ArrowUp' || k === 'x') girar();
+  else if (k === 'ArrowDown') { bajar(); pts += 1; pintarDatos(); }
+  else if (k === ' ') { while (!choca(pieza.m, px, py + 1)) { py++; pts += 2; } fijar(); }
+  else return;
+  e.preventDefault();
+});
+let ini = null;
+cv.addEventListener('pointerdown', e => { window.focus(); if (fin) { reiniciar(); return; } ini = [e.clientX, e.clientY, Date.now()]; });
+cv.addEventListener('pointerup', e => {
+  if (!ini || fin || pausa) return;
+  const dx = e.clientX - ini[0], dy = e.clientY - ini[1]; ini = null;
+  if (Math.abs(dx) < 15 && Math.abs(dy) < 15) { girar(); return; }
+  if (Math.abs(dx) > Math.abs(dy)) { const n = Math.round(dx / 24); for (let i = 0; i < Math.abs(n); i++) if (!choca(pieza.m, px + Math.sign(n), py)) px += Math.sign(n); }
+  else if (dy > 40) { while (!choca(pieza.m, px, py + 1)) py++; fijar(); }
+});
+reiniciar(); requestAnimationFrame(bucle);
+window.addEventListener('load', () => { window.focus(); document.body.focus(); });
+</script>
+</body>
+</html>
