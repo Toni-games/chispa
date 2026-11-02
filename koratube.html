@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>KoraTube · reproductor</title>
+<!--
+  Reproductor de KoraTube (Kora OS).
+  Kora lo abre dentro de una ventana para ver YouTube aunque Kora se haya abierto
+  como archivo en el ordenador. Usa el reproductor oficial de YouTube.
+  No forma parte de Chispa: Chispa no lo usa.
+-->
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:system-ui,sans-serif;color:#fff}
+  #yt{position:absolute;inset:0;width:100%;height:100%;border:0}
+  #msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:20px;font-size:14px;opacity:.85}
+</style>
+</head>
+<body>
+<div id="msg">Cargando…</div>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search);
+  var padre=window.parent!==window?window.parent:null;
+  function enviar(m){m.koratube=1;try{padre&&padre.postMessage(m,'*')}catch(e){}}
+  var vid=(q.get('v')||'').replace(/[^\w-]/g,'').slice(0,11);
+  var lista=(q.get('lista')||'').replace(/[^\w-]/g,'').slice(0,64);
+  var inicio=Math.max(0,parseInt(q.get('t')||'0',10)||0);
+  var soloIds=q.get('ids')==='1';
+  if(!vid&&!lista){document.getElementById('msg').textContent='Falta el vídeo.';return}
+
+  /* El iframe de YouTube se crea a mano con "credentialless" para que funcione siempre */
+  var f=document.createElement('iframe');
+  f.id='yt';f.setAttribute('credentialless','');f.setAttribute('allowfullscreen','');
+  f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen; web-share';
+  var base='https://www.youtube-nocookie.com/embed/';
+  var params='enablejsapi=1&rel=0&playsinline=1&origin='+encodeURIComponent(location.origin);
+  f.src=lista?base+'videoseries?list='+lista+'&'+params+(soloIds?'&mute=1':'&autoplay=1')
+             :base+vid+'?'+params+'&autoplay=1'+(inicio?'&start='+inicio:'');
+  document.body.appendChild(f);
+  document.getElementById('msg').remove();
+  enviar({tipo:'cargada'});
+
+  var p=null,iv=0;
+  window.onYouTubeIframeAPIReady=function(){
+    p=new YT.Player('yt',{events:{
+      onReady:function(){
+        if(soloIds){
+          var n=0,t=setInterval(function(){n++;var ids=null;try{ids=p.getPlaylist()}catch(e){}
+            if(ids&&ids.length){clearInterval(t);enviar({tipo:'lista',ids:ids.slice(0,200)})}
+            else if(n===10){try{p.cuePlaylist({listType:'playlist',list:lista})}catch(e){}}
+            else if(n>36){clearInterval(t);enviar({tipo:'lista',ids:[]})}},300);
+          return;
+        }
+        enviar({tipo:'listo'});
+        iv=setInterval(function(){try{enviar({tipo:'tiempo',t:p.getCurrentTime(),v:(p.getVideoData()||{}).video_id})}catch(e){}},3000);
+      },
+      onStateChange:function(e){if(!soloIds)enviar({tipo:'estado',e:e.data});if(e.data===0&&!soloIds)enviar({tipo:'fin'})},
+      onError:function(e){enviar({tipo:'error',code:e.data})}
+    }});
+  };
+  var s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';
+  s.onerror=function(){enviar({tipo:soloIds?'lista':'sinapi',ids:[]})};
+  document.head.appendChild(s);
+
+  /* Órdenes que manda Kora */
+  window.addEventListener('message',function(e){
+    var d=e.data||{};if(!d||d.kora!==1||!p)return;
+    try{
+      if(d.cmd==='cargar'&&d.v)p.loadVideoById({videoId:String(d.v).replace(/[^\w-]/g,'').slice(0,11),startSeconds:+d.t||0});
+      if(d.cmd==='pausa')p.pauseVideo();
+      if(d.cmd==='play')p.playVideo();
+    }catch(err){}
+  });
+})();
+</script>
+</body>
+</html>
