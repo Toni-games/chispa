@@ -619,9 +619,9 @@ html.noemoji .idea .ie, html.noemoji #modelBtn > span:first-child, html.noemoji 
 </div>
 
 <script src="config.js"></script>
-<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261108195227";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
+<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261108200408";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
 <script type="module">
-const CHISPA_VER = "20261108195227";
+const CHISPA_VER = "20261108200408";
 /* ===================== 👤 CUENTAS DE CHISPA ===================== */
 // Cada persona entra con su Gmail y una contraseña que se inventa PARA CHISPA.
 // Las cuentas se guardan en este ordenador (no hay servidor). La contraseña nunca se guarda:
@@ -7235,15 +7235,25 @@ async function askClaude(row, q){
 //  - Dentro de Claude (Chispa Nube): Chispa se lo pide a Claude ella sola.
 //  - En la app / el APK / el archivo: te copia la petición para Claude y luego pegas aquí el código.
 // El resultado se ve FUNCIONANDO dentro del chat, en una caja aislada (no puede tocar tus datos de Chispa).
-const HTML_RE = /\b(html|pagina web|una web|sitio web|landing|juego (web|en html|para el navegador)|app (web|en html))\b/;
+const HTML_RE = /\b(html5?|htm|pagina web|una web|sitio web|landing|juego (web|en html|para el navegador)|app (web|en html))\b/;
+// Cualquier mensaje que hable de hacer algo en HTML (escrito como sea: "hacme", "asme", "ase"…).
+// Solo NO cuenta si es una pregunta sobre qué es el HTML.
 function htmlRequest(text){
   const n = norm(text);
-  if(!/\b(haz|hazme|crea|creame|genera|generame|programa|programame|construye|disena|disename|quiero|necesito|escribe|escribeme)\b/.test(n)) return null;
   if(!HTML_RE.test(n)) return null;
+  if(/^(que|como|para que|por que|cual|cuales|sabes|explica|explicame)\b/.test(n) && !/\b(haz|hazme|hacme|asme|crea|creame|genera|programa)\b/.test(n)) return null;
+  if(/\b(que es|que significa|para que sirve|como funciona|como se escribe|aprender|curso|clase de|etiquetas?)\b/.test(n) && !/\b(haz|hazme|hacme|crea|creame|genera|programa|juego|videojuego)\b/.test(n)) return null;
   return text.trim();
 }
+// si dices "mi mascota", Claude recibe cómo es tu mascota de Chispa
+function petInfo(want){
+  const n = norm(want);
+  if(!/\b(mi mascota|mi dragon|mi dragoncito)\b/.test(n) || typeof pet === "undefined" || !pet) return "";
+  const stage = typeof PET_STAGES !== "undefined" && PET_STAGES[pet.stage] ? PET_STAGES[pet.stage].toLowerCase() : "dragoncito";
+  return ` Mi mascota es un dragón pixelado y simpático llamado «${pet.name}» (${pet.stage ? "ahora es " + stage : "todavía es un huevo, pero hazlo ya como un dragoncito pequeño"}), de color ${pet.color} con detalles amarillos (#ffd23f) y ojos negros.`;
+}
 function htmlPrompt(want){
-  return `Hazme ${/^(hazme|haz|crea|creame|genera|generame|programa|programame|construye|quiero|necesito)\b/i.test(want) ? "lo siguiente" : "esto"} en UN SOLO archivo HTML, con todo el CSS y el JavaScript dentro (nada de archivos aparte ni librerías que haya que instalar). Que se vea bonito, que funcione en el móvil y en el ordenador, y que los textos estén en español. Petición: «${want}». Devuélveme SOLO el código completo, empezando por <!doctype html>.`;
+  return `Hazme ${/^(hazme|haz|crea|creame|genera|generame|programa|programame|construye|quiero|necesito)\b/i.test(want) ? "lo siguiente" : "esto"} en UN SOLO archivo HTML, con todo el CSS y el JavaScript dentro (nada de archivos aparte ni librerías que haya que instalar). Que se vea bonito, que funcione en el móvil y en el ordenador, y que los textos estén en español. Petición: «${want}».${petInfo(want)} Si pide 3D, usa three.js desde https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js con <script type="module"> e incluye controles con teclado y también botones táctiles para el móvil. Devuélveme SOLO el código completo, empezando por <!doctype html>.`;
 }
 // saca el HTML de una respuesta (con o sin ```html)
 function extractHtml(t){
@@ -7285,7 +7295,8 @@ async function htmlSave(code, name){
   toast("Guardado como " + file + " (en Descargas)", "💾", 5000);
 }
 function htmlPush(code, want){
-  const name = String(want||"página").replace(/^(hazme|haz|crea|creame|genera|generame|programa|programame|construye|quiero|necesito|escribeme|escribe)\s+/i,"").slice(0,60);
+  const name = String(want||"página").replace(/^(hazme|hacme|hasme|asme|haz|hace|crea|creame|genera|generame|programa|programame|construye|quiero|necesito|escribeme|escribe)\s+/i,"")
+    .replace(/^(un|una|el|la)\s+/i,"").replace(/\s+(y que|que)\s+.*$/i,"").slice(0,50) || "tu página";
   const h = {role:"assistant", content:`Aquí tienes «${name}» funcionando. Puedes jugar con ella aquí mismo, verla en grande o guardarla.`, html:code, name};
   history.push(h); htmlCard(h); saveHist();
 }
