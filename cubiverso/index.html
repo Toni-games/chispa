@@ -15,6 +15,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&family=Rubik+Mono+One&display=swap">
 <style>
+[hidden]{display:none!important}
 /* Layout: plataforma de juegos. Barra superior fija, menú lateral (abajo en móvil), contenido por secciones; los juegos se abren a pantalla completa */
 :root{
   --bg:#111318; --panel:#1a1d24; --panel2:#242833; --line:rgba(255,255,255,.08); --fg:#f1f3f7; --muted:#9aa2b4;
@@ -149,10 +150,37 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
 #gpanel button{background:none;border:0;text-align:left;padding:10px 12px;border-radius:8px;font-weight:500;color:#f1f3f7}
 #gpanel button:hover{background:#242833}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:80;background:var(--fg);color:var(--bg);border-radius:12px;padding:10px 16px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.35);max-width:calc(100vw - 32px)}
+/* música */
+.musb{width:38px;height:38px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center;flex:none;padding:0}
+.musb svg{width:18px;height:18px;fill:none;stroke:var(--fg);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.musb.on{background:var(--brand);border-color:transparent}.musb.on svg{stroke:var(--brand-ink)}
+.musb.on svg{animation:pulse 1s ease-in-out infinite alternate}@keyframes pulse{to{transform:scale(1.15)}}
+.now{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center}
+.now .disc{width:64px;height:64px;border-radius:14px;background:conic-gradient(from 0deg,var(--brand),var(--sel),var(--play),var(--brand));display:grid;place-items:center}
+.now .disc svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.now.playing .disc{animation:spin 6s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.now b{display:block;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.now small{color:var(--muted)}
+.ctl{display:flex;gap:6px}.ctl .btn{padding:10px 12px;min-width:44px}
+.tracks{display:flex;flex-direction:column;gap:6px}
+.trk{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--panel)}
+.trk.on{border-color:var(--brand)}
+.trk .pb{width:40px;height:40px;border-radius:50%;border:0;background:var(--panel2);display:grid;place-items:center;padding:0}
+.trk.on .pb{background:var(--brand);color:var(--brand-ink)}
+.trk .pb svg{width:16px;height:16px}
+.trk b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.trk small{color:var(--muted)}
+.sl{display:grid;grid-template-columns:110px minmax(0,1fr) 44px;gap:10px;align-items:center}
+.sl input{width:100%;accent-color:var(--brand)}
+.sel{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--fg);font:inherit;max-width:100%}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.board .btn{padding:12px 8px;font-size:13px}
+.upl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:2px dashed var(--line);border-radius:12px;padding:14px}
+.upl.drag{border-color:var(--brand)}
+.demo{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;justify-content:center}.demo .btn{padding:7px 12px;font-size:13px}.demo .btn.on{background:var(--sel);color:#fff;border-color:transparent}
+.item .desc{font-size:11px;color:var(--muted);line-height:1.3}
 @media (max-width:820px){
   .shell{grid-template-columns:minmax(0,1fr);padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
   .side{position:fixed;inset:auto 0 0 0;top:auto;z-index:25;flex-direction:row;justify-content:space-around;background:var(--panel);border-top:1px solid var(--line);padding:6px max(6px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px));gap:0}
-  .side a{flex-direction:column;gap:2px;font-size:11px;padding:6px 4px;flex:1;justify-content:center;text-align:center}
+  .side a{flex-direction:column;gap:2px;font-size:10.5px;padding:6px 2px;min-width:0;flex:1;justify-content:center;text-align:center}
   .av{grid-template-columns:minmax(0,1fr)}
   .stage{position:relative;top:0;aspect-ratio:1;max-height:56vh;margin-inline:auto}
   .hello{grid-template-columns:auto minmax(0,1fr)}
@@ -166,6 +194,7 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
 <header class="top"><div class="in">
   <a class="logo" href="#inicio" aria-label="Cubiverso, inicio"><svg class="cube" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7z" fill="#ffb020"/><path d="M12 2l9 5-9 5-9-5z" fill="#ffd27a"/><path d="M12 12v10l-9-5V7z" fill="#e08e00"/></svg><span>CUBIVERSO</span></a>
   <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" type="search" placeholder="Buscar juegos" autocomplete="off"></label>
+  <button class="musb" id="musbtn" data-act="mustoggle" aria-label="Música: pulsa para encender o apagar" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></button>
   <a class="pill" href="#cubos" id="bal" aria-label="Tus Cubos"></a>
   <a class="me" href="#avatar" aria-label="Tu avatar"><img id="meimg" alt=""></a>
 </div></header>
@@ -175,6 +204,7 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
     <a href="#juegos" data-v="juegos"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="4"/><path d="M7 11v3M5.5 12.5h3M16 12h.01M18 14h.01"/></svg>Juegos</a>
     <a href="#avatar" data-v="avatar"><svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="8" rx="1"/><path d="M5 22v-6a4 4 0 014-4h6a4 4 0 014 4v6"/></svg>Avatar</a>
     <a href="#catalogo" data-v="catalogo"><svg viewBox="0 0 24 24"><path d="M4 8h16l-1.5 12h-13z"/><path d="M8 8a4 4 0 018 0"/></svg>Catálogo</a>
+    <a href="#musica" data-v="musica"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Música</a>
     <a href="#amigos" data-v="amigos"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 20c0-2 .9-4 3-5"/></svg>Amigos</a>
     <a href="#cubos" data-v="cubos"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>Cubos</a>
     <a href="#ajustes" data-v="ajustes"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>Ajustes</a>
@@ -186,6 +216,7 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
     <button class="btn" id="gmenubtn" aria-expanded="false">☰ Menú</button>
     <b id="gname"></b>
     <span class="pill" id="gbal"></span>
+    <button class="btn" data-act="musmute" id="gmute" aria-pressed="false">Sonido: sí</button>
     <button class="btn" data-act="exitgame">Salir</button>
   </div>
   <iframe id="frame" title="Juego" allow="fullscreen; autoplay"></iframe>
@@ -201,6 +232,7 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="avatar.js"></script>
+<script src="audio.js"></script>
 <script src="pases.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="multi.js"></script>
@@ -213,8 +245,9 @@ const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const fmtC=n=>Math.floor(n).toLocaleString('es-ES');
 const eur=n=>n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
 const CUBE='<svg class="cube" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7z" fill="#ffb020"/><path d="M12 2l9 5-9 5-9-5z" fill="#ffd27a"/><path d="M12 12v10l-9-5V7z" fill="#e08e00"/></svg>';
+const NOTE_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>';
 const PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>';
-let toastT;function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2600)}
+let toastT;function toast(t){if(window.CubiAudio)CubiAudio.sfx(/falta|no existe|ya canjeaste|no tienes|escribe/i.test(t)?'error':'notify');const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2600)}
 function addHist(txt,amt){(st.history=st.history||[]).unshift({t:Date.now(),txt,amt});st.history=st.history.slice(0,30)}
 
 /* ================= JUEGOS ================= */
@@ -309,11 +342,14 @@ function thumbSetup(){try{TR=new THREE.WebGLRenderer({antialias:true,alpha:true,
   TSc=new THREE.Scene();TSc.add(new THREE.HemisphereLight(0xffffff,0x667788,.95));const d=new THREE.DirectionalLight(0xffffff,.55);d.position.set(2,3,4);TSc.add(d);TC=new THREE.PerspectiveCamera(30,1,.1,50)}catch(e){webgl=false}}
 function dispose(o){o.traverse(m=>{if(m.geometry)m.geometry.dispose();if(m.material){(Array.isArray(m.material)?m.material:[m.material]).forEach(mt=>{if(mt.map)mt.map.dispose();mt.dispose()})}})}
 const VIEWS={head:[[.55,2.0,2.1],[0,1.97,0]],hat:[[.6,2.25,2.5],[0,2.12,0]],torso:[[.7,1.25,2.7],[0,1.15,0]],legs:[[.6,.6,2.5],[0,.45,0]],back:[[-1.3,1.45,-2.7],[0,1.15,0]],full:[[1.4,1.6,5],[0,1.05,0]]};
-const CATVIEW={piel:'head',cara:'head',cabeza:'hat',accesorio:'head',camiseta:'torso',pantalon:'legs',espalda:'back'};
-function renderThumb(eq,view){if(!TR&&webgl)thumbSetup();if(!webgl)return '';const av=A.makeAvatar(THREE,eq);TSc.add(av.root);
-  const[p,l]=VIEWS[view];TC.position.set(...p);TC.lookAt(...l);TR.render(TSc,TC);const url=String(TR.domElement.toDataURL()||'');TSc.remove(av.root);dispose(av.root);return url}
+const CATVIEW={piel:'head',cara:'head',cabeza:'hat',accesorio:'head',camiseta:'torso',pantalon:'legs',espalda:'back',animacion:'full',gesto:'full'};
+function renderThumb(eq,view,pose){if(!TR&&webgl)thumbSetup();if(!webgl)return '';const av=A.makeAvatar(THREE,eq);TSc.add(av.root);if(pose)try{pose(av)}catch(e){}
+  const[p,l]=VIEWS[view]||VIEWS.full;TC.position.set(...p);TC.lookAt(...l);TR.render(TSc,TC);const url=String(TR.domElement.toDataURL()||'');TSc.remove(av.root);dispose(av.root);return url}
 const thumbs={};
-function itemThumb(it){if(thumbs[it.id]!==undefined)return thumbs[it.id];const eq=Object.assign({},A.DEF_EQ,{[it.cat]:it.id});return thumbs[it.id]=renderThumb(eq,CATVIEW[it.cat])}
+function itemThumb(it){if(thumbs[it.id]!==undefined)return thumbs[it.id];const eq=Object.assign({},A.DEF_EQ,{[it.cat]:it.id});let pose=null;
+  if(it.cat==='animacion')pose=av=>{av.root.rotation.y=-.6;A.animate(av,{walk:1.25,moving:1,dt:.016,pack:it.id})};
+  if(it.cat==='gesto')pose=av=>{av.root.rotation.y=-.4;A.emote(av,it.id);const n=Math.round((it.dur||2.5)*.42/.1);for(let k=0;k<n;k++)A.animate(av,{dt:.1,moving:0})};
+  return thumbs[it.id]=renderThumb(eq,CATVIEW[it.cat],pose)}
 let headKey='',headUrl='';
 function headshot(){const k=JSON.stringify(st.eq);if(k!==headKey){headKey=k;headUrl=renderThumb(st.eq,'head')}return headUrl}
 
@@ -326,7 +362,7 @@ function mountPreview(el){
     const s=new THREE.Scene();s.add(new THREE.HemisphereLight(0xffffff,0x556070,.95));const d=new THREE.DirectionalLight(0xffffff,.7);d.position.set(3,5,4);s.add(d);
     const disc=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.2,.12,40),new THREE.MeshLambertMaterial({color:0x4b93ff}));disc.position.y=-.06;s.add(disc);
     const c=new THREE.PerspectiveCamera(30,1,.1,50);c.position.set(0,1.45,6.4);c.lookAt(0,1.1,0);
-    PV={r,s,c,av:null,yaw:-.5,drag:null,idle:0,t:0};
+    PV={r,s,c,av:null,yaw:-.5,drag:null,idle:0,t:0,mode:'idle',walk:0,jy:0};
     const cvs=r.domElement;
     cvs.addEventListener('pointerdown',e=>{PV.drag={x:e.clientX};try{cvs.setPointerCapture(e.pointerId)}catch(_){}cvs.style.cursor='grabbing'});
     cvs.addEventListener('pointermove',e=>{if(!PV.drag)return;PV.yaw+=(e.clientX-PV.drag.x)*.012;PV.drag.x=e.clientX;PV.idle=0});
@@ -340,7 +376,9 @@ addEventListener('resize',sizePV);
 let lastT=performance.now();
 function tick(t){const dt=Math.min(.05,(t-lastT)/1000);lastT=t;
   if(PV&&PV.av&&PV.r.domElement instanceof Node&&document.body.contains(PV.r.domElement)&&$('#play').hidden){PV.t+=dt;PV.idle+=dt;if(!PV.drag&&PV.idle>2.5)PV.yaw+=dt*.35;
-    PV.av.root.rotation.y=PV.yaw;const s=Math.sin(PV.t*2)*.06;PV.av.armL.rotation.x=s;PV.av.armR.rotation.x=-s;PV.av.root.position.y=Math.abs(Math.sin(PV.t*2))*.02;PV.r.render(PV.s,PV.c)}
+    PV.av.root.rotation.y=PV.yaw;const m=PV.mode;let air=false,moving=m==='walk'||m==='climb';if(moving)PV.walk+=dt*8;
+    if(m==='jump'){const ph=(PV.t%1.3)/1.3;air=ph<.55;PV.av.root.position.y=air?Math.sin(ph/.55*Math.PI)*1.1:0;if(!air)moving=false}else PV.av.root.position.y=0;
+    A.animate(PV.av,{walk:PV.walk,moving,air,climb:m==='climb',dt});if(PV.av._emote===null&&PV.mode==='emote')PV.mode='idle';PV.r.render(PV.s,PV.c)}
   requestAnimationFrame(tick)}
 requestAnimationFrame(tick);
 
@@ -348,7 +386,7 @@ requestAnimationFrame(tick);
 let view='inicio',avCat='piel',catCat='todo',query='';
 function priceHTML(it){if(st.owned.includes(it.id))return `<span class="pr own">Tuyo</span>`;if(!it.price)return `<span class="pr free">Gratis</span>`;return `<span class="pr">${CUBE}${fmtC(it.price)}</span>`}
 function itemPic(it){if(it.cat==='piel')return `<span class="sw" style="background:${it.col}"></span>`;const u=itemThumb(it);return `<span class="pic" style="${u?`background-image:url(${u})`:''}"></span>`}
-function itemCard(it,act){const on=st.eq[it.cat]===it.id;return `<button class="item ${on?'on':''}" data-act="${act}" data-id="${it.id}" aria-pressed="${on}">${itemPic(it)}<b>${esc(it.name)}</b>${priceHTML(it)}${on?'<span class="eqd">Puesto</span>':''}</button>`}
+function itemCard(it,act){const on=st.eq[it.cat]===it.id;return `<button class="item ${on?'on':''}" data-act="${act}" data-id="${it.id}" aria-pressed="${on}">${itemPic(it)}<b>${esc(it.name)}</b>${it.desc?`<span class="desc">${esc(it.desc)}</span>`:''}${priceHTML(it)}${on?'<span class="eqd">Puesto</span>':''}</button>`}
 const V={
   inicio(){const canDaily=Date.now()-(st.daily||0)>20*3600e3;const recent=st.recent.map(id=>GAMES.find(g=>g.id===id)).filter(Boolean);
     return `<div class="hello"><div class="face">${headshot().startsWith('data:')?`<img src="${headshot()}" alt="Tu avatar">`:''}</div>
@@ -357,19 +395,21 @@ const V={
       <div class="daily"><b>Recompensa diaria</b><span class="chip">${canDaily?'¡Disponible!':'Vuelve mañana'}</span><button class="btn brand" data-act="daily" ${canDaily?'':'disabled'}>Recoger ${CUBE} 50</button></div></div>
     ${recent.length?`<section class="sec"><div class="sec-h"><h2>Seguir jugando</h2></div><div class="games">${recent.map(gameCard).join('')}</div></section>`:''}
     <section class="sec"><div class="sec-h"><h2>Tus juegos</h2><a href="#juegos">Ver todos</a></div><div class="games">${GAMES.map(gameCard).join('')}</div></section>
+    <section class="sec"><div class="sec-h"><h2>Nuevo: animaciones y gestos</h2><a href="#catalogo" data-act="tocat" data-id="animacion">Ver todos</a></div><div class="items">${['an2','an5','an6','ge5','ge1','ge6'].map(id=>itemCard(A.BY[id],'item')).join('')}</div></section>
     <section class="sec"><div class="sec-h"><h2>Novedades del catálogo</h2><a href="#catalogo">Ver catálogo</a></div><div class="items">${['h11','b9','sh13','h14','b8','f11'].map(id=>itemCard(A.BY[id],'item')).join('')}</div></section>`},
   juegos(){const q=query.trim().toLowerCase();const list=GAMES.filter(g=>!q||(g.name+' '+g.tag+' '+g.desc).toLowerCase().includes(q));
     return `<h1>Juegos</h1><p class="sub">${q?`Resultados para «${esc(query)}»`:'Todos tus juegos en un solo sitio.'}</p>
     ${list.length?`<div class="games">${list.map(gameCard).join('')}</div>`:`<div class="card">No hay ningún juego que se llame así. Prueba con otra palabra.</div>`}`},
   avatar(){const its=A.ITEMS.filter(i=>i.cat===avCat&&st.owned.includes(i.id));const more=A.ITEMS.filter(i=>i.cat===avCat&&!st.owned.includes(i.id)).length;
-    return `<h1>Avatar</h1><p class="sub">Arrastra el muñeco para girarlo. Lo que te pongas aquí lo llevas en Barrio Tycoon, Ladrones de Brainrots y Patadón de Lucky Blocks.</p>
-    <div class="av"><div class="stage" id="stage"><span class="hint">${webgl?'Arrastra para girar':'Tu navegador no puede mostrar 3D'}</span></div>
+    return `<h1>Avatar</h1><p class="sub">Arrastra el muñeco para girarlo. Lo que te pongas aquí lo llevas en todos los juegos. En <b>Animaciones</b> eliges cómo andas, saltas y trepas; en <b>Gestos</b> pruebas los que puedes hacer en los juegos con la tecla G o el botón GESTOS.</p>
+    <div class="av"><div style="min-width:0"><div class="stage" id="stage"><span class="hint">${webgl?'Arrastra para girar':'Tu navegador no puede mostrar 3D'}</span></div>
+    ${webgl?`<div class="demo" role="group" aria-label="Probar animaciones">${[['idle','Quieto'],['walk','Andar'],['jump','Saltar'],['climb','Trepar']].map(([k,n])=>`<button class="btn ${PV&&PV.mode===k?'on':''}" data-act="demo" data-id="${k}">${n}</button>`).join('')}<button class="btn" data-act="demoemote">Gesto: ${esc((A.BY[st.eq.gesto]||A.BY.ge0).name)}</button></div>`:''}</div>
     <div style="min-width:0"><div class="tabs" role="tablist">${A.CATS.map(([id,n])=>`<button class="tab ${avCat===id?'on':''}" role="tab" aria-selected="${avCat===id}" data-act="avcat" data-id="${id}">${n}</button>`).join('')}</div>
     <div class="items">${its.map(i=>itemCard(i,'equip')).join('')}</div>
     ${more?`<div class="card row" style="margin-top:14px;justify-content:space-between"><span>Hay ${more} ${more===1?'objeto':'objetos'} más de esta categoría en el catálogo.</span><button class="btn" data-act="tocat" data-id="${avCat}">Ver en el catálogo</button></div>`:''}
     <div class="row" style="margin-top:14px"><button class="btn" data-act="randomav">Combinación aleatoria</button></div></div></div>`},
   catalogo(){const list=A.ITEMS.filter(i=>(catCat==='todo'||i.cat===catCat)&&!(i.price===0&&['h0','a0','b0'].includes(i.id)));
-    return `<h1>Catálogo</h1><p class="sub">Compra ropa y accesorios con Cubos. Tienes ${CUBE} <b>${fmtC(st.cubos)}</b>.</p>
+    return `<h1>Catálogo</h1><p class="sub">Compra ropa, accesorios, animaciones y gestos con Cubos. Tienes ${CUBE} <b>${fmtC(st.cubos)}</b>.</p>
     <div class="tabs"><button class="tab ${catCat==='todo'?'on':''}" data-act="catcat" data-id="todo">Todo</button>${A.CATS.map(([id,n])=>`<button class="tab ${catCat===id?'on':''}" data-act="catcat" data-id="${id}">${n}</button>`).join('')}</div>
     <div class="items">${list.map(i=>itemCard(i,'item')).join('')}</div>`},
   cubos(){return `<h1>Cubos</h1><p class="sub">La moneda de Cubiverso. Sirve para el catálogo y para los pases de los juegos.</p>
@@ -389,6 +429,30 @@ const V={
       <span>1. Abre un juego multijugador y pulsa <b>Crear sala</b>.</span><span>2. Pasa el código de 5 letras a tus amigos.</span><span>3. Ellos abren el mismo juego, escriben el código y pulsan <b>Unirse</b>.</span><span>4. Cuando estéis todos, el anfitrión pulsa <b>¡Empezar!</b></span></div></section>
     <section class="sec"><div class="sec-h"><h2>Juegos multijugador</h2></div><div class="games">${multi.map(gameCard).join('')}</div></section>
     <section class="sec"><div class="sec-h"><h2>Has jugado con</h2></div>${fr.length?`<div class="card hist">${fr.map(f=>`<div><span><b>${esc(f.name)}</b> · ${esc((GAMES.find(g=>g.id===({obby:'obby',globos:'globos'}[f.game]||f.game))||{name:f.game}).name)}</span><span style="color:var(--muted)">${ago(f.last)}</span></div>`).join('')}</div>`:'<div class="card">Aquí aparecerán las personas con las que juegues en una sala.</div>'}</section>`},
+  musica(){const Au=window.CubiAudio;if(!Au)return '<h1>Música</h1><div class="card">El sonido no está disponible.</div>';const S=Au.get(),U=Au.user();
+    const trk=(t,user)=>`<div class="trk" data-trk="${t.id}"><button class="pb" data-act="musplay" data-id="${t.id}" aria-label="Escuchar ${esc(t.name)}">${PLAY}</button>
+      <div style="min-width:0"><b>${esc(t.name)}</b><small>${user?`Tu música${t.size?' · '+(t.size/1048576).toFixed(1)+' MB':''}`:`${esc(t.mood)} · ${t.bpm} pulsaciones por minuto · Compuesta para Cubiverso`}</small></div>
+      ${user?`<button class="btn" data-act="musdel" data-id="${t.id}" aria-label="Quitar ${esc(t.name)}">Quitar</button>`:'<span></span>'}</div>`;
+    const opts=[['auto','La de cada juego'],['off','Sin música en los juegos']].concat(Au.tracks().map(t=>[t.id,'Siempre: '+t.name]));
+    const SND=[['click','Clic'],['coin','Moneda'],['buy','Compra'],['jump','Salto'],['boing','Muelle'],['splash','Chapuzón'],['pop','Pop'],['kick','Patada'],['laser','Láser'],['freeze','Hielo'],['boom','Explosión'],['win','Victoria'],['lose','Derrota'],['levelup','Subir nivel'],['alarm','Alarma'],['lucky','Suerte'],['train','Tren'],['horn','Bocina'],['thunder','Trueno'],['phone','Teléfono']];
+    return `<h1>Música</h1><p class="sub">Canciones compuestas para Cubiverso, tu propia música y todos los sonidos.</p>
+    <div class="card now" id="now"><div class="disc">${NOTE_SVG}</div><div style="min-width:0"><b id="nowname">Nada sonando</b><small id="nowsub">Elige una canción</small></div>
+      <div class="ctl"><button class="btn" data-act="musprev" aria-label="Anterior">⏮</button><button class="btn brand" data-act="mustoggle" id="nowbtn" aria-label="Reproducir o parar">▶</button><button class="btn" data-act="musnext" aria-label="Siguiente">⏭</button></div></div>
+    <div class="two" style="margin-top:16px">
+      <div class="card sec" style="margin:0"><h2>Volumen</h2>
+        <label class="sl"><span>Música</span><input type="range" min="0" max="100" value="${Math.round(S.music*100)}" data-vol="music"><b>${Math.round(S.music*100)}</b></label>
+        <label class="sl"><span>Efectos</span><input type="range" min="0" max="100" value="${Math.round(S.sfx*100)}" data-vol="sfx"><b>${Math.round(S.sfx*100)}</b></label>
+        <div class="row"><button class="btn ${S.muted?'danger':''}" data-act="musmute" aria-pressed="${S.muted}">${S.muted?'Sonido apagado: encender':'Silenciar todo'}</button>
+        <button class="btn" data-act="musshuffle" aria-pressed="${S.shuffle}">Aleatorio: ${S.shuffle?'sí':'no'}</button></div></div>
+      <div class="card sec" style="margin:0"><h2>Música en los juegos</h2><p style="margin:0;color:var(--muted)">Cada juego tiene su canción. Puedes cambiarla por otra o por tu música.</p>
+        <select class="sel" id="mustrack" aria-label="Música en los juegos">${opts.map(([v,n])=>`<option value="${v}" ${S.track===v?'selected':''}>${esc(n)}</option>`).join('')}</select></div>
+    </div>
+    <section class="sec"><div class="sec-h"><h2>Canciones de Cubiverso</h2></div><div class="tracks">${Au.builtin.map(t=>trk(t)).join('')}</div></section>
+    <section class="sec"><div class="sec-h"><h2>Tu música</h2></div>
+      <div class="upl" id="upl"><label class="btn brand" style="cursor:pointer">Cargar canciones<input type="file" id="musfile" accept="audio/*,.mp3,.ogg,.wav,.m4a,.aac,.flac,.opus" multiple hidden></label>
+      <span style="color:var(--muted);font-size:14px;min-width:0;flex:1 1 220px">Elige archivos de audio (MP3, M4A, OGG, WAV…) o arrástralos aquí. Se guardan solo en este dispositivo.</span></div>
+      <div class="tracks" style="margin-top:10px">${U.length?U.map(t=>trk(t,true)).join(''):'<div class="card">Todavía no has cargado ninguna canción.</div>'}</div></section>
+    <section class="sec"><div class="sec-h"><h2>Mesa de sonidos</h2></div><div class="board">${SND.map(([k,n])=>`<button class="btn" data-act="sfx" data-id="${k}" data-nosound="1">${n}</button>`).join('')}</div></section>`},
   ajustes(){return `<h1>Ajustes</h1><p class="sub">Tu cuenta de Cubiverso se guarda en este navegador.</p>
     <div class="two"><form class="card sec" style="margin:0" id="nameform"><h2>Nombre</h2><div class="row"><input class="field nocase" id="nameinput" maxlength="20" value="${esc(st.name)}" aria-label="Tu nombre"><button class="btn brand" type="submit">Guardar</button></div></form>
     <div class="card sec" style="margin:0"><h2>Empezar de cero</h2><p style="margin:0;color:var(--muted)">Borra tu avatar, tus Cubos y tus compras. Las partidas de cada juego se guardan aparte.</p><div id="resetbox"><button class="btn danger" data-act="resetask">Borrar mi cuenta</button></div></div></div>`}
@@ -403,9 +467,27 @@ function render(){
   $('#bal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;
   const hs=headshot();if(hs&&hs.startsWith('data:'))$('#meimg').src=hs;
   if(v==='avatar')mountPreview($('#stage'));
+  if(v==='musica')musBind();
+  musUI();
   const gf=$('#giftform');if(gf)gf.addEventListener('submit',e=>{e.preventDefault();redeem($('#giftcode').value)});
   const nf=$('#nameform');if(nf)nf.addEventListener('submit',e=>{e.preventDefault();const n=$('#nameinput').value.trim().slice(0,20);if(!n){toast('Escribe un nombre');return}st.name=n;save();toast('Nombre guardado');render()});
 }
+/* ================= MÚSICA ================= */
+const Au=window.CubiAudio;
+function musUI(){if(!Au)return;const S=Au.status(),on=!!S.cur&&!S.settings.muted;const b=$('#musbtn');if(b){b.classList.toggle('on',on&&S.playing);b.setAttribute('aria-pressed',String(on))}
+  const gm=$('#gmute');if(gm){gm.textContent=S.settings.muted?'Sonido: no':'Sonido: sí';gm.setAttribute('aria-pressed',String(!S.settings.muted))}
+  const now=$('#now');if(now){now.classList.toggle('playing',S.playing);$('#nowname').textContent=S.track?S.track.name:'Nada sonando';
+    $('#nowsub').textContent=S.waiting?'Toca cualquier parte para que empiece a sonar':S.track?(S.track.user?'Tu música':S.track.mood+' · compuesta para Cubiverso'):'Elige una canción';$('#nowbtn').textContent=S.cur?'■':'▶'}
+  document.querySelectorAll('.trk').forEach(t=>{const o=t.dataset.trk===S.cur;t.classList.toggle('on',o);const pb=t.querySelector('.pb');if(pb)pb.innerHTML=o?'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg>':PLAY})}
+let userN=-1;
+if(Au)Au.on(()=>{if(view==='musica'&&Au.user().length!==userN){userN=Au.user().length;render()}else musUI()});
+function musBind(){userN=Au?Au.user().length:0;const f=$('#musfile');if(f)f.addEventListener('change',()=>addMusic(f.files));
+  document.querySelectorAll('[data-vol]').forEach(r=>r.addEventListener('input',()=>{Au.set(r.dataset.vol,r.value/100);r.nextElementSibling.textContent=r.value;if(r.dataset.vol==='sfx')Au.sfx('coin')}));
+  const t=$('#mustrack');if(t)t.addEventListener('change',()=>{Au.set('track',t.value);if(t.value!=='auto'&&t.value!=='off')Au.play(t.value,true);toast(t.value==='off'?'Los juegos no pondrán música':'Música de los juegos cambiada')});
+  const u=$('#upl');if(u){u.addEventListener('dragover',e=>{e.preventDefault();u.classList.add('drag')});u.addEventListener('dragleave',()=>u.classList.remove('drag'));
+    u.addEventListener('drop',e=>{e.preventDefault();u.classList.remove('drag');addMusic(e.dataTransfer.files)})}}
+function addMusic(files){if(!files||!files.length)return;Au.addFiles(files).then(n=>{if(!n){toast('Eso no parece un archivo de audio');return}Au.sfx('buy');toast(n===1?'Canción añadida':`${n} canciones añadidas`);render()})
+  .catch(()=>toast('No se ha podido guardar. Puede que el móvil no tenga espacio.'))}
 function route(){view=(location.hash||'#inicio').slice(1);if(!V[view])view='inicio';closeModal();render();scrollTo(0,0)}
 addEventListener('hashchange',route);
 
@@ -425,7 +507,7 @@ function passList(gid){const P=window.CubiPases;if(!P||!P.CAT[gid])return '';
 function itemModal(it){const own=st.owned.includes(it.id),on=st.eq[it.cat]===it.id,u=it.cat==='piel'?'':itemThumb(it);
   openModal(it.name,`<div style="display:grid;grid-template-columns:140px minmax(0,1fr);gap:16px;align-items:center">
     ${it.cat==='piel'?`<span style="aspect-ratio:1;border-radius:14px;background:${it.col}"></span>`:`<span style="aspect-ratio:1;border-radius:14px;background:var(--panel2) center/contain no-repeat;${u?`background-image:url(${u})`:''}"></span>`}
-    <div style="display:flex;flex-direction:column;gap:8px"><span class="chip" style="align-self:flex-start">${A.CATS.find(c=>c[0]===it.cat)[1]}</span>
+    <div style="display:flex;flex-direction:column;gap:8px"><span class="chip" style="align-self:flex-start">${A.CATS.find(c=>c[0]===it.cat)[1]}</span>${it.desc?`<span style="color:var(--muted)">${esc(it.desc)}</span>`:''}${it.cat==='gesto'?'<span style="color:var(--muted)">Hazlo en los juegos con la tecla G o el botón GESTOS.</span>':''}
     <div style="font-size:22px;font-weight:800;display:flex;align-items:center;gap:6px">${own?'<span class="pos">Ya es tuyo</span>':it.price?CUBE+fmtC(it.price):'Gratis'}</div>
     ${own?'':`<span style="color:var(--muted);font-size:14px">Tienes ${fmtC(st.cubos)} Cubos.</span>`}</div></div>
   <div class="row">${own?`<button class="btn play" data-act="equip" data-id="${it.id}" ${on?'disabled':''}>${on?'Ya lo llevas puesto':'Ponérmelo'}</button>`:
@@ -444,7 +526,7 @@ function drawCheckout(){const p=PACKS[pendingPack],g=st.gift||0,canGift=g>=p.e;
 function pay(){const p=PACKS[pendingPack];if(method==='gift'&&(st.gift||0)<p.e){toast('No tienes saldo suficiente');return}
   $('#payarea').innerHTML='<button class="btn big" disabled style="width:100%;justify-content:center">Procesando el pago…</button>';
   setTimeout(()=>{if(method==='gift')st.gift=Math.round(((st.gift||0)-p.e)*100)/100;st.cubos+=p.c;addHist(`${fmtC(p.c)} Cubos (${method==='gift'?'tarjeta regalo':'pago de prueba'})`,p.c);save();
-    openModal('Compra completada',`<div class="big-ok">+${CUBE}${fmtC(p.c)}</div><p style="text-align:center;margin:0">Ahora tienes <b>${fmtC(st.cubos)}</b> Cubos.</p><button class="btn play" data-act="close">Genial</button>`);
+    if(Au)Au.sfx('cash');openModal('Compra completada',`<div class="big-ok">+${CUBE}${fmtC(p.c)}</div><p style="text-align:center;margin:0">Ahora tienes <b>${fmtC(st.cubos)}</b> Cubos.</p><button class="btn play" data-act="close">Genial</button>`);
     $('#bal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;if(view==='cubos')render()},1200)}
 function redeem(code){code=(code||'').trim().toUpperCase();if(!code){toast('Escribe un código');return}
   const g=GIFTS[code];if(!g){toast('Ese código no existe');return}if(st.codes[code]){toast('Ya canjeaste ese código');return}
@@ -453,14 +535,15 @@ function redeem(code){code=(code||'').trim().toUpperCase();if(!code){toast('Escr
 
 /* ================= JUGAR ================= */
 let curGame=null;
-function playGame(gm){curGame=gm;closeModal();st.recent=[gm.id].concat(st.recent.filter(i=>i!==gm.id)).slice(0,4);save();
+function playGame(gm){curGame=gm;if(Au)Au.sfx('open');closeModal();st.recent=[gm.id].concat(st.recent.filter(i=>i!==gm.id)).slice(0,4);save();
   $('#gname').textContent=gm.name;$('#gbal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;$('#gpanel').hidden=true;
   $('#frame').src=gm.file+'#plataforma';$('#play').hidden=false;document.body.style.overflow='hidden';
   const el=$('#play');try{const f=el.requestFullscreen||el.webkitRequestFullscreen;if(f){const r=f.call(el);if(r&&r.catch)r.catch(()=>{})}}catch(e){}
   setTimeout(()=>{try{$('#frame').focus()}catch(e){}},300)}
+function previewItem(it){if(!PV||!PV.av)return;if(it.cat==='animacion')ACT.demo('walk');if(it.cat==='gesto'){A.emote(PV.av,it.id);PV.mode='emote'}}
 function exitGame(){$('#frame').src='about:blank';$('#play').hidden=true;document.body.style.overflow='';curGame=null;
   try{if(document.fullscreenElement||document.webkitFullscreenElement)(document.exitFullscreen||document.webkitExitFullscreen).call(document)}catch(e){}
-  st=A.state();render()}
+  st=A.state();render();if(Au)Au.gameMusic('bienvenida')}
 addEventListener('storage',e=>{if(e.key===A.KEY){st=A.state();$('#bal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;$('#gbal').innerHTML=`${CUBE}${fmtC(st.cubos)}`}});
 setInterval(()=>{if(!$('#play').hidden){const s=A.state();$('#gbal').innerHTML=`${CUBE}${fmtC(s.cubos)}`}},1500);
 
@@ -471,16 +554,16 @@ const ACT={
   game(id){gameModal(GAMES.find(g=>g.id===id))},
   playgame(id){playGame(GAMES.find(g=>g.id===id))},
   buypass(v){const[g,id]=v.split(':');const r=CubiPases.buy(g,id);st=A.state();const p=CubiPases.CAT[g].find(x=>x.id===id);
-    if(!r.ok){toast(`Te faltan ${fmtC(r.need)} Cubos para ${p.name}`);return}toast(`¡Pase comprado: ${p.name}!`);render();gameModal(GAMES.find(x=>x.id===g))},
+    if(!r.ok){toast(`Te faltan ${fmtC(r.need)} Cubos para ${p.name}`);return}if(Au)Au.sfx('buy');toast(`¡Pase comprado: ${p.name}!`);render();gameModal(GAMES.find(x=>x.id===g))},
   item(id){itemModal(A.BY[id])},
-  equip(id){const it=A.BY[id];if(!st.owned.includes(id)){itemModal(it);return}st.eq[it.cat]=id;save();closeModal();rebuildPV();render();if(view!=='avatar')toast(`Te has puesto: ${it.name}`)},
+  equip(id){const it=A.BY[id];if(!st.owned.includes(id)){itemModal(it);return}st.eq[it.cat]=id;save();closeModal();rebuildPV();if(Au)Au.sfx('equip');render();previewItem(it);if(view!=='avatar')toast(`Te has puesto: ${it.name}`)},
   buyitem(id){const it=A.BY[id];if(st.owned.includes(id))return;if(st.cubos<it.price){itemModal(it);return}
-    st.cubos-=it.price;st.owned.push(id);st.eq[it.cat]=id;addHist(`Catálogo: ${it.name}`,-it.price);save();rebuildPV();closeModal();render();toast(`¡Comprado! Ya llevas puesto: ${it.name}`)},
+    st.cubos-=it.price;st.owned.push(id);st.eq[it.cat]=id;addHist(`Catálogo: ${it.name}`,-it.price);save();rebuildPV();closeModal();if(Au)Au.sfx('buy');render();previewItem(it);toast(`¡Comprado! Ya llevas puesto: ${it.name}`)},
   avcat(id){avCat=id;render()},
   catcat(id){catCat=id;render()},
   tocat(id){catCat=id;location.hash='#catalogo'},
   randomav(){A.CATS.forEach(([c])=>{const own=A.ITEMS.filter(i=>i.cat===c&&st.owned.includes(i.id));st.eq[c]=own[Math.floor(Math.random()*own.length)].id});save();rebuildPV();render()},
-  daily(){if(Date.now()-(st.daily||0)<=20*3600e3)return;st.daily=Date.now();st.cubos+=50;addHist('Recompensa diaria',50);save();render();toast('+50 Cubos. ¡Vuelve mañana!')},
+  daily(){if(Date.now()-(st.daily||0)<=20*3600e3)return;if(Au)Au.sfx('daily');st.daily=Date.now();st.cubos+=50;addHist('Recompensa diaria',50);save();render();toast('+50 Cubos. ¡Vuelve mañana!')},
   buypack(i){checkoutModal(+i)},
   pay,
   resetask(){$('#resetbox').innerHTML=`<p style="margin:0 0 8px">¿Seguro? No se puede deshacer.</p><div class="row"><button class="btn danger" data-act="resetgo">Sí, borrar todo</button><button class="btn" data-act="resetno">Cancelar</button></div>`},
@@ -489,7 +572,16 @@ const ACT={
   resume(){$('#gpanel').hidden=true;$('#gmenubtn').setAttribute('aria-expanded','false');try{$('#frame').focus()}catch(e){}},
   restartgame(){if(curGame){$('#frame').src='about:blank';setTimeout(()=>{$('#frame').src=curGame.file+'#plataforma'},50)}ACT.resume()},
   fullgame(){const el=$('#play');try{if(document.fullscreenElement){document.exitFullscreen()}else{const r=(el.requestFullscreen||el.webkitRequestFullscreen).call(el);if(r&&r.catch)r.catch(()=>toast('Tu navegador no deja usar pantalla completa aquí'))}}catch(e){toast('Tu navegador no deja usar pantalla completa aquí')}ACT.resume()},
-  exitgame:exitGame
+  exitgame:exitGame,
+  mustoggle(){if(!Au)return;const S=Au.status();if(S.settings.muted){Au.set('muted',false);if(!S.cur)Au.play(curGame?null:'bienvenida');return}if(S.cur)Au.stop();else Au.play(Au.get().track&&!['auto','off'].includes(Au.get().track)?Au.get().track:'bienvenida',true)},
+  musplay(id){const S=Au.status();if(S.cur===id)Au.stop();else{if(S.settings.muted)Au.set('muted',false);Au.play(id,true)}},
+  musnext(){Au.next(1)},musprev(){Au.next(-1)},
+  musmute(){Au.set('muted',!Au.get().muted);if(view==='musica')render()},
+  musshuffle(){Au.set('shuffle',!Au.get().shuffle);render()},
+  musdel(id){Au.removeUser(id).then(()=>{toast('Canción quitada');render()})},
+  sfx(k){Au.sfx(k)},
+  demo(k){if(!PV)return;PV.mode=k;PV.walk=0;if(PV.av)PV.av._emote=null;document.querySelectorAll('[data-act=demo]').forEach(b=>b.classList.toggle('on',b.dataset.id===k))},
+  demoemote(){if(!PV||!PV.av)return;ACT.demo('idle');A.emote(PV.av,st.eq.gesto||'ge0');PV.mode='emote';if(Au)Au.sfx('emote')}
 };
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const f=ACT[b.dataset.act];if(!f)return;
   if(b.dataset.act==='ovclose'){f(e);return}e.preventDefault();f(b.dataset.id)});
@@ -497,7 +589,9 @@ $('#gmenubtn').addEventListener('click',()=>{const p=$('#gpanel');p.hidden=!p.hi
 $('#q').addEventListener('input',e=>{query=e.target.value;if(view!=='juegos')location.hash='#juegos';else render();setTimeout(()=>{const q=$('#q');q.focus()},0)});
 addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modal').innerHTML)closeModal()});
 route();
-if('serviceWorker' in navigator&&location.protocol==='https:'&&!/claude\.ai|claudeusercontent/.test(location.hostname)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+if(Au)Au.gameMusic('bienvenida');
+window.Cubiverso={atras(){if(!$('#play').hidden){exitGame();return true}if($('#modal').innerHTML){closeModal();return true}if(view!=='inicio'){location.hash='#inicio';return true}return false}};
+if('serviceWorker' in navigator&&location.protocol==='https:'&&!/claude\.ai|claudeusercontent/.test(location.hostname)&&!/CubiversoApp/.test(navigator.userAgent)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 </script>
 
 </body>

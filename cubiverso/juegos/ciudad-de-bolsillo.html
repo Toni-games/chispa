@@ -107,6 +107,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="../avatar.js"></script>
 <script src="../pases.js"></script>
+<script src="../audio.js"></script>
 <script>
 /* ================= DATOS ================= */
 const N=24,TS=2;
@@ -568,6 +569,7 @@ function loop(t){
   requestAnimationFrame(loop);
 }
 addEventListener('beforeunload',persist);
+if(window.CubiAudio){CubiAudio.gameMusic('lago');CubiAudio.wrap('place','place');CubiAudio.wrap('poof','remove')}
 requestAnimationFrame(loop);
 </script>
 

@@ -61,6 +61,7 @@ body.touch #hint{display:none}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="../avatar.js"></script>
 <script src="../pases.js"></script>
+<script src="../audio.js"></script>
 <script>
 /* ================= DATOS ================= */
 const RAR={comun:['Común','#b0bec5',60],raro:['Raro','#42a5f5',25],epico:['Épico','#ab47bc',10],leg:['Legendario','#ffca28',4],mit:['Mítico','#ff4f4f',.9],sec:['Secreto','#111111',.1]};
@@ -195,7 +196,7 @@ function makePerson(eq){
   box(.9,.9,.45,M(0xff7a2f),0,1.15,0,root);box(.55,.55,.55,M(0xffd29a),0,1.9,0,root);[legL,legR].forEach(l=>box(.44,.7,.44,M(0x2d3a5a),0,-.35,0,l));[armL,armR].forEach(a=>box(.44,.85,.44,M(0xffd29a),0,-.4,0,a));
   root.scale.setScalar(.75);scene.add(root);return {root,legL,legR,armL,armR};
 }
-const me=makePerson(window.CubiAvatar?CubiAvatar.state().eq:null);
+const me=makePerson(window.CubiAvatar?CubiAvatar.state().eq:null);me.isMe=true;
 const myName=window.CubiAvatar?CubiAvatar.state().name:'Tú';
 {const t=sprite(textTex([[myName,40,'#fff',32]],320,64),2.6,.52);t.position.y=3.2;me.root.add(t)}
 const P={x:ME.x,z:ME.z-3,y:0,vy:0,face:Math.PI,walk:0,ground:true,carry:null,carryM:null,stun:0};
@@ -274,7 +275,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();
 
 /* ================= LÓGICA ================= */
-function animPerson(a,walk,air){const s=Math.sin(walk)*.8;a.legL.rotation.x=s;a.legR.rotation.x=-s;a.armL.rotation.x=-s;a.armR.rotation.x=s;if(air){a.armL.rotation.x=a.armR.rotation.x=-2.8}}
+function animPerson(a,walk,air){if(window.CubiAvatar&&CubiAvatar.drive&&a.body)return CubiAvatar.drive(a,walk,air);const s=Math.sin(walk)*.8;a.legL.rotation.x=s;a.legR.rotation.x=-s;a.armL.rotation.x=-s;a.armR.rotation.x=s;if(air){a.armL.rotation.x=a.armR.rotation.x=-2.8}}
 function moveTo(o,tx,tz,sp,dt){const dx=tx-o.x,dz=tz-o.z,d=Math.hypot(dx,dz);if(d<.15)return true;const s=Math.min(d,sp*dt);o.x+=dx/d*s;o.z+=dz/d*s;o.face=Math.atan2(dx,dz);o.walk+=dt*sp*1.4;return false}
 function pushOut(B){const ex=B.z-B.dir*BD/2-B.dir*1.2;P.z=ex;P.x=clamp(P.x,B.x-BW/2+1,B.x+BW/2-1)}
 function playerUpdate(dt){
@@ -347,6 +348,7 @@ ov.innerHTML=`<div class="overlay"><div class="panel"><div class="ph"><h2 class=
   <li>Ellos también vendrán a por los tuyos. Tócales para recuperarlo o <b>bloquea tu base</b> 45 segundos.</li><li>Cuanto más raro, más dinero da.</li></ul>
   <div class="rar">${Object.values(RAR).map(r=>`<span style="background:${r[1]};color:${r[1]==='#111111'?'#fff':'#000'}">${r[0]}</span>`).join('')}</div>
   <button class="btn g out" data-act="close" style="width:100%;font-size:18px">¡A ROBAR!</button></div></div></div>`;
+if(window.CubiAudio)CubiAudio.gameMusic('fiesta');
 hud();requestAnimationFrame(loop);
 addEventListener('beforeunload',persist);
 if(window.CubiPases&&window.CubiAvatar&&location.hash==='#plataforma'){

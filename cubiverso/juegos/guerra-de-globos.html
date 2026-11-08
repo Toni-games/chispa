@@ -37,6 +37,7 @@ body.k-touch #hint{display:none}
 <script src="../avatar.js"></script>
 <script src="../kit.js"></script>
 <script src="../multi.js"></script>
+<script src="../audio.js"></script>
 <script>
 const K=Kit,{M,box,cyl,sph}=K;
 const W=K.setup({sky:0x9fd8ff,fogNear:70,fogFar:160});const {scene,camera,renderer,sun}=W;
@@ -66,16 +67,16 @@ function makeBots(){bots.forEach(b=>scene.remove(b.a.root));bots=BOTN.map((n,i)=
 /* ================= GLOBOS ================= */
 const balloons=[],splashes=[];const BCOL=[0xff4f4f,0x3fa7ff,0xffcc33,0x3fd15c,0xff6fb5,0x9c6bff];
 function spawnBalloon(o,x,y,z,vx,vy,vz,c){const m=sph(.22,M(BCOL[c%6]),x,y,z,scene);m.castShadow=true;balloons.push({m,x,y,z,vx,vy,vz,owner:o,c})}
-function splash(x,y,z,c){for(let k=0;k<12;k++){const m=sph(.08,M(0x7fd6ff,{transparent:true,opacity:.9}),x,y,z,scene);m.userData={v:new THREE.Vector3((Math.random()-.5)*5,2+Math.random()*3,(Math.random()-.5)*5),l:.6};splashes.push(m)}
+function splash(x,y,z,c){if(window.CubiAudio)CubiAudio.sfx('splash');for(let k=0;k<12;k++){const m=sph(.08,M(0x7fd6ff,{transparent:true,opacity:.9}),x,y,z,scene);m.userData={v:new THREE.Vector3((Math.random()-.5)*5,2+Math.random()*3,(Math.random()-.5)*5),l:.6};splashes.push(m)}
   const ring=new THREE.Mesh(new THREE.RingGeometry(.2,.5,20),new THREE.MeshBasicMaterial({color:0x7fd6ff,transparent:true,opacity:.8,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.set(x,.03,z);ring.userData={l:.8,ring:1};scene.add(ring);splashes.push(ring)}
 let myColor=Math.floor(Math.random()*6);
 function throwMine(){if(!playing||P.cd>0)return;P.cd=.45;const yaw=ctl.look.yaw+Math.PI,pitch=ctl.look.pitch;const dx=Math.sin(yaw),dz=Math.cos(yaw);
   P.face=yaw;const sp=17,up=4+(.6-pitch)*5;const x=P.x+dx*.6,y=P.y+1.6,z=P.z+dz*.6;spawnBalloon(ME_ID(),x,y,z,dx*sp,up,dz*sp,myColor);
-  me.armR.rotation.x=-2.6;if(online())CubiMulti.send({t:'throw',x,y,z,vx:dx*sp,vy:up,vz:dz*sp,c:myColor})}
+  me.armR.rotation.x=-2.6;if(window.CubiAudio)CubiAudio.sfx('throw');if(online())CubiMulti.send({t:'throw',x,y,z,vx:dx*sp,vy:up,vz:dz*sp,c:myColor})}
 function online(){return window.CubiMulti&&CubiMulti.online}
 function addScore(id){scores[id]=(scores[id]||0)+1}
-function soak(victimIsMe,by,victim){if(victimIsMe){K.toast('¡EMPAPADO!',`Te ha mojado ${names[by]||'alguien'}`,'#3fa7ff');Object.assign(P,spawnPt());P.wet=0;P.inv=2;if(online())CubiMulti.send({t:'soak',by})}addScore(by);
-  if(by===ME_ID()&&!victimIsMe)K.toast('¡+1!',`Has empapado a ${names[victim]||'alguien'}`,'#3fd15c')}
+function soak(victimIsMe,by,victim){if(victimIsMe){if(window.CubiAudio)CubiAudio.sfx('lose');K.toast('¡EMPAPADO!',`Te ha mojado ${names[by]||'alguien'}`,'#3fa7ff');Object.assign(P,spawnPt());P.wet=0;P.inv=2;if(online())CubiMulti.send({t:'soak',by})}addScore(by);
+  if(by===ME_ID()&&!victimIsMe)if(window.CubiAudio)CubiAudio.sfx('coin'),K.toast('¡+1!',`Has empapado a ${names[victim]||'alguien'}`,'#3fd15c')}
 function hitPerson(o,b,isMe){if(o.inv>0||b.owner===(isMe?ME_ID():o.id))return false;const dx=b.x-o.x,dz=b.z-o.z,dy=b.y-(o.y||0)-1.1;if(dx*dx+dz*dz<.55&&Math.abs(dy)<1.1){o.wet+=34;
   if(isMe&&online())CubiMulti.send({t:'hitme',by:b.owner});if(o.wet>=100){if(isMe)soak(true,b.owner);else{const v=o.id;Object.assign(o,spawnPt());o.wet=0;o.inv=2;soak(false,b.owner,v)}}return true}return false}
 function stepBalloons(dt){for(let k=balloons.length-1;k>=0;k--){const b=balloons[k];b.vy-=18*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;b.m.position.set(b.x,b.y,b.z);let hit=b.y<.2||Math.abs(b.x)>HALF||Math.abs(b.z)>HALF;
@@ -102,7 +103,7 @@ if(window.CubiMulti){CubiMulti.on('msg',(d,from)=>{const ps=CubiMulti.players();
 let playing=false,left=ROUND,solo=true,netT=0;
 function start(isSolo){solo=isSolo;playing=true;left=ROUND;Object.keys(scores).forEach(k=>scores[k]=0);names[ME_ID()]=myName;scores[ME_ID()]=0;Object.assign(P,spawnPt());P.wet=0;
   if(solo)makeBots();else{bots.forEach(b=>scene.remove(b.a.root));bots=[]}}
-function endRound(){playing=false;const rows=Object.keys(scores).map(id=>({id,name:names[id]||'?',s:scores[id]})).sort((a,b)=>b.s-a.s);const win=rows[0]&&rows[0].id===ME_ID()&&rows[0].s>0;
+function endRound(){playing=false;const rows=Object.keys(scores).map(id=>({id,name:names[id]||'?',s:scores[id]})).sort((a,b)=>b.s-a.s);const win=rows[0]&&rows[0].id===ME_ID()&&rows[0].s>0;if(window.CubiAudio)CubiAudio.sfx(win?'win':'lose');
   let reward=0;if(win&&window.CubiAvatar){const s=CubiAvatar.state();const day=new Date().toDateString();if(s.globosDay!==day){s.globosDay=day;s.cubos+=15;reward=15;(s.history=s.history||[]).unshift({t:Date.now(),txt:'Ganador en Guerra de Globos',amt:15});CubiAvatar.save(s)}}
   document.body.insertAdjacentHTML('beforeend',K.panel(win?'¡HAS GANADO!':'FIN DE LA RONDA',win?'#ffcc33':'#3fa7ff',`<div>${rows.map((r,i)=>`<p style="color:#fff">${i+1}. ${r.name.replace(/</g,'&lt;')} · <b>${r.s}</b></p>`).join('')}</div>
     ${reward?`<p style="color:#ffcc33">+${reward} Cubos de Cubiverso (premio del día)</p>`:''}<button class="k-btn g k-out" data-act="again">OTRA RONDA</button>`).replace('k-ov','k-ov fin'))}
@@ -130,6 +131,7 @@ function loop(t){const dt=Math.min((t-last)/1000,.05);last=t;
 K.roomMenu({game:'globos',title:'GUERRA DE GLOBOS',col:'#3fa7ff',
   intro:`<p>Una batalla de globos de agua de 3 minutos. Cada globo que te da te moja un poco; a la tercera estás empapado y el que te lanzó gana un punto.</p><ul><li>Apunta girando la cámara y lanza con clic, F o el botón LANZAR.</li><li>Escóndete detrás de las cajas.</li><li>Si juegas solo, te enfrentas a 4 bots. Si ganas la ronda, te llevas 15 Cubos al día.</li></ul>`,
   onSolo(){start(true)},onRoom(){start(false);K.roomBadge()}});
+K.emotes(me);if(window.CubiAudio)CubiAudio.gameMusic('batalla');
 requestAnimationFrame(loop);
 </script>
 </body>

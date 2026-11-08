@@ -5,6 +5,11 @@ Plataforma de juegos hecha en HTML: avatar con más de 100 objetos, catálogo, C
 ## Juegos
 Barrio Tycoon · Repartidor de Tormentas · Ciudad de Bolsillo · El Cambiazo · Ladrones de Brainrots · Patadón de Lucky Blocks · Carrera Imposible (multijugador) · Guerra de Globos (multijugador) · Pesca Tranquila · Torres del Castillo
 
+## Sonido, música y animaciones
+- Efectos de sonido en la plataforma y en todos los juegos (generados por código).
+- 7 canciones originales compuestas para Cubiverso y la opción de cargar tu propia música (se guarda en el dispositivo).
+- 8 paquetes de animación (andar, saltar y trepar) y 7 gestos que se compran con Cubos. En los juegos, tecla G o botón GESTOS.
+
 ## Publicarlo en GitHub Pages
 1. Crea un repositorio público llamado `cubiverso`.
 2. Sube todos los archivos de esta carpeta (con la carpeta `juegos`).

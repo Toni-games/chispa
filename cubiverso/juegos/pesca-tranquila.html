@@ -51,6 +51,7 @@ body.k-touch #fish{right:max(16px,env(safe-area-inset-right,0px));left:auto;tran
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="../avatar.js"></script>
 <script src="../kit.js"></script>
+<script src="../audio.js"></script>
 <script>
 const K=Kit,{M,box,cyl,sph}=K;
 const W=K.setup({sky:0x9ad7f5,fogNear:90,fogFar:220});const {scene,camera,renderer,sun}=W;
@@ -124,12 +125,12 @@ function pickFish(){const r=rod(),luck=r.luck*(S.bait>0?1.6:1);const ws=FISH.map
 function startCast(){if(st!=='idle'||$('#ov').innerHTML)return;if(!onDock(P.x,P.z)&&Math.hypot(P.x,P.z)>LAKE.r+2.5){K.toast('MUY LEJOS','Acércate al agua o ve al muelle','#ff4f4f');return}
   if(S.bag.length>=BAGS[S.bagLv]){K.toast('MOCHILA LLENA','Vende tus peces en la pescadería','#ff4f4f');return}st='charge';pow=0}
 function releaseCast(){if(st==='charge'){const r=rod(),d=3+pow*r.dist;const yaw=ctl.look.yaw+Math.PI;P.face=yaw;const tx=P.x+Math.sin(yaw)*d,tz=P.z+Math.cos(yaw)*d;
-    cast={t:0,from:rodTip(),to:new THREE.Vector3(tx,.05,tz)};st='flying';bobber.visible=true;line.visible=true;$('#power').hidden=true;return}
+    cast={t:0,from:rodTip(),to:new THREE.Vector3(tx,.05,tz)};st='flying';if(window.CubiAudio)CubiAudio.sfx('whoosh');bobber.visible=true;line.visible=true;$('#power').hidden=true;return}
   if(st==='bite'){hook();return}}
 function hook(){fish=pickFish();const kg=+(fish.kg[0]+Math.random()*(fish.kg[1]-fish.kg[0])).toFixed(2);
-  reel={x:.5,v:0,zone:.5,zw:rod().zone,prog:.3,t:0,kg,dir:1,jit:0};st='reel';$('#reel').hidden=false;$('#reellbl').textContent='¡Mantén pulsado para subir la zona verde!';$('#fishdot').style.background=fish.col}
+  if(window.CubiAudio)CubiAudio.sfx('pop');reel={x:.5,v:0,zone:.5,zw:rod().zone,prog:.3,t:0,kg,dir:1,jit:0};st='reel';$('#reel').hidden=false;$('#reellbl').textContent='¡Mantén pulsado para subir la zona verde!';$('#fishdot').style.background=fish.col}
 function endFish(caught){$('#reel').hidden=true;bobber.visible=false;line.visible=false;if(S.bait>0)S.bait--;
-  if(caught){const kg=reel.kg;const price=Math.round(fish.val*(1+kg/(fish.kg[1]||1)*.6));S.bag.push({id:fish.id,kg,price});const b=S.book[fish.id]||{n:0,best:0};b.n++;b.best=Math.max(b.best,kg);S.book[fish.id]=b;
+  if(window.CubiAudio)CubiAudio.sfx(caught?'fish':'lose');if(caught){const kg=reel.kg;const price=Math.round(fish.val*(1+kg/(fish.kg[1]||1)*.6));S.bag.push({id:fish.id,kg,price});const b=S.book[fish.id]||{n:0,best:0};b.n++;b.best=Math.max(b.best,kg);S.book[fish.id]=b;
     const m=fishModel(fish,kg);m.position.set(0,3.6,0);me.root.add(m);setTimeout(()=>me.root.remove(m),1800);
     K.toast(fish.name.toUpperCase(),`${RAR[fish.r][0]} · ${kg} kg · ${fmt(price)}`,RAR[fish.r][1]==='#111111'?'#ffb020':RAR[fish.r][1]);
     if(fish.id==='cubipez'&&window.CubiAvatar){const s=CubiAvatar.state();s.cubos+=20;(s.history=s.history||[]).unshift({t:Date.now(),txt:'Pez Cubiverso pescado',amt:20});CubiAvatar.save(s);setTimeout(()=>K.toast('+20 CUBOS','¡Premio por el Pez Cubiverso!'),1900)}}
@@ -139,7 +140,7 @@ function endFish(caught){$('#reel').hidden=true;bobber.visible=false;line.visibl
 const ov=$('#ov');
 function nearShop(){return Math.hypot(P.x-shop.position.x,P.z-shop.position.z)<6}
 function sellAll(){if(!S.bag.length){K.toast('NO TIENES PECES','Pesca primero','#ff4f4f');return}if(!nearShop()){K.toast('VE A LA PESCADERÍA','Está en la orilla, a la derecha del muelle','#ffcc33');return}
-  const v=S.bag.reduce((a,f)=>a+f.price,0);S.money+=v;S.bag=[];persist();K.toast('VENDIDO','+'+fmt(v),'#3fd15c')}
+  const v=S.bag.reduce((a,f)=>a+f.price,0);S.money+=v;S.bag=[];persist();if(window.CubiAudio)CubiAudio.sfx('cash');K.toast('VENDIDO','+'+fmt(v),'#3fd15c')}
 function shopHTML(){return K.panel('TIENDA','#ffcc33',`<p>Tienes <b style="color:#3fd15c">${fmt(S.money)}</b>.</p>
   ${RODS.map(r=>{const own=S.rods.includes(r.id),on=S.rod===r.id;return `<div class="row"><div class="ic" style="background:${r.col}"></div><div><b>${r.name}</b><span>Lanza ${r.dist} m · zona ${Math.round(r.zone*100)}% · suerte x${r.luck}</span></div>
   ${on?'<button class="k-btn k-out" disabled>EN USO</button>':own?`<button class="k-btn b k-out" data-act="userod" data-id="${r.id}">USAR</button>`:`<button class="k-btn y k-out" data-act="buyrod" data-id="${r.id}" ${S.money<r.cost?'disabled':''}>${fmt(r.cost)}</button>`}</div>`}).join('')}
@@ -150,10 +151,10 @@ const bagCost=()=>[500,3000,15000][S.bagLv];
 function bookHTML(){const n=Object.keys(S.book).length;return K.panel(`PECES ${n}/${FISH.length}`,'#9c6bff',`<div class="book">${FISH.map(f=>{const b=S.book[f.id];return `<div class="${b?'':'no'}"><div class="dot" style="background:${b?f.col:'#555'}"></div>${b?f.name:'???'}<br><span style="color:${RAR[f.r][1]==='#111111'?'#ffb020':RAR[f.r][1]}">${RAR[f.r][0]}</span>${b?`<br>${b.n} pescados · máx ${b.best} kg`:''}</div>`}).join('')}</div>
   <p>Mochila: ${S.bag.length}/${BAGS[S.bagLv]} peces, valen ${fmt(S.bag.reduce((a,f)=>a+f.price,0))}.</p><button class="k-btn k-out" data-act="close">Cerrar</button>`)}
 const ACT={close(){ov.innerHTML=''},sell:sellAll,shop(){ov.innerHTML=shopHTML()},book(){ov.innerHTML=bookHTML()},
-  buyrod(id){const r=RODS.find(x=>x.id===id);if(S.money<r.cost)return;S.money-=r.cost;S.rods.push(id);S.rod=id;buildRod();persist();ov.innerHTML=shopHTML()},
+  buyrod(id){const r=RODS.find(x=>x.id===id);if(S.money<r.cost)return;S.money-=r.cost;if(window.CubiAudio)CubiAudio.sfx('buy');S.rods.push(id);S.rod=id;buildRod();persist();ov.innerHTML=shopHTML()},
   userod(id){S.rod=id;buildRod();persist();ov.innerHTML=shopHTML()},
-  bait(){if(S.money<150)return;S.money-=150;S.bait+=10;persist();ov.innerHTML=shopHTML()},
-  bag(){const c=bagCost();if(S.money<c)return;S.money-=c;S.bagLv++;persist();ov.innerHTML=shopHTML()},
+  bait(){if(S.money<150)return;S.money-=150;if(window.CubiAudio)CubiAudio.sfx('buy');S.bait+=10;persist();ov.innerHTML=shopHTML()},
+  bag(){const c=bagCost();if(S.money<c)return;S.money-=c;if(window.CubiAudio)CubiAudio.sfx('buy');S.bagLv++;persist();ov.innerHTML=shopHTML()},
   start(){ov.innerHTML=''}};
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;ACT[b.dataset.act]&&ACT[b.dataset.act](b.dataset.id)});
 const fb=$('#fish');fb.addEventListener('pointerdown',e=>{e.preventDefault();held=true;if(st==='idle')startCast();else if(st==='bite')hook()});
@@ -171,8 +172,8 @@ function loop(t){const dt=Math.min((t-last)/1000,.05);last=t;T+=dt;
   me.armR.rotation.x=st==='charge'?-2.4-pow*.6:st==='idle'?-.5:-1.1;
   if(st==='charge'){pow=Math.min(1,pow+dt*.8);$('#power').hidden=false;$('#power i').style.width=pow*100+'%'}
   if(st==='flying'){cast.t+=dt*1.6;const p=Math.min(1,cast.t);const v=cast.from.clone().lerp(cast.to,p);v.y+=Math.sin(p*Math.PI)*3;bobber.position.copy(v);
-    if(p>=1){if(inWater(cast.to.x,cast.to.z)){st='wait';wait=(2+Math.random()*5)*(S.bait>0?.55:1)}else{K.toast('AHÍ NO HAY AGUA','Apunta al lago','#ff4f4f');st='idle';bobber.visible=false;line.visible=false}}}
-  if(st==='wait'){wait-=dt;bobber.position.y=.05+Math.sin(T*3)*.03;if(wait<=0){st='bite';biteT=1.2;K.toast('¡PICA!','¡Pulsa PESCAR ya!','#3fd15c')}}
+    if(p>=1){if(inWater(cast.to.x,cast.to.z)){if(window.CubiAudio)CubiAudio.sfx('splash');st='wait';wait=(2+Math.random()*5)*(S.bait>0?.55:1)}else{K.toast('AHÍ NO HAY AGUA','Apunta al lago','#ff4f4f');st='idle';bobber.visible=false;line.visible=false}}}
+  if(st==='wait'){wait-=dt;bobber.position.y=.05+Math.sin(T*3)*.03;if(wait<=0){st='bite';biteT=1.2;if(window.CubiAudio)CubiAudio.sfx('bite');K.toast('¡PICA!','¡Pulsa PESCAR ya!','#3fd15c')}}
   if(st==='bite'){biteT-=dt;bobber.position.y=-.12+Math.sin(T*30)*.06;if(biteT<=0){K.toast('SE HA IDO','Hay que pulsar más rápido','#ff4f4f');st='wait';wait=2+Math.random()*3}}
   if(st==='reel'){const r=reel;r.t+=dt;r.jit-=dt;if(r.jit<=0){r.jit=.4+Math.random()*.8/fish.diff;r.dir=(Math.random()-.5)*2*fish.diff}
     r.x=clamp(r.x+r.dir*dt*.45,0.03,.97);if(r.x<=.03||r.x>=.97)r.dir*=-1;
@@ -191,6 +192,8 @@ ov.innerHTML=K.panel('PESCA TRANQUILA','#3fa7ff',`<p>Un lago tranquilo lleno de 
   <ul><li>Mira hacia el agua y <b>mantén pulsado PESCAR</b> (o F) para lanzar más lejos.</li><li>Cuando el corcho se hunda y salga <b>¡PICA!</b>, pulsa rápido.</li>
   <li>Mantén pulsado para mover la <b>zona verde</b> y que el pez se quede dentro hasta llenar la barra.</li><li>Vende en la <b>pescadería</b> y compra cañas mejores. El Pez Cubiverso da 20 Cubos.</li></ul>
   <button class="k-btn g k-out" data-act="start">¡A PESCAR!</button>`);
+K.emotes(me);if(window.CubiAudio)CubiAudio.gameMusic('lago');
+setInterval(()=>{if(st==='reel'&&window.CubiAudio)CubiAudio.sfx('reel')},120);
 requestAnimationFrame(loop);
 </script>
 </body>
