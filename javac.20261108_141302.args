@@ -1,0 +1,5 @@
+-d
+/tmp/jchk
+-cp
+/dev/null
+app/src/main/java/com/cubiverso/app/MainActivity.java

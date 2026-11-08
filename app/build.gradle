@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.cubiverso.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.cubiverso.app'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        cubiverso {
+            // Clave fija: así cada versión nueva se instala encima de la anterior
+            storeFile file('cubiverso.jks')
+            storePassword 'cubiverso123'
+            keyAlias 'cubiverso'
+            keyPassword 'cubiverso123'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.cubiverso
+        }
+        debug {
+            signingConfig signingConfigs.cubiverso
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    androidResources {
+        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+}

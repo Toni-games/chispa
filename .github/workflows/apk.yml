@@ -1,0 +1,53 @@
+name: Crear APK de Cubiverso
+
+on:
+  push:
+    branches: [cubiverso-apk]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Preparar Android (ya viene instalado en GitHub)
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Compilar la APK
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Preparar el archivo
+        run: cp app/build/outputs/apk/release/app-release.apk Cubiverso.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cubiverso-apk
+          path: Cubiverso.apk
+
+      - name: Publicar la APK para descargar
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cubiverso-v1.0.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: Cubiverso para Android (versión ${{ github.run_number }})
+          body: |
+            Descarga **Cubiverso.apk** desde el móvil o la tablet y ábrelo para instalarlo.
+            Si Android lo pide, permite «Instalar aplicaciones de origen desconocido» para tu navegador.
+            La app necesita internet para cargar los gráficos 3D y para jugar con amigos.
+          files: Cubiverso.apk
+          make_latest: false

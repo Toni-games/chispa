@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Patadón de Lucky Blocks</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Layout: pista 3D a pantalla completa; monedas arriba, medidor de fuerza a la derecha, botón de patada abajo, tienda y mascotas a la izquierda */
+:root{--panel:rgba(18,24,38,.85);--green:#3fd15c;--gold:#ffcc33;--red:#ff4f4f;--blue:#3fa7ff;--purple:#9c6bff;
+  --f-d:"Lilita One","Arial Black",sans-serif;--f-b:"Nunito","Segoe UI",system-ui,sans-serif;color-scheme:dark}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;overflow:hidden;background:#7fc8f8;color:#fff;font-family:var(--f-b);user-select:none;-webkit-user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid #fff;outline-offset:2px}
+button:disabled{opacity:.45;cursor:not-allowed}
+.ui{position:fixed;z-index:5}
+.out{-webkit-text-stroke:1.5px #000;paint-order:stroke fill;text-shadow:0 3px 0 #000}
+#top{top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);text-align:center;pointer-events:none}
+#coins{font-family:var(--f-d);font-size:clamp(30px,6vw,46px);color:var(--gold);line-height:1}
+#rec{font-size:14px;font-weight:900}
+#dist{top:28%;left:50%;transform:translate(-50%,-50%);font-family:var(--f-d);font-size:clamp(46px,10vw,90px);pointer-events:none}
+#side{left:max(10px,env(safe-area-inset-left,0px));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px}
+.sq{width:70px;height:70px;border-radius:14px;border:3px solid #000;font-weight:900;font-size:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:inset 0 -6px 0 rgba(0,0,0,.25)}
+.sq b{font-family:var(--f-d);font-weight:400;font-size:22px;line-height:1}
+#meter{right:max(16px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);width:44px;height:min(320px,46vh);border:4px solid #000;border-radius:14px;background:linear-gradient(0deg,#3fd15c 0%,#ffcc33 60%,#ff4f4f 88%,#ff4f4f 100%);overflow:hidden}
+#meter .zone{position:absolute;left:0;right:0;top:0;height:10%;background:repeating-linear-gradient(45deg,rgba(255,255,255,.55) 0 6px,transparent 6px 12px);border-bottom:3px solid #000}
+#meter .cover{position:absolute;left:0;right:0;top:0;background:rgba(10,14,24,.78)}
+#meter .tick{position:absolute;left:-6px;right:-6px;height:6px;background:#fff;border:2px solid #000;border-radius:3px}
+#kick{left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 22px);border:4px solid #000;border-radius:18px;background:var(--red);font-family:var(--f-d);font-size:26px;padding:14px 34px;box-shadow:inset 0 -7px 0 rgba(0,0,0,.25);touch-action:none}
+#kick small{display:block;font-family:var(--f-b);font-size:12px;font-weight:900}
+#toast{top:40%;left:50%;transform:translate(-50%,-50%);font-family:var(--f-d);font-size:clamp(26px,5vw,42px);text-align:center;pointer-events:none;transition:opacity .3s;opacity:0;width:90vw}
+#toast small{display:block;font-family:var(--f-b);font-size:16px;font-weight:900}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:grid;place-items:center;z-index:20;padding:20px max(16px,env(safe-area-inset-right,0px)) 20px max(16px,env(safe-area-inset-left,0px))}
+.panel{background:#1b2236;border:4px solid #000;border-radius:18px;max-width:560px;width:100%;max-height:88vh;overflow:auto}
+.ph{display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid #000;padding:10px 14px;border-radius:14px 14px 0 0}
+.ph h2{margin:0;font-family:var(--f-d);font-weight:400;font-size:26px}
+.x{width:38px;height:38px;border:3px solid #000;border-radius:10px;background:var(--red);font-weight:900}
+.pb{padding:16px}.pb p{margin:0 0 10px;line-height:1.45;font-weight:700;color:#cfd6e6}.pb ul{margin:0 0 14px;padding-left:18px;line-height:1.6;font-weight:700}
+.btn{border:3px solid #000;border-radius:12px;padding:8px 14px;font-weight:900;background:#555c6a;box-shadow:inset 0 -4px 0 rgba(0,0,0,.25)}
+.btn.g{background:var(--green)}.btn.y{background:var(--gold);color:#3a2600}.btn.b{background:var(--blue)}
+.row{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px;border:3px solid #000;border-radius:12px;background:#252e46;margin-bottom:8px}
+.row .ic{width:54px;height:54px;border-radius:10px;border:2px solid #000}
+.row b{display:block}.row span{display:block;font-size:12px;color:#cfd6e6;font-weight:700}
+.pips{display:inline-flex;gap:2px;margin-left:6px;vertical-align:middle}.pips i{width:7px;height:9px;border-radius:2px;background:rgba(255,255,255,.18)}.pips i.on{background:var(--green)}
+.pets{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.pet{border:3px solid #000;border-radius:12px;background:#252e46;padding:8px;text-align:center}
+.pet .dot{width:46px;height:46px;border-radius:50%;margin:0 auto 4px;border:2px solid #000}
+.pet b{display:block;font-size:13px}.pet span{font-size:12px;font-weight:800;color:#cfd6e6}
+.pet.lock{opacity:.4}
+.reward{text-align:center}.reward .big{font-family:var(--f-d);font-size:46px;color:var(--gold)}
+@media (max-width:600px){.sq{width:58px;height:58px}#kick{font-size:22px;padding:12px 26px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="top" class="ui"><div id="coins" class="out">0</div><div id="rec" class="out">Récord: 0 m</div></div>
+<div id="dist" class="ui out" hidden>0 m</div>
+<div id="side" class="ui">
+  <button class="sq out" style="background:var(--green)" data-act="shop"><b>$</b>Mejoras</button>
+  <button class="sq out" style="background:var(--gold);color:#3a2600" data-act="blocks"><b>▣</b>Bloques</button>
+  <button class="sq out" style="background:var(--purple)" data-act="pets"><b>♥</b>Mascotas</button>
+  <button class="sq out" style="background:#ffb020;color:#2a1a00" data-act="pases" id="pasesbtn" hidden><b>★</b>Pases</button>
+</div>
+<div id="meter" class="ui"><div class="zone"></div><div class="cover" id="mcover"></div><div class="tick" id="mtick"></div></div>
+<button id="kick" class="ui out">PATEAR<small>Mantén pulsado y suelta en la zona rayada</small></button>
+<div id="toast" class="ui out"></div>
+<div id="ov"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../avatar.js"></script>
+<script src="../pases.js"></script>
+<script>
+/* ================= DATOS ================= */
+const BLOCKS=[
+ {id:'comun',name:'Bloque Común',val:5,cost:0,a:'#ffd23f',b:'#e0a400'},
+ {id:'oro',name:'Bloque Dorado',val:25,cost:2000,a:'#ffb300',b:'#8a5a00',glow:.25},
+ {id:'diamante',name:'Bloque Diamante',val:120,cost:15000,a:'#7fe7ff',b:'#1e88b8',glow:.25},
+ {id:'arcoiris',name:'Bloque Arcoíris',val:600,cost:120000,rainbow:1,a:'#ff4f9a',b:'#3fa7ff',glow:.3},
+ {id:'galactico',name:'Bloque Galáctico',val:3000,cost:1000000,galaxy:1,a:'#2a1a5e',b:'#c58bff',glow:.4},
+ {id:'cubibloque',name:'Bloque Cubiverso',val:8000,cost:0,a:'#ffd27a',b:'#e08e00',glow:.45,pass:'cubibloque'}
+];
+const PETS=[
+ {id:'patito',name:'Patito Bloque',mult:1.1,col:'#ffeb3b',w:40},
+ {id:'gatete',name:'Gatete Cubo',mult:1.2,col:'#ff9a3d',w:28},
+ {id:'perrete',name:'Perrete Píxel',mult:1.35,col:'#a1887f',w:18},
+ {id:'rana',name:'Rana Saltarina',mult:1.6,col:'#3fd15c',w:9},
+ {id:'pulpo',name:'Pulpo Pirata',mult:2,col:'#ff4f9a',w:3.5},
+ {id:'dragon',name:'Dragoncito',mult:3,col:'#9c6bff',w:1.2},
+ {id:'fantasma',name:'Fantasmín',mult:4,col:'#e8ecff',w:.35},
+ {id:'unicornio',name:'Unicornio Galáctico',mult:7,col:'#ff8fc7',w:.08},
+ {id:'cubito',name:'Cubito Dorado',mult:10,col:'#ffcc33',w:0,pass:'cubito'}
+];
+const UPS=[
+ {id:'fuerza',name:'Fuerza de patada',desc:'Los bloques llegan más lejos.',base:40,grow:1.55,max:25,col:'#ff4f4f'},
+ {id:'botas',name:'Botas de oro',desc:'+25% de monedas por nivel.',base:120,grow:1.75,max:20,col:'#ffcc33'},
+ {id:'suerte',name:'Trébol de la suerte',desc:'Más mascotas y más raras.',base:200,grow:2,max:12,col:'#3fd15c'}
+];
+const ZONES=[[0,'#5cc23f',1],[100,'#3fa7ff',1.5],[300,'#9c6bff',2.2],[700,'#ffb300',3.5],[1500,'#ff4f9a',6],[3000,'#22d3ee',10]];
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const passOk=id=>!!(window.CubiPases&&location.hash==='#plataforma'&&CubiPases.has('patadon',id));
+const fmt=n=>n>=1e12?(n/1e12).toFixed(2)+'T':n>=1e9?(n/1e9).toFixed(2)+'B':n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e4?(n/1e3).toFixed(1)+'K':Math.floor(n).toLocaleString('es-ES');
+const upCost=(u,l)=>Math.round(u.base*Math.pow(u.grow,l));
+let S={coins:0,best:0,ups:{fuerza:0,botas:0,suerte:0},blocks:['comun'],block:'comun',pets:{}};
+try{const s=JSON.parse(localStorage.getItem('cubi-patadon')||'null');if(s&&s.ups)S=Object.assign(S,s)}catch(e){}
+const persist=()=>{try{localStorage.setItem('cubi-patadon',JSON.stringify(S))}catch(e){}};
+const petMult=()=>{const list=[];PETS.forEach(p=>{for(let k=0;k<(S.pets[p.id]||0);k++)list.push(p.mult)});list.sort((a,b)=>b-a);return list.slice(0,3).reduce((a,b)=>a*b,1)};
+const zoneAt=d=>{let z=ZONES[0];ZONES.forEach(q=>{if(d>=q[0])z=q});return z};
+const maxDist=()=>40*Math.pow(1.32,S.ups.fuerza);
+
+/* ================= ESCENA ================= */
+const canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x7fc8f8);scene.fog=new THREE.Fog(0x7fc8f8,120,420);
+const camera=new THREE.PerspectiveCamera(58,1,.2,900);
+scene.add(new THREE.HemisphereLight(0xffffff,0x6a8a5a,.75));
+const sun=new THREE.DirectionalLight(0xfff2dd,.8);sun.position.set(20,50,-10);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-20,right:20,top:20,bottom:-20,far:120});scene.add(sun);scene.add(sun.target);
+const M=(c,o)=>new THREE.MeshLambertMaterial(Object.assign({color:c},o||{}));
+function box(w,h,d,m,x,y,z,p){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);(p||scene).add(o);return o}
+function textTex(t,size,col,w,h,bg){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');if(bg){g.fillStyle=bg;g.fillRect(0,0,w,h)}g.font=`900 ${size}px Nunito, Arial`;g.textAlign='center';g.textBaseline='middle';g.lineWidth=size/6;g.strokeStyle='#000';g.strokeText(t,w/2,h/2);g.fillStyle=col;g.fillText(t,w/2,h/2);return new THREE.CanvasTexture(c)}
+// hierba a los lados
+const LEN=4200;
+const grass=new THREE.Mesh(new THREE.PlaneGeometry(300,LEN+200),M(0x6fcf4f));grass.rotation.x=-Math.PI/2;grass.position.set(0,-.02,LEN/2-80);grass.receiveShadow=true;scene.add(grass);
+// pista por zonas
+ZONES.forEach((z,i)=>{const end=ZONES[i+1]?ZONES[i+1][0]:LEN;const len=end-z[0];const m=new THREE.Mesh(new THREE.PlaneGeometry(14,len),M(new THREE.Color(z[1]).lerp(new THREE.Color(0xffffff),.35)));m.rotation.x=-Math.PI/2;m.position.set(0,.01,z[0]+len/2);m.receiveShadow=true;scene.add(m)});
+const start=new THREE.Mesh(new THREE.PlaneGeometry(14,14),M(0xe0e4ec));start.rotation.x=-Math.PI/2;start.position.set(0,.015,-6);scene.add(start);
+for(let d=25;d<=LEN;d+=d<300?25:d<1000?50:100){const l=new THREE.Mesh(new THREE.PlaneGeometry(14,.35),M(0xffffff));l.rotation.x=-Math.PI/2;l.position.set(0,.02,d);scene.add(l);
+  if(d%50===0||d<100){const sg=new THREE.Sprite(new THREE.SpriteMaterial({map:textTex(d+' m',60,'#fff',256,90)}));sg.scale.set(5,1.75,1);sg.position.set(-9,2,d);scene.add(sg);
+    const pole=box(.2,2,.2,M(0x333a48),-9,1,d);}}
+// vallas
+[-7.4,7.4].forEach(x=>{const f=new THREE.Mesh(new THREE.BoxGeometry(.3,.6,LEN),M(0xffffff));f.position.set(x,.3,LEN/2);scene.add(f)});
+// árboles y nubes
+for(let i=0;i<220;i++){const z=Math.random()*LEN,x=(Math.random()<.5?-1:1)*(14+Math.random()*60);const t=new THREE.Group();t.position.set(x,0,z);scene.add(t);
+  box(.6,2,.6,M(0x7a5232),0,1,0,t);const f=new THREE.Mesh(new THREE.IcosahedronGeometry(2+Math.random(),0),M([0x43a047,0x66bb6a,0x2e7d32][i%3]));f.position.y=3.4;t.add(f)}
+for(let i=0;i<60;i++){const c=new THREE.Mesh(new THREE.SphereGeometry(6+Math.random()*6,10,8),M(0xffffff,{transparent:true,opacity:.9}));c.scale.y=.45;c.position.set((Math.random()-.5)*400,60+Math.random()*30,Math.random()*LEN);scene.add(c)}
+
+/* ================= BLOQUE DE LA SUERTE (diseño propio: trébol) ================= */
+function blockTex(B){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');
+  if(B.rainbow){['#ff4f4f','#ff9a3d','#ffd23f','#3fd15c','#3fa7ff','#9c6bff'].forEach((k,i)=>{g.fillStyle=k;g.fillRect(0,i*22,128,22)})}
+  else if(B.galaxy){g.fillStyle=B.a;g.fillRect(0,0,128,128);const gr=g.createRadialGradient(80,40,4,80,40,90);gr.addColorStop(0,'rgba(197,139,255,.9)');gr.addColorStop(1,'rgba(197,139,255,0)');g.fillStyle=gr;g.fillRect(0,0,128,128);g.fillStyle='#fff';for(let k=0;k<30;k++)g.fillRect((k*37)%128,(k*59+k*k)%128,2,2)}
+  else{const gr=g.createLinearGradient(0,0,128,128);gr.addColorStop(0,B.a);gr.addColorStop(1,B.b);g.fillStyle=gr;g.fillRect(0,0,128,128)}
+  g.fillStyle='rgba(255,255,255,.85)';g.fillRect(56,0,16,128);g.fillRect(0,56,128,16);
+  g.fillStyle='#2e9e45';g.strokeStyle='#0d3d18';g.lineWidth=4;[[64,46],[82,64],[64,82],[46,64]].forEach(([x,y])=>{g.beginPath();g.arc(x,y,15,0,7);g.fill();g.stroke()});
+  g.beginPath();g.arc(64,64,8,0,7);g.fillStyle='#43c463';g.fill();g.strokeStyle='#0d3d18';g.lineWidth=5;g.beginPath();g.moveTo(70,74);g.quadraticCurveTo(84,96,78,112);g.stroke();
+  g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=8;g.strokeRect(4,4,120,120);return new THREE.CanvasTexture(c)}
+let blockM=null;
+function makeBlock(){const B=BLOCKS.find(b=>b.id===S.block);const t=blockTex(B);const m=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.6,1.6),new THREE.MeshLambertMaterial({map:t,emissive:B.glow?new THREE.Color(B.b):0x000000,emissiveIntensity:B.glow||0}));m.castShadow=true;return m}
+function resetBlock(){if(blockM)scene.remove(blockM);blockM=makeBlock();blockM.position.set(0,.8,1.6);scene.add(blockM)}
+
+/* ================= JUGADOR Y MASCOTAS ================= */
+function makePerson(){if(window.CubiAvatar){const a=CubiAvatar.makeAvatar(THREE,CubiAvatar.state().eq);scene.add(a.root);return a}
+  const root=new THREE.Group(),legL=new THREE.Group(),legR=new THREE.Group(),armL=new THREE.Group(),armR=new THREE.Group();legL.position.set(-.225,.7,0);legR.position.set(.225,.7,0);armL.position.set(-.67,1.55,0);armR.position.set(.67,1.55,0);root.add(legL,legR,armL,armR);
+  box(.9,.9,.45,M(0xff7a2f),0,1.15,0,root);box(.55,.55,.55,M(0xffd29a),0,1.9,0,root);[legL,legR].forEach(l=>box(.44,.7,.44,M(0x2d3a5a),0,-.35,0,l));[armL,armR].forEach(a=>box(.44,.85,.44,M(0xffd29a),0,-.4,0,a));scene.add(root);return {root,legL,legR,armL,armR}}
+const me=makePerson();me.root.position.set(0,0,-.6);
+function petModel(p){const g=new THREE.Group();const c=new THREE.Color(p.col);
+  const body=box(.7,.6,.7,M(c),0,.45,0,g);const head=box(.55,.5,.5,M(c),0,.95,.2,g);
+  [-1,1].forEach(k=>{box(.1,.12,.04,M(0xffffff),k*.13,1.0,.46,g);box(.05,.07,.02,M(0x111111),k*.13,.99,.48,g)});
+  if(p.id==='patito')box(.25,.08,.2,M(0xff9800),0,.9,.52,g);
+  if(p.id==='gatete'||p.id==='perrete')[-1,1].forEach(k=>box(.14,.18,.08,M(c.clone().multiplyScalar(.8)),k*.18,1.28,.15,g));
+  if(p.id==='rana')[-1,1].forEach(k=>box(.18,.16,.18,M(c),k*.17,1.25,.2,g));
+  if(p.id==='pulpo')for(let k=0;k<4;k++)box(.1,.35,.1,M(c),-.27+k*.18,.12,.3,g);
+  if(p.id==='dragon')[-1,1].forEach(k=>{const w=box(.6,.05,.35,M(0x5b2a86),k*.5,.7,-.1,g);w.rotation.z=k*.4});
+  if(p.id==='fantasma'){g.children.forEach(m=>{if(m.material)m.material=M(c,{transparent:true,opacity:.75})})}
+  if(p.id==='unicornio'){const h=new THREE.Mesh(new THREE.ConeGeometry(.08,.4,8),M(0xffd23f));h.position.set(0,1.35,.3);g.add(h)}
+  g.scale.setScalar(.8);g.traverse(o=>{if(o.isMesh)o.castShadow=true});return g}
+let petObjs=[];
+function refreshPets(){petObjs.forEach(o=>scene.remove(o.g));petObjs=[];const list=[];PETS.forEach(p=>{for(let k=0;k<(S.pets[p.id]||0);k++)list.push(p)});list.sort((a,b)=>b.mult-a.mult);
+  list.slice(0,3).forEach((p,i)=>{const g=petModel(p);g.position.set(-2+i*1.4,0,-2.4);scene.add(g);petObjs.push({g,p,i})})}
+
+/* ================= ESTADO DE LA PATADA ================= */
+let state='ready',power=0,pdir=1,charging=false,kickT=0,flight=null,curD=0,result=null,camZ=0;
+const $=s=>document.querySelector(s);
+function toast(t,sub,col){const el=$('#toast');el.innerHTML=`<span style="color:${col||'var(--gold)'}">${t}</span>${sub?`<small>${sub}</small>`:''}`;el.style.opacity=1;clearTimeout(toast.t);toast.t=setTimeout(()=>el.style.opacity=0,2000)}
+function hud(){$('#coins').textContent=fmt(S.coins);$('#rec').textContent=`Récord: ${fmt(S.best)} m · Máx. aprox. ${fmt(maxDist())} m`;
+  $('#mcover').style.height=((1-power)*100)+'%';$('#mtick').style.top=`calc(${(1-power)*100}% - 3px)`;
+  const k=$('#kick');k.disabled=state!=='ready'&&state!=='charging'}
+function startCharge(){if(state!=='ready'||ov.innerHTML)return;state='charging';charging=true;power=0;pdir=1}
+function release(){if(state!=='charging')return;charging=false;state='kick';kickT=0}
+function launch(){
+  if(passOk('perfecta'))power=1;
+  const perfect=power>=.9;const D=maxDist()*(0.22+0.78*power)*(perfect?1.15:1)*(0.93+Math.random()*.14);
+  if(perfect)toast('¡PATADA PERFECTA!','+15% de distancia','#3fd15c');
+  const T1=clamp(1.3+D/700,1.3,4.5),arcs=[[.82,T1],[.13,T1*.38],[.05,T1*.16]];
+  flight={D,arcs,k:0,t:0,z0:1.6,spin:new THREE.Vector3(Math.random()*8+4,Math.random()*4,Math.random()*6)};state='flying';$('#dist').hidden=false}
+function flyStep(dt){const f=flight;let[a,T]=f.arcs[f.k];f.t+=dt;const p=Math.min(1,f.t/T);
+  const seg=f.D*a;const z=f.z0+seg*p;const h=Math.max(.4,seg*.18)*(f.k===0?1:.6);const y=.8+4*h*p*(1-p);
+  blockM.position.set(Math.sin(f.t*3)*(f.k?0:.5)*p,y,z);blockM.rotation.x+=f.spin.x*dt*(1-f.k*.3);blockM.rotation.y+=f.spin.y*dt;blockM.rotation.z+=f.spin.z*dt;
+  curD=Math.max(0,z-1.6);$('#dist').textContent=fmt(curD)+' m';
+  if(p>=1){f.z0=z;f.t=0;f.k++;if(f.k>=f.arcs.length){state='open';kickT=0;blockM.position.y=.8;blockM.rotation.set(0,0,0)}}}
+const parts=[];
+function burst(pos,col){for(let k=0;k<26;k++){const m=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,.3),M(col));m.position.copy(pos);m.userData.v=new THREE.Vector3((Math.random()-.5)*9,5+Math.random()*7,(Math.random()-.5)*9);m.userData.l=1.4;scene.add(m);parts.push(m)}}
+function rollPet(D){const B=BLOCKS.findIndex(b=>b.id===S.block);const chance=.1+.03*S.ups.suerte+B*.03;if(Math.random()>chance)return null;
+  const boost=1+S.ups.suerte*.35+B*.6+zoneAt(D)[2]*.15;const ws=PETS.map((p,i)=>p.pass?0:p.w*Math.pow(boost,i*.55));let r=Math.random()*ws.reduce((a,b)=>a+b,0);for(let i=0;i<PETS.length;i++){r-=ws[i];if(r<=0)return PETS[i]}return PETS[0]}
+function openBlock(){const B=BLOCKS.find(b=>b.id===S.block),D=curD,Z=zoneAt(D);
+  const coins=Math.round(B.val*(1+D/20)*Z[2]*(1+.25*S.ups.botas)*petMult()*(passOk('x2')?2:1));
+  const pet=rollPet(D);const cubos=Math.random()<(S.block==='cubibloque'?.18:.04)?(Math.random()<.2?25:5):0;
+  S.coins+=coins;if(D>S.best)S.best=Math.round(D);if(pet)S.pets[pet.id]=(S.pets[pet.id]||0)+1;
+  if(cubos&&window.CubiAvatar){const c=CubiAvatar.state();c.cubos+=cubos;(c.history=c.history||[]).unshift({t:Date.now(),txt:'Premio en Patadón de Lucky Blocks',amt:cubos});CubiAvatar.save(c)}
+  persist();burst(blockM.position,B.rainbow?'#ff4f9a':B.a);scene.remove(blockM);blockM=null;if(pet)refreshPets();
+  result={D,coins,pet,cubos,newBest:Math.round(D)>=S.best};state='result';$('#dist').hidden=true;
+  ov.innerHTML=`<div class="overlay"><div class="panel"><div class="ph" style="background:${Z[1]}"><h2 class="out">${fmt(D)} m${result.newBest?' · ¡RÉCORD!':''}</h2></div><div class="pb reward">
+    <div class="big out">+${fmt(coins)}</div><p>monedas · zona x${Z[2]}${petMult()>1?` · mascotas x${petMult().toFixed(2)}`:''}</p>
+    ${pet?`<p style="color:#fff;font-size:18px">¡Nueva mascota! <b style="color:${pet.col}">${pet.name}</b> (x${pet.mult})</p>`:''}
+    ${cubos?`<p style="color:var(--gold);font-size:18px">¡Premio especial! +${cubos} Cubos de Cubiverso</p>`:''}
+    <button class="btn g out" data-act="again" style="width:100%;font-size:18px">OTRA PATADA</button></div></div></div>`}
+function again(){ov.innerHTML='';state='ready';power=0;curD=0;resetBlock()}
+
+/* ================= TIENDAS ================= */
+const ov=$('#ov');
+const panel=(t,col,body)=>`<div class="overlay"><div class="panel"><div class="ph" style="background:${col}"><h2 class="out">${t}</h2><button class="x out" data-act="close" aria-label="Cerrar">X</button></div><div class="pb">${body}</div></div></div>`;
+function shopHTML(){return panel('MEJORAS','var(--green)',`<p>Tienes <b style="color:var(--gold)">${fmt(S.coins)}</b> monedas.</p>${UPS.map(u=>{const l=S.ups[u.id],c=upCost(u,l),mx=l>=u.max;
+  return `<div class="row"><div class="ic" style="background:${u.col}"></div><div><b>${u.name} <span class="pips" style="display:inline-flex">${Array.from({length:Math.min(u.max,12)},(_,i)=>`<i class="${i<l*12/u.max?'on':''}"></i>`).join('')}</span></b><span>${u.desc} Nivel ${l}/${u.max}</span></div>
+  <button class="btn ${mx?'':'g'} out" data-act="up" data-id="${u.id}" ${mx||S.coins<c?'disabled':''}>${mx?'MÁX':fmt(c)}</button></div>`}).join('')}`)}
+function blocksHTML(){return panel('BLOQUES','var(--gold)',`<p>Los bloques mejores dan muchas más monedas y mascotas más raras.</p>${BLOCKS.filter(b=>!b.pass||passOk(b.pass)).map(b=>{const own=S.blocks.includes(b.id),on=S.block===b.id;
+  return `<div class="row"><div class="ic" style="background:${b.rainbow?'linear-gradient(#ff4f4f,#ffd23f,#3fd15c,#3fa7ff,#9c6bff)':b.galaxy?'radial-gradient(#c58bff,#2a1a5e)':`linear-gradient(135deg,${b.a},${b.b})`}"></div><div><b>${b.name}</b><span>Valor x${b.val}</span></div>
+  ${on?'<button class="btn out" disabled>USANDO</button>':own?`<button class="btn b out" data-act="useblock" data-id="${b.id}">USAR</button>`:`<button class="btn y out" data-act="buyblock" data-id="${b.id}" ${S.coins<b.cost?'disabled':''}>${fmt(b.cost)}</button>`}</div>`}).join('')}`)}
+function petsHTML(){const m=petMult();return panel('MASCOTAS','var(--purple)',`<p>Tus 3 mejores mascotas te acompañan y multiplican las monedas: ahora <b style="color:var(--gold)">x${m.toFixed(2)}</b>.</p>
+  <div class="pets">${PETS.map(p=>{const n=S.pets[p.id]||0;return `<div class="pet ${n?'':'lock'}"><div class="dot" style="background:${p.col}"></div><b>${n?p.name:'???'}</b><span>x${p.mult}${n?` · tienes ${n}`:''}</span></div>`}).join('')}</div>`)}
+const ACT={
+  close(){ov.innerHTML=''},again,
+  pases(){if(state==='ready'&&window.CubiPases)CubiPases.open()},
+  shop(){if(state==='ready')ov.innerHTML=shopHTML()},blocks(){if(state==='ready')ov.innerHTML=blocksHTML()},pets(){if(state==='ready')ov.innerHTML=petsHTML()},
+  up(id){const u=UPS.find(x=>x.id===id),l=S.ups[id],c=upCost(u,l);if(l>=u.max||S.coins<c)return;S.coins-=c;S.ups[id]++;persist();ov.innerHTML=shopHTML()},
+  buyblock(id){const b=BLOCKS.find(x=>x.id===id);if(S.coins<b.cost)return;S.coins-=b.cost;S.blocks.push(id);S.block=id;persist();resetBlock();ov.innerHTML=blocksHTML()},
+  useblock(id){S.block=id;persist();resetBlock();ov.innerHTML=blocksHTML()}
+};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;ACT[b.dataset.act]&&ACT[b.dataset.act](b.dataset.id)});
+const kb=$('#kick');kb.addEventListener('pointerdown',e=>{e.preventDefault();startCharge()});['pointerup','pointercancel','pointerleave'].forEach(t=>kb.addEventListener(t,release));
+addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();if(state==='result'&&!e.repeat){again();return}if(!e.repeat)startCharge()}if(e.key==='Escape'&&ov.innerHTML&&state==='ready')ACT.close()});
+addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter')release()});
+function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();
+
+/* ================= BUCLE ================= */
+let last=performance.now(),hudT=0;
+function loop(t){const dt=Math.min((t-last)/1000,.05);last=t;const T=t/1000;
+  if(state==='charging'){power+=pdir*dt*1.5;if(power>=1){power=1;pdir=-1}if(power<=0){power=0;pdir=1}}
+  if(state==='kick'){kickT+=dt;me.legR.rotation.x=kickT<.12?kickT/.12*.9:.9-(kickT-.12)/.1*2.4;me.armL.rotation.x=-me.legR.rotation.x*.5;if(kickT>=.22){me.legR.rotation.x=-1.4;launch()}}
+  else if(state==='ready'||state==='charging'){me.legR.rotation.x=state==='charging'?.5+power*.5:Math.sin(T*2)*.05;me.legL.rotation.x=0;me.armL.rotation.x=me.armR.rotation.x=Math.sin(T*2)*.05}
+  else{me.legR.rotation.x*=.9}
+  if(state==='flying')flyStep(dt);
+  if(state==='open'){kickT+=dt;blockM.position.x=Math.sin(kickT*60)*.08;blockM.scale.setScalar(1+kickT*.25);if(kickT>.7)openBlock()}
+  for(let k=parts.length-1;k>=0;k--){const p=parts[k];p.userData.l-=dt;p.userData.v.y-=20*dt;p.position.addScaledVector(p.userData.v,dt);p.rotation.x+=dt*6;if(p.position.y<.15){p.position.y=.15;p.userData.v.y*=-.4;p.userData.v.x*=.7;p.userData.v.z*=.7}if(p.userData.l<=0){scene.remove(p);parts.splice(k,1)}}
+  petObjs.forEach(o=>{o.g.position.y=Math.abs(Math.sin(T*3+o.i))*.3;o.g.rotation.y=Math.sin(T+o.i)*.4});
+  if(blockM&&state==='ready'){blockM.rotation.y=Math.sin(T)*.15;blockM.position.y=.8+Math.abs(Math.sin(T*2))*.05}
+  // cámara
+  const target=(state==='flying'||state==='open'||state==='result')&&blockM?blockM.position.z:(state==='result'?camZ:0);
+  if(state==='flying'||state==='open'){camZ=blockM.position.z;camera.position.lerp(new THREE.Vector3(6,6+Math.min(10,camZ*.01),camZ-12),Math.min(1,dt*5));camera.lookAt(0,1,camZ+4)}
+  else if(state!=='result'){camera.position.lerp(new THREE.Vector3(4.5,3.4,-7.5),Math.min(1,dt*4));camera.lookAt(0,1.2,2.5)}
+  sun.position.set(20,50,camZ-10);sun.target.position.set(0,0,camZ);
+  hudT+=dt;if(hudT>.05){hudT=0;hud()}
+  renderer.render(scene,camera);requestAnimationFrame(loop)}
+function syncPases(){if(passOk('cubibloque')&&!S.blocks.includes('cubibloque')){S.blocks.push('cubibloque');S.block='cubibloque';resetBlock()}
+  if(!passOk('cubibloque')&&S.block==='cubibloque'){S.block='comun';resetBlock()}
+  if(passOk('cubito')&&!S.pets.cubito)S.pets.cubito=1;persist();refreshPets();hud()}
+resetBlock();refreshPets();
+if(window.CubiPases&&window.CubiAvatar&&location.hash==='#plataforma'){CubiPases.init({game:'patadon',onChange:syncPases});document.getElementById('pasesbtn').hidden=false;syncPases()}
+ov.innerHTML=panel('PATADÓN DE LUCKY BLOCKS','var(--red)',`<p>Patea bloques de la suerte lo más lejos que puedas. Cuando caen se abren y te dan monedas y, a veces, mascotas.</p>
+  <ul><li>Mantén pulsado <b>PATEAR</b> (o Espacio) y suelta cuando la barra esté en la <b>zona rayada</b> de arriba.</li><li>Cuanto más lejos cae, mejor zona y más monedas.</li>
+  <li>Compra <b>mejoras</b> y <b>bloques</b> mejores. Tus 3 mejores mascotas multiplican lo que ganas.</li><li>A veces sale un premio especial de <b>Cubos de Cubiverso</b>.</li></ul>
+  <button class="btn g out" data-act="close" style="width:100%;font-size:18px">¡A PATEAR!</button>`);
+hud();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
