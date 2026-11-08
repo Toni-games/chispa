@@ -10,6 +10,9 @@ Barrio Tycoon · Repartidor de Tormentas · Ciudad de Bolsillo · El Cambiazo ·
 - 7 canciones originales compuestas para Cubiverso y la opción de cargar tu propia música (se guarda en el dispositivo).
 - 8 paquetes de animación (andar, saltar y trepar) y 7 gestos que se compran con Cubos. En los juegos, tecla G o botón GESTOS.
 
+## Cuentas
+Al entrar se crea una cuenta con nombre y contraseña. Con el servidor activado (Firebase, en `firebase-config.js`) la cuenta y todo el progreso se guardan en internet y se recuperan en cualquier dispositivo. Sin servidor, la cuenta se pasa a otro dispositivo con el código de transferencia (Ajustes).
+
 ## Publicarlo en GitHub Pages
 1. Crea un repositorio público llamado `cubiverso`.
 2. Sube todos los archivos de esta carpeta (con la carpeta `juegos`).
