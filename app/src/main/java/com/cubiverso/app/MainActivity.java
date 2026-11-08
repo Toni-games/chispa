@@ -292,6 +292,7 @@ public class MainActivity extends Activity {
         CookieManager.getInstance().flush();
         if (web != null) {
             web.evaluateJavascript("window.CubiAudio && CubiAudio.suspend && CubiAudio.suspend()", null);
+            web.evaluateJavascript("window.CubiCuenta && CubiCuenta.guardar()", null);
             web.onPause();
         }
     }
