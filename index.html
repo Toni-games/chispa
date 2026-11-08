@@ -619,9 +619,9 @@ html.noemoji .idea .ie, html.noemoji #modelBtn > span:first-child, html.noemoji 
 </div>
 
 <script src="config.js"></script>
-<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261108200408";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
+<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261108201441";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
 <script type="module">
-const CHISPA_VER = "20261108200408";
+const CHISPA_VER = "20261108201441";
 /* ===================== 👤 CUENTAS DE CHISPA ===================== */
 // Cada persona entra con su Gmail y una contraseña que se inventa PARA CHISPA.
 // Las cuentas se guardan en este ordenador (no hay servidor). La contraseña nunca se guarda:
@@ -7295,9 +7295,17 @@ async function htmlSave(code, name){
   toast("Guardado como " + file + " (en Descargas)", "💾", 5000);
 }
 function htmlPush(code, want){
+  // solo ha llegado la primera línea: en Claude el código está en la ventana de la derecha (artefacto)
+  if(code.replace(/<!doctype html>|<\/?html>|<\/?head>|<\/?body>|\s|\./gi, "").length < 40){
+    botSays("Solo me ha llegado el principio del código («<!doctype html>»). En Claude, el código de las páginas está en la **ventana de la derecha**, no en el chat. Para copiarlo entero:\n1. En Claude, pulsa la tarjeta del juego para abrir esa ventana.\n2. Pulsa «Código» (o el icono </>).\n3. Pulsa «Copiar» (o haz clic en el código, Ctrl + A y Ctrl + C).\n4. Vuelve aquí y pégalo con Ctrl + V.");
+    return;
+  }
   const name = String(want||"página").replace(/^(hazme|hacme|hasme|asme|haz|hace|crea|creame|genera|generame|programa|programame|construye|quiero|necesito|escribeme|escribe)\s+/i,"")
     .replace(/^(un|una|el|la)\s+/i,"").replace(/\s+(y que|que)\s+.*$/i,"").slice(0,50) || "tu página";
-  const h = {role:"assistant", content:`Aquí tienes «${name}» funcionando. Puedes jugar con ella aquí mismo, verla en grande o guardarla.`, html:code, name};
+  const cut = !htmlComplete(code);
+  const h = {role:"assistant", content: cut
+    ? `Aquí tienes «${name}», pero OJO: el código parece CORTADO (no termina en </html>), así que puede salir en blanco o sin funcionar. Vuelve a copiarlo ENTERO (con el botón «Copiar» del código en Claude) y pégalo otra vez.`
+    : `Aquí tienes «${name}» funcionando. Puedes jugar con ella aquí mismo, verla en grande o guardarla.`, html:code, name};
   history.push(h); htmlCard(h); saveHist();
 }
 
@@ -7336,6 +7344,25 @@ async function makeHtml(want){
     ta, el("div",{class:"row-btns"}, el("button",{class:"ghost", type:"button", text:"Usar lo pegado", onclick:()=>use(ta.value)})));
   o.row.append(box);
 }
+
+/* ---------- pegar código HTML en el cuadro de escribir ---------- */
+// El cuadro de escribir tiene un límite de 2.000 letras: un juego es mucho más largo y se cortaba.
+// Si lo que pegas es código HTML, lo cogemos ENTERO directamente del portapapeles.
+function htmlPasteHook(){
+  const t = $("text"); if(!t || t.dataset.htmlHook) return; t.dataset.htmlHook = "1";
+  t.addEventListener("paste", e => {
+    const s = (e.clipboardData || window.clipboardData)?.getData("text") || "";
+    if(!looksLikeHtml(s) && !(s.length > 1500 && /<(script|style|canvas|div|body)[\s>]/i.test(s))) return;
+    const code = extractHtml(s); if(!code) return;
+    e.preventDefault();
+    if(leftToday("msgs") <= 0){ botSays(limitText("msgs")); return; }
+    useToday("msgs");
+    const u = `(He pegado un código HTML de ${Math.max(1, Math.round(code.length/1000))} KB)`;
+    history.push({role:"user", content:u}); add("user", u);
+    htmlPush(code, "tu página");
+  });
+}
+const htmlComplete = c => /<\/html>\s*$/i.test(c.trim()) || (/<\/body>/i.test(c) && !/<script(?![^>]*\bsrc=)[^>]*>(?![\s\S]*<\/script>)/i.test(c));
 
 /* ===================== FUNCIONES DESDE EL CHAT ===================== */
 // Lo que se le puede pedir a Chispa escribiendo (en vez de con botones)
@@ -7482,6 +7509,7 @@ if(accRole()==="owner") $("planSel").append(el("option",{value:"hyperpro",text:"
 $("accInfo").textContent = accEmail() ? `Has entrado como ${accEmail()}${accRole()==="owner"?" · 👑 owner":accRole()==="vip"?" · ⭐ VIP":""}.` : "";
 $("logoutBtn").onclick = accLogout;
 migrateBoot();
+htmlPasteHook();
 // emojis y botones de herramientas
 $("emoChk").checked = !!cfg.uiEmoji; $("toolsChk").checked = !!cfg.tools;
 $("emoChk").onchange = e => { setCfg("uiEmoji", e.target.checked); if(e.target.checked){ toast("Emojis activados", "🙂"); setTimeout(()=>location.reload(), 600); } else applyLook(); };
