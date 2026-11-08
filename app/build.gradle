@@ -8,10 +8,10 @@ android {
 
     defaultConfig {
         applicationId 'com.cubiverso.app'
-        minSdk 24
+        minSdk 21
         targetSdk 34
-        versionCode 1
-        versionName '1.0'
+        versionCode 2
+        versionName '1.1'
     }
 
     signingConfigs {
@@ -21,6 +21,9 @@ android {
             storePassword 'cubiverso123'
             keyAlias 'cubiverso'
             keyPassword 'cubiverso123'
+            enableV1Signing true
+            enableV2Signing true
+            enableV3Signing true
         }
     }
 
