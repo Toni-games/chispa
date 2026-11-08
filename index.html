@@ -403,6 +403,10 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 html.notools #dockWrap, html.notools #quick{display:none !important}
 /* sin emojis: fuera también los iconos decorativos (tarjetas de bienvenida, modelo, ventanas) */
 html.noemoji .idea .ie, html.noemoji #modelBtn > span:first-child, html.noemoji .mopt .mi, html.noemoji .toast .ic{display:none !important}
+.htmlframe{display:block;width:min(100%,720px);height:420px;border:1px solid var(--line);border-radius:12px;background:#fff;margin:8px 0 2px}
+.htmlbig{position:fixed;inset:0;z-index:320;background:#000;display:flex;flex-direction:column}
+.htmlbig iframe{flex:1;border:0;background:#fff;width:100%}
+.htmlbig .htmlclose{position:absolute;top:10px;right:10px;z-index:2;background:var(--panel)}
 
 </style>
 <link rel="manifest" href="manifest.webmanifest">
@@ -615,9 +619,9 @@ html.noemoji .idea .ie, html.noemoji #modelBtn > span:first-child, html.noemoji 
 </div>
 
 <script src="config.js"></script>
-<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261029180537";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
+<script>if("serviceWorker" in navigator && isSecureContext && location.protocol!=="file:"){navigator.serviceWorker.addEventListener("controllerchange",()=>{try{if(!self.crossOriginIsolated&&!sessionStorage.getItem("coiR")){sessionStorage.setItem("coiR","1");location.reload();}}catch(e){}});addEventListener("load",()=>navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).catch(e=>console.warn("sw",e)));}window.CHISPA_WEBVER="20261108195227";function chispaCheck(){if(location.protocol==="file:")return;fetch("version.json?t="+Date.now(),{cache:"no-store"}).then(r=>r.json()).then(j=>{if(!j.v||j.v===window.CHISPA_WEBVER||sessionStorage.getItem("upd"+j.v))return;sessionStorage.setItem("upd"+j.v,"1");const go=()=>{(navigator.serviceWorker&&navigator.serviceWorker.getRegistration?navigator.serviceWorker.getRegistration():Promise.resolve()).then(r=>r&&r.update()).catch(()=>{}).finally(()=>location.reload());};const t=document.getElementById("text");if(!t||!t.value.trim())go();else window.chispaUpdate=go;}).catch(()=>{});}addEventListener("load",()=>setTimeout(chispaCheck,2500));document.addEventListener("visibilitychange",()=>{if(!document.hidden)chispaCheck();});setInterval(chispaCheck,600000);</script>
 <script type="module">
-const CHISPA_VER = "20261029180537";
+const CHISPA_VER = "20261108195227";
 /* ===================== 👤 CUENTAS DE CHISPA ===================== */
 // Cada persona entra con su Gmail y una contraseña que se inventa PARA CHISPA.
 // Las cuentas se guardan en este ordenador (no hay servidor). La contraseña nunca se guarda:
@@ -3271,7 +3275,7 @@ function renderChat(){
   // en chats muy largos solo se pintan los últimos (así no se atasca); el resto con un botón
   const LIM = liteOn() ? 40 : 120, from = Math.max(0, history.length - (renderChat.more || LIM));
   if(from > 0) $("chat").appendChild(el("button",{class:"ghost moremsgs", type:"button", text:`⬆️ Ver ${from} ${from===1?"mensaje anterior":"mensajes anteriores"}`, onclick:()=>{ renderChat.more = history.length; renderChat(); renderChat.more = 0; }}));
-  history.slice(from).forEach(h=>{ if(h.song) addSongCard(h); else if(h.draw){ addDrawing(h); if(h.story) addStoryChoices(h); } else { const o = add(h.role, h.content); if(h.role!=="user"){ if(h.imgs) addImages(o.row, h.imgs, h.iq); if(h.src || h.q) addSources(o.row, h.src, h.q); } } });
+  history.slice(from).forEach(h=>{ if(h.song) addSongCard(h); else if(h.html) htmlCard(h); else if(h.draw){ addDrawing(h); if(h.story) addStoryChoices(h); } else { const o = add(h.role, h.content); if(h.role!=="user"){ if(h.imgs) addImages(o.row, h.imgs, h.iq); if(h.src || h.q) addSources(o.row, h.src, h.q); } } });
   $("chatTitle").textContent = currentChatTitle();
 }
 function renderIdeas(){
@@ -3606,6 +3610,10 @@ async function send(text){
   if(memA){ history.push({role:"assistant",content:memA}); add("bot",memA); saveHist(); return; }
   const fixA = fixAnswer(text);
   if(fixA){ history.push({role:"assistant",content:fixA}); add("bot",fixA); saveHist(); if(cfg.speak) say(fixA); return; }
+  // </> páginas y juegos HTML con Claude (o código HTML que pegues tú)
+  if(looksLikeHtml(text)){ const code = extractHtml(text); if(code){ htmlPush(code, "tu página"); return; } }
+  const hr = htmlRequest(text);
+  if(hr){ await makeHtml(hr); maybeTitle(); return; }
   const modA = modelAnswer(text);
   if(modA){ history.push({role:"assistant",content:modA}); add("bot",modA); saveHist(); return; }
   // 📸➜🟥 foto de internet convertida en píxeles
@@ -7222,10 +7230,106 @@ async function askClaude(row, q){
   box.scrollIntoView({block:"nearest", behavior:"smooth"});
 }
 
+/* ===================== </> HACER PÁGINAS Y JUEGOS HTML CON CLAUDE ===================== */
+// "hazme una página HTML de…", "crea un juego en HTML de…", "programa una web de…"
+//  - Dentro de Claude (Chispa Nube): Chispa se lo pide a Claude ella sola.
+//  - En la app / el APK / el archivo: te copia la petición para Claude y luego pegas aquí el código.
+// El resultado se ve FUNCIONANDO dentro del chat, en una caja aislada (no puede tocar tus datos de Chispa).
+const HTML_RE = /\b(html|pagina web|una web|sitio web|landing|juego (web|en html|para el navegador)|app (web|en html))\b/;
+function htmlRequest(text){
+  const n = norm(text);
+  if(!/\b(haz|hazme|crea|creame|genera|generame|programa|programame|construye|disena|disename|quiero|necesito|escribe|escribeme)\b/.test(n)) return null;
+  if(!HTML_RE.test(n)) return null;
+  return text.trim();
+}
+function htmlPrompt(want){
+  return `Hazme ${/^(hazme|haz|crea|creame|genera|generame|programa|programame|construye|quiero|necesito)\b/i.test(want) ? "lo siguiente" : "esto"} en UN SOLO archivo HTML, con todo el CSS y el JavaScript dentro (nada de archivos aparte ni librerías que haya que instalar). Que se vea bonito, que funcione en el móvil y en el ordenador, y que los textos estén en español. Petición: «${want}». Devuélveme SOLO el código completo, empezando por <!doctype html>.`;
+}
+// saca el HTML de una respuesta (con o sin ```html)
+function extractHtml(t){
+  const s = String(t||"");
+  const m = s.match(/```(?:html)?\s*([\s\S]*?)```/i);
+  let c = (m ? m[1] : s).trim();
+  const i = c.search(/<!doctype html|<html[\s>]/i);
+  if(i > 0) c = c.slice(i);
+  if(!/<(!doctype html|html|body|script|canvas|div|style)[\s>]/i.test(c)) return "";
+  return c.slice(0, 300000);
+}
+const looksLikeHtml = t => /<!doctype html|<html[\s>]|<body[\s>]/i.test(String(t||""));
+
+/* ---------- la tarjeta con la página funcionando ---------- */
+function htmlCard(h){
+  const row = add("bot", h.content);
+  const frame = el("iframe",{class:"htmlframe", sandbox:"allow-scripts allow-forms allow-pointer-lock", title:"Vista previa", loading:"lazy"});
+  frame.srcdoc = h.html;
+  const acts = el("div",{class:"psizes"},
+    el("button",{class:"psz", type:"button", text:"Ver en grande", onclick:()=>htmlBig(h.html)}),
+    el("button",{class:"psz", type:"button", text:"Copiar código", onclick:async()=>{ try{ await navigator.clipboard.writeText(h.html); toast("Código copiado", "📋"); }catch(e){ toast("No he podido copiarlo", "📋"); } }}),
+    el("button",{class:"psz", type:"button", text:"Guardar .html", onclick:()=>htmlSave(h.html, h.name)}),
+    el("button",{class:"psz", type:"button", text:"Recargar", onclick:()=>{ frame.srcdoc = ""; setTimeout(()=>frame.srcdoc = h.html, 30); }}));
+  row.row.querySelector(".msg").after(frame, acts);
+  return row;
+}
+function htmlBig(code){
+  const ov = el("div",{class:"htmlbig"});
+  const f = el("iframe",{sandbox:"allow-scripts allow-forms allow-pointer-lock", title:"Página"}); f.srcdoc = code;
+  ov.append(el("button",{class:"ghost htmlclose", type:"button", text:"✕ Cerrar", onclick:()=>ov.remove()}), f);
+  document.body.appendChild(ov);
+}
+async function htmlSave(code, name){
+  const file = (norm(name||"pagina").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40) || "pagina") + ".html";
+  // dentro de Claude hay que pedir permiso para descargar
+  try{ if(window.claude && window.claude.use){ const d = await window.claude.use("downloads"); if(d){ await d.save({filename:file, data:new Blob([code],{type:"text/html"})}); return; } } }catch(e){}
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([code],{type:"text/html"})); a.download = file; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  toast("Guardado como " + file + " (en Descargas)", "💾", 5000);
+}
+function htmlPush(code, want){
+  const name = String(want||"página").replace(/^(hazme|haz|crea|creame|genera|generame|programa|programame|construye|quiero|necesito|escribeme|escribe)\s+/i,"").slice(0,60);
+  const h = {role:"assistant", content:`Aquí tienes «${name}» funcionando. Puedes jugar con ella aquí mismo, verla en grande o guardarla.`, html:code, name};
+  history.push(h); htmlCard(h); saveHist();
+}
+
+/* ---------- pedírselo a Claude ---------- */
+async function makeHtml(want){
+  const sample = brainKind==="cloud" ? await tryCloud() : null;
+  if(sample){
+    busy = true; $("go").disabled = true;
+    const out = add("bot", "Le estoy pidiendo la página a Claude… (puede tardar un minuto)", "thinking");
+    try{
+      const r = await sample([{role:"user", content: htmlPrompt(want)}], {modelTier:"default", cache:false,
+        onText:({text})=>{ if(text && !/^Thinking/i.test(text)) out.set(`Claude la está escribiendo… (${Math.round(text.length/1000)} KB)`); }});
+      const code = extractHtml(r && r.text);
+      out.row.remove();
+      if(!code) return botSays("Claude no me ha devuelto una página que funcione 😕. Prueba a pedírmela con otras palabras.");
+      htmlPush(code, want);
+    }catch(e){ out.row.remove(); botSays("No he podido hablar con Claude ahora (" + (e && (e.code || e.message) || "error") + "). Prueba otra vez en un rato."); }
+    finally{ busy = false; $("go").disabled = false; }
+    return;
+  }
+  // sin Chispa Nube: a mano, como "Preguntar a Claude"
+  const prompt = htmlPrompt(want);
+  let copied = false; try{ await navigator.clipboard.writeText(prompt); copied = true; }catch(e){}
+  const a = (copied ? "He copiado la petición para Claude y te he abierto Claude en otra pestaña. " : "Te he abierto Claude en otra pestaña. ")
+    + "Pega allí la petición (Ctrl + V), espera a que escriba el código, cópialo entero (botón «Copiar» del código) y vuelve aquí: pulsa «Pegar el código de Claude».";
+  history.push({role:"assistant", content:a}); const o = add("bot", a); saveHist();
+  window.open(CLAUDE_URL, "_blank", "noopener");
+  const ta = el("textarea",{class:"fixin", rows:"3", placeholder:"…o pega aquí el código (Ctrl + V)"});
+  const use = t => { const code = extractHtml(t); if(!code){ toast("Eso no parece código HTML. Copia el código entero de Claude.", "📋", 5000); return; } box.remove(); htmlPush(code, want); };
+  const box = el("div",{class:"askbox"},
+    copied ? "" : el("div",{class:"fixwrong", text:prompt}),
+    el("div",{class:"row-btns"},
+      el("button",{class:"btn2", type:"button", text:"📋 Pegar el código de Claude", onclick:async()=>{ try{ use(await navigator.clipboard.readText()); }catch(e){ toast("No puedo leer el portapapeles: pégalo en el cuadro", "📋", 5000); ta.focus(); } }}),
+      el("button",{class:"ghost", type:"button", text:"Copiar la petición otra vez", onclick:async()=>{ try{ await navigator.clipboard.writeText(prompt); toast("Copiada", "📋"); }catch(e){} }}),
+      el("button",{class:"ghost", type:"button", text:"Abrir Claude", onclick:()=>window.open(CLAUDE_URL, "_blank", "noopener")})),
+    ta, el("div",{class:"row-btns"}, el("button",{class:"ghost", type:"button", text:"Usar lo pegado", onclick:()=>use(ta.value)})));
+  o.row.append(box);
+}
+
 /* ===================== FUNCIONES DESDE EL CHAT ===================== */
 // Lo que se le puede pedir a Chispa escribiendo (en vez de con botones)
 function toolsHelp(){
-  return "Me puedes pedir todo escribiendo:\n• «juguemos» o «tres en raya», «snake», «meteoritos», «plataformas»\n• «mi mascota»\n• «abre la galería» o «hazme un cómic»\n• «hazme un examen de mates de 2º de la ESO»\n• «cuéntame un cuento»\n• «ponme música»\n• «quiero pintar yo» (editor)\n• «quiero explorar un desierto» (mundo)\n• «un dato random» o «genera una imagen»\n• «dibuja en píxeles un gato 128x128»\n• «mis logros», «tu memoria», «cambia el fondo», «tu personalidad»\n• «soporte» (lo que me has corregido), «exporta el chat», «instalar app», «ajustes»";
+  return "Me puedes pedir todo escribiendo:\n• «juguemos» o «tres en raya», «snake», «meteoritos», «plataformas»\n• «mi mascota»\n• «abre la galería» o «hazme un cómic»\n• «hazme un examen de mates de 2º de la ESO»\n• «cuéntame un cuento»\n• «ponme música»\n• «quiero pintar yo» (editor)\n• «quiero explorar un desierto» (mundo)\n• «un dato random» o «genera una imagen»\n• «dibuja en píxeles un gato 128x128»\n• «mis logros», «tu memoria», «cambia el fondo», «tu personalidad»\n• «hazme un juego en HTML de…» o «crea una página web de…» (con Claude)\n• «soporte» (lo que me has corregido), «exporta el chat», «instalar app», «ajustes»";
 }
 function featureRequest(text){
   const n = norm(text);
@@ -7413,7 +7517,7 @@ if(ACC){ if(IS_PHONE && !store.get("phoneBrain", false)) phoneNoBrain(); else st
 if(ACC && WEB_AUTH) webCheck();
 
 $("lvl").onclick=openProfile;
-window.__t={pixSizeOf,pixSubject,fixFind,verifyFix,getFixes:()=>fixes,fixNames,accRole,accEmail,leftToday,usedToday,pixRequest,pixelize,pixCandidates,drawRequest,getBrainFile,copyStoredToFolder,setFolderForTest:h=>{chispaDir=h;},kvKeys:()=>kv.keys(),setPlan,photoRequest,weatherPlace,searchesLeft,modelAnswer,stripFiller,EMPTY2:()=>EMPTYREPLY,runBg,tidyStorage,usedMB,webSearch,webWanted,webKeywords,findLoop,cleanCut,EMPTYREPLY,tidyInput,setEngine:e=>{engine=e;brainKind=e.cpu?"cpu":"gpu";setStatus("on","Lista para pensar (procesador)");},quickAnswer,tryMath,mathHints,cpuEngine,openGames,openWorld,openEditor,openQuiz,openGallery,openProfile,startPet,startStory,makeSong,send,sceneGIF,mathQ,genWorld,prog};
+window.__t={htmlRequest,extractHtml,pixSizeOf,pixSubject,fixFind,verifyFix,getFixes:()=>fixes,fixNames,accRole,accEmail,leftToday,usedToday,pixRequest,pixelize,pixCandidates,drawRequest,getBrainFile,copyStoredToFolder,setFolderForTest:h=>{chispaDir=h;},kvKeys:()=>kv.keys(),setPlan,photoRequest,weatherPlace,searchesLeft,modelAnswer,stripFiller,EMPTY2:()=>EMPTYREPLY,runBg,tidyStorage,usedMB,webSearch,webWanted,webKeywords,findLoop,cleanCut,EMPTYREPLY,tidyInput,setEngine:e=>{engine=e;brainKind=e.cpu?"cpu":"gpu";setStatus("on","Lista para pensar (procesador)");},quickAnswer,tryMath,mathHints,cpuEngine,openGames,openWorld,openEditor,openQuiz,openGallery,openProfile,startPet,startStory,makeSong,send,sceneGIF,mathQ,genWorld,prog};
 </script>
 </body>
 </html>
