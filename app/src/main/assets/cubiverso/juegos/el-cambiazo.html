@@ -154,6 +154,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="../avatar.js"></script>
 <script src="../pases.js"></script>
+<script src="../audio.js"></script>
 <script>
 /* ================= DATOS DEL JUEGO ================= */
 const PHONES=[
@@ -596,6 +597,7 @@ document.addEventListener('click',e=>{
 });
 
 newGame();
+if(window.CubiAudio){CubiAudio.gameMusic('neon');CubiAudio.wrap('openTalk','phone');CubiAudio.wrap('nextDay','notify')}
 try{initWorld();placeNPCs();render();requestAnimationFrame(loop)}
 catch(err){document.getElementById('ov').innerHTML=`<div class="overlay"><div class="card"><h2>Sin 3D</h2><p>Tu navegador no ha podido iniciar el modo 3D (WebGL). Prueba con otro navegador o activa la aceleración por hardware.</p></div></div>`}
 </script>

@@ -1,6 +1,6 @@
 /* Cubiverso · service worker: guarda los archivos para que la app cargue rápido y funcione sin conexión (menos el multijugador) */
-const CACHE='cubiverso-v5';
-const FILES=['./','./index.html','./avatar.js','./pases.js','./kit.js','./multi.js','./manifest.json','./icon-192.png','./icon-512.png',
+const CACHE='cubiverso-v6';
+const FILES=['./','./index.html','./avatar.js','./audio.js','./pases.js','./kit.js','./multi.js','./manifest.json','./icon-192.png','./icon-512.png',
  './juegos/barrio-tycoon.html','./juegos/repartidor-tormentas.html','./juegos/ciudad-de-bolsillo.html','./juegos/el-cambiazo.html',
  './juegos/ladrones-de-brainrots.html','./juegos/patadon-lucky-blocks.html','./juegos/carrera-imposible.html','./juegos/guerra-de-globos.html',
  './juegos/pesca-tranquila.html','./juegos/torres-del-castillo.html'];

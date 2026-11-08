@@ -71,6 +71,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="../avatar.js"></script>
 <script src="../pases.js"></script>
+<script src="../audio.js"></script>
 <script>
 /* ================= DATOS ================= */
 const BLOCKS=[
@@ -175,7 +176,7 @@ function toast(t,sub,col){const el=$('#toast');el.innerHTML=`<span style="color:
 function hud(){$('#coins').textContent=fmt(S.coins);$('#rec').textContent=`Récord: ${fmt(S.best)} m · Máx. aprox. ${fmt(maxDist())} m`;
   $('#mcover').style.height=((1-power)*100)+'%';$('#mtick').style.top=`calc(${(1-power)*100}% - 3px)`;
   const k=$('#kick');k.disabled=state!=='ready'&&state!=='charging'}
-function startCharge(){if(state!=='ready'||ov.innerHTML)return;state='charging';charging=true;power=0;pdir=1}
+function startCharge(){if(state!=='ready'||ov.innerHTML)return;if(window.CubiAudio)CubiAudio.sfx('tick');state='charging';charging=true;power=0;pdir=1}
 function release(){if(state!=='charging')return;charging=false;state='kick';kickT=0}
 function launch(){
   if(passOk('perfecta'))power=1;
@@ -187,7 +188,7 @@ function flyStep(dt){const f=flight;let[a,T]=f.arcs[f.k];f.t+=dt;const p=Math.mi
   const seg=f.D*a;const z=f.z0+seg*p;const h=Math.max(.4,seg*.18)*(f.k===0?1:.6);const y=.8+4*h*p*(1-p);
   blockM.position.set(Math.sin(f.t*3)*(f.k?0:.5)*p,y,z);blockM.rotation.x+=f.spin.x*dt*(1-f.k*.3);blockM.rotation.y+=f.spin.y*dt;blockM.rotation.z+=f.spin.z*dt;
   curD=Math.max(0,z-1.6);$('#dist').textContent=fmt(curD)+' m';
-  if(p>=1){f.z0=z;f.t=0;f.k++;if(f.k>=f.arcs.length){state='open';kickT=0;blockM.position.y=.8;blockM.rotation.set(0,0,0)}}}
+  if(p>=1){f.z0=z;f.t=0;f.k++;if(window.CubiAudio)CubiAudio.sfx('land');if(f.k>=f.arcs.length){state='open';kickT=0;blockM.position.y=.8;blockM.rotation.set(0,0,0)}}}
 const parts=[];
 function burst(pos,col){for(let k=0;k<26;k++){const m=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,.3),M(col));m.position.copy(pos);m.userData.v=new THREE.Vector3((Math.random()-.5)*9,5+Math.random()*7,(Math.random()-.5)*9);m.userData.l=1.4;scene.add(m);parts.push(m)}}
 function rollPet(D){const B=BLOCKS.findIndex(b=>b.id===S.block);const chance=.1+.03*S.ups.suerte+B*.03;if(Math.random()>chance)return null;
@@ -197,6 +198,7 @@ function openBlock(){const B=BLOCKS.find(b=>b.id===S.block),D=curD,Z=zoneAt(D);
   const pet=rollPet(D);const cubos=Math.random()<(S.block==='cubibloque'?.18:.04)?(Math.random()<.2?25:5):0;
   S.coins+=coins;if(D>S.best)S.best=Math.round(D);if(pet)S.pets[pet.id]=(S.pets[pet.id]||0)+1;
   if(cubos&&window.CubiAvatar){const c=CubiAvatar.state();c.cubos+=cubos;(c.history=c.history||[]).unshift({t:Date.now(),txt:'Premio en Patadón de Lucky Blocks',amt:cubos});CubiAvatar.save(c)}
+  if(window.CubiAudio)CubiAudio.sfx(pet?'levelup':'lucky');setTimeout(()=>{if(window.CubiAudio)CubiAudio.sfx('cash')},350);if(window.CubiAvatar&&CubiAvatar.emote)CubiAvatar.emote(me,pet?'ge1':'ge4');
   persist();burst(blockM.position,B.rainbow?'#ff4f9a':B.a);scene.remove(blockM);blockM=null;if(pet)refreshPets();
   result={D,coins,pet,cubos,newBest:Math.round(D)>=S.best};state='result';$('#dist').hidden=true;
   ov.innerHTML=`<div class="overlay"><div class="panel"><div class="ph" style="background:${Z[1]}"><h2 class="out">${fmt(D)} m${result.newBest?' · ¡RÉCORD!':''}</h2></div><div class="pb reward">
@@ -221,8 +223,8 @@ const ACT={
   close(){ov.innerHTML=''},again,
   pases(){if(state==='ready'&&window.CubiPases)CubiPases.open()},
   shop(){if(state==='ready')ov.innerHTML=shopHTML()},blocks(){if(state==='ready')ov.innerHTML=blocksHTML()},pets(){if(state==='ready')ov.innerHTML=petsHTML()},
-  up(id){const u=UPS.find(x=>x.id===id),l=S.ups[id],c=upCost(u,l);if(l>=u.max||S.coins<c)return;S.coins-=c;S.ups[id]++;persist();ov.innerHTML=shopHTML()},
-  buyblock(id){const b=BLOCKS.find(x=>x.id===id);if(S.coins<b.cost)return;S.coins-=b.cost;S.blocks.push(id);S.block=id;persist();resetBlock();ov.innerHTML=blocksHTML()},
+  up(id){const u=UPS.find(x=>x.id===id),l=S.ups[id],c=upCost(u,l);if(l>=u.max||S.coins<c)return;S.coins-=c;if(window.CubiAudio)CubiAudio.sfx('buy');S.ups[id]++;persist();ov.innerHTML=shopHTML()},
+  buyblock(id){const b=BLOCKS.find(x=>x.id===id);if(S.coins<b.cost)return;S.coins-=b.cost;if(window.CubiAudio)CubiAudio.sfx('buy');S.blocks.push(id);S.block=id;persist();resetBlock();ov.innerHTML=blocksHTML()},
   useblock(id){S.block=id;persist();resetBlock();ov.innerHTML=blocksHTML()}
 };
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;ACT[b.dataset.act]&&ACT[b.dataset.act](b.dataset.id)});
@@ -235,8 +237,9 @@ function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=i
 let last=performance.now(),hudT=0;
 function loop(t){const dt=Math.min((t-last)/1000,.05);last=t;const T=t/1000;
   if(state==='charging'){power+=pdir*dt*1.5;if(power>=1){power=1;pdir=-1}if(power<=0){power=0;pdir=1}}
-  if(state==='kick'){kickT+=dt;me.legR.rotation.x=kickT<.12?kickT/.12*.9:.9-(kickT-.12)/.1*2.4;me.armL.rotation.x=-me.legR.rotation.x*.5;if(kickT>=.22){me.legR.rotation.x=-1.4;launch()}}
+  if(state==='kick'){kickT+=dt;me.legR.rotation.x=kickT<.12?kickT/.12*.9:.9-(kickT-.12)/.1*2.4;me.armL.rotation.x=-me.legR.rotation.x*.5;if(kickT>=.22){me.legR.rotation.x=-1.4;if(window.CubiAudio)CubiAudio.sfx('kick');if(window.CubiAudio)CubiAudio.sfx('whoosh');launch()}}
   else if(state==='ready'||state==='charging'){me.legR.rotation.x=state==='charging'?.5+power*.5:Math.sin(T*2)*.05;me.legL.rotation.x=0;me.armL.rotation.x=me.armR.rotation.x=Math.sin(T*2)*.05}
+  else if(state==='result'&&window.CubiAvatar&&CubiAvatar.drive)CubiAvatar.drive(me,0,false,{moving:false});
   else{me.legR.rotation.x*=.9}
   if(state==='flying')flyStep(dt);
   if(state==='open'){kickT+=dt;blockM.position.x=Math.sin(kickT*60)*.08;blockM.scale.setScalar(1+kickT*.25);if(kickT>.7)openBlock()}
@@ -259,6 +262,7 @@ ov.innerHTML=panel('PATADÓN DE LUCKY BLOCKS','var(--red)',`<p>Patea bloques de 
   <ul><li>Mantén pulsado <b>PATEAR</b> (o Espacio) y suelta cuando la barra esté en la <b>zona rayada</b> de arriba.</li><li>Cuanto más lejos cae, mejor zona y más monedas.</li>
   <li>Compra <b>mejoras</b> y <b>bloques</b> mejores. Tus 3 mejores mascotas multiplican lo que ganas.</li><li>A veces sale un premio especial de <b>Cubos de Cubiverso</b>.</li></ul>
   <button class="btn g out" data-act="close" style="width:100%;font-size:18px">¡A PATEAR!</button>`);
+if(window.CubiAudio)CubiAudio.gameMusic('bienvenida');
 hud();requestAnimationFrame(loop);
 </script>
 </body>

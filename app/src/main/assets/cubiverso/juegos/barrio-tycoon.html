@@ -151,6 +151,7 @@ body.build #cog{display:none}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="../avatar.js"></script>
 <script src="../pases.js"></script>
+<script src="../audio.js"></script>
 <script>
 /* ================= DATOS ================= */
 const N=26,TS=4,W=N*TS;
@@ -669,7 +670,7 @@ const faceTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64
 apart(.9,.9,.45,shirtM,0,1.15,0);
 const headM=[skinM,skinM,skinM,skinM,new THREE.MeshLambertMaterial({map:faceTex}),skinM];
 const head=new THREE.Mesh(new THREE.BoxGeometry(.55,.55,.55),headM);head.position.y=1.9;avatar.add(head);
-const legL=new THREE.Group(),legR=new THREE.Group(),armL=new THREE.Group(),armR=new THREE.Group();
+const legL=new THREE.Group(),legR=new THREE.Group(),armL=new THREE.Group(),armR=new THREE.Group();const AV={legL,legR,armL,armR,isMe:true};
 legL.position.set(-.225,.7,0);legR.position.set(.225,.7,0);armL.position.set(-.67,1.55,0);armR.position.set(.67,1.55,0);avatar.add(legL,legR,armL,armR);
 apart(.44,.7,.44,pantsM,0,-.35,0,legL);apart(.44,.7,.44,pantsM,0,-.35,0,legR);apart(.44,.85,.44,skinM,0,-.35,0,armL);apart(.44,.85,.44,skinM,0,-.35,0,armR);
 let sizeIdx=1,insideI=-1;avatar.scale.setScalar(SIZES[1].s);castAll(avatar);scene.add(avatar);
@@ -721,8 +722,9 @@ function walkUpdate(dt){
   if(il>.1){P.face=Math.atan2(mx,mz);P.walk+=dt*Math.min(sp,12)*1.4}else P.walk*=.8;
   avatar.position.set(P.x,P.y,P.z);
   let df=P.face-avatar.rotation.y;df=Math.atan2(Math.sin(df),Math.cos(df));avatar.rotation.y+=df*Math.min(1,dt*14);
-  const sw=Math.sin(P.walk)*.8;legL.rotation.x=sw;legR.rotation.x=-sw;armL.rotation.x=-sw;armR.rotation.x=sw;
-  if(!P.ground){armL.rotation.x=armR.rotation.x=-2.8}
+  if(window.CubiAvatar&&CubiAvatar.drive){AV.eq=AV.eq||CubiAvatar.state().eq;CubiAvatar.drive(AV,P.walk,!P.ground)}
+  else{const sw=Math.sin(P.walk)*.8;legL.rotation.x=sw;legR.rotation.x=-sw;armL.rotation.x=-sw;armR.rotation.x=sw;
+  if(!P.ground){armL.rotation.x=armR.rotation.x=-2.8}}
   if(keys.q)look.yaw+=dt*2;if(keys.e&&!nearCar())look.yaw-=dt*2;
   const ins=insideI>=0,d=ins?Math.min(look.dist,3.4):look.dist,pt=ins?Math.max(look.pitch,.8):look.pitch,cp=Math.cos(pt);
   camera.position.set(P.x+Math.sin(look.yaw)*cp*d,P.y+Z.s*2+Math.sin(pt)*d,P.z+Math.cos(look.yaw)*cp*d);
@@ -1004,6 +1006,7 @@ function loop(t){
   requestAnimationFrame(loop);
 }
 addEventListener('beforeunload',persist);
+if(window.CubiAudio){CubiAudio.gameMusic('bienvenida');['place','placeTile','build','buyVehicle','placeVehicle','placeVeh'].forEach(n=>CubiAudio.wrap(n,'place'));['bulldoze','demolish','removeTile'].forEach(n=>CubiAudio.wrap(n,'remove'))}
 requestAnimationFrame(loop);
 </script>
 

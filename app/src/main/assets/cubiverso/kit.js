@@ -25,6 +25,12 @@ body.k-touch #k-joy,body.k-touch #k-jump{display:block}
 .k-err{background:#4a1a1a;color:#ffb3b3;border-radius:10px;padding:8px 12px;font-weight:800}
 .k-plist{display:flex;flex-wrap:wrap;gap:6px}.k-plist span{background:#2b3047;border:2px solid #000;border-radius:999px;padding:3px 10px;font-weight:800;font-size:13px}
 #k-room{top:calc(env(safe-area-inset-top,0px) + 10px);right:max(10px,env(safe-area-inset-right,0px));background:rgba(20,22,34,.85);border:3px solid #000;border-radius:12px;padding:6px 10px;font-weight:900;font-size:13px;max-width:220px}
+#k-emo{right:max(10px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 232px);border:3px solid #000;border-radius:12px;background:#9c6bff;padding:6px 10px;font-weight:900;font-size:13px}
+body:not(.k-touch) #k-emo{bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}
+#k-emop{right:max(10px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 274px);background:rgba(20,22,34,.95);border:3px solid #000;border-radius:14px;padding:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;width:min(300px,80vw)}
+body:not(.k-touch) #k-emop{bottom:calc(env(safe-area-inset-bottom,0px) + 56px)}
+#k-emop button{border:2px solid #000;border-radius:10px;background:#2b3047;padding:7px 6px;font-weight:800;font-size:13px;text-align:left}
+#k-emop button small{display:block;color:#ffcc33;font-size:11px}#k-emop button[aria-disabled=true]{opacity:.55}
 #k-room b{font-family:"Lilita One",sans-serif;font-weight:400;letter-spacing:.08em;color:#ffcc33}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}`;
 const $=s=>document.querySelector(s);
@@ -55,10 +61,24 @@ function person(scene,eq,name,scale){let a;
   if(window.CubiAvatar)a=CubiAvatar.makeAvatar(THREE,eq||CubiAvatar.state().eq);
   else{const root=new THREE.Group(),legL=new THREE.Group(),legR=new THREE.Group(),armL=new THREE.Group(),armR=new THREE.Group();legL.position.set(-.225,.7,0);legR.position.set(.225,.7,0);armL.position.set(-.67,1.55,0);armR.position.set(.67,1.55,0);root.add(legL,legR,armL,armR);
     box(.9,.9,.45,M(0xff7a2f),0,1.15,0,root);box(.55,.55,.55,M(0xffd29a),0,1.9,0,root);[legL,legR].forEach(l=>box(.44,.7,.44,M(0x2d3a5a),0,-.35,0,l));[armL,armR].forEach(x=>box(.44,.85,.44,M(0xffd29a),0,-.4,0,x));a={root,legL,legR,armL,armR}}
-  a.root.scale.setScalar(scale||.75);
+  a.root.scale.setScalar(scale||.75);a.isMe=!eq;
   if(name){const t=sprite(textTex([[name,40,'#fff',32]],320,64),2.6/(scale||.75)*.75,.52/(scale||.75)*.75);t.position.y=3.2;a.root.add(t);a.tag=t}
   scene.add(a.root);return a}
-function walkAnim(a,walk,air){const s=Math.sin(walk)*.8;a.legL.rotation.x=s;a.legR.rotation.x=-s;a.armL.rotation.x=-s;a.armR.rotation.x=s;if(air){a.armL.rotation.x=a.armR.rotation.x=-2.8}}
+function walkAnim(a,walk,air,o){if(window.CubiAvatar&&CubiAvatar.drive&&a.body)return CubiAvatar.drive(a,walk,air,o);
+  const s=Math.sin(walk)*.8;a.legL.rotation.x=s;a.legR.rotation.x=-s;a.armL.rotation.x=-s;a.armR.rotation.x=s;if(air){a.armL.rotation.x=a.armR.rotation.x=-2.8}}
+/* ---------- gestos (emotes) ---------- */
+function emotes(me){injectCSS();if(!window.CubiAvatar||!CubiAvatar.EMOTES||$('#k-emo'))return;
+  const b=el('<button id="k-emo" class="k-ui k-out" aria-expanded="false" title="Gestos (tecla G)">GESTOS</button>');let pn=null;
+  const doEmote=id=>{CubiAvatar.emote(me,id);me._lastEmote=id;if(window.CubiAudio)CubiAudio.sfx('emote');const M=window.CubiMulti;if(M&&M.online)M.send({t:'emote',e:id})};
+  const close=()=>{if(pn){pn.remove();pn=null;b.setAttribute('aria-expanded','false')}};
+  const open=()=>{const st=CubiAvatar.state();pn=el('<div id="k-emop" class="k-ui" role="menu"></div>');
+    pn.innerHTML=CubiAvatar.EMOTES.map(e=>{const own=st.owned.includes(e.id);return `<button role="menuitem" data-e="${e.id}" aria-disabled="${!own}">${e.name}${own?'':`<small>${e.price} Cubos · en la tienda</small>`}</button>`}).join('');
+    pn.addEventListener('click',ev=>{const x=ev.target.closest('[data-e]');if(!x)return;if(x.getAttribute('aria-disabled')==='true'){toast('GESTO BLOQUEADO','Cómpralo en Avatar → Gestos','#9c6bff');return}doEmote(x.dataset.e);close()});
+    b.setAttribute('aria-expanded','true')};
+  b.addEventListener('click',()=>pn?close():open());
+  addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;if(e.key==='g'||e.key==='G'){if(pn)close();else open()}
+    if(pn&&/^[1-9]$/.test(e.key)){const x=pn.querySelectorAll('[data-e]')[+e.key-1];if(x)x.click()}});
+  return {play:doEmote,close}}
 function controls(canvas,o){o=o||{};injectCSS();
   const st={keys:{},joy:{x:0,y:0,jump:false},look:{yaw:o.yaw||0,pitch:o.pitch||.4,dist:o.dist||9,min:o.min||3,max:o.max||30},dragging:false};
   addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;const k=e.key.toLowerCase();st.keys[k]=true;if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault()});
@@ -110,14 +130,15 @@ function roomBadge(){const M=window.CubiMulti;if(!M||!M.online)return;let b=$('#
   const n=Object.keys(M.players()).length;b.innerHTML=`Sala <b>${M.code}</b> · ${n} ${n===1?'jugador':'jugadores'}`}
 /* ---------- jugadores remotos ---------- */
 function remotes(scene,scale){const R={};const M=window.CubiMulti;
+  if(M)M.on('msg',(d,from)=>{if(d&&d.t==='emote'&&R[from]&&window.CubiAvatar)CubiAvatar.emote(R[from].a,d.e)});
   const api={map:R,
     update(id,s){let r=R[id];const ps=M?M.players():{};const info=ps[id]||{name:'Amigo',eq:null};
       if(!r){const a=person(scene,info.eq,info.name,scale);r=R[id]={a,x:s.x,y:s.y,z:s.z,tx:s.x,ty:s.y,tz:s.z,ry:s.ry||0,walk:0,data:s};}
       r.tx=s.x;r.ty=s.y;r.tz=s.z;r.ry=s.ry||0;r.data=s;r.seen=performance.now()},
     step(dt){const now=performance.now();Object.entries(R).forEach(([id,r])=>{if(now-r.seen>6000||(M&&!M.players()[id])){scene.remove(r.a.root);delete R[id];return}
       const k=Math.min(1,dt*10),ox=r.x,oz=r.z;r.x+=(r.tx-r.x)*k;r.y+=(r.ty-r.y)*k;r.z+=(r.tz-r.z)*k;const sp=Math.hypot(r.x-ox,r.z-oz)/Math.max(dt,.001);r.walk+=sp*dt*1.4;
-      r.a.root.position.set(r.x,r.y,r.z);let df=r.ry-r.a.root.rotation.y;df=Math.atan2(Math.sin(df),Math.cos(df));r.a.root.rotation.y+=df*k;walkAnim(r.a,sp>.5?r.walk:0,r.data&&r.data.air)})},
+      r.a.root.position.set(r.x,r.y,r.z);let df=r.ry-r.a.root.rotation.y;df=Math.atan2(Math.sin(df),Math.cos(df));r.a.root.rotation.y+=df*k;walkAnim(r.a,r.walk,r.data&&r.data.air,{moving:sp>.5,climb:r.data&&r.data.cl})})},
     clear(){Object.keys(R).forEach(id=>{scene.remove(R[id].a.root);delete R[id]})}};
   return api}
-window.Kit={setup,M,box,cyl,sph,shadows,textTex,sprite,studs,person,walkAnim,controls,toast,panel,roomMenu,roomBadge,remotes,clamp,injectCSS};
+window.Kit={setup,M,box,cyl,sph,shadows,textTex,sprite,studs,person,walkAnim,emotes,controls,toast,panel,roomMenu,roomBadge,remotes,clamp,injectCSS};
 })();

@@ -13,6 +13,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.PermissionRequest;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -45,6 +46,8 @@ public class MainActivity extends Activity {
     private View vistaCompleta;
     private WebChromeClient.CustomViewCallback finVistaCompleta;
     private WebChromeClient cliente;
+    private ValueCallback<Uri[]> eleccion;
+    private static final int ELEGIR_ARCHIVO = 41;
 
     private static final Map<String, String> TIPOS = new HashMap<>();
     static {
@@ -150,6 +153,27 @@ public class MainActivity extends Activity {
                 pantallaCompleta();
             }
 
+            // Elegir archivos (por ejemplo, cargar tu música)
+            @Override
+            public boolean onShowFileChooser(WebView vista, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (eleccion != null) eleccion.onReceiveValue(null);
+                eleccion = callback;
+                Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                String[] tipos = params != null ? params.getAcceptTypes() : null;
+                String tipo = "*/*";
+                if (tipos != null) for (String t : tipos) if (t != null && t.contains("/")) { tipo = t; break; }
+                i.setType(tipo);
+                if (params != null && params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                try {
+                    startActivityForResult(Intent.createChooser(i, "Elegir archivos"), ELEGIR_ARCHIVO);
+                } catch (ActivityNotFoundException e) {
+                    eleccion = null;
+                    return false;
+                }
+                return true;
+            }
+
             @Override
             public void onPermissionRequest(PermissionRequest peticion) {
                 peticion.deny();
@@ -200,6 +224,24 @@ public class MainActivity extends Activity {
         return salida.toByteArray();
     }
 
+    @Override
+    protected void onActivityResult(int codigo, int resultado, Intent datos) {
+        if (codigo != ELEGIR_ARCHIVO) { super.onActivityResult(codigo, resultado, datos); return; }
+        if (eleccion == null) return;
+        Uri[] uris = null;
+        if (resultado == RESULT_OK && datos != null) {
+            if (datos.getClipData() != null) {
+                int n = datos.getClipData().getItemCount();
+                uris = new Uri[n];
+                for (int k = 0; k < n; k++) uris[k] = datos.getClipData().getItemAt(k).getUri();
+            } else if (datos.getData() != null) {
+                uris = new Uri[]{datos.getData()};
+            }
+        }
+        eleccion.onReceiveValue(uris);
+        eleccion = null;
+    }
+
     /* ---------- Utilidades ---------- */
     private void abrirFuera(Uri u) {
         if (u == null) return;
@@ -248,6 +290,19 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         CookieManager.getInstance().flush();
+        if (web != null) {
+            web.evaluateJavascript("window.CubiAudio && CubiAudio.suspend && CubiAudio.suspend()", null);
+            web.onPause();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (web != null) {
+            web.onResume();
+            web.evaluateJavascript("window.CubiAudio && CubiAudio.resume && CubiAudio.resume()", null);
+        }
     }
 
     @Override
