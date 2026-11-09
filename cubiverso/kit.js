@@ -133,7 +133,8 @@ function remotes(scene,scale){const R={};const M=window.CubiMulti;
   if(M)M.on('msg',(d,from)=>{if(d&&d.t==='emote'&&R[from]&&window.CubiAvatar)CubiAvatar.emote(R[from].a,d.e)});
   const api={map:R,
     update(id,s){let r=R[id];const ps=M?M.players():{};const info=ps[id]||{name:'Amigo',eq:null};
-      if(!r){const a=person(scene,info.eq,info.name,scale);r=R[id]={a,x:s.x,y:s.y,z:s.z,tx:s.x,ty:s.y,tz:s.z,ry:s.ry||0,walk:0,data:s};}
+      if(r&&r.noinfo&&ps[id]){scene.remove(r.a.root);delete R[id];r=null}
+      if(!r){if(info.defs&&window.CubiAvatar&&CubiAvatar.register)info.defs.forEach(d=>CubiAvatar.register(d));const a=person(scene,info.eq,info.name,scale);r=R[id]={noinfo:!ps[id],a,x:s.x,y:s.y,z:s.z,tx:s.x,ty:s.y,tz:s.z,ry:s.ry||0,walk:0,data:s};}
       r.tx=s.x;r.ty=s.y;r.tz=s.z;r.ry=s.ry||0;r.data=s;r.seen=performance.now()},
     step(dt){const now=performance.now();Object.entries(R).forEach(([id,r])=>{if(now-r.seen>6000||(M&&!M.players()[id])){scene.remove(r.a.root);delete R[id];return}
       const k=Math.min(1,dt*10),ox=r.x,oz=r.z;r.x+=(r.tx-r.x)*k;r.y+=(r.ty-r.y)*k;r.z+=(r.tz-r.z)*k;const sp=Math.hypot(r.x-ox,r.z-oz)/Math.max(dt,.001);r.walk+=sp*dt*1.4;
