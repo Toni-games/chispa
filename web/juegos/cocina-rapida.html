@@ -24,6 +24,9 @@ body.k-touch #tip{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
 <script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 const K=Kit,J=Juego,$=s=>document.querySelector(s);
 const {renderer,scene,camera,sun}=K.setup({sky:0xffe0b2,fog:false});
@@ -51,27 +54,29 @@ const RECIPES=[{n:'Refresco',i:['refresco'],p:4,lv:0},{n:'Ensalada',i:['lechuga'
 /* ---------- clientes ---------- */
 const SLOTS=[-8,0,8].map(x=>({x,c:null}));let customers=[];
 function randEq(){const A=window.CubiAvatar;if(!A)return null;const eq=Object.assign({},A.DEF_EQ);A.CATS.forEach(([c])=>{if(c==='animacion'||c==='gesto')return;const its=A.ITEMS.filter(i=>i.cat===c);eq[c]=its[Math.floor(Math.random()*its.length)].id});return eq}
-function newCustomer(){const slot=SLOTS.find(s=>!s.c);if(!slot)return;const lv=Math.min(2,Math.floor(served/6));const opts=RECIPES.filter(r=>r.lv<=lv);const r=opts[Math.floor(Math.random()*opts.length)];
-  const a=K.person(scene,randEq()||{},null,.85);a.root.position.set(slot.x,0,12);a.root.rotation.y=Math.PI;
+const coop=()=>window.Sala&&Sala.online&&Sala.started;
+function newCustomer(spec){if(!spec&&coop()&&!Sala.isHost)return;let slot,r,eq;if(spec){slot=SLOTS[spec.s];if(!slot||slot.c)return;r=RECIPES[spec.r];eq=spec.eq}else{slot=SLOTS.find(s=>!s.c);if(!slot)return;const lv=Math.min(2,Math.floor(served/6));const opts=RECIPES.filter(r=>r.lv<=lv);r=opts[Math.floor(Math.random()*opts.length)];eq=randEq()||{};if(coop())Sala.send('cust',{s:SLOTS.indexOf(slot),r:RECIPES.indexOf(r),eq,pat:Math.max(26,45-served*1.2)})}
+  const a=K.person(scene,eq,null,.85);a.root.position.set(slot.x,0,12);a.root.rotation.y=Math.PI;
   const bub=K.sprite(K.textTex([[r.n,34,'#ffffff',30],[r.i.map(k=>ING[k][0]).join(' + '),24,'#ffcc33',70]],520,96,'rgba(20,22,34,.9)'),5.4,1);bub.position.set(slot.x,4.6,8);scene.add(bub);
   const bar=new THREE.Mesh(new THREE.PlaneGeometry(3,.25),new THREE.MeshBasicMaterial({color:0x3fd15c,depthTest:false}));bar.renderOrder=7;bar.position.set(slot.x,3.95,8);scene.add(bar);
-  const pat=Math.max(26,45-served*1.2);const c={slot,a,r,bub,bar,pat,left:pat,walk:0,arrive:false};slot.c=c;customers.push(c);J.sfx('notify')}
+  const pat=spec?spec.pat:Math.max(26,45-served*1.2);const c={slot,a,r,bub,bar,pat,left:pat,walk:0,arrive:false};slot.c=c;customers.push(c);J.sfx('notify')}
 function removeCustomer(c,happy){scene.remove(c.bub);scene.remove(c.bar);c.slot.c=null;c.leaving=happy?1:-1;c.a.root.rotation.y=0;if(window.CubiAvatar)CubiAvatar.emote(c.a,happy?'ge2':'ge3')}
 /* ---------- jugador ---------- */
 const ctl=K.controls(renderer.domElement,{dist:17,pitch:.85,yaw:Math.PI,min:10,max:26});
 const P=J.player(scene,ctl,{x:0,z:0,speed:9,jump:0,boxes,bound:14});P.r=.5;
-let tray=[],money=0,hearts=3,served=0,running=false,spawnT=2,T=0;
+let tray=[],money=0,hearts=3,served=0,running=false,spawnT=2,T=0,myServed=0;
 const trayG=new THREE.Group();scene.add(trayG);
 function drawTray(){trayG.clear();tray.forEach((k,i)=>{const m=K.box(.7,.18,.7,K.M(ING[k][1]),0,i*.2,0,trayG);m.castShadow=true});
   $('#tray').innerHTML=tray.length?'Bandeja: <b>'+tray.map(k=>ING[k][0]).join(' + ')+'</b>':'Bandeja vacía';hud()}
-function hud(){J.hud([['Dinero',money+' $'],['Vidas','❤'.repeat(hearts)||'0'],['Servidos',served]])}
+function hud(){if(window.Sala)Sala.score(myServed,myServed+' servidos');J.hud([['Dinero',money+' $'],['Vidas','❤'.repeat(hearts)||'0'],['Servidos',served]])}
 function nearest(){let best=null,bd=2.6;ST.forEach(s=>{const d=Math.abs(P.x-s.x)+Math.max(0,P.z-(-5.2));if(Math.abs(P.x-s.x)<1.8&&P.z<-3&&d<bd){bd=d;best={type:'st',s}}});
   if(Math.hypot(P.x-13,P.z-2)<2.6)best={type:'bin'};
   if(P.z>2.6)SLOTS.forEach(sl=>{if(sl.c&&sl.c.arrive&&Math.abs(P.x-sl.x)<2.2)best={type:'cust',c:sl.c}});return best}
 const same=(a,b)=>a.length===b.length&&a.slice().sort().join()===b.slice().sort().join();
 function act(){if(!running)return;const n=nearest();if(!n)return;
   if(n.type==='bin'){if(!tray.length)return;tray=[];J.sfx('remove');drawTray();return}
-  if(n.type==='cust'){const c=n.c;if(same(tray,c.r.i)){const tip=Math.round(c.r.p*(c.left/c.pat)*.6);money+=c.r.p+tip;served++;tray=[];J.sfx('cash');K.toast('+'+(c.r.p+tip)+' $',tip>0?'Propina: '+tip+' $':'','#3fd15c');removeCustomer(c,true);drawTray()}
+  if(n.type==='cust'){const c=n.c;if(same(tray,c.r.i)&&coop()&&!Sala.isHost){Sala.send('serve',{s:SLOTS.indexOf(c.slot)});myServed++;tray=[];J.sfx('cash');K.toast('¡SERVIDO!','','#3fd15c');drawTray();hud();return}
+    if(same(tray,c.r.i)){myServed++;const tip=Math.round(c.r.p*(c.left/c.pat)*.6);money+=c.r.p+tip;served++;tray=[];J.sfx('cash');K.toast('+'+(c.r.p+tip)+' $',tip>0?'Propina: '+tip+' $':'','#3fd15c');removeCustomer(c,true);drawTray();hostSync({s:SLOTS.indexOf(c.slot),h:1})}
     else{J.sfx('error');K.toast('ESO NO ES LO QUE HA PEDIDO','Pide: '+c.r.i.map(k=>ING[k][0]).join(' + '),'#ff6a6a')}return}
   const s=n.s;
   if(s.kind==='plancha'){if(grill.state==null){const i=tray.indexOf('carne');if(i<0){K.toast('NECESITAS CARNE CRUDA','Cógela en CARNE','#ffcc33');return}tray.splice(i,1);grill.state='cook';grill.t=0;grill.meat.visible=true;grill.meat.material.color.set(0xe57373);J.sfx('place');drawTray();return}
@@ -90,13 +95,23 @@ function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
     else if(grill.state==='done'){grill.t+=dt;if(grill.t>14){grill.state='burnt';grill.meat.material.color.set(0x111111);J.sfx('error')}}}
   customers.forEach(c=>{if(c.leaving){c.a.root.position.z+=dt*6;c.walk+=dt*10;K.walkAnim(c.a,c.walk,false);if(c.a.root.position.z>30){scene.remove(c.a.root);c.gone=true}return}
     if(!c.arrive){c.a.root.position.z-=dt*5;c.walk+=dt*10;if(c.a.root.position.z<=7.5){c.a.root.position.z=7.5;c.arrive=true}K.walkAnim(c.a,c.walk,false);return}
-    K.walkAnim(c.a,0,false,{moving:false});if(running){c.left-=dt;const k=Math.max(0,c.left/c.pat);c.bar.scale.x=Math.max(.01,k);c.bar.material.color.setHSL(k*.33,.8,.5);
-      if(c.left<=0){hearts--;J.sfx('lose');K.toast('¡SE HA IDO ENFADADO!','Pierdes una vida','#ff6a6a');removeCustomer(c,false);hud();if(hearts<=0)gameOver()}}});
+    K.walkAnim(c.a,0,false,{moving:false});if(running){c.left-=dt;if(coop()&&!Sala.isHost)c.left=Math.max(.5,c.left);const k=Math.max(0,c.left/c.pat);c.bar.scale.x=Math.max(.01,k);c.bar.material.color.setHSL(k*.33,.8,.5);
+      if(c.left<=0){hearts--;J.sfx('lose');K.toast('¡SE HA IDO ENFADADO!','Pierdes una vida','#ff6a6a');removeCustomer(c,false);hud();hostSync({s:SLOTS.indexOf(c.slot),h:0});if(hearts<=0)gameOver()}}});
   customers=customers.filter(c=>!c.gone);
   let tip='';const n=running&&nearest();if(n){if(n.type==='bin')tip='E: tirar la bandeja';else if(n.type==='cust')tip='E: servir';else if(n.s.kind==='plancha')tip=grill.state==null?'E: poner carne cruda':grill.state==='done'?'E: coger la carne':grill.state==='burnt'?'E: quitar la carne quemada':'Haciéndose…';else tip='E: coger '+ING[n.s.kind][0].toLowerCase()}
   const te=$('#tip');if(te.textContent!==tip)te.textContent=tip;
   renderer.render(scene,camera);requestAnimationFrame(loop)}
-function gameOver(){running=false;const rec=J.saveBest('cocina',money,true);setTimeout(()=>J.end({title:'¡CERRAMOS!',col:'#ff7043',lines:[`Has ganado <b style="color:#ffcc33">${money} $</b> y servido a ${served} clientes`,`Récord: ${J.best('cocina')} $`],record:rec}),900)}
+function gameOver(){if(!running)return;running=false;const rec=J.saveBest('cocina',money,true);setTimeout(()=>J.end({title:'¡CERRAMOS!',col:'#ff7043',lines:[`Has ganado <b style="color:#ffcc33">${money} $</b> y servido a ${served} clientes`,`Récord: ${J.best('cocina')} $`],record:rec}),900)}
+/* ---------- cocina en equipo: el anfitrión manda los clientes y la caja ---------- */
+function hostSync(go){if(!coop()||!Sala.isHost)return;if(go)Sala.send('custgo',go);Sala.send('stats',{money,hearts,served})}
+function resetAll(){customers.forEach(c=>{scene.remove(c.a.root);scene.remove(c.bub);scene.remove(c.bar)});customers=[];SLOTS.forEach(s=>s.c=null);tray=[];money=0;hearts=3;served=0;myServed=0;spawnT=2;T=0;drawTray()}
+Sala.init({game:'cocina',scene,me:P.a,scale:.75,getState:()=>({x:+P.x.toFixed(2),y:0,z:+P.z.toFixed(2),ry:+P.face.toFixed(2)}),board:{label:'Pedidos servidos'},
+  shared:'Al empezar todos a la vez, cocináis juntos en el mismo restaurante: los clientes, el dinero y las vidas son de todo el equipo.',
+  onStart(){J.closePanels();resetAll();running=true;K.toast('¡A COCINAR EN EQUIPO!','','#ffcc33')}});
+Sala.on('cust',d=>{if(!Sala.isHost)newCustomer(d)});
+Sala.on('custgo',d=>{if(Sala.isHost)return;const sl=SLOTS[d.s];if(sl&&sl.c){if(!d.h){J.sfx('lose');K.toast('¡SE HA IDO ENFADADO!','','#ff6a6a')}removeCustomer(sl.c,!!d.h)}});
+Sala.on('stats',d=>{if(Sala.isHost)return;money=d.money;served=d.served;hearts=d.hearts;hud();if(hearts<=0)gameOver()});
+Sala.on('serve',d=>{if(!Sala.isHost)return;const sl=SLOTS[d.s];const c=sl&&sl.c;if(!c||!c.arrive)return;const tip=Math.round(c.r.p*(c.left/c.pat)*.6);money+=c.r.p+tip;served++;J.sfx('cash');removeCustomer(c,true);hud();hostSync({s:d.s,h:1})});
 drawTray();hud();J.music('fiesta');
 J.start({title:'COCINA RÁPIDA',col:'#ff7043',sub:'Los clientes llegan al mostrador con su pedido. Prepáralo y sírveselo antes de que se cansen de esperar.',
   howto:['Acércate a un puesto y pulsa <b>E</b> (o USAR) para coger ingredientes','La carne se hace en la PLANCHA: pon la carne cruda, espera y recógela (¡que no se queme!)','Ve al mostrador frente al cliente y pulsa E para servir','Si un cliente se va enfadado, pierdes una vida. Tienes 3'],

@@ -22,6 +22,9 @@ body{background:#0b1022}
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
 <script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 const K=Kit,J=Juego,$=s=>document.querySelector(s);
 const {renderer,scene,camera,sun,hemi}=K.setup({sky:0x0b1022,fogNear:25,fogFar:80});
@@ -40,17 +43,20 @@ const moon=K.sph(6,new THREE.MeshBasicMaterial({color:0xe8ecff,fog:false}),-60,6
 const ctl=K.controls(renderer.domElement,{dist:14,pitch:.7,yaw:Math.PI,onTap:e=>{if(e.pointerType==='mouse'&&e.button===0)firing=true;return false}});
 const P=J.player(scene,ctl,{x:0,z:4,speed:9,jump:10,boxes,bound:AR-1});K.emotes(P.a);
 const gun=K.box(.25,.25,.9,K.M(0x263238),0,-.8,.35,P.a.armR);
-let firing=false,hp=100,wave=0,kills=0,running=false,cd=0,triple=0,between=0,toSpawn=0,spawnT=0;
+let dead=false,deaths=0,firing=false,hp=100,wave=0,kills=0,running=false,cd=0,triple=0,between=0,toSpawn=0,spawnT=0;
 /* ---------- zombis: muñecos verdes hechos con cubos ---------- */
 const Z=[];
-function zombie(){const g=new THREE.Group();const skin=K.M(0x7cb342),cloth=K.M([0x5d4037,0x455a64,0x6a1b9a][Math.floor(Math.random()*3)]);
+let zid=0;const coop=()=>window.Sala&&Sala.online&&Sala.started,guest=()=>coop()&&!Sala.isHost;
+function zombie(spec){const g=new THREE.Group();const skin=K.M(0x7cb342),cloth=K.M([0x5d4037,0x455a64,0x6a1b9a][Math.floor(Math.random()*3)]);
   const legL=new THREE.Group(),legR=new THREE.Group(),armL=new THREE.Group(),armR=new THREE.Group();legL.position.set(-.22,.7,0);legR.position.set(.22,.7,0);armL.position.set(-.62,1.5,0);armR.position.set(.62,1.5,0);
   K.box(.4,.7,.4,K.M(0x37474f),0,-.35,0,legL);K.box(.4,.7,.4,K.M(0x37474f),0,-.35,0,legR);K.box(.85,.85,.45,cloth,0,1.12,0,g);K.box(.35,.8,.35,skin,0,-.35,0,armL);K.box(.35,.8,.35,skin,0,-.35,0,armR);
   K.box(.6,.6,.6,skin,0,1.85,0,g);K.box(.12,.12,.05,K.M(0xff1744),-.14,1.9,.31,g);K.box(.12,.12,.05,K.M(0xff1744),.14,1.9,.31,g);g.add(legL,legR,armL,armR);
   armL.rotation.x=armR.rotation.x=-1.5;g.traverse(o=>{if(o.isMesh)o.castShadow=true});const s=1.15;g.scale.setScalar(s);
   const a=Math.random()*Math.PI*2;g.position.set(Math.cos(a)*(AR-2),0,Math.sin(a)*(AR-2));scene.add(g);
-  const big=wave>=3&&Math.random()<.18;if(big)g.scale.setScalar(1.6);
-  Z.push({g,legL,legR,hp:big?6:2+Math.floor(wave/4),speed:(big?2.4:3)+wave*.22+Math.random(),walk:Math.random()*6,hit:0,big})}
+  const big=spec?!!spec.big:wave>=3&&Math.random()<.18;if(big)g.scale.setScalar(1.6);if(spec)g.position.set(spec.x,0,spec.z);
+  const z={id:spec?spec.id:++zid,g,legL,legR,hp:big?6:2+Math.floor(wave/4),speed:(big?2.4:3)+wave*.22+Math.random(),walk:Math.random()*6,hit:0,big,tx:g.position.x,tz:g.position.z};Z.push(z);return z}
+/* objetivo de cada zombi: el jugador más cercano (también los amigos de la sala) */
+function targets(){const t=[{x:P.x,z:P.z,me:true}];if(coop()&&Sala.remotes)Object.values(Sala.remotes.map).forEach(r=>{if(!r.data||!r.data.dead)t.push({x:r.x,z:r.z})});return t}
 /* ---------- disparos ---------- */
 const shots=[];const shotGeo=new THREE.SphereGeometry(.2,8,6),shotMat=new THREE.MeshBasicMaterial({color:0xffe066});
 function aimDir(){// apunta solo al zombi más cercano que esté delante
@@ -62,37 +68,54 @@ J.action('DISPARAR',['e','f'],shoot,{col:'#ff4f4f'});
 addEventListener('mouseup',()=>firing=false);
 /* ---------- objetos ---------- */
 const items=[];
-function dropItem(x,z){if(Math.random()>.14)return;const kind=Math.random()<.6?'vida':'triple';const m=kind==='vida'?K.box(.9,.9,.9,K.M(0xff4f4f),x,.6,z,scene):K.sph(.5,K.M(0xffcc33),x,.7,z,scene);K.box(.25,.95,.25,new THREE.MeshBasicMaterial({color:0xffffff}),0,0,0,m).visible=kind==='vida';items.push({m,kind,t:0})}
-function hurt(n){hp=Math.max(0,hp-n);$('#hp').style.width=hp+'%';$('#hurt').style.opacity=1;setTimeout(()=>$('#hurt').style.opacity=0,200);J.sfx('hit');if(hp<=0)die()}
-function hud(){J.hud([['Oleada',wave],['Zombis',Z.length+toSpawn],['Eliminados',kills],triple>0?['Triple',Math.ceil(triple)+' s']:null])}
+let iid=0;function dropItem(x,z,spec){if(!spec&&Math.random()>.14)return;const kind=spec?spec.kind:Math.random()<.6?'vida':'triple';const id=spec?spec.id:++iid;if(!spec&&coop())Sala.send('zitem',{id,kind,x,z});const m=kind==='vida'?K.box(.9,.9,.9,K.M(0xff4f4f),x,.6,z,scene):K.sph(.5,K.M(0xffcc33),x,.7,z,scene);K.box(.25,.95,.25,new THREE.MeshBasicMaterial({color:0xffffff}),0,0,0,m).visible=kind==='vida';items.push({m,kind,t:0,id})}
+function hurt(n){if(dead)return;hp=Math.max(0,hp-n);$('#hp').style.width=hp+'%';$('#hurt').style.opacity=1;setTimeout(()=>$('#hurt').style.opacity=0,200);J.sfx('hit');if(hp<=0)die()}
+function hud(){if(window.Sala)Sala.score(kills,kills+' zombis');J.hud([['Oleada',wave],['Zombis',Z.length+toSpawn],['Eliminados',kills],triple>0?['Triple',Math.ceil(triple)+' s']:null])}
 function nextWave(){wave++;toSpawn=4+wave*3;spawnT=0;K.toast('OLEADA '+wave,'¡Que vienen!','#ff4f4f');J.sfx('alarm');hud()}
-function die(){running=false;J.sfx('lose');if(window.CubiAvatar)CubiAvatar.emote(P.a,'ge3');const rec=J.saveBest('zombis',wave,true);
+function die(){if(coop()){dead=true;deaths++;P.frozen=true;P.a.root.visible=false;J.sfx('lose');K.toast('TE HAN PILLADO','Vuelves en 6 segundos','#ff4f4f');setTimeout(()=>{dead=false;hp=100;$('#hp').style.width='100%';P.a.root.visible=true;P.x=0;P.z=4},6000);return}running=false;J.sfx('lose');if(window.CubiAvatar)CubiAvatar.emote(P.a,'ge3');const rec=J.saveBest('zombis',wave,true);
   setTimeout(()=>J.end({title:'TE HAN PILLADO',col:'#ff4f4f',lines:[`Has llegado a la oleada <b style="color:#ffcc33">${wave}</b>`,`Zombis eliminados: ${kills}`,`Récord: oleada ${J.best('zombis')}`],record:rec}),1000)}
 /* ---------- bucle ---------- */
 let last=performance.now();
 function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
-  P.frozen=!running;P.update(dt,camera,1.5);if(running)P.a.armR.rotation.x=-1.5;
+  P.frozen=!running||dead;P.update(dt,camera,1.5);if(running)P.a.armR.rotation.x=-1.5;
   sun.position.set(P.x+20,40,P.z+10);sun.target.position.set(P.x,0,P.z);
   if(running){cd-=dt;triple=Math.max(0,triple-dt);if(firing)shoot();
-    if(toSpawn>0){spawnT-=dt;if(spawnT<=0){zombie();toSpawn--;spawnT=Math.max(.35,1.2-wave*.06);hud()}}
+    if(guest()){}else if(toSpawn>0){spawnT-=dt;if(spawnT<=0){zombie();toSpawn--;spawnT=Math.max(.35,1.2-wave*.06);hud()}}
     else if(!Z.length){between+=dt;if(between>3){between=0;nextWave()}}}
   // zombis
-  Z.forEach(z=>{const dx=P.x-z.g.position.x,dz=P.z-z.g.position.z,d=Math.hypot(dx,dz);
-    if(running&&d>.9){let nx=z.g.position.x+dx/d*z.speed*dt,nz=z.g.position.z+dz/d*z.speed*dt;
+  const TG=targets();
+  Z.forEach(z=>{let tg=TG[0],bd=1e9;TG.forEach(t=>{const q=Math.hypot(t.x-z.g.position.x,t.z-z.g.position.z);if(q<bd){bd=q;tg=t}});
+    const dx=tg.x-z.g.position.x,dz=tg.z-z.g.position.z,d=Math.hypot(dx,dz)||1;const dme=Math.hypot(P.x-z.g.position.x,P.z-z.g.position.z);
+    if(guest()){const k=Math.min(1,dt*8);z.g.position.x+=(z.tx-z.g.position.x)*k;z.g.position.z+=(z.tz-z.g.position.z)*k}
+    else if(running&&d>.9){let nx=z.g.position.x+dx/d*z.speed*dt,nz=z.g.position.z+dz/d*z.speed*dt;
       if(boxes.some(b=>nx>b.x0-.4&&nx<b.x1+.4&&nz>b.z0-.4&&nz<b.z1+.4)){nx=z.g.position.x+(-dz/d)*z.speed*dt;nz=z.g.position.z+(dx/d)*z.speed*dt}z.g.position.x=nx;z.g.position.z=nz}
     z.g.rotation.y=Math.atan2(dx,dz);z.walk+=dt*z.speed*1.6;const s=Math.sin(z.walk)*.6;z.legL.rotation.x=s;z.legR.rotation.x=-s;
-    z.hit=Math.max(0,z.hit-dt);if(running&&d<1.3*(z.big?1.4:1)&&z.hit<=0){z.hit=.8;hurt(z.big?18:10)}});
+    z.hit=Math.max(0,z.hit-dt);if(running&&!dead&&dme<1.3*(z.big?1.4:1)&&z.hit<=0){z.hit=.8;hurt(z.big?18:10)}});
   // disparos
   for(let i=shots.length-1;i>=0;i--){const s=shots[i];s.t+=dt;s.m.position.x+=s.vx*dt;s.m.position.z+=s.vz*dt;let gone=s.t>.9;const p=s.m.position;
     if(boxes.some(b=>p.x>b.x0&&p.x<b.x1&&p.z>b.z0&&p.z<b.z1&&p.y<b.top))gone=true;
-    for(const z of Z){if(Math.hypot(p.x-z.g.position.x,p.z-z.g.position.z)<(z.big?1.1:.75)){z.hp--;gone=true;z.g.position.x+=s.vx*.006;z.g.position.z+=s.vz*.006;J.sfx('pop');
-      if(z.hp<=0){scene.remove(z.g);Z.splice(Z.indexOf(z),1);kills++;dropItem(z.g.position.x,z.g.position.z);hud()}break}}
+    for(const z of Z){if(Math.hypot(p.x-z.g.position.x,p.z-z.g.position.z)<(z.big?1.1:.75)){gone=true;J.sfx('pop');if(guest()){Sala.send('zhit',{id:z.id});break}z.hp--;z.g.position.x+=s.vx*.006;z.g.position.z+=s.vz*.006;
+      if(z.hp<=0)killZ(z,Sala.myId);break}}
     if(gone){scene.remove(s.m);shots.splice(i,1)}}
   // objetos
   for(let i=items.length-1;i>=0;i--){const it=items[i];it.t+=dt;it.m.rotation.y+=dt*2;it.m.position.y=.7+Math.sin(it.t*3)*.15;
-    if(Math.hypot(P.x-it.m.position.x,P.z-it.m.position.z)<1.3){if(it.kind==='vida'){hp=Math.min(100,hp+30);$('#hp').style.width=hp+'%';K.toast('+30 VIDA','','#3fd15c')}else{triple=10;K.toast('¡DISPARO TRIPLE!','10 segundos','#ffcc33')}J.sfx('lucky');scene.remove(it.m);items.splice(i,1);hud()}
+    if(Math.hypot(P.x-it.m.position.x,P.z-it.m.position.z)<1.3){if(it.kind==='vida'){hp=Math.min(100,hp+30);$('#hp').style.width=hp+'%';K.toast('+30 VIDA','','#3fd15c')}else{triple=10;K.toast('¡DISPARO TRIPLE!','10 segundos','#ffcc33')}J.sfx('lucky');scene.remove(it.m);items.splice(i,1);if(coop())Sala.send('zpick',{id:it.id});hud()}
     else if(it.t>15){scene.remove(it.m);items.splice(i,1)}}
   renderer.render(scene,camera);requestAnimationFrame(loop)}
+function killZ(z,by){if(!Z.includes(z))return;scene.remove(z.g);Z.splice(Z.indexOf(z),1);if(by===Sala.myId)kills++;dropItem(z.g.position.x,z.g.position.z);if(coop())Sala.send('zkill',{id:z.id,by});hud()}
+/* ---------- multijugador: el anfitrión mueve a los zombis y los demás los ven ---------- */
+function resetAll(){Z.forEach(z=>scene.remove(z.g));Z.length=0;items.forEach(i=>scene.remove(i.m));items.length=0;wave=0;kills=0;toSpawn=0;between=0;hp=100;dead=false;$('#hp').style.width='100%';P.a.root.visible=true;P.x=0;P.z=4;hud()}
+Sala.init({game:'zombis',scene,me:P.a,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2),air:!P.ground,dead}),board:{label:'Zombis eliminados'},
+  shared:'Al empezar todos a la vez, defendéis el mismo patio contra los mismos zombis. Si te pillan, vuelves a los 6 segundos.',
+  onStart(){J.closePanels();resetAll();running=true;if(Sala.isHost)nextWave()}});
+setInterval(()=>{if(!coop()||!Sala.isHost)return;Sala.send('zs',{w:wave,z:Z.map(z=>[z.id,+z.g.position.x.toFixed(2),+z.g.position.z.toFixed(2),z.big?1:0])})},100);
+Sala.on('zs',d=>{if(Sala.isHost)return;if(d.w!==wave){wave=d.w;if(wave>0){K.toast('OLEADA '+wave,'¡Que vienen!','#ff4f4f');J.sfx('alarm')}}
+  const ids=new Set(d.z.map(q=>q[0]));for(let i=Z.length-1;i>=0;i--)if(!ids.has(Z[i].id)){scene.remove(Z[i].g);Z.splice(i,1)}
+  d.z.forEach(([id,x,z,big])=>{let q=Z.find(o=>o.id===id);if(!q)q=zombie({id,x,z,big});q.tx=x;q.tz=z});hud()});
+Sala.on('zhit',(d,from)=>{if(!Sala.isHost)return;const z=Z.find(o=>o.id===d.id);if(!z)return;z.hp--;if(z.hp<=0)killZ(z,from)});
+Sala.on('zkill',d=>{if(Sala.isHost)return;const z=Z.find(o=>o.id===d.id);if(z){scene.remove(z.g);Z.splice(Z.indexOf(z),1)}if(d.by===Sala.myId){kills++;hud()}});
+Sala.on('zitem',d=>{if(!Sala.isHost)dropItem(d.x,d.z,d)});
+Sala.on('zpick',d=>{const i=items.findIndex(o=>o.id===d.id);if(i>=0){scene.remove(items[i].m);items.splice(i,1)}});
 hud();J.music('batalla');
 J.start({title:'NOCHE DE ZOMBIS',col:'#ff4f4f',sub:'Aguanta en el patio todas las oleadas de zombis que puedas. Cada oleada trae más, más rápidos y alguno gigante.',
   howto:['Muévete con <b>WASD</b> o el joystick','Dispara con <b>clic</b>, <b>E</b> o DISPARAR (apunta solo al zombi que tengas delante)','Recoge cajas rojas (vida) y bolas amarillas (disparo triple)'],

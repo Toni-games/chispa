@@ -21,6 +21,9 @@ body{background:#2a0f0a}
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
 <script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 const K=Kit,J=Juego,$=s=>document.querySelector(s);
 const {renderer,scene,camera,sun,hemi}=K.setup({sky:0x3a1410,fogNear:40,fogFar:130});
@@ -29,23 +32,23 @@ const glow=new THREE.PointLight(0xff6a00,1.2,60);scene.add(glow);
 const lavaTop=new THREE.Mesh(new THREE.PlaneGeometry(220,220,30,30),new THREE.MeshBasicMaterial({color:0xffa726,transparent:true,opacity:.55}));lavaTop.rotation.x=-Math.PI/2;scene.add(lavaTop);
 const TOP=150;let plats=[],coins=[],boxes=[];
 const COLS=[0x90a4ae,0x8d6e63,0x78909c,0xa1887f];
-function build(){[...plats.map(p=>p.m),...coins.map(c=>c.m)].forEach(m=>scene.remove(m));plats=[];coins=[];boxes=[];
+function build(sd){const R=sd?Sala.rng(sd):Math.random;[...plats.map(p=>p.m),...coins.map(c=>c.m)].forEach(m=>scene.remove(m));plats=[];coins=[];boxes=[];
   const add=(x,y,z,w,d,kind)=>{const m=K.box(w,1,d,K.M(kind==='move'?0x3fa7ff:kind==='fall'?0xffcc33:COLS[plats.length%4]),x,y-.5,z,scene);m.castShadow=m.receiveShadow=true;
-    const b={x0:x-w/2,x1:x+w/2,z0:z-d/2,z1:z+d/2,top:y,bottom:y-1};boxes.push(b);const p={m,b,x,y,z,w,d,kind,t:0,ph:Math.random()*6};plats.push(p);return p};
+    const b={x0:x-w/2,x1:x+w/2,z0:z-d/2,z1:z+d/2,top:y,bottom:y-1};boxes.push(b);const p={m,b,x,y,z,w,d,kind,t:0,ph:R()*6};plats.push(p);return p};
   add(0,2,0,12,12);// suelo de salida
-  let x=0,z=0,y=2,a=Math.random()*6;
-  while(y<TOP){a+=(Math.random()-.5)*1.6;const dist=4.5+Math.random()*2.2;x+=Math.cos(a)*dist;z+=Math.sin(a)*dist;
+  let x=0,z=0,y=2,a=R()*6;
+  while(y<TOP){a+=(R()-.5)*1.6;const dist=4.5+R()*2.2;x+=Math.cos(a)*dist;z+=Math.sin(a)*dist;
     const r=Math.hypot(x,z);if(r>22){x*=22/r;z*=22/r;a+=Math.PI*.8}
-    y+=1.1+Math.random()*.8;const kind=y>25&&Math.random()<.18?'fall':y>15&&Math.random()<.15?'move':'n';const s=kind==='n'?3+Math.random()*1.5:3.4;
-    add(x,y,z,s,s,kind);if(Math.random()<.35){const c=K.sph(.4,K.M(0xffcc33),x,y+1,z,scene);c.castShadow=true;coins.push({m:c,x,y:y+1,z})}
+    y+=1.1+R()*.8;const kind=y>25&&R()<.18?'fall':y>15&&R()<.15?'move':'n';const s=kind==='n'?3+R()*1.5:3.4;
+    add(x,y,z,s,s,kind);if(R()<.35){const c=K.sph(.4,K.M(0xffcc33),x,y+1,z,scene);c.castShadow=true;coins.push({m:c,x,y:y+1,z})}
     // a veces una plataforma extra al lado para tener más caminos
-    if(Math.random()<.3)add(x+(Math.random()-.5)*7,y-.4,z+(Math.random()-.5)*7,3,3,'n')}
+    if(R()<.3)add(x+(R()-.5)*7,y-.4,z+(R()-.5)*7,3,3,'n')}
   const fin=add(x,y+1.6,z,6,6,'n');fin.m.material.color.set(0x3fd15c);fin.goal=true}
 /* ---------- jugador ---------- */
 const ctl=K.controls(renderer.domElement,{dist:13,pitch:.55,yaw:Math.PI});
 const P=J.player(scene,ctl,{x:0,z:0,speed:8,jump:12.5,grav:30,boxes:[],bound:200,noFloor:true});K.emotes(P.a);
 let L=-6,running=false,best=0,got=0,T=0;
-function reset(){build();P.boxes=boxes;P.x=0;P.z=0;P.y=2;P.vx=P.vz=P.vy=0;L=-6;best=0;got=0;T=0}
+function reset(sd){build(sd);P.boxes=boxes;P.x=0;P.z=0;P.y=2;P.vx=P.vz=P.vy=0;L=-6;best=0;got=0;T=0}
 function lavaSpeed(){return .55+T*.012}
 function die(){running=false;J.sfx('splash');J.sfx('lose');const score=Math.floor(best)+got*5;const rec=J.saveBest('lava',score,true);
   setTimeout(()=>J.end({title:'¡TE HA PILLADO LA LAVA!',col:'#ff6a00',lines:[`Altura: <b style="color:#ffcc33">${Math.floor(best)} m</b> · Monedas: ${got}`,`Puntos: <b style="color:#ffcc33">${score}</b>`,`Récord: ${J.best('lava')}`],record:rec,onAgain(){reset();running=true}}),800)}
@@ -65,6 +68,7 @@ function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
   if(running){T+=dt;L+=lavaSpeed()*dt;if(P.y-L>22)L+=(P.y-L-22)*dt*.5;best=Math.max(best,P.y-2);
     coins.forEach(c=>{if(!c.got&&Math.hypot(P.x-c.x,P.z-c.z)<1.2&&Math.abs(P.y+1-c.y)<1.5){c.got=true;scene.remove(c.m);got++;J.sfx('coin')}});
     if(P.y<L+.1)die();
+    if(window.Sala&&Math.floor(T*4)!==Math.floor((T-dt)*4))Sala.score(Math.floor(best),Math.floor(best)+' m');
     J.hud([['Altura',Math.floor(best)+' m'],['Monedas',got],['Lava a',Math.max(0,P.y-L).toFixed(1)+' m']])}
   coins.forEach(c=>{if(!c.got)c.m.rotation.y+=dt*3});
   lava.position.y=L-30;lavaTop.position.y=L+.05;const pa=lavaTop.geometry.attributes.position;for(let i=0;i<pa.count;i++)pa.setZ(i,Math.sin(t/400+pa.getX(i)*.3)*.25+Math.cos(t/500+pa.getY(i)*.25)*.25);pa.needsUpdate=true;
@@ -72,6 +76,9 @@ function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
   $('#lv').style.height=Math.max(0,Math.min(100,L/TOP*100))+'%';$('#me').style.bottom=Math.max(0,Math.min(100,P.y/TOP*100))+'%';
   sun.position.set(P.x+20,P.y+50,P.z+10);sun.target.position.set(P.x,P.y,P.z);
   renderer.render(scene,camera);requestAnimationFrame(loop)}
+Sala.init({game:'lava',scene,me:P.a,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2),air:!P.ground}),board:{label:'Altura'},
+  shared:'Al empezar todos a la vez, la torre es la misma para todos y la lava sube igual. ¡A ver quién llega más alto!',
+  onStart(sd){J.closePanels();reset(sd);running=true;K.toast('¡LA LAVA SUBE!','Todos a la vez','#ff6a00')}});
 reset();J.music('batalla');
 J.start({title:'EL SUELO ES LAVA',col:'#ff6a00',sub:'La lava sube sin parar. Salta de plataforma en plataforma hasta la verde de arriba del todo.',
   howto:['<b>WASD</b> o joystick para moverte, <b>ESPACIO</b> para saltar','Las azules se mueven y las amarillas se caen al pisarlas','Coge monedas: cada una vale 5 puntos'],

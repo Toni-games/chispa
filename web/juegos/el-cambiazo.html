@@ -155,6 +155,10 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <script src="../avatar.js"></script>
 <script src="../pases.js"></script>
 <script src="../audio.js"></script>
+<script src="../kit.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 /* ================= DATOS DEL JUEGO ================= */
 const PHONES=[
@@ -342,10 +346,10 @@ function initWorld(){
     const eyeM=M(0x111111);[-.13,.13].forEach(x=>{const e=new THREE.Mesh(new THREE.SphereGeometry(.05,6,4),eyeM);e.position.set(x,2.02,.31);g.add(e)});
     scene.add(g);return g;
   }
-  const player=person(0xffb347,0xf1c7a3,0x2b1d14);
+  let AVP=null;const player=window.CubiAvatar?(()=>{AVP=CubiAvatar.makeAvatar(THREE,CubiAvatar.state().eq);AVP.isMe=true;AVP.root.scale.setScalar(.82);AVP.root.traverse(o=>{if(o.isMesh)o.castShadow=true});scene.add(AVP.root);return AVP.root})():person(0xffb347,0xf1c7a3,0x2b1d14);window.AVP=AVP;
   const ring=new THREE.Mesh(new THREE.RingGeometry(.8,1,32),new THREE.MeshBasicMaterial({color:0xffb347,transparent:true,opacity:.7}));ring.rotation.x=-Math.PI/2;ring.position.y=.05;player.add(ring);
   // móvil en la mano del jugador
-  const handPhone=new THREE.Mesh(new THREE.BoxGeometry(.18,.34,.06),M(0x555555,0x111111));handPhone.position.set(.45,1.2,.35);player.add(handPhone);
+  const handPhone=new THREE.Mesh(new THREE.BoxGeometry(.18,.34,.06),M(0x555555,0x111111));handPhone.position.set(.45,1.2,.35);if(AVP){handPhone.position.set(0,-.85,.28);AVP.armR.add(handPhone)}else player.add(handPhone);
   player.position.set(0,0,6);
   const marker=new THREE.Mesh(new THREE.RingGeometry(.3,.45,24),new THREE.MeshBasicMaterial({color:0x9be7c4,transparent:true,opacity:.8}));marker.rotation.x=-Math.PI/2;marker.visible=false;scene.add(marker);
 
@@ -397,8 +401,9 @@ function loop(t){
   if(dx||dz){const l=Math.hypot(dx,dz);dx/=l;dz/=l;const sp=11*dt;
     if(!blocked(P.x+dx*sp,P.z,.5))P.x+=dx*sp;if(!blocked(P.x,P.z+dz*sp,.5))P.z+=dz*sp;
     const ang=Math.atan2(dx,dz);let diff=ang-W.player.rotation.y;diff=Math.atan2(Math.sin(diff),Math.cos(diff));W.player.rotation.y+=diff*Math.min(1,dt*12);
-    W.bob+=dt*12;W.player.children[2].position.y=1.15+Math.abs(Math.sin(W.bob))*.06;W.player.position.y=Math.abs(Math.sin(W.bob))*.12;
+    W.bob+=dt*12;if(!window.AVP){W.player.children[2].position.y=1.15+Math.abs(Math.sin(W.bob))*.06;W.player.position.y=Math.abs(Math.sin(W.bob))*.12}
   }else{W.player.position.y*=.8}
+  if(window.AVP){W.player.position.y=0;CubiAvatar.drive(window.AVP,W.bob,false);window.AVP.armR.rotation.x=Math.min(window.AVP.armR.rotation.x,-.5)}
   // npcs: idle y mirar al jugador
   let near=null,nd=1e9;
   W.npcObjs.forEach((o,i)=>{const n=S.npcs[i];if(!n.loc)return;
@@ -598,7 +603,9 @@ document.addEventListener('click',e=>{
 
 newGame();
 if(window.CubiAudio){CubiAudio.gameMusic('neon');CubiAudio.wrap('openTalk','phone');CubiAudio.wrap('nextDay','notify')}
-try{initWorld();placeNPCs();render();requestAnimationFrame(loop)}
+try{initWorld();placeNPCs();render();requestAnimationFrame(loop);
+  Sala.init({game:'cambiazo',scene:W.scene,me:window.AVP,scale:.82,emotes:!!window.AVP,getState:()=>({x:+W.player.position.x.toFixed(2),y:0,z:+W.player.position.z.toFixed(2),ry:+W.player.rotation.y.toFixed(2)}),board:{label:'Móvil'},shared:'Paseáis juntos por el barrio; cada uno hace sus propios cambios.'});
+  setInterval(()=>Sala.score(S.tier,'Nivel '+S.tier),1000)}
 catch(err){document.getElementById('ov').innerHTML=`<div class="overlay"><div class="card"><h2>Sin 3D</h2><p>Tu navegador no ha podido iniciar el modo 3D (WebGL). Prueba con otro navegador o activa la aceleración por hardware.</p></div></div>`}
 </script>
 

@@ -62,6 +62,10 @@ body.touch #hint{display:none}
 <script src="../avatar.js"></script>
 <script src="../pases.js"></script>
 <script src="../audio.js"></script>
+<script src="../kit.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 /* ================= DATOS ================= */
 const RAR={comun:['Común','#b0bec5',60],raro:['Raro','#42a5f5',25],epico:['Épico','#ab47bc',10],leg:['Legendario','#ffca28',4],mit:['Mítico','#ff4f4f',.9],sec:['Secreto','#111111',.1]};
@@ -349,6 +353,8 @@ ov.innerHTML=`<div class="overlay"><div class="panel"><div class="ph"><h2 class=
   <div class="rar">${Object.values(RAR).map(r=>`<span style="background:${r[1]};color:${r[1]==='#111111'?'#fff':'#000'}">${r[0]}</span>`).join('')}</div>
   <button class="btn g out" data-act="close" style="width:100%;font-size:18px">¡A ROBAR!</button></div></div></div>`;
 if(window.CubiAudio)CubiAudio.gameMusic('fiesta');
+Sala.init({game:'ladrones',scene,me,scale:.75,emotes:true,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2),air:!P.ground}),board:{label:'Dinero'},shared:'Estáis en el mismo mapa y os veis; cada uno tiene su base y su dinero.'});
+setInterval(()=>Sala.score(Math.floor(cash),'$'+Math.floor(cash)),1000);
 hud();requestAnimationFrame(loop);
 addEventListener('beforeunload',persist);
 if(window.CubiPases&&window.CubiAvatar&&location.hash==='#plataforma'){

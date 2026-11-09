@@ -19,6 +19,9 @@ body{background:#070a1a}
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
 <script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 const K=Kit,J=Juego,$=s=>document.querySelector(s);
 const {renderer,scene,camera,sun,hemi}=K.setup({sky:0x070a1a,fogNear:80,fogFar:260});
@@ -36,12 +39,14 @@ const P=J.player(scene,ctl,{x:0,z:0,speed:9.5,jump:11,boxes:[],bound:200,noFloor
 let lives=3,stars=0,T=0,running=false,spawnT=1,inv=0,shield=0;
 const M=[],S=[],FX=[];
 const ringGeo=new THREE.RingGeometry(.85,1,40);
-function meteor(x,z,big){const r=big?4:2.6;const mark=new THREE.Mesh(ringGeo,new THREE.MeshBasicMaterial({color:0xff3d00,transparent:true,opacity:.9,side:THREE.DoubleSide}));mark.rotation.x=-Math.PI/2;mark.position.set(x,.08,z);mark.scale.setScalar(r);scene.add(mark);
+const coop=()=>window.Sala&&Sala.online&&Sala.started,guest=()=>coop()&&!Sala.isHost;
+function meteor(x,z,big,dur){if(coop()&&Sala.isHost&&dur==null)Sala.send('met',{x:+x.toFixed(2),z:+z.toFixed(2),big:big?1:0,dur:Math.max(1.1,2.2-T*.012)});const r=big?4:2.6;const mark=new THREE.Mesh(ringGeo,new THREE.MeshBasicMaterial({color:0xff3d00,transparent:true,opacity:.9,side:THREE.DoubleSide}));mark.rotation.x=-Math.PI/2;mark.position.set(x,.08,z);mark.scale.setScalar(r);scene.add(mark);
   const fill=new THREE.Mesh(new THREE.CircleGeometry(1,40),new THREE.MeshBasicMaterial({color:0xff3d00,transparent:true,opacity:.25}));fill.rotation.x=-Math.PI/2;fill.position.set(x,.07,z);fill.scale.setScalar(.01);scene.add(fill);
   const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(big?1.8:1.1),K.M(0x5d4037));rock.position.set(x+10,60,z-6);rock.castShadow=true;scene.add(rock);
   const trail=K.sph(big?1.5:1,new THREE.MeshBasicMaterial({color:0xff9800,transparent:true,opacity:.7}),0,0,0,rock);trail.position.set(.8,1.2,-.5);
-  M.push({x,z,r,mark,fill,rock,t:0,dur:Math.max(1.1,2.2-T*.012)})}
-function star(){const a=Math.random()*6.28,d=Math.random()*(R0-3);const m=K.sph(.55,new THREE.MeshBasicMaterial({color:0xffe066}),Math.cos(a)*d,1,Math.sin(a)*d,scene);S.push({m,t:0,kind:Math.random()<.12?'escudo':'estrella'});if(S[S.length-1].kind==='escudo')m.material.color.set(0x40c4ff)}
+  M.push({x,z,r,mark,fill,rock,t:0,dur:dur!=null?dur:Math.max(1.1,2.2-T*.012)})}
+let sid=0;function star(spec){const a=Math.random()*6.28,d=Math.random()*(R0-3);const x=spec?spec.x:Math.cos(a)*d,z=spec?spec.z:Math.sin(a)*d,kind=spec?spec.kind:Math.random()<.12?'escudo':'estrella',id=spec?spec.id:++sid;
+  if(!spec&&coop())Sala.send('star',{id,x:+x.toFixed(2),z:+z.toFixed(2),kind});const m=K.sph(.55,new THREE.MeshBasicMaterial({color:0xffe066}),x,1,z,scene);S.push({m,t:0,kind,id});if(S[S.length-1].kind==='escudo')m.material.color.set(0x40c4ff)}
 function boom(x,z,r){const m=K.sph(1,new THREE.MeshBasicMaterial({color:0xffb300,transparent:true,opacity:.85}),x,0,z,scene);FX.push({m,t:0,r});J.sfx('boom')}
 function hit(x,z){if(inv>0)return;if(shield>0){shield=0;inv=1;J.sfx('freeze');K.toast('¡EL ESCUDO TE HA SALVADO!','','#40c4ff');return}
   lives--;inv=1.5;$('#hurt').style.opacity=1;setTimeout(()=>$('#hurt').style.opacity=0,250);const dx=P.x-x,dz=P.z-z,d=Math.hypot(dx,dz)||1;P.vx+=dx/d*14;P.vz+=dz/d*14;P.vy=8;P.ground=false;
@@ -55,9 +60,9 @@ let last=performance.now();
 function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
   P.frozen=!running;P.update(dt,camera,1.4);
   if(running){T+=dt;inv=Math.max(0,inv-dt);shield=Math.max(0,shield-dt);spawnT-=dt;
-    if(spawnT<=0){const n=1+Math.floor(T/25);for(let i=0;i<n;i++){let x,z;if(Math.random()<.35){x=P.x+(Math.random()-.5)*4;z=P.z+(Math.random()-.5)*4}else{const a=Math.random()*6.28,d=Math.random()*(R0-2);x=Math.cos(a)*d;z=Math.sin(a)*d}meteor(x,z,T>30&&Math.random()<.2)}
+    if(guest()){}else if(spawnT<=0){const n=1+Math.floor(T/25);for(let i=0;i<n;i++){let x,z;if(Math.random()<.35){const ts=[{x:P.x,z:P.z}].concat(coop()&&Sala.remotes?Object.values(Sala.remotes.map).map(r=>({x:r.x,z:r.z})):[]);const tg=ts[Math.floor(Math.random()*ts.length)];x=tg.x+(Math.random()-.5)*4;z=tg.z+(Math.random()-.5)*4}else{const a=Math.random()*6.28,d=Math.random()*(R0-2);x=Math.cos(a)*d;z=Math.sin(a)*d}meteor(x,z,T>30&&Math.random()<.2)}
       spawnT=Math.max(.45,1.5-T*.015)}
-    if(S.length<4&&Math.random()<dt*.9)star();
+    if(!guest()&&S.length<4&&Math.random()<dt*.9)star();
     if(P.y<-15){inv=0;shield=0;hit(P.x,P.z);if(running){P.x=0;P.z=0;P.y=5;P.vx=P.vz=P.vy=0}}
     if(Math.floor(T*2)!==Math.floor((T-dt)*2))hud()}
   P.a.root.visible=inv<=0||Math.floor(T*10)%2===0;shieldM.visible=shield>0;shieldM.position.set(P.x,P.y+1.2,P.z);
@@ -65,11 +70,17 @@ function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
     if(k>=1){boom(m.x,m.z,m.r);if(running&&Math.hypot(P.x-m.x,P.z-m.z)<m.r+.3&&P.y<3)hit(m.x,m.z);[m.mark,m.fill,m.rock].forEach(o=>scene.remove(o));M.splice(i,1)}}
   for(let i=FX.length-1;i>=0;i--){const f=FX[i];f.t+=dt;f.m.scale.setScalar(f.r*(.5+f.t*3));f.m.material.opacity=Math.max(0,.85-f.t*2.2);if(f.t>.4){scene.remove(f.m);FX.splice(i,1)}}
   for(let i=S.length-1;i>=0;i--){const s=S[i];s.t+=dt;s.m.position.y=1+Math.sin(s.t*3)*.25;s.m.rotation.y+=dt*3;
-    if(running&&Math.hypot(P.x-s.m.position.x,P.z-s.m.position.z)<1.4&&P.y<3){if(s.kind==='escudo'){shield=8;J.sfx('freeze');K.toast('¡ESCUDO!','8 segundos','#40c4ff')}else{stars++;J.sfx('coin')}scene.remove(s.m);S.splice(i,1);hud()}
+    if(running&&Math.hypot(P.x-s.m.position.x,P.z-s.m.position.z)<1.4&&P.y<3){if(s.kind==='escudo'){shield=8;J.sfx('freeze');K.toast('¡ESCUDO!','8 segundos','#40c4ff')}else{stars++;J.sfx('coin')}scene.remove(s.m);S.splice(i,1);if(coop())Sala.send('spick',{id:s.id});hud()}
     else if(s.t>12){scene.remove(s.m);S.splice(i,1)}}
   sun.position.set(P.x+20,50,P.z+20);sun.target.position.set(P.x,0,P.z);
   renderer.render(scene,camera);requestAnimationFrame(loop)}
-function hud(){J.hud([['Vidas','❤'.repeat(Math.max(0,lives))||'0'],['Estrellas',stars],['Tiempo',Math.floor(T)+' s'],shield>0?['Escudo',Math.ceil(shield)+' s']:null])}
+function hud(){if(window.Sala)Sala.score(stars*10+Math.floor(T),(stars*10+Math.floor(T))+(lives>0?'':' (fuera)'));J.hud([['Vidas','❤'.repeat(Math.max(0,lives))||'0'],['Estrellas',stars],['Tiempo',Math.floor(T)+' s'],shield>0?['Escudo',Math.ceil(shield)+' s']:null])}
+Sala.init({game:'meteoritos',scene,me:P.a,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2),air:!P.ground}),board:{label:'Puntos'},
+  shared:'Al empezar todos a la vez, caen los mismos meteoritos y estrellas para todos. Gana quien más puntos haga.',
+  onStart(){J.closePanels();reset();running=true;K.toast('¡QUE LLUEVEN!','Todos a la vez','#ff6a00')}});
+Sala.on('met',d=>{if(!Sala.isHost)meteor(d.x,d.z,!!d.big,d.dur)});
+Sala.on('star',d=>{if(!Sala.isHost)star(d)});
+Sala.on('spick',d=>{const i=S.findIndex(o=>o.id===d.id);if(i>=0){scene.remove(S[i].m);S.splice(i,1)}});
 hud();J.music('neon');
 J.start({title:'LLUVIA DE METEORITOS',col:'#ff6a00',sub:'Caen meteoritos sobre la plataforma. Quítate de los círculos rojos antes de que lleguen y coge estrellas.',
   howto:['<b>WASD</b> o joystick para correr, <b>ESPACIO</b> para saltar','El círculo rojo se llena: cuando está lleno, ¡bum!','Estrellas amarillas: 10 puntos. Bolas azules: escudo de 8 s','Cada segundo que aguantas suma 1 punto'],
