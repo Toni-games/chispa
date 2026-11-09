@@ -48,9 +48,10 @@ const ITEMS=[
 ];
 const BY={};ITEMS.forEach(i=>BY[i.id]=i);
 const DEF_EQ={piel:'sk1',cara:'f1',camiseta:'sh1',pantalon:'p1',cabeza:'h1',accesorio:'a0',espalda:'b0',animacion:'an0',gesto:'ge0'};
-function defaults(){return {name:'Jugador',cubos:250,owned:ITEMS.filter(i=>!i.price).map(i=>i.id),eq:Object.assign({},DEF_EQ),daily:0,codes:{},passes:{},recent:[],history:[]}}
+function defaults(){return {name:'Jugador',cubos:250,owned:ITEMS.filter(i=>!i.price).map(i=>i.id),eq:Object.assign({},DEF_EQ),daily:0,codes:{},passes:{},recent:[],history:[],custom:{},mine:[],claimed:{}}}
 function state(){let s=null;try{s=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}const d=defaults();if(!s)return d;s=Object.assign(d,s);s.eq=Object.assign({},DEF_EQ,s.eq||{});
-  ITEMS.forEach(i=>{if(!i.price&&!s.owned.includes(i.id))s.owned.push(i.id)});return s}
+  if(s.custom)Object.values(s.custom).forEach(register);
+  ITEMS.forEach(i=>{if(!i.price&&!i.custom&&!s.owned.includes(i.id))s.owned.push(i.id)});return s}
 function save(s){try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){}}
 
 /* ---------- texturas ---------- */
@@ -109,6 +110,68 @@ function patCanvas(pa){const c=cv(64),g=c.getContext('2d');g.fillStyle=pa.col;g.
 function camoCanvas(col){const c=cv(64),g=c.getContext('2d');g.fillStyle=col;g.fillRect(0,0,64,64);['#3e4a26','#8a8a5a','#2c331b'].forEach((k,i)=>{g.fillStyle=k;for(let n=0;n<6;n++){g.beginPath();g.ellipse((n*23+i*17)%64,(n*31+i*13)%64,9,5,n,0,7);g.fill()}});return c}
 
 /* ---------- construir el avatar ---------- */
+
+/* ---------- objetos creados por los jugadores ---------- */
+const TPL={
+  cabeza:[['gorra','Gorra'],['copa','Sombrero de copa'],['corona','Corona'],['casco','Casco'],['gorro','Gorro de lana'],['cuernos','Cuernos'],['orejas','Orejas'],['cresta','Cresta']],
+  accesorio:[['gafas','Gafas'],['visor','Visor'],['bigote','Bigote'],['bufanda','Bufanda'],['collar','Collar'],['antifaz','Antifaz']],
+  espalda:[['mochila','Mochila'],['capa','Capa'],['alas','Alas'],['cola','Cola'],['escudo','Escudo'],['cohete','Cohete']]};
+const DECAL={gorra:1,copa:1,casco:1,gorro:1,mochila:1,capa:1,escudo:1,bufanda:1};
+const ART_ABC='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+function safeCol(c,d){return /^#[0-9a-f]{3,8}$/i.test(String(c||''))?c:d}
+function clean(d){if(!d||typeof d!=='object')return null;const cats=['camiseta','pantalon','cara','cabeza','accesorio','espalda'];
+  if(!/^u[a-z0-9]{4,24}$/i.test(String(d.id||''))||!cats.includes(d.cat))return null;
+  const o={id:d.id,cat:d.cat,name:String(d.name||'Mi objeto').slice(0,28),price:Math.max(0,Math.min(5000,Math.round(+d.price||0))),custom:true,
+    author:String(d.author||'Jugador').slice(0,20),col:safeCol(d.col,'#ffffff'),c1:safeCol(d.c1,'#ff7a2f'),c2:safeCol(d.c2,'#ffffff'),
+    size:Math.max(.6,Math.min(1.5,+d.size||1)),tpl:String(d.tpl||''),mode:['me','pub','lim'].includes(d.mode)?d.mode:'me',created:+d.created||0};
+  if(d.cat in TPL&&!TPL[d.cat].some(t=>t[0]===o.tpl))o.tpl=TPL[d.cat][0][0];
+  if(o.mode==='lim'){o.limited=true;o.stock=Math.max(1,Math.min(100,Math.round(+d.stock||10)))}
+  if(d.art&&Array.isArray(d.art.pal)&&typeof d.art.px==='string'&&d.art.px.length===1024)o.art={pal:d.art.pal.slice(0,62).map(c=>safeCol(c,'#000000')),px:d.art.px.replace(/[^0-9a-zA-Z.]/g,'.')};
+  return o}
+function register(d){const o=clean(d);if(!o)return null;const old=BY[o.id];if(old&&old.custom){Object.assign(old,o);return old}if(old)return null;
+  ITEMS.push(o);BY[o.id]=o;return o}
+function customDefs(eq){eq=eq||{};const out=[];Object.values(eq).forEach(id=>{const it=BY[id];if(it&&it.custom)out.push(clean(it))});return out}
+function artCanvas(art,size,bg){const c=cv(size||128),g=c.getContext('2d');if(bg){g.fillStyle=bg;g.fillRect(0,0,c.width,c.height)}
+  if(!art)return c;const k=c.width/32;
+  for(let i=0;i<1024;i++){const ch=art.px[i];if(ch==='.')continue;const n=ART_ABC.indexOf(ch);if(n<0||!art.pal[n])continue;g.fillStyle=art.pal[n];g.fillRect((i%32)*k,Math.floor(i/32)*k,Math.ceil(k),Math.ceil(k))}
+  return c}
+function customPart(THREE,R,it,M,tex,box,cyl){
+  const g=new THREE.Group(),c1=M(it.c1),c2=M(it.c2),sz=it.size||1,cat=it.cat;R.add(g);g.scale.setScalar(sz);
+  const B=(w,h,d,m,x,y,z)=>box(w,h,d,m,x,y,z,g),C=(rt,rb,h,m,x,y,z,seg)=>cyl(rt,rb,h,m,x,y,z,g,seg);
+  const mesh=(geo,m,x,y,z)=>{const o=new THREE.Mesh(geo,m);o.position.set(x,y,z);g.add(o);return o};
+  const decal=(w,h,x,y,z,ry)=>{if(!it.art)return;const t=tex(artCanvas(it.art,128));t.magFilter=THREE.NearestFilter;
+    const o=mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshLambertMaterial({map:t,transparent:true,alphaTest:.4,side:THREE.DoubleSide}),x,y,z);if(ry)o.rotation.y=ry};
+  const DS={side:THREE.DoubleSide};
+  if(cat==='cabeza'){g.position.set(0,1.9+.28*(1-sz),0);
+    switch(it.tpl){
+      case 'copa':C(.25,.25,.5,c1,0,.55,0);C(.42,.42,.04,c1,0,.3,0);C(.255,.255,.08,c2,0,.36,0);decal(.3,.3,0,.58,.26);break;
+      case 'corona':C(.3,.3,.16,c1,0,.36,0,12);for(let k=0;k<6;k++){const a=k/6*Math.PI*2;mesh(new THREE.ConeGeometry(.07,.2,6),c1,Math.cos(a)*.27,.53,Math.sin(a)*.27)}mesh(new THREE.OctahedronGeometry(.06),c2,0,.37,.3);break;
+      case 'casco':mesh(new THREE.SphereGeometry(.33,16,10,0,Math.PI*2,0,Math.PI/2),c1,0,.2,0);C(.34,.34,.07,c2,0,.22,0);B(.06,.2,.5,c2,0,.45,0);decal(.26,.26,0,.35,.25);break;
+      case 'gorro':C(.31,.31,.3,c1,0,.33,0);C(.32,.32,.1,c2,0,.2,0);mesh(new THREE.SphereGeometry(.1,10,8),c2,0,.55,0);decal(.26,.26,0,.36,.32);break;
+      case 'cuernos':[-1,1].forEach(s=>{const h=mesh(new THREE.ConeGeometry(.08,.4,8),c1,s*.22,.42,0);h.rotation.z=-s*.4;const t=mesh(new THREE.ConeGeometry(.04,.12,8),c2,s*.3,.6,0);t.rotation.z=-s*.4});break;
+      case 'orejas':[-1,1].forEach(s=>{const e=mesh(new THREE.ConeGeometry(.11,.22,4),c1,s*.18,.38,0);e.rotation.y=Math.PI/4;const i=mesh(new THREE.ConeGeometry(.06,.14,4),c2,s*.18,.36,.04);i.rotation.y=Math.PI/4});break;
+      case 'cresta':for(let k=0;k<5;k++)mesh(new THREE.ConeGeometry(.08,.35,6),c1,0,.42,-.2+k*.1);B(.56,.06,.56,c2,0,.28,0);break;
+      default:B(.6,.18,.6,c1,0,.36,0);B(.6,.05,.32,c2,0,.29,.42);B(.12,.05,.12,c2,0,.47,0);decal(.3,.15,0,.36,.305)}
+  }else if(cat==='accesorio'){g.position.set(0,1.9,0);
+    switch(it.tpl){
+      case 'visor':B(.6,.13,.06,new THREE.MeshLambertMaterial({color:it.c2,transparent:true,opacity:.75}),0,.04,.3);B(.62,.03,.5,c1,0,.12,.04);break;
+      case 'bigote':B(.24,.05,.03,c1,0,-.06,.29);B(.07,.05,.03,c1,-.14,-.09,.29);B(.07,.05,.03,c1,.14,-.09,.29);break;
+      case 'bufanda':B(.6,.14,.5,c1,0,-.34,0);B(.14,.4,.06,c2,.16,-.55,.27);decal(.12,.12,.16,-.55,.305);break;
+      case 'collar':{const r=mesh(new THREE.TorusGeometry(.26,.025,6,24),c1,0,-.31,0);r.rotation.x=Math.PI/2;mesh(new THREE.OctahedronGeometry(.07),c2,0,-.42,.27);break}
+      case 'antifaz':B(.58,.14,.04,c1,0,.04,.29);[-1,1].forEach(s=>B(.12,.07,.02,c2,s*.13,.04,.315));break;
+      default:[-1,1].forEach(s=>{const r=mesh(new THREE.TorusGeometry(.07,.015,6,16),c1,s*.13,.03,.29);mesh(new THREE.CircleGeometry(.065,16),new THREE.MeshLambertMaterial({color:it.c2,transparent:true,opacity:.6}),s*.13,.03,.29)});B(.08,.02,.02,c1,0,.03,.29)}
+  }else if(cat==='espalda'){g.position.set(0,1.15,-.25);
+    switch(it.tpl){
+      case 'capa':{const c=B(.85,1.25,.03,M(it.c1,DS),0,-.17,-.02);c.rotation.x=.12;B(.9,.08,.12,c2,0,.43,.03);if(it.art)decal(.5,.5,0,-.1,-.08,Math.PI);break}
+      case 'alas':[-1,1].forEach(s=>{const w=new THREE.Group();w.position.set(s*.12,.2,-.01);w.rotation.y=s*.5;g.add(w);
+        for(let k=0;k<4;k++){const f=new THREE.Mesh(new THREE.BoxGeometry(.75-k*.12,.16,.03),k===3?M(it.c2,DS):M(it.c1,DS));f.position.set(s*(.38-k*.02),.1-k*.13,0);f.rotation.z=s*(.35-k*.12);w.add(f)}});break;
+      case 'cola':[[.2,-.45,-.13],[.16,-.55,-.37],[.12,-.65,-.59],[.08,-.73,-.77]].forEach(([r,y,z])=>{const c=mesh(new THREE.ConeGeometry(r,.4,10),c1,0,y,z);c.rotation.x=-Math.PI/2-.25;mesh(new THREE.ConeGeometry(.05,.12,4),c2,0,y+r*.8,z)});break;
+      case 'escudo':{const a=C(.42,.42,.07,c1,0,0,-.05,24);a.rotation.x=Math.PI/2;const b=C(.3,.3,.08,c2,0,0,-.06,24);b.rotation.x=Math.PI/2;decal(.4,.4,0,0,-.105,Math.PI);break}
+      case 'cohete':[-1,1].forEach(s=>{C(.13,.13,.6,c1,s*.16,.05,-.11);mesh(new THREE.ConeGeometry(.13,.2,12),c2,s*.16,.45,-.11);
+        const fl=mesh(new THREE.ConeGeometry(.1,.3,10),new THREE.MeshBasicMaterial({color:0xffa31a}),s*.16,-.41,-.11);fl.rotation.x=Math.PI});B(.2,.4,.1,c2,0,.05,-.03);break;
+      default:B(.6,.62,.26,c1,0,0,-.11);B(.44,.26,.06,c2,0,-.12,-.26);B(.08,.6,.06,c2,-.22,.1,.49);B(.08,.6,.06,c2,.22,.1,.49);decal(.3,.2,0,-.12,-.295,Math.PI)}
+  }
+}
 function build(THREE,p,eq){
   eq=Object.assign({},DEF_EQ,eq||state().eq);p.eq=eq;const R=p.body||p.root;
   const M=(c,o)=>new THREE.MeshLambertMaterial(Object.assign({color:c},o||{}));
@@ -120,19 +183,21 @@ function build(THREE,p,eq){
   R.children.slice().forEach(o=>{if(!keep.has(o))R.remove(o)});
   [p.legL,p.legR,p.armL,p.armR].forEach(gr=>gr.children.slice().forEach(o=>gr.remove(o)));
   const skin=(BY[eq.piel]||BY.sk1).col,sh=BY[eq.camiseta]||BY.sh1,pa=BY[eq.pantalon]||BY.p1;
-  const skinM=M(skin),shirtM=M(sh.col);
+  const skinM=M(skin),shirtM=M(sh.custom&&sh.art&&sh.art.px.indexOf('.')<0?sh.art.pal[0]:sh.col);
   // torso
-  box(.9,.9,.45,[shirtM,shirtM,shirtM,shirtM,M(0xffffff,{map:tex(shirtCanvas(sh,false))}),M(0xffffff,{map:tex(shirtCanvas(sh,true))})],0,1.15,0);
+  const ntex=c=>{const t=tex(c);t.magFilter=THREE.NearestFilter;return t};
+  box(.9,.9,.45,[shirtM,shirtM,shirtM,shirtM,M(0xffffff,{map:sh.custom?ntex(artCanvas(sh.art,128,sh.col)):tex(shirtCanvas(sh,false))}),sh.custom?shirtM:M(0xffffff,{map:tex(shirtCanvas(sh,true))})],0,1.15,0);
   // cabeza
-  const faceM=M(0xffffff,{map:tex(faceCanvas(eq.cara,skin))});
+  const fc=BY[eq.cara];const faceM=M(0xffffff,{map:fc&&fc.custom?ntex(artCanvas(fc.art,128,skin)):tex(faceCanvas(eq.cara,skin))});
   box(.55,.55,.55,[skinM,skinM,skinM,skinM,faceM,skinM],0,1.9,0);
   // piernas
-  const pantsM=pa.camo?M(0xffffff,{map:tex(camoCanvas(pa.col))}):pa.pat?M(0xffffff,{map:tex(patCanvas(pa))}):M(pa.col);
+  const pantsM=pa.custom?M(0xffffff,{map:ntex(artCanvas(pa.art,128,pa.col))}):pa.camo?M(0xffffff,{map:tex(camoCanvas(pa.col))}):pa.pat?M(0xffffff,{map:tex(patCanvas(pa))}):M(pa.col);
   box(.44,.7,.44,pantsM,0,-.35,0,p.legL);box(.44,.7,.44,pantsM,0,-.35,0,p.legR);
   // brazos: manga + piel
   [p.armL,p.armR].forEach(a=>{box(.44,.36,.44,shirtM,0,-.18,0,a);box(.44,.5,.44,skinM,0,-.6,0,a)});
   // cabeza: accesorios
   const H=1.9;
+  ['cabeza','accesorio','espalda'].forEach(k=>{const it=BY[eq[k]];if(it&&it.custom)customPart(THREE,R,it,M,tex,box,cyl)});
   switch(eq.cabeza){
     case 'h1':{const m=M(BY.h1.col);box(.6,.16,.6,m,0,H+.33,0);box(.6,.3,.1,m,0,H+.15,-.26);box(.08,.22,.5,m,-.28,H+.2,-.02);box(.08,.22,.5,m,.28,H+.2,-.02);break}
     case 'h2':{const m=M(BY.h2.col);box(.62,.16,.62,m,0,H+.33,0);box(.62,.8,.12,m,0,H-.05,-.3);box(.1,.6,.55,m,-.31,H+.05,-.03);box(.1,.6,.55,m,.31,H+.05,-.03);break}
@@ -274,5 +339,5 @@ function drive(a,walk,air,o){o=o||{};const now=performance.now(),dt=a._lt?Math.m
   const moving=o.moving!==undefined?o.moving:(a._lw!==undefined&&Math.abs(walk-a._lw)>1e-4);a._lw=walk;
   animate(a,{walk,air,moving,climb:o.climb,dt});
   if(a.isMe&&window.CubiAudio){if(o.climb){if(moving&&Math.floor(now/260)!==a._cs){a._cs=Math.floor(now/260);CubiAudio.sfx('climb')}a._wasAir=false}else CubiAudio.steps(a,walk,air)}}
-window.CubiAvatar={KEY,drive,CATS,ITEMS,BY,DEF_EQ,EMOTES,state,save,build,makeAvatar,animate,emote,faceCanvas,shirtCanvas};
+window.CubiAvatar={KEY,TPL,DECAL,ART_ABC,register,customDefs,artCanvas,clean,drive,CATS,ITEMS,BY,DEF_EQ,EMOTES,state,save,build,makeAvatar,animate,emote,faceCanvas,shirtCanvas};
 })();

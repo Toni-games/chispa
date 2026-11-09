@@ -216,6 +216,32 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
 }
 @media (max-width:560px){.logo span{display:none}.search{max-width:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.taller-b{background:linear-gradient(120deg,#8a2b06,#ff7a2f 55%,#ffb020)}.taller-b .btn{color:#8a2b06}
+.tkinds{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.tkind{display:flex;flex-direction:column;gap:4px;text-align:left;background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:10px}
+.tkind:hover{border-color:var(--brand)}.tkind .pic{aspect-ratio:1;width:100%;border-radius:10px;background:var(--panel2) center/contain no-repeat}
+.tkind b{font-size:16px}.tkind small{color:var(--muted);font-size:12.5px;line-height:1.3}
+.mylist{display:flex;flex-direction:column;gap:10px}
+.myrow{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
+.myrow .pic{aspect-ratio:1;border-radius:10px;background:var(--panel2) center/contain no-repeat}.myrow small{display:block;color:var(--muted);font-size:12.5px}
+.myrow .row .btn{padding:7px 11px;font-size:13px}
+@media (max-width:640px){.myrow{grid-template-columns:56px minmax(0,1fr)}.myrow .row{grid-column:1/-1}}
+.tnote{display:flex;flex-direction:column;gap:4px;margin-top:20px}.tnote span{color:var(--muted)}
+.tstep{display:flex;flex-direction:column;gap:10px}.tstep h2{margin:0;font-size:17px}.lab{font-size:13px;color:var(--muted)}
+.cols{display:flex;flex-wrap:wrap;gap:14px;align-items:center}.cols label{display:flex;align-items:center;gap:8px;font-size:14px}
+input[type=color]{width:42px;height:32px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:2px;cursor:pointer}
+.pnt canvas{display:block;width:100%;max-width:360px;aspect-ratio:1;height:auto;image-rendering:pixelated;touch-action:none;border-radius:10px;border:1px solid var(--line);cursor:crosshair}
+.tools{display:flex;flex-wrap:wrap;gap:6px}.tools .btn{padding:7px 11px;font-size:13px}.tools .btn.on{background:var(--sel);color:#fff;border-color:transparent}
+.sw2{display:flex;flex-wrap:wrap;gap:6px;max-width:360px}
+.swb{width:30px;height:30px;border-radius:8px;border:2px solid var(--line);padding:0;position:relative;overflow:hidden}.swb.on{outline:3px solid var(--sel);outline-offset:1px}
+.swb.more{background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red);cursor:pointer}.swb.more input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.price{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}.price span{font-weight:700;font-size:14px}.price input{width:96px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;color:var(--fg);font:inherit}
+.lim{display:inline-block;align-self:flex-start;background:linear-gradient(90deg,#7c3aed,#db2777);color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.04em;border-radius:6px;padding:2px 7px}
+.lim-m.on{border-color:#a855f7}.tab.crea{border-color:var(--brand);color:var(--brand)}.tab.crea.on{background:var(--brand);color:var(--brand-ink,#111)}
+.tleft{min-width:0;position:sticky;top:calc(env(safe-area-inset-top,0px) + 80px);align-self:start}.tleft .stage{position:relative;top:0}
+@media (max-width:820px){.tleft{position:relative;top:0}}
+@media (max-width:420px){.side a{font-size:9.5px;letter-spacing:-.01em}}
+.tmsg{margin:0;color:var(--danger);min-height:1em}
 </style>
 
 <header class="top"><div class="in">
@@ -231,6 +257,7 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
     <a href="#juegos" data-v="juegos"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="4"/><path d="M7 11v3M5.5 12.5h3M16 12h.01M18 14h.01"/></svg>Juegos</a>
     <a href="#avatar" data-v="avatar"><svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="8" rx="1"/><path d="M5 22v-6a4 4 0 014-4h6a4 4 0 014 4v6"/></svg>Avatar</a>
     <a href="#catalogo" data-v="catalogo"><svg viewBox="0 0 24 24"><path d="M4 8h16l-1.5 12h-13z"/><path d="M8 8a4 4 0 018 0"/></svg>Catálogo</a>
+    <a href="#taller" data-v="taller"><svg viewBox="0 0 24 24"><path d="M3 21l3-1 11-11-2-2L4 18z"/><path d="M14 6l2-2 4 4-2 2"/></svg>Taller</a>
     <a href="#musica" data-v="musica"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Música</a>
     <a href="#amigos" data-v="amigos"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 20c0-2 .9-4 3-5"/></svg>Amigos</a>
     <a href="#cubos" data-v="cubos"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>Cubos</a>
@@ -450,7 +477,7 @@ function mountPreview(el){
   }catch(e){webgl=false;return}}
   el.prepend(PV.r.domElement);sizePV();rebuildPV();
 }
-function rebuildPV(){if(!PV)return;if(PV.av){PV.s.remove(PV.av.root);dispose(PV.av.root)}PV.av=A.makeAvatar(THREE,st.eq);PV.s.add(PV.av.root)}
+function rebuildPV(){if(!PV)return;if(PV.av){PV.s.remove(PV.av.root);dispose(PV.av.root)}PV.av=A.makeAvatar(THREE,PV.eqOver||st.eq);PV.s.add(PV.av.root)}
 function sizePV(){if(!PV)return;const el=PV.r.domElement.parentElement;if(!el)return;const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);PV.r.setSize(w,h,false);PV.c.aspect=w/h;PV.c.updateProjectionMatrix()}
 addEventListener('resize',sizePV);
 let lastT=performance.now();
@@ -464,17 +491,18 @@ requestAnimationFrame(tick);
 
 /* ================= VISTAS ================= */
 let view='inicio',avCat='piel',catCat='todo',query='';
-function priceHTML(it){if(st.owned.includes(it.id))return `<span class="pr own">Tuyo</span>`;if(!it.price)return `<span class="pr free">Gratis</span>`;return `<span class="pr">${CUBE}${fmtC(it.price)}</span>`}
+function priceHTML(it){if(st.owned.includes(it.id))return `<span class="pr own">Tuyo</span>`;if(it.custom&&it.limited&&!stockLeft(it))return `<span class="pr" style="color:var(--danger)">Agotado</span>`;if(!it.price)return `<span class="pr free">Gratis</span>`;return `<span class="pr">${CUBE}${fmtC(it.price)}</span>`}
 function itemPic(it){if(it.cat==='piel')return `<span class="sw" style="background:${it.col}"></span>`;const u=itemThumb(it);return `<span class="pic" style="${u?`background-image:url(${u})`:''}"></span>`}
-function itemCard(it,act){const on=st.eq[it.cat]===it.id;return `<button class="item ${on?'on':''}" data-act="${act}" data-id="${it.id}" aria-pressed="${on}">${itemPic(it)}<b>${esc(it.name)}</b>${it.desc?`<span class="desc">${esc(it.desc)}</span>`:''}${priceHTML(it)}${on?'<span class="eqd">Puesto</span>':''}</button>`}
+function itemCard(it,act){const on=st.eq[it.cat]===it.id;return `<button class="item ${on?'on':''}" data-act="${act}" data-id="${it.id}" aria-pressed="${on}">${itemPic(it)}<b>${esc(it.name)}</b>${it.desc?`<span class="desc">${esc(it.desc)}</span>`:''}${it.custom?`<span class="desc">de ${esc(it.author)}</span>${limTag(it)}`:''}${priceHTML(it)}${on?'<span class="eqd">Puesto</span>':''}</button>`}
 const V={
   inicio(){const canDaily=Date.now()-(st.daily||0)>20*3600e3;const recent=st.recent.map(id=>GAMES.find(g=>g.id===id)).filter(Boolean);
     return `<div class="hello"><div class="face">${headshot().startsWith('data:')?`<img src="${headshot()}" alt="Tu avatar">`:''}</div>
-      <div style="min-width:0"><h1>Hola, ${esc(st.name)}</h1><p class="sub" style="margin:0">Tienes ${CUBE} <b>${fmtC(st.cubos)}</b> Cubos y ${st.owned.filter(id=>A.BY[id].price).length} objetos comprados.</p>
+      <div style="min-width:0"><h1>Hola, ${esc(st.name)}</h1><p class="sub" style="margin:0">Tienes ${CUBE} <b>${fmtC(st.cubos)}</b> Cubos y ${st.owned.filter(id=>(A.BY[id]||{}).price).length} objetos comprados.</p>
       <div class="row" style="margin-top:10px"><a class="btn" href="#avatar" style="text-decoration:none">Editar avatar</a><a class="btn" href="#catalogo" style="text-decoration:none">Ir al catálogo</a></div></div>
       <div class="daily"><b>Recompensa diaria</b><span class="chip">${canDaily?'¡Disponible!':'Vuelve mañana'}</span><button class="btn brand" data-act="daily" ${canDaily?'':'disabled'}>Recoger ${CUBE} 50</button></div></div>
     ${recent.length?`<section class="sec"><div class="sec-h"><h2>Seguir jugando</h2></div><div class="games">${recent.map(gameCard).join('')}</div></section>`:''}
     ${studioBanner()}
+    ${tallerBanner()}
     <section class="sec"><div class="sec-h"><h2>Tus juegos</h2><a href="#juegos">Ver todos</a></div><div class="games">${GAMES.map(gameCard).join('')}</div></section>
     <section class="sec"><div class="sec-h"><h2>Nuevo: animaciones y gestos</h2><a href="#catalogo" data-act="tocat" data-id="animacion">Ver todos</a></div><div class="items">${['an2','an5','an6','ge5','ge1','ge6'].map(id=>itemCard(A.BY[id],'item')).join('')}</div></section>
     <section class="sec"><div class="sec-h"><h2>Novedades del catálogo</h2><a href="#catalogo">Ver catálogo</a></div><div class="items">${['h11','b9','sh13','h14','b8','f11'].map(id=>itemCard(A.BY[id],'item')).join('')}</div></section>`},
@@ -484,18 +512,18 @@ const V={
     <div class="tabs" role="tablist" style="margin-bottom:14px">${[['todo','Todos'],['nuevo','Nuevos'],['tranquilo','Tranquilos'],['accion','Acción']].map(([k,n])=>`<button class="tab ${gFilt===k?'on':''}" role="tab" aria-selected="${gFilt===k}" data-act="gfilt" data-id="${k}">${n}</button>`).join('')}</div>
     ${list.length?`<div class="games">${list.map(gameCard).join('')}</div>`:`<div class="card">No hay ningún juego que se llame así. Prueba con otra palabra.</div>`}
     ${q?'':creadosSec()}`},
-  avatar(){const its=A.ITEMS.filter(i=>i.cat===avCat&&st.owned.includes(i.id));const more=A.ITEMS.filter(i=>i.cat===avCat&&!st.owned.includes(i.id)).length;
+  avatar(){const its=A.ITEMS.filter(i=>i.cat===avCat&&st.owned.includes(i.id));const more=A.ITEMS.filter(i=>!i.custom&&i.cat===avCat&&!st.owned.includes(i.id)).length;
     return `<h1>Avatar</h1><p class="sub">Arrastra el muñeco para girarlo. Lo que te pongas aquí lo llevas en todos los juegos. En <b>Animaciones</b> eliges cómo andas, saltas y trepas; en <b>Gestos</b> pruebas los que puedes hacer en los juegos con la tecla G o el botón GESTOS.</p>
     <div class="av"><div style="min-width:0"><div class="stage" id="stage"><span class="hint">${webgl?'Arrastra para girar':'Tu navegador no puede mostrar 3D'}</span></div>
     ${webgl?`<div class="demo" role="group" aria-label="Probar animaciones">${[['idle','Quieto'],['walk','Andar'],['jump','Saltar'],['climb','Trepar']].map(([k,n])=>`<button class="btn ${PV&&PV.mode===k?'on':''}" data-act="demo" data-id="${k}">${n}</button>`).join('')}<button class="btn" data-act="demoemote">Gesto: ${esc((A.BY[st.eq.gesto]||A.BY.ge0).name)}</button></div>`:''}</div>
     <div style="min-width:0"><div class="tabs" role="tablist">${A.CATS.map(([id,n])=>`<button class="tab ${avCat===id?'on':''}" role="tab" aria-selected="${avCat===id}" data-act="avcat" data-id="${id}">${n}</button>`).join('')}</div>
     <div class="items">${its.map(i=>itemCard(i,'equip')).join('')}</div>
     ${more?`<div class="card row" style="margin-top:14px;justify-content:space-between"><span>Hay ${more} ${more===1?'objeto':'objetos'} más de esta categoría en el catálogo.</span><button class="btn" data-act="tocat" data-id="${avCat}">Ver en el catálogo</button></div>`:''}
-    <div class="row" style="margin-top:14px"><button class="btn" data-act="randomav">Combinación aleatoria</button></div></div></div>`},
-  catalogo(){const list=A.ITEMS.filter(i=>(catCat==='todo'||i.cat===catCat)&&!(i.price===0&&['h0','a0','b0'].includes(i.id)));
+    <div class="row" style="margin-top:14px"><button class="btn" data-act="randomav">Combinación aleatoria</button><a class="btn brand" href="#taller" style="text-decoration:none">Crear mi propio objeto</a></div></div></div>`},
+  catalogo(){const list=A.ITEMS.filter(i=>!i.custom&&(catCat==='todo'||i.cat===catCat)&&!(i.price===0&&['h0','a0','b0'].includes(i.id)));
     return `<h1>Catálogo</h1><p class="sub">Compra ropa, accesorios, animaciones y gestos con Cubos. Tienes ${CUBE} <b>${fmtC(st.cubos)}</b>.</p>
-    <div class="tabs"><button class="tab ${catCat==='todo'?'on':''}" data-act="catcat" data-id="todo">Todo</button>${A.CATS.map(([id,n])=>`<button class="tab ${catCat===id?'on':''}" data-act="catcat" data-id="${id}">${n}</button>`).join('')}</div>
-    <div class="items">${list.map(i=>itemCard(i,'item')).join('')}</div>`},
+    <div class="tabs"><button class="tab ${catCat==='todo'?'on':''}" data-act="catcat" data-id="todo">Todo</button>${A.CATS.map(([id,n])=>`<button class="tab ${catCat===id?'on':''}" data-act="catcat" data-id="${id}">${n}</button>`).join('')}<button class="tab crea ${catCat==='crea'?'on':''}" data-act="catcat" data-id="crea">Creaciones</button></div>
+    ${catCat==='crea'?creacionesHTML():`<div class="items">${list.map(i=>itemCard(i,'item')).join('')}</div>`}`},
   cubos(){return `<h1>Cubos</h1><p class="sub">La moneda de Cubiverso. Sirve para el catálogo y para los pases de los juegos.</p>
     <div class="test"><b>Modo de prueba.</b><span>Aquí no se cobra dinero real ni se piden datos de tarjeta. Puedes pagar con saldo de tarjeta regalo o con un pago de prueba.</span></div>
     <section class="sec"><div class="packs">${PACKS.map((p,i)=>`<div class="pack">${p.tag?`<span class="tagp">${p.tag}</span>`:''}<div class="stack">${cubeStack(i)}</div><div class="amt">${CUBE}${fmtC(p.c)}</div><span class="chip">${eur(p.e)}</span><button class="btn play" data-act="buypack" data-id="${i}">Comprar</button></div>`).join('')}</div></section>
@@ -615,7 +643,9 @@ function render(){
   $('#view').innerHTML=V[v]();
   $('#bal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;
   const hs=headshot();if(hs&&hs.startsWith('data:'))$('#meimg').src=hs;
-  if(v==='avatar')mountPreview($('#stage'));
+  if(v!=='taller'&&PV&&PV.eqOver){PV.eqOver=null;rebuildPV()}
+  if(v==='avatar'){mountPreview($('#stage'));pvCam('full')}
+  if(v==='taller')tallerBind();
   if(v==='musica')musBind();
   musUI();
   const gf=$('#giftform');if(gf)gf.addEventListener('submit',e=>{e.preventDefault();redeem($('#giftcode').value)});
@@ -657,10 +687,11 @@ function passList(gid){const P=window.CubiPases;if(!P||!P.CAT[gid])return '';
 function itemModal(it){const own=st.owned.includes(it.id),on=st.eq[it.cat]===it.id,u=it.cat==='piel'?'':itemThumb(it);
   openModal(it.name,`<div style="display:grid;grid-template-columns:140px minmax(0,1fr);gap:16px;align-items:center">
     ${it.cat==='piel'?`<span style="aspect-ratio:1;border-radius:14px;background:${it.col}"></span>`:`<span style="aspect-ratio:1;border-radius:14px;background:var(--panel2) center/contain no-repeat;${u?`background-image:url(${u})`:''}"></span>`}
-    <div style="display:flex;flex-direction:column;gap:8px"><span class="chip" style="align-self:flex-start">${A.CATS.find(c=>c[0]===it.cat)[1]}</span>${it.desc?`<span style="color:var(--muted)">${esc(it.desc)}</span>`:''}${it.cat==='gesto'?'<span style="color:var(--muted)">Hazlo en los juegos con la tecla G o el botón GESTOS.</span>':''}
+    <div style="display:flex;flex-direction:column;gap:8px"><span class="chip" style="align-self:flex-start">${A.CATS.find(c=>c[0]===it.cat)[1]}</span>${it.desc?`<span style="color:var(--muted)">${esc(it.desc)}</span>`:''}${it.custom?`<span style="color:var(--muted)">Creado por <b style="color:var(--fg)">${esc(it.author)}</b>${isMine(it.id)?' (tú)':''}</span>${limTag(it)}`:''}${it.cat==='gesto'?'<span style="color:var(--muted)">Hazlo en los juegos con la tecla G o el botón GESTOS.</span>':''}
     <div style="font-size:22px;font-weight:800;display:flex;align-items:center;gap:6px">${own?'<span class="pos">Ya es tuyo</span>':it.price?CUBE+fmtC(it.price):'Gratis'}</div>
     ${own?'':`<span style="color:var(--muted);font-size:14px">Tienes ${fmtC(st.cubos)} Cubos.</span>`}</div></div>
-  <div class="row">${own?`<button class="btn play" data-act="equip" data-id="${it.id}" ${on?'disabled':''}>${on?'Ya lo llevas puesto':'Ponérmelo'}</button>`:
+  <div class="row">${own?`<button class="btn play" data-act="equip" data-id="${it.id}" ${on?'disabled':''}>${on?'Ya lo llevas puesto':'Ponérmelo'}</button>${isMine(it.id)?`<button class="btn" data-act="tedit" data-id="${it.id}">Editar</button><button class="btn" data-act="tcode" data-id="${it.id}">Código</button>`:''}`:
+    it.custom&&it.limited&&!stockLeft(it)?'<span>Agotado: ya no quedan unidades de este objeto limitado.</span>':
     st.cubos>=it.price?`<button class="btn play" data-act="buyitem" data-id="${it.id}">Comprar por ${fmtC(it.price)} Cubos</button>`:
     `<span>Te faltan <b>${fmtC(it.price-st.cubos)}</b> Cubos.</span><a class="btn brand" href="#cubos" style="text-decoration:none">Conseguir Cubos</a>`}</div>`)}
 let pendingPack=null,method='gift';
@@ -707,7 +738,7 @@ const ACT={
     if(!r.ok){toast(`Te faltan ${fmtC(r.need)} Cubos para ${p.name}`);return}if(Au)Au.sfx('buy');toast(`¡Pase comprado: ${p.name}!`);render();gameModal(GAMES.find(x=>x.id===g))},
   item(id){itemModal(A.BY[id])},
   equip(id){const it=A.BY[id];if(!st.owned.includes(id)){itemModal(it);return}st.eq[it.cat]=id;save();closeModal();rebuildPV();if(Au)Au.sfx('equip');render();previewItem(it);if(view!=='avatar')toast(`Te has puesto: ${it.name}`)},
-  buyitem(id){const it=A.BY[id];if(st.owned.includes(id))return;if(st.cubos<it.price){itemModal(it);return}
+  buyitem(id){const it=A.BY[id];if(st.owned.includes(id))return;if(st.cubos<it.price){itemModal(it);return}if(it.custom){buyCustom(it);return}
     st.cubos-=it.price;st.owned.push(id);st.eq[it.cat]=id;addHist(`Catálogo: ${it.name}`,-it.price);save();rebuildPV();closeModal();if(Au)Au.sfx('buy');render();previewItem(it);toast(`¡Comprado! Ya llevas puesto: ${it.name}`)},
   avcat(id){avCat=id;render()},
   catcat(id){catCat=id;render()},
@@ -752,6 +783,232 @@ const ACT={
   demo(k){if(!PV)return;PV.mode=k;PV.walk=0;if(PV.av)PV.av._emote=null;document.querySelectorAll('[data-act=demo]').forEach(b=>b.classList.toggle('on',b.dataset.id===k))},
   demoemote(){if(!PV||!PV.av)return;ACT.demo('idle');A.emote(PV.av,st.eq.gesto||'ge0');PV.mode='emote';if(Au)Au.sfx('emote')}
 };
+/* ================= TALLER DE OBJETOS ================= */
+const TCATS=[['camiseta','Camiseta','Dibuja lo que lleva delante'],['pantalon','Pantalón','Un estampado para las piernas'],['cara','Cara','Tus propios ojos y boca'],
+  ['cabeza','Sombrero','Gorras, coronas, cascos, orejas…'],['accesorio','Accesorio','Gafas, bigotes, bufandas…'],['espalda','Espalda','Mochilas, capas, alas, colas…']];
+const FLAT={camiseta:1,pantalon:1,cara:1};
+const TPAL=['#000000','#ffffff','#9aa3ad','#4a4f5a','#ff3b3b','#ff7a2f','#ffcc33','#7fd36b','#21c063','#22d3ee','#3fa7ff','#2563eb','#8b5cf6','#ff6fb5','#8d5a2b','#ffd29a'];
+const DRAFT='udraft0';
+const MODES={me:'Solo para mí',pub:'En el catálogo',lim:'Limitado'};
+let TW={step:'home',d:null,grid:null,tool:'pen',color:'#000000',mirror:false,undo:[],mode:'me',price:50,lprice:300,stock:10,editing:null};
+let MERC=null,mercErr='';
+const isMine=id=>(st.mine||[]).includes(id);
+function blankGrid(){return new Array(1024).fill(null)}
+function hexRGB(h){h=String(h).replace('#','');if(h.length===3)h=h.split('').map(x=>x+x).join('');const n=parseInt(h.slice(0,6),16)||0;return [n>>16&255,n>>8&255,n&255]}
+const toHex=(r,g,b)=>'#'+[r,g,b].map(v=>Math.max(0,Math.min(255,v|0)).toString(16).padStart(2,'0')).join('');
+function nearestIdx(pal,c){const[r,g,b]=hexRGB(c);let bi=0,bd=1e9;pal.forEach((p,i)=>{const[R,G,B]=hexRGB(p);const d=(r-R)**2+(g-G)**2+(b-B)**2;if(d<bd){bd=d;bi=i}});return bi}
+function gridToArt(gr){if(!gr||!gr.some(Boolean))return null;const freq={};gr.forEach(c=>{if(c)freq[c]=(freq[c]||0)+1});
+  const pal=Object.keys(freq).sort((a,b)=>freq[b]-freq[a]).slice(0,62);let px='';
+  for(let i=0;i<1024;i++){const c=gr[i];if(!c){px+='.';continue}let n=pal.indexOf(c);if(n<0)n=nearestIdx(pal,c);px+=A.ART_ABC[n]}return {pal,px}}
+function artToGrid(art){const g=blankGrid();if(!art)return g;for(let i=0;i<1024;i++){const ch=art.px[i];if(ch==='.')continue;g[i]=art.pal[A.ART_ABC.indexOf(ch)]||null}return g}
+function newDraft(cat){const t=A.TPL[cat];return {id:DRAFT,cat,name:'',col:cat==='pantalon'?'#2b3a55':'#ffffff',c1:'#ff7a2f',c2:'#ffffff',size:1,tpl:t?t[0][0]:'',art:null}}
+const usesArt=d=>FLAT[d.cat]||A.DECAL[d.tpl];
+function draftDef(){const d=Object.assign({},TW.d);d.art=usesArt(d)?gridToArt(TW.grid):null;return d}
+function skinCol(){return (A.BY[st.eq.piel]||A.BY.sk1).col}
+function startFace(){const g=blankGrid(),k='#111111',set=(x,y)=>{g[y*32+x]=k};
+  for(let y=10;y<15;y++)for(let x=0;x<3;x++){set(9+x,y);set(20+x,y)}
+  for(let x=10;x<22;x++){set(x,21);set(x,22)}set(8,19);set(9,20);set(23,19);set(22,20);return g}
+
+/* --- vista previa 3D del borrador --- */
+let pvT=0;
+function pvDraft(){if(!PV||view!=='taller'||!TW.d)return;A.register(draftDef());PV.eqOver=Object.assign({},st.eq,{[TW.d.cat]:DRAFT});rebuildPV()}
+function pvSoon(){clearTimeout(pvT);pvT=setTimeout(pvDraft,140)}
+function pvCam(cat){if(!PV)return;const head=cat==='cara'||cat==='cabeza'||cat==='accesorio';
+  if(head){PV.c.position.set(0,2.1,4.6);PV.c.lookAt(0,2.0,0)}else{PV.c.position.set(0,1.45,6.4);PV.c.lookAt(0,1.1,0)}
+  PV.yaw=cat==='espalda'?Math.PI-.5:-.4;PV.idle=0}
+
+/* --- vistas --- */
+function tallerBanner(){return `<section class="sec"><div class="studio taller-b"><div style="min-width:0;position:relative"><h2>Taller de objetos</h2><p>Diseña tu propia ropa y accesorios: dibuja una camiseta, inventa un sombrero o unas alas. Quédatelo, véndelo en el catálogo o sácalo como objeto limitado.</p></div>
+  <a class="btn" href="#taller" style="text-decoration:none">Crear un objeto</a><svg class="big" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21l3-1 11-11-2-2L4 18zM14 6l2-2 4 4-2 2z" fill="#fff"/></svg></div></section>`}
+function stockLeft(it){return Math.max(0,(it.stock||0)-(it.sold||0))}
+function limTag(it){return it.limited?`<span class="lim">LIMITADO · ${stockLeft(it)?`quedan ${stockLeft(it)}`:'agotado'}</span>`:''}
+function myCreations(){return st.mine.map(id=>A.BY[id]).filter(Boolean)}
+function earn(it){const m=MERC&&MERC[it.id];if(!m)return {sold:0,due:0};const sold=m.sold||0,due=Math.floor(Math.max(0,sold-(st.claimed[it.id]||0))*it.price*.7);return {sold,due}}
+V.taller=function(){
+  if(TW.step==='edit'&&TW.d)return tallerEditor();
+  const mine=myCreations();loadMercado();
+  return `<h1>Taller de objetos</h1><p class="sub">Elige qué quieres crear. Después lo diseñas, le pones nombre y decides: quedártelo, publicarlo en el catálogo con el precio que tú quieras, o sacarlo como <b>objeto limitado</b>, con pocas unidades y más caro.</p>
+  <div class="tkinds">${TCATS.map(([c,n,d])=>`<button class="tkind" data-act="tnew" data-id="${c}"><span class="pic" style="background-image:url(${kindThumb(c)})"></span><b>${n}</b><small>${d}</small></button>`).join('')}</div>
+  <section class="sec" style="margin-top:28px"><div class="sec-h"><h2>Mis creaciones</h2><a href="#taller" data-act="impobj">Tengo un código de objeto</a></div>
+  ${mine.length?`<div class="mylist">${mine.map(it=>{const e=earn(it);return `<div class="myrow"><span class="pic" style="${itemThumb(it)?`background-image:url(${itemThumb(it)})`:''}"></span>
+    <div style="min-width:0"><b>${esc(it.name)}</b><small>${A.CATS.find(c=>c[0]===it.cat)[1]} · ${MODES[it.mode]}${it.mode!=='me'?` · ${it.price?CUBE+fmtC(it.price):'Gratis'}`:''}${it.limited?` · ${it.stock} unidades`:''}</small>
+    ${MERC&&MERC[it.id]?`<small>Vendido ${e.sold} ${e.sold===1?'vez':'veces'}${e.due?` · tienes ${CUBE}${fmtC(e.due)} por cobrar`:''}</small>`:''}</div>
+    <div class="row">${e.due?`<button class="btn brand" data-act="tclaim" data-id="${it.id}">Cobrar</button>`:''}<button class="btn" data-act="tcode" data-id="${it.id}">Código</button><button class="btn" data-act="tedit" data-id="${it.id}">Editar</button><button class="btn" data-act="tdel" data-id="${it.id}">Borrar</button></div></div>`}).join('')}</div>`
+  :`<div class="card">Todavía no has creado nada. Elige arriba qué quieres hacer.</div>`}</section>
+  <div class="card tnote"><b>¿Cómo se venden?</b><span>${CC&&CC.cfg?'Lo que publiques sale en el catálogo de todos los que tengan cuenta en internet. Cuando alguien lo compra, te llevas el 70% de los Cubos.':'Para que otros vean tus objetos, pásales el código del objeto (botón «Código»): lo pegan en el catálogo y lo pueden comprar. Cuando la app tenga las cuentas en internet activadas, saldrán solos en el catálogo de todos y cobrarás el 70% de cada venta.'}</span></div>`};
+const kthumbs={};
+function kindThumb(c){if(kthumbs[c])return kthumbs[c];const ex={camiseta:'sh6',pantalon:'p5',cara:'f9',cabeza:'h6',accesorio:'a7',espalda:'b9'}[c];const it=A.BY[ex];return kthumbs[c]=it?itemThumb(it):''}
+function tallerEditor(){const d=TW.d,cat=d.cat,flat=FLAT[cat],tpls=A.TPL[cat],art=usesArt(d),kn=TCATS.find(x=>x[0]===cat)[1];
+  return `<div class="row" style="justify-content:space-between;margin-bottom:6px"><h1 style="margin:0">${TW.editing?'Editar':'Crear'}: ${kn}</h1><button class="btn" data-act="tback">← Volver al taller</button></div>
+  <p class="sub">${flat?'Pinta en la cuadrícula. Lo que dibujes sale en tu avatar al momento.':'Elige una forma, ponle colores y tamaño.'+(A.DECAL[d.tpl]?' Si quieres, dibuja un parche o un logo para ponérselo.':'')}</p>
+  <div class="av"><div class="tleft"><div class="stage" id="tstage"><span class="hint">${webgl?'Así te queda':'Tu navegador no puede mostrar 3D'}</span></div></div>
+  <div style="min-width:0;display:flex;flex-direction:column;gap:16px">
+    <div class="card tstep"><h2>1. Diseño</h2>
+      ${tpls?`<b class="lab">Forma</b><div class="tabs">${tpls.map(([k,n])=>`<button class="tab ${d.tpl===k?'on':''}" data-act="ttpl" data-id="${k}">${n}</button>`).join('')}</div>
+        <div class="cols"><label>Color principal <input type="color" id="tc1" value="${d.c1}"></label><label>Segundo color <input type="color" id="tc2" value="${d.c2}"></label>
+        <label style="flex:1;min-width:160px">Tamaño <input type="range" id="tsize" min="60" max="150" value="${Math.round(d.size*100)}"></label></div>`:''}
+      ${cat==='camiseta'||cat==='pantalon'?`<div class="cols"><label>Color de la tela <input type="color" id="tcol" value="${d.col}"></label></div>`:''}
+      ${art?painterHTML(flat):''}
+    </div>
+    <div class="card tstep"><h2>2. Nombre</h2><input class="field nocase" id="tname" maxlength="28" placeholder="Por ejemplo: Gorra de rayo" value="${esc(d.name||'')}" style="text-transform:none"></div>
+    <div class="card tstep"><h2>3. ¿Qué hacemos con él?</h2>
+      <label class="method ${TW.mode==='me'?'on':''}"><input type="radio" name="tmode" value="me" ${TW.mode==='me'?'checked':''}><span><b>Quedármelo solo para mí</b><small>Gratis. Solo lo llevas tú (y tus amigos lo ven puesto en los juegos).</small></span></label>
+      <label class="method ${TW.mode==='pub'?'on':''}"><input type="radio" name="tmode" value="pub" ${TW.mode==='pub'?'checked':''}><span><b>Publicarlo en el catálogo</b><small>Otros jugadores lo pueden comprar. Tú eliges el precio.</small>
+        ${TW.mode==='pub'?`<span class="price"><span>Precio</span><input type="number" id="tprice" min="0" max="2000" step="5" value="${TW.price}"> Cubos <small>(de 0 a 2.000)</small></span>`:''}</span></label>
+      <label class="method lim-m ${TW.mode==='lim'?'on':''}"><input type="radio" name="tmode" value="lim" ${TW.mode==='lim'?'checked':''}><span><b>Publicarlo como LIMITADO</b><small>Pocas unidades y más caro. Cuando se acaban, nadie más lo puede comprar.</small>
+        ${TW.mode==='lim'?`<span class="price"><span>Precio</span><input type="number" id="tlprice" min="100" max="5000" step="10" value="${TW.lprice}"> Cubos <small>(mínimo 100)</small></span>
+        <span class="price"><span>Unidades</span><input type="number" id="tstock" min="1" max="100" value="${TW.stock}" ${TW.editing&&A.BY[TW.editing]&&A.BY[TW.editing].limited?'disabled':''}> <small>(de 1 a 100)</small></span>`:''}</span></label>
+      <p id="tmsg" class="tmsg" role="status"></p>
+      <button class="btn play big" data-act="tsave" style="justify-content:center">${TW.editing?'Guardar cambios':'Crear objeto'}</button>
+    </div>
+  </div></div>`}
+function painterHTML(flat){const c=TW.color;
+  return `<b class="lab">${flat?'Dibujo':'Parche o logo (opcional)'}</b>
+  <div class="pnt"><canvas id="pcv" width="320" height="320" aria-label="Cuadrícula para dibujar de 32 por 32"></canvas></div>
+  <div class="tools" role="group" aria-label="Herramientas">${[['pen','Lápiz'],['erase','Goma'],['fill','Rellenar'],['pick','Cuentagotas']].map(([k,n])=>`<button class="btn ${TW.tool===k?'on':''}" data-act="ttool" data-id="${k}">${n}</button>`).join('')}
+    <button class="btn ${TW.mirror?'on':''}" data-act="tmirror" aria-pressed="${TW.mirror}">Espejo</button><button class="btn" data-act="tundo">Deshacer</button><button class="btn" data-act="tclear">Borrar todo</button></div>
+  <div class="sw2">${TPAL.map(p=>`<button class="swb ${p===c?'on':''}" data-act="tcolor" data-id="${p}" style="background:${p}" aria-label="Color ${p}"></button>`).join('')}<label class="swb more" title="Otro color"><input type="color" id="tpick" value="${c}" aria-label="Elegir otro color"></label></div>
+  <div class="row"><label class="btn" style="cursor:pointer">Usar una imagen<input type="file" id="timg" accept="image/*" hidden></label>${TW.d.cat==='cara'?'<button class="btn" data-act="tface">Empezar con una cara básica</button>':''}</div>`}
+
+/* --- pintar --- */
+function drawPainter(){const cv=$('#pcv');if(!cv)return;const g=cv.getContext('2d'),k=10,flat=FLAT[TW.d.cat];
+  const bg=TW.d.cat==='cara'?skinCol():flat?TW.d.col:null;
+  for(let y=0;y<32;y++)for(let x=0;x<32;x++){g.fillStyle=bg||(((x+y)&1)?'#c9ced8':'#e6e9ef');g.fillRect(x*k,y*k,k,k)}
+  TW.grid.forEach((c,i)=>{if(c){g.fillStyle=c;g.fillRect((i%32)*k,Math.floor(i/32)*k,k,k)}});
+  g.strokeStyle='rgba(0,0,0,.09)';g.lineWidth=1;g.beginPath();for(let i=1;i<32;i++){g.moveTo(i*k+.5,0);g.lineTo(i*k+.5,320);g.moveTo(0,i*k+.5);g.lineTo(320,i*k+.5)}g.stroke();
+  g.strokeStyle='rgba(0,0,0,.25)';g.beginPath();g.moveTo(160.5,0);g.lineTo(160.5,320);g.stroke()}
+function pushUndo(){TW.undo.push(TW.grid.slice());if(TW.undo.length>40)TW.undo.shift()}
+function cellAt(e,cv){const r=cv.getBoundingClientRect();const x=Math.floor((e.clientX-r.left)/r.width*32),y=Math.floor((e.clientY-r.top)/r.height*32);return x<0||y<0||x>31||y>31?null:[x,y]}
+function setCell(x,y,c){TW.grid[y*32+x]=c;if(TW.mirror)TW.grid[y*32+31-x]=c}
+function flood(x,y,c){const t=TW.grid[y*32+x];if(t===c)return;const q=[[x,y]];while(q.length){const[a,b]=q.pop();if(a<0||b<0||a>31||b>31||TW.grid[b*32+a]!==t)continue;TW.grid[b*32+a]=c;q.push([a+1,b],[a-1,b],[a,b+1],[a,b-1])}}
+function bindPainter(){const cv=$('#pcv');if(!cv)return;drawPainter();let down=false;
+  const act=(e,first)=>{const p=cellAt(e,cv);if(!p)return;const[x,y]=p;
+    if(TW.tool==='pick'){const c=TW.grid[y*32+x];if(c){TW.color=c;TW.tool='pen';render()}return}
+    if(TW.tool==='fill'){if(first){flood(x,y,TW.color);if(TW.mirror)flood(31-x,y,TW.color)}}
+    else setCell(x,y,TW.tool==='erase'?null:TW.color);drawPainter();pvSoon()};
+  cv.addEventListener('pointerdown',e=>{e.preventDefault();down=true;try{cv.setPointerCapture(e.pointerId)}catch(_){}if(TW.tool!=='pick')pushUndo();act(e,true)});
+  cv.addEventListener('pointermove',e=>{if(down&&TW.tool!=='fill'&&TW.tool!=='pick')act(e,false)});
+  const up=()=>{down=false};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up)}
+function loadImage(file){if(!file||!/^image\//.test(file.type)){toast('Eso no parece una imagen');return}const rd=new FileReader();
+  rd.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d');const s=Math.min(32/im.width,32/im.height),w=im.width*s,h=im.height*s;
+    g.drawImage(im,(32-w)/2,(32-h)/2,w,h);const px=g.getImageData(0,0,32,32).data;pushUndo();const q=v=>Math.round(v/32)*32;
+    for(let i=0;i<1024;i++){const a=px[i*4+3];TW.grid[i]=a<110?null:toHex(q(px[i*4]),q(px[i*4+1]),q(px[i*4+2]))}drawPainter();pvSoon();toast('Imagen puesta. Puedes retocarla con el lápiz.')};
+    im.onerror=()=>toast('No se ha podido abrir esa imagen');im.src=rd.result};rd.readAsDataURL(file)}
+function tallerBind(){if(TW.step!=='edit'||!TW.d)return;const st0=$('#tstage');if(st0){mountPreview(st0);pvCam(TW.d.cat);pvDraft()}
+  bindPainter();const d=TW.d,on=(id,ev,f)=>{const el=$(id);if(el)el.addEventListener(ev,f)};
+  on('#tname','input',e=>d.name=e.target.value);
+  on('#tc1','input',e=>{d.c1=e.target.value;pvSoon()});on('#tc2','input',e=>{d.c2=e.target.value;pvSoon()});
+  on('#tsize','input',e=>{d.size=e.target.value/100;pvSoon()});on('#tcol','input',e=>{d.col=e.target.value;drawPainter();pvSoon()});
+  on('#tpick','input',e=>{TW.color=e.target.value;if(TW.tool==='erase'||TW.tool==='pick')TW.tool='pen';document.querySelectorAll('.swb.on').forEach(b=>b.classList.remove('on'))});
+  on('#tpick','change',()=>render());
+  on('#timg','change',e=>loadImage(e.target.files[0]));
+  on('#tprice','input',e=>TW.price=+e.target.value);on('#tlprice','input',e=>TW.lprice=+e.target.value);on('#tstock','input',e=>TW.stock=+e.target.value);
+  document.querySelectorAll('input[name=tmode]').forEach(r=>r.addEventListener('change',()=>{TW.mode=r.value;render()}))}
+
+/* --- guardar, publicar, compartir --- */
+const newId=()=>'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function b64u(u8){let s='';for(let i=0;i<u8.length;i+=8192)s+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function unb64u(t){t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';const bs=atob(t),u=new Uint8Array(bs.length);for(let i=0;i<bs.length;i++)u[i]=bs.charCodeAt(i);return u}
+async function gzip(u8,inv){if(!window.CompressionStream)return null;try{const cs=inv?new DecompressionStream('gzip'):new CompressionStream('gzip');return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(cs)).arrayBuffer())}catch(e){if(inv)throw e;return null}}
+async function objCode(it){const d=A.clean(it);d.sold=0;const raw=new TextEncoder().encode(JSON.stringify(d));const z=await gzip(raw);return (z?'CUBIO1Z.':'CUBIO1.')+b64u(z||raw)}
+async function readObjCode(c){c=String(c||'').replace(/\s+/g,'');const m=/^CUBIO1(Z?)\.(.+)$/.exec(c);if(!m)throw new Error('code');let u=unb64u(m[2]);if(m[1])u=await gzip(u,true);
+  const d=A.clean(JSON.parse(new TextDecoder().decode(u)));if(!d)throw new Error('code');return d}
+function clampInt(v,a,b,def){v=Math.round(+v);return isFinite(v)?Math.max(a,Math.min(b,v)):def}
+async function tallerSave(){const msg=$('#tmsg'),d=TW.d;const name=String(d.name||'').trim();
+  if(!name){msg.textContent='Ponle un nombre a tu objeto.';$('#tname').focus();return}
+  const prev=TW.editing&&A.BY[TW.editing];
+  let price=0,stock=0;if(TW.mode==='pub')price=clampInt(TW.price,0,2000,50);
+  if(TW.mode==='lim'){price=clampInt(TW.lprice,100,5000,300);stock=prev&&prev.limited?prev.stock:clampInt(TW.stock,1,100,10);
+    if(+TW.lprice<100){msg.textContent='Un objeto limitado cuesta como mínimo 100 Cubos.';return}}
+  const def=Object.assign(draftDef(),{id:TW.editing||newId(),name,price,mode:TW.mode,stock,author:st.name||'Jugador',created:prev&&prev.created||Date.now()});
+  const it=A.register(def);if(!it){msg.textContent='No se ha podido guardar.';return}
+  st.custom[it.id]=A.clean(it);if(!st.mine.includes(it.id))st.mine.unshift(it.id);if(!st.owned.includes(it.id))st.owned.push(it.id);st.eq[it.cat]=it.id;
+  delete thumbs[it.id];if(!TW.editing)addHist(`Taller: has creado «${it.name}»`,0);save();headKey='';
+  let cloud='';if(CC&&CC.cfg&&CC.uid()){msg.textContent='Guardando…';try{if(it.mode==='me'){if(prev&&prev.mode!=='me')await cloudUnpub(it.id)}else await cloudPub(it);cloud=it.mode==='me'?'':'ok'}catch(e){cloud='err'}}
+  if(Au)Au.sfx('levelup');TW={...TW,step:'home',d:null,grid:null,editing:null,undo:[]};if(PV)PV.eqOver=null;rebuildPV();
+  if(view==='taller')render();doneModal(it,cloud)}
+function doneModal(it,cloud){const u=itemThumb(it);
+  const txt=it.mode==='me'?'Ya lo llevas puesto. Solo es tuyo: no sale en el catálogo.'
+    :(cloud==='ok'?'Ya está en el catálogo para todos. Cada vez que alguien lo compre te llevas el 70%.':cloud==='err'?'Está en tu catálogo, pero no se ha podido subir a internet. Prueba a guardarlo otra vez más tarde.':'Ya lo llevas puesto y sale en tu catálogo. Para que tus amigos lo compren, pásales el código.')
+    +(it.limited?` Es limitado: solo hay ${it.stock} unidades a ${fmtC(it.price)} Cubos.`:it.mode==='pub'?` Precio: ${it.price?fmtC(it.price)+' Cubos':'gratis'}.`:'');
+  openModal('¡Objeto creado!',`<div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:16px;align-items:center"><span style="aspect-ratio:1;border-radius:14px;background:var(--panel2) center/contain no-repeat;${u?`background-image:url(${u})`:''}"></span>
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0"><b style="font-size:18px">${esc(it.name)}</b>${limTag(it)}<span style="color:var(--muted)">${esc(txt)}</span></div></div>
+    <div id="tcodebox"></div><div class="row"><button class="btn play" data-act="tseeav" data-id="${it.cat}">Verlo en mi avatar</button><button class="btn" data-act="tcode" data-id="${it.id}">Código para compartir</button><button class="btn" data-act="close">Cerrar</button></div>`)}
+async function showCode(id){const it=A.BY[id];if(!it)return;const c=await objCode(it);if(!$('#tcodebox'))openModal('Código del objeto','<div id="tcodebox"></div><div class="row"><button class="btn" data-act="close">Cerrar</button></div>');
+  $('#tcodebox').innerHTML=`<p style="margin:0 0 6px">Quien pegue este código en el <b>Catálogo → Creaciones → «Tengo un código de objeto»</b> podrá ${it.mode==='me'?'verlo (es solo tuyo, no se puede comprar)':it.price?`comprarlo por ${fmtC(it.price)} Cubos`:'llevárselo gratis'}.</p>
+    <textarea class="field nocase" id="codetxt" readonly style="width:100%;min-height:90px;text-transform:none;font-family:ui-monospace,monospace;font-size:12px">${c}</textarea><div class="row" style="margin-top:6px"><button class="btn brand" data-act="copycode">Copiar código</button></div>`}
+
+/* --- mercado en internet (solo si hay Firebase) --- */
+const FSO=()=>`https://firestore.googleapis.com/v1/projects/${CC.cfg.projectId}/databases/(default)/documents/objetos`;
+async function fsFetch(url,opt){const r=await fetch(url,opt);const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error((j.error&&(j.error.status||j.error.message))||('HTTP '+r.status));return j}
+function loadMercado(force){if(!CC||!CC.cfg||(MERC&&!force))return;MERC=MERC||{};
+  fsFetch(FSO()+'?pageSize=200').then(j=>{(j.documents||[]).forEach(doc=>{const f=doc.fields||{};let d=null;try{d=JSON.parse(f.def.stringValue)}catch(e){}if(!d)return;
+    const sold=+(f.sold&&f.sold.integerValue)||0;d.sold=sold;const it=A.register(d);if(!it)return;it.sold=sold;if(st.custom[it.id]){st.custom[it.id].sold=sold}
+    MERC[it.id]={name:doc.name,sold,owner:f.owner&&f.owner.stringValue,updated:+(f.updated&&f.updated.integerValue)||0}});mercErr='';
+    if(view==='catalogo'||view==='taller')render()}).catch(e=>{mercErr='No se ha podido cargar el catálogo de internet.'})}
+async function cloudPub(it){const uid=CC.uid(),tok=await CC.token(),d=A.clean(it);delete d.sold;
+  const F=['def','owner','author','name','cat','mode','price','stock','updated'];const q=F.map(k=>'updateMask.fieldPaths='+k).join('&');
+  const body={fields:{def:{stringValue:JSON.stringify(d)},owner:{stringValue:uid},author:{stringValue:d.author},name:{stringValue:d.name},cat:{stringValue:d.cat},mode:{stringValue:d.mode},
+    price:{integerValue:String(d.price)},stock:{integerValue:String(d.stock||0)},updated:{integerValue:String(Date.now())}}};
+  await fsFetch(`${FSO()}/${uid}_${it.id}?${q}`,{method:'PATCH',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  MERC=MERC||{};MERC[it.id]=MERC[it.id]||{name:`projects/${CC.cfg.projectId}/databases/(default)/documents/objetos/${uid}_${it.id}`,sold:0,owner:uid}}
+async function cloudUnpub(id){const uid=CC.uid(),tok=await CC.token();await fsFetch(`${FSO()}/${uid}_${id}`,{method:'DELETE',headers:{Authorization:'Bearer '+tok}}).catch(()=>{});if(MERC)delete MERC[id]}
+async function cloudBuy(it){const m=MERC[it.id],tok=await CC.token();const url='https://firestore.googleapis.com/v1/'+m.name;
+  for(let k=0;k<4;k++){const doc=await fsFetch(url,{headers:{Authorization:'Bearer '+tok}});const sold=+(doc.fields.sold&&doc.fields.sold.integerValue)||0,stock=+(doc.fields.stock&&doc.fields.stock.integerValue)||0;
+    if(it.limited&&sold>=stock){it.sold=m.sold=sold;throw new Error('agotado')}
+    try{await fsFetch(`${url}?updateMask.fieldPaths=sold&currentDocument.updateTime=${encodeURIComponent(doc.updateTime)}`,{method:'PATCH',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},
+      body:JSON.stringify({fields:{sold:{integerValue:String(sold+1)}}})});it.sold=m.sold=sold+1;return}catch(e){if(!/FAILED_PRECONDITION|ABORTED/.test(e.message))throw e}}
+  throw new Error('ocupado')}
+
+/* --- catálogo: creaciones --- */
+function creaciones(){return A.ITEMS.filter(i=>i.custom&&i.id!==DRAFT&&i.mode!=='me'&&(st.custom[i.id]||(MERC&&MERC[i.id])))
+  .sort((a,b)=>(b.limited?1:0)-(a.limited?1:0)||(b.created||0)-(a.created||0))}
+function creacionesHTML(){loadMercado();const L=creaciones();
+  return `<div class="sec-h" style="margin-top:4px"><h2>Creaciones de jugadores</h2><a href="#catalogo" data-act="impobj">Tengo un código de objeto</a></div>
+  ${L.length?`<div class="items">${L.map(i=>itemCard(i,'item')).join('')}</div>`:`<div class="card">Aún no hay creaciones aquí. Haz la primera en el <a href="#taller">Taller de objetos</a>, o pega el código de un objeto que te haya pasado un amigo.</div>`}
+  ${mercErr?`<p class="sub">${esc(mercErr)}</p>`:''}<div class="row" style="margin-top:14px"><a class="btn brand" href="#taller" style="text-decoration:none">Crear mi propio objeto</a></div>`}
+
+Object.assign(ACT,{
+  tnew(cat){TW={...TW,step:'edit',d:newDraft(cat),grid:blankGrid(),tool:'pen',undo:[],mode:'me',price:50,lprice:300,stock:10,editing:null};render();scrollTo(0,0)},
+  tback(){TW.step='home';TW.d=null;if(PV)PV.eqOver=null;rebuildPV();render()},
+  tedit(id){const it=A.BY[id];if(!it)return;closeModal();const d=Object.assign({},A.clean(it));d.id=DRAFT;
+    TW={...TW,step:'edit',d,grid:artToGrid(it.art),tool:'pen',undo:[],mode:it.mode,price:it.mode==='pub'?it.price:50,lprice:it.limited?it.price:300,stock:it.stock||10,editing:id};
+    if(view!=='taller')location.hash='#taller';else render();scrollTo(0,0)},
+  async tdel(id){const it=A.BY[id];if(!it)return;openModal('Borrar objeto',`<p style="margin:0">¿Borrar <b>${esc(it.name)}</b>? Se quita de tu avatar${it.mode!=='me'?' y del catálogo':''}. Quien ya lo haya comprado lo conserva.</p>
+    <div class="row"><button class="btn danger" data-act="tdelgo" data-id="${id}">Sí, borrar</button><button class="btn" data-act="close">Cancelar</button></div>`)},
+  async tdelgo(id){const it=A.BY[id];if(!it)return;if(it.mode!=='me'&&CC&&CC.cfg&&CC.uid())await cloudUnpub(id);
+    st.mine=st.mine.filter(x=>x!==id);delete st.custom[id];st.owned=st.owned.filter(x=>x!==id);if(st.eq[it.cat]===id)st.eq[it.cat]=A.DEF_EQ[it.cat];it.mode='me';
+    save();rebuildPV();headKey='';closeModal();render();toast('Objeto borrado')},
+  tcode(id){showCode(id)},
+  tclaim(id){const it=A.BY[id];const e=earn(it);if(!e.due)return;st.cubos+=e.due;st.claimed[id]=e.sold;addHist(`Ventas de «${it.name}»`,e.due);save();if(Au)Au.sfx('cash');render();toast(`+${fmtC(e.due)} Cubos de tus ventas`)},
+  tseeav(cat){closeModal();avCat=cat;location.hash='#avatar'},
+  ttpl(k){TW.d.tpl=k;render()},
+  ttool(k){TW.tool=k;render()},
+  tcolor(c){TW.color=c;if(TW.tool==='erase'||TW.tool==='pick')TW.tool='pen';render()},
+  tmirror(){TW.mirror=!TW.mirror;render()},
+  tundo(){const g=TW.undo.pop();if(!g){toast('No hay nada que deshacer');return}TW.grid=g;drawPainter();pvSoon()},
+  tclear(){pushUndo();TW.grid=blankGrid();drawPainter();pvSoon()},
+  tface(){pushUndo();TW.grid=startFace();drawPainter();pvSoon()},
+  tsave(){tallerSave()},
+  impobj(){openModal('Añadir un objeto con código',`<p style="margin-top:0">Pega el código que te ha pasado tu amigo (empieza por CUBIO1).</p><textarea class="field nocase" id="impo" style="width:100%;min-height:100px;text-transform:none;font-family:ui-monospace,monospace;font-size:12px"></textarea>
+    <p id="impom" style="color:var(--danger)"></p><div class="row"><button class="btn brand" data-act="impobjgo">Añadir</button><button class="btn" data-act="close">Cancelar</button></div>`)},
+  async impobjgo(){let d;try{d=await readObjCode($('#impo').value)}catch(e){$('#impom').textContent='Ese código no vale. Cópialo entero, desde CUBIO1.';return}
+    if(isMine(d.id)){closeModal();toast('Ese objeto lo has creado tú');return}
+    const old=A.BY[d.id];if(old&&!old.custom){$('#impom').textContent='Ese código no vale.';return}
+    if(old&&st.custom[d.id])d.sold=old.sold||0;const it=A.register(d);st.custom[it.id]=A.clean(it);st.custom[it.id].sold=it.sold||0;save();delete thumbs[it.id];
+    closeModal();if(it.mode==='me'){openModal(it.name,`<p style="margin:0">Este objeto es de <b>${esc(it.author)}</b> y lo tiene solo para él. Se puede ver, pero no comprar.</p><div class="row"><button class="btn" data-act="close">Vale</button></div>`)}
+    else{catCat='crea';if(view==='catalogo')render();else location.hash='#catalogo';itemModal(it)}}
+});
+
+async function buyCustom(it){if(it.mode==='me'){toast('Ese objeto no está a la venta');return}
+  if(it.limited&&!stockLeft(it)){toast('Agotado: ya no quedan unidades');itemModal(it);return}
+  const cloud=CC&&CC.cfg&&MERC&&MERC[it.id];
+  if(cloud){if(!CC.uid()){if(it.limited){toast('Para comprar objetos limitados necesitas una cuenta en internet');return}}
+    else{try{await cloudBuy(it)}catch(e){if(e.message==='agotado'){toast('¡Vaya! Se acaba de agotar');itemModal(it);if(view==='catalogo')render();return}toast('No se ha podido comprar. Prueba otra vez.');return}}}
+  else if(it.limited)it.sold=(it.sold||0)+1;
+  st=A.state();if(st.cubos<it.price){toast('No tienes Cubos suficientes');return}
+  st.cubos-=it.price;st.owned.push(it.id);st.eq[it.cat]=it.id;st.custom[it.id]=Object.assign(A.clean(it),{sold:it.sold||0});
+  addHist(`Creación de ${it.author}: ${it.name}`,-it.price);save();rebuildPV();closeModal();headKey='';if(Au)Au.sfx('buy');render();toast(`¡Comprado! Ya llevas puesto: ${it.name}`)}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const f=ACT[b.dataset.act];if(!f)return;
   if(b.dataset.act==='ovclose'){f(e);return}e.preventDefault();f(b.dataset.id)});
 $('#gmenubtn').addEventListener('click',()=>{const p=$('#gpanel');p.hidden=!p.hidden;$('#gmenubtn').setAttribute('aria-expanded',String(!p.hidden))});

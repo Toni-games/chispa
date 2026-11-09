@@ -3,7 +3,8 @@
 const PREFIX='cubiverso-v1-';
 let peer=null,conns=[],host=false,code='',myId='',game='',players={},H={};
 const emit=(ev,...a)=>{(H[ev]||[]).forEach(f=>{try{f(...a)}catch(e){console.warn(e)}})};
-function meInfo(){const s=window.CubiAvatar?CubiAvatar.state():{name:'Jugador',eq:null};return {name:s.name||'Jugador',eq:s.eq}}
+function meInfo(){const s=window.CubiAvatar?CubiAvatar.state():{name:'Jugador',eq:null};return {name:s.name||'Jugador',eq:s.eq,defs:window.CubiAvatar&&CubiAvatar.customDefs?CubiAvatar.customDefs(s.eq):[]}}
+function regDefs(p){if(!p||!window.CubiAvatar||!CubiAvatar.register)return;try{(p.defs||[]).slice(0,8).forEach(d=>CubiAvatar.register(d))}catch(e){}}
 function available(){return !!window.Peer&&!!window.RTCPeerConnection}
 function rid(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<5;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
 function remember(){if(!window.CubiAvatar)return;const s=CubiAvatar.state();s.friends=s.friends||[];
@@ -13,8 +14,8 @@ function broadcast(obj,except){conns.forEach(c=>{if(c!==except&&c.open){try{c.se
 function sendPlayers(){const msg={t:'__players',players};broadcast(msg);emit('players',players);remember()}
 function setup(c){conns.push(c);
   c.on('data',d=>{if(!d||typeof d!=='object')return;
-    if(d.t==='__hello'&&host){players[c.peer]=d.p;sendPlayers();emit('join',c.peer,d.p);return}
-    if(d.t==='__players'){players=d.players;emit('players',players);remember();return}
+    if(d.t==='__hello'&&host){regDefs(d.p);players[c.peer]=d.p;sendPlayers();emit('join',c.peer,d.p);return}
+    if(d.t==='__players'){players=d.players;Object.values(players||{}).forEach(regDefs);emit('players',players);remember();return}
     if(d.t==='__bye'){return}
     if(host){d.from=d.from||c.peer;broadcast(d,c)}emit('msg',d,d.from||c.peer)});
   c.on('close',()=>{conns=conns.filter(x=>x!==c);if(host){delete players[c.peer];sendPlayers();emit('leave',c.peer)}else{emit('disconnected')}});
