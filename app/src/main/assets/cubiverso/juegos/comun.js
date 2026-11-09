@@ -34,9 +34,9 @@ function action(label,key,cb,o){inject();o=o||{};const b=el(`<button class="k-ui
 /* jugador: anda por el suelo (y = 0), salta y choca con cajas {x0,x1,z0,z1,top} */
 function player(scene,ctl,o){o=o||{};const a=K.person(scene,null,null,o.scale||.75);
   const P={a,x:o.x||0,y:0,z:o.z||0,vx:0,vy:0,vz:0,face:o.face||0,walk:0,ground:true,speed:o.speed||7,jump:o.jump||10,grav:o.grav||28,r:o.r||.45,boxes:o.boxes||[],bound:o.bound||60,frozen:false,
-    update(dt,cam,camH){const mv=this.frozen?{x:0,z:0,len:0}:ctl.move();const sp=this.speed*(this.mult||1);
+    update(dt,cam,camH){const mv=this.frozen?{x:0,z:0,len:0}:ctl.move();const PW=k=>window.CubiGraficos?CubiGraficos.power(k):null,fly=PW('fly');const sp=this.speed*(this.mult||1)*(PW('speed')||1);
       this.vx+=(mv.x*sp-this.vx)*Math.min(1,(this.ground?14:5)*dt);this.vz+=(mv.z*sp-this.vz)*Math.min(1,(this.ground?14:5)*dt);
-      if(!this.frozen&&ctl.jump()&&this.ground&&this.jump>0){this.vy=this.jump;this.ground=false}
+      if(!this.frozen&&ctl.jump()&&(this.ground||fly)&&this.jump>0){this.vy=this.ground?this.jump*(PW('jump')||1):Math.max(this.vy,this.jump*.6);this.ground=false}
       this.vy-=this.grav*dt;
       const hitB=(x,z,y)=>this.boxes.some(b=>x+this.r>b.x0&&x-this.r<b.x1&&z+this.r>b.z0&&z-this.r<b.z1&&y<b.top-.3&&y+1.6>(b.bottom||0));
       let nx=this.x+this.vx*dt;if(!hitB(nx,this.z,this.y))this.x=nx;else this.vx=0;
