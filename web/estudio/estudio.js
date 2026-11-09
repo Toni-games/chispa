@@ -64,7 +64,7 @@ function open(id){G=ALL.list[id];if(!G)return;ALL.last=id;sel='juego';undoS=[];r
 let saveT=null;
 function persist(now){clearTimeout(saveT);const f=()=>{if(G)G.updated=Date.now();try{localStorage.setItem(SK,JSON.stringify(ALL));$('#saved').textContent='Guardado'}catch(e){$('#saved').textContent='¡Sin espacio para guardar!'}};if(now)f();else{$('#saved').textContent='Guardando…';saveT=setTimeout(f,500)}}
 /* cada cambio: guarda una copia para deshacer */
-function commit(){const s=JSON.stringify(G);if(s===lastSnap)return;undoS.push(lastSnap);if(undoS.length>60)undoS.shift();redoS=[];lastSnap=s;persist();updUndo()}
+function commit(){const s=JSON.stringify(G);if(s===lastSnap)return;G.touched=1;undoS.push(lastSnap);if(undoS.length>60)undoS.shift();redoS=[];lastSnap=s;persist();updUndo()}
 function undo(){if(!undoS.length)return;redoS.push(lastSnap);lastSnap=undoS.pop();restoreSnap(lastSnap)}
 function redo(){if(!redoS.length)return;undoS.push(lastSnap);lastSnap=redoS.pop();restoreSnap(lastSnap)}
 function restoreSnap(s){const id=G.id;const g=JSON.parse(s);ALL.list[id]=g;G=g;if(sel!=='juego'&&!byId(sel))sel='juego';rebuild();refreshAll();persist();updUndo()}
@@ -206,6 +206,54 @@ const A={
   openleft(){$('#left').classList.add('open');$('#right').classList.remove('open')},openright(){$('#right').classList.add('open');$('#left').classList.remove('open')},
   closeside(){$$('.side').forEach(s=>s.classList.remove('open'))}
 };
+
+/* ---------- IA y creación fácil ---------- */
+const IA=window.CuboIA?CuboIA({obj,bk,st,PF:PREFABS,E}):null;
+const IAEX=['Un obby en el espacio muy difícil con trampolines y plataformas que se mueven','Sobrevivir 60 segundos a 6 zombis de noche','Recoger 20 monedas en la playa','Un laberinto grande de nieve con 10 monedas','Lluvia de meteoritos en un volcán','Una torre de dulces fácil','Guerra de globos en un castillo','Una carrera rápida en la ciudad neón'];
+let iaLast=null;
+function iaMake(res,keep){const g=res.game;g.id='p'+Date.now().toString(36);g.created=Date.now();ALL.list[g.id]=g;ALL.last=g.id;
+  if(keep&&iaLast&&iaLast.id&&ALL.list[iaLast.id]&&iaLast.id!==g.id&&!ALL.list[iaLast.id].touched)delete ALL.list[iaLast.id];
+  iaLast={id:g.id,res};open(g.id);persist(true);setTimeout(snapThumb,600)}
+function iaResult(res,from){const g=res.game;sfx('levelup');
+  const d=dialog(`<h2>¡Juego creado!</h2><p style="margin:0"><b style="font-size:17px">${esc(g.name)}</b></p><p class="note" style="margin:0">${esc(g.desc||'')}</p>
+    <ul class="iasum">${res.summary.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>
+    <p class="note">Detrás de esta ventana ya ves tu juego en el editor. Pruébalo, cámbialo o publícalo.</p>
+    <div class="row"><button class="tb play big" data-k="play">▶ Jugar ahora</button><button class="tb" data-k="again">Otra versión</button><button class="tb" data-k="change">Cambiar algo</button></div>
+    <div class="row"><button class="tb pub" data-k="pub">Publicar</button><button class="tb" data-k="edit">Abrir en el editor</button></div>`);
+  d.onclick=e=>{if(e.target.id==='dlg'){closeDlg();return}const b=e.target.closest('[data-k]');if(!b)return;const k=b.dataset.k;
+    if(k==='play'){closeDlg();A.test()}
+    if(k==='edit'){closeDlg();toast('Puedes mover, añadir y programar todo lo que ha hecho la IA')}
+    if(k==='pub'){closeDlg();openPublish()}
+    if(k==='again'){const r2=IA.build(res.opts||g.ia.opts);r2.opts=res.opts||g.ia.opts;iaMake(r2,true);iaResult(r2,from)}
+    if(k==='change'){if(from==='easy')openEasy(res.opts);else openIA(res.opts&&res.opts.text)}}}
+function openIA(text){if(!IA){toast('La IA no está disponible');return}
+  const d=dialog(`<h2>Crear con IA</h2><p>Escribe qué juego quieres y la IA lo construye con piezas y bloques. Di el <b>tipo</b> (obby, monedas, zombis, laberinto, torre, carrera, esquivar, batalla), el <b>mundo</b> (espacio, playa, nieve, noche, volcán, dulces…), si es <b>fácil o difícil</b> y lo que quieras que tenga.</p>
+    <textarea id="iatxt" class="iatxt" maxlength="300" placeholder="Por ejemplo: un obby en el espacio muy difícil con trampolines">${esc(text||'')}</textarea>
+    <div class="iaex">${IAEX.map(t=>`<button class="chip" data-ex="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    <p class="note" id="iamsg" role="status"></p>
+    <div class="row"><button class="tb play big" id="iago">✦ Crear mi juego</button><button class="tb" data-k="easy">Prefiero elegir yo</button><button class="tb" data-close>Cerrar</button></div>
+    <p class="note">La IA de CuboStudio funciona sin internet: entiende palabras clave en español y cada vez inventa un nivel distinto.</p>`);
+  const ta=$('#iatxt');setTimeout(()=>ta.focus(),50);ta.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();go()}});ta.addEventListener('keyup',e=>e.stopPropagation());
+  const go=()=>{const t=ta.value.trim();if(t.length<3){$('#iamsg').textContent='Escribe qué juego quieres, aunque sean dos palabras.';return}
+    $('#iamsg').textContent='Creando tu juego…';$('#iago').disabled=true;setTimeout(()=>{try{const res=IA.crear(t);iaMake(res);iaResult(res,'ia')}catch(err){console.error(err);$('#iamsg').textContent='Algo ha fallado. Prueba a escribirlo de otra forma.';$('#iago').disabled=false}},350)};
+  $('#iago').onclick=go;
+  d.onclick=e=>{if(e.target.id==='dlg'||e.target.closest('[data-close]')){closeDlg();return}const x=e.target.closest('[data-ex]');if(x){ta.value=x.dataset.ex;ta.focus()}if(e.target.closest('[data-k=easy]'))openEasy()}}
+function openEasy(pre){if(!IA)return;const o=Object.assign({type:'obby',theme:'normal',dif:2,size:2,extras:{},name:''},pre||{});o.extras=Object.assign({},o.extras);
+  const EXTRAS={trampolin:'Trampolines',movil:'Plataformas móviles',fantasma:'Bloques fantasma',barra:'Barras giratorias',monedas:'Monedas',enemigo:'Enemigos'};
+  const draw=()=>{const d=dialog(`<h2>Crear fácil</h2>
+    <h3 class="ezh">1. ¿Qué tipo de juego?</h3><div class="ezg">${Object.entries(IA.TYPES).map(([k,t])=>`<button class="ez ${o.type===k?'on':''}" data-t="${k}" style="--c:${t.color}"><b>${t.name}</b><small>${t.desc}</small></button>`).join('')}</div>
+    <h3 class="ezh">2. ¿Dónde?</h3><div class="iaex">${Object.entries(IA.THEMES).map(([k,t])=>`<button class="chip ${o.theme===k?'on':''}" data-w="${k}"><i style="background:${t.pal[0]}"></i>${t.name}</button>`).join('')}</div>
+    <h3 class="ezh">3. ¿Cómo de difícil y de largo?</h3><div class="iaex">${[1,2,3].map(n=>`<button class="chip ${o.dif===n?'on':''}" data-d="${n}">${['','Fácil','Normal','Difícil'][n]}</button>`).join('')}<span style="width:12px"></span>${[1,2,3].map(n=>`<button class="chip ${o.size===n?'on':''}" data-s="${n}">${['','Corto','Normal','Largo'][n]}</button>`).join('')}</div>
+    <h3 class="ezh">4. Extras (opcional)</h3><div class="iaex">${Object.entries(EXTRAS).map(([k,n])=>`<button class="chip ${o.extras[k]?'on':''}" data-x="${k}" aria-pressed="${!!o.extras[k]}">${o.extras[k]?'✓ ':''}${n}</button>`).join('')}</div>
+    <label class="fld">Nombre (si lo dejas vacío, se inventa uno)<input id="ezname" maxlength="40" value="${esc(o.name||'')}"></label>
+    <div class="row"><button class="tb play big" id="ezgo">Crear juego</button><button class="tb" data-k="ia">Describirlo con IA</button><button class="tb" data-close>Cerrar</button></div>`);
+    const nm=$('#ezname');nm.addEventListener('keydown',e=>e.stopPropagation());nm.addEventListener('keyup',e=>e.stopPropagation());nm.addEventListener('input',()=>o.name=nm.value);
+    $('#ezgo').onclick=()=>{o.name=nm.value.trim();o.text='';const res=IA.build(o);res.opts=o;iaMake(res);iaResult(res,'easy')};
+    d.onclick=e=>{if(e.target.id==='dlg'||e.target.closest('[data-close]')){closeDlg();return}const b=e.target.closest('[data-t],[data-w],[data-d],[data-s],[data-x],[data-k]');if(!b)return;
+      if(b.dataset.t)o.type=b.dataset.t;if(b.dataset.w)o.theme=b.dataset.w;if(b.dataset.d)o.dif=+b.dataset.d;if(b.dataset.s)o.size=+b.dataset.s;if(b.dataset.x)o.extras[b.dataset.x]=!o.extras[b.dataset.x];
+      if(b.dataset.k==='ia'){openIA();return}sfx('click');draw()}};
+  draw()}
+A.ia=()=>openIA();A.facil=()=>openEasy();
 addEventListener('message',e=>{if(e.data&&e.data.cuboStop){$('#test').hidden=true;$('#test').innerHTML='';if(window.CubiAudio)CubiAudio.gameMusic('nana')}});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a],[data-tool],[data-ins],[data-tab]');if(!b)return;
   if(b.dataset.tool)setTool(b.dataset.tool);
@@ -293,6 +341,7 @@ addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#dlg').hidden)closeDlg()
 function thumbOf(g){return g.thumb?`style="background-image:url(${g.thumb})"`:''}
 function openFiles(){const L=Object.values(ALL.list).sort((a,b)=>(b.updated||0)-(a.updated||0));
   const d=dialog(`<h2>Tus proyectos</h2><p>Todo se guarda solo. Empieza uno nuevo o abre uno que ya tienes.</p>
+    <div class="ezg"><button class="ez big" data-a="ia" style="--c:#8b5cf6"><b>✦ Crear con IA</b><small>Escribe qué juego quieres y se hace solo</small></button><button class="ez big" data-a="facil" style="--c:#21c063"><b>Crear fácil</b><small>Elige tipo, mundo y dificultad en 4 toques</small></button></div>
     <h3 style="margin:4px 0 0;font-size:14px">Nuevo</h3><div class="cards">
       <button class="pc" data-new="vacio"><span class="th">Vacío</span><b>Juego vacío</b><small>Solo el suelo y la salida</small></button>
       <button class="pc" data-new="obby"><span class="th">Obby</span><b>Obby</b><small>Saltos, lava, meta</small></button>
@@ -360,10 +409,14 @@ async function cloudPublish(entry){const C=window.CubiCuenta,cfg=C.cfg,uid=C.uid
   if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error((j.error&&(j.error.status||j.error.message))||('HTTP '+r.status))}}
 
 /* ---------- empezar ---------- */
+const FIRST=!Object.keys(ALL.list).length;
+function openStart(){const d=dialog(`<h2>¡Bienvenido a CuboStudio!</h2><p>Aquí creas tus propios juegos en 3D. ¿Cómo quieres empezar?</p>
+    <div class="ezg"><button class="ez big" data-a="ia" style="--c:#8b5cf6"><b>✦ Crear con IA</b><small>Escribe qué juego quieres y se hace solo</small></button><button class="ez big" data-a="facil" style="--c:#21c063"><b>Crear fácil</b><small>Elige tipo, mundo y dificultad</small></button><button class="ez big" data-close style="--c:#3fa7ff"><b>Editor completo</b><small>Construye pieza a pieza y programa con bloques</small></button></div>`)}
 if(!ALL.last||!ALL.list[ALL.last]){const first=Object.keys(ALL.list)[0];if(first)ALL.last=first;else{const g=template('obby');g.id='p'+Date.now().toString(36);ALL.list[g.id]=g;ALL.last=g.id}}
 function refreshAll(){$('#pname').value=G.name;renderExplorer();renderProps();loadCode();updUndo()}
 open(ALL.last);resize();frame();
 if(window.CubiAudio)CubiAudio.gameMusic('nana');
+{const q=new URLSearchParams(location.search);if(q.get('ia'))setTimeout(()=>openIA(),300);else if(q.get('facil'))setTimeout(()=>openEasy(),300);else if(FIRST)setTimeout(()=>openStart(),300)}
 addEventListener('beforeunload',()=>{snapThumb();persist(true)});
 setInterval(()=>{if(view==='scene'&&$('#test').hidden){snapThumb();persist()}},30000);
 window.CuboStudio={camera,handles,giz,meshes,get:()=>G,select,setTool,insertShape,A,PREFABS,cam};

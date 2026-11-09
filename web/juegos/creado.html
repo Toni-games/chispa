@@ -30,6 +30,7 @@ body.k-touch #keys{display:flex}
 <div id="tools" class="k-ui"><button class="k-btn r k-out" id="restart">Reiniciar</button></div>
 <div id="keys" class="k-ui"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../graficos.js"></script>
 <script src="../avatar.js"></script>
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
@@ -76,9 +77,9 @@ const hit=(a,b)=>a.x0<b.x1&&a.x1>b.x0&&a.y0<b.y1&&a.y1>b.y0&&a.z0<b.z1&&a.z1>b.z
 function topAt(r,x,z){if(r.o.shape==='cuna')return E.wedgeTop({rot:r.rot},r.pos,r.size,x,z);return r.pos[1]+r.size[1]/2}
 function solids(){const s=R.filter(r=>r.alive&&r.solid&&r.visible);if(GAME.base!==false)s.push(GROUND);return s}
 function physics(dt){
-  const mv=ctl.move(),sp=SPEED;
+  const PW=k=>window.CubiGraficos?CubiGraficos.power(k):null,fly=PW('fly');const mv=ctl.move(),sp=SPEED*(PW('speed')||1);
   P.vx+=(mv.x*sp-P.vx)*Math.min(1,(P.ground?12:5)*dt);P.vz+=(mv.z*sp-P.vz)*Math.min(1,(P.ground?12:5)*dt);
-  if(ctl.jump()&&P.ground){P.vy=JUMP;P.ground=false}
+  if(ctl.jump()&&(P.ground||fly)){P.vy=P.ground?JUMP*(PW('jump')||1):Math.max(P.vy,JUMP*.6);P.ground=false}
   P.vy-=GRAV*dt;if(P.vy<-120)P.vy=-120;
   if(P.stood&&P.stood.dp){P.x+=P.stood.dp[0];P.y+=P.stood.dp[1];P.z+=P.stood.dp[2]}
   const S=solids();
