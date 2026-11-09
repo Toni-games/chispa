@@ -7,9 +7,9 @@ const CATS=[
   ['pl','Jugador','#ff6680','#d94d66'],['ct','Control','#ffab19','#cf8b17'],['vr','Variables','#ff8c1a','#db6e00'],
   ['gm','Juego','#59c059','#389438'],['sn','Sonido','#cf63cf','#bd42bd']];
 const KEYS=[['espacio','espacio'],['e','E'],['q','Q'],['f','F'],['r','R'],['1','1'],['2','2'],['3','3']];
-const SOUNDS=[['coin','Moneda'],['jump','Salto'],['boing','Muelle'],['win','Victoria'],['lose','Derrota'],['pop','Pop'],['hit','Golpe'],['boom','Explosión'],['laser','Láser'],['levelup','Subir nivel'],['alarm','Alarma'],['lucky','Suerte'],['splash','Chapuzón'],['whoosh','Viento'],['place','Clac'],['checkpoint','Punto de control']];
+const SOUNDS=[['coin','Moneda'],['jump','Salto'],['boing','Muelle'],['win','Victoria'],['lose','Derrota'],['pop','Pop'],['hit','Golpe'],['boom','Explosión'],['laser','Láser'],['levelup','Subir nivel'],['alarm','Alarma'],['lucky','Suerte'],['splash','Chapuzón'],['whoosh','Viento'],['place','Clac'],['checkpoint','Punto de control'],['bite','Pica un pez'],['fish','Pez pescado'],['cash','Caja registradora'],['buy','Compra'],['error','Error'],['thunder','Trueno'],['steal','Robo'],['kick','Patada'],['throw','Lanzar'],['phone','Teléfono']];
 const MUSIC=[['ninguna','Ninguna'],['bienvenida','Bienvenida'],['aventura','Aventura'],['lago','Lago tranquilo'],['batalla','Batalla'],['neon','Ciudad neón'],['fiesta','Fiesta'],['nana','Buenas noches']];
-const OPS=[['>','>'],['<','<'],['=','='],['≠','≠']];
+const OPS=[['>','>'],['<','<'],['=','='],['≠','≠'],['≥','≥'],['≤','≤']];
 const MATS=[['plastico','plástico'],['neon','neón'],['madera','madera'],['metal','metal'],['cesped','césped'],['hielo','hielo'],['ladrillo','ladrillo'],['arena','arena']];
 // tipos de hueco: n número, t texto, c color, d desplegable fijo, v variable, val valor para comparar
 const B={};
@@ -20,6 +20,8 @@ def('ev_touch','ev','cuando el jugador toque esto',{},{hat:1});
 def('ev_click','ev','al hacer clic en esto',{},{hat:1});
 def('ev_key','ev','al pulsar la tecla {k}',{k:{t:'d',o:KEYS,d:'espacio'}},{hat:1});
 def('ev_msg','ev','al recibir el mensaje {m}',{m:{t:'t',d:'empezar'}},{hat:1});
+def('ev_hit','ev','cuando le dé un proyectil',{},{hat:1});
+def('ev_clone','ev','al empezar como copia',{},{hat:1});
 // MOVIMIENTO
 def('mv_move','mv','mover x {x} y {y} z {z} en {t} s',{x:{t:'n',d:0},y:{t:'n',d:0},z:{t:'n',d:5},t:{t:'n',d:1}});
 def('mv_goto','mv','ir a x {x} y {y} z {z}',{x:{t:'n',d:0},y:{t:'n',d:5},z:{t:'n',d:0}});
@@ -27,6 +29,7 @@ def('mv_turn','mv','girar {g} grados',{g:{t:'n',d:15}});
 def('mv_spin','mv','girar {g} grados en {t} s',{g:{t:'n',d:360},t:{t:'n',d:2}});
 def('mv_chase','mv','perseguir al jugador {t} s a velocidad {v}',{t:{t:'n',d:3},v:{t:'n',d:6}});
 def('mv_back','mv','volver a su sitio en {t} s',{t:{t:'n',d:1}});
+def('mv_random','mv','ir a un sitio al azar a {r} de su sitio',{r:{t:'n',d:20}});
 // APARIENCIA
 def('lk_color','lk','poner color {c}',{c:{t:'c',d:'#c4281c'}});
 def('lk_mat','lk','poner material {m}',{m:{t:'d',o:MATS,d:'neon'}});
@@ -44,8 +47,10 @@ def('pl_speed','pl','poner velocidad del jugador a {n}',{n:{t:'n',d:24}});
 def('pl_jumpp','pl','poner salto del jugador a {n}',{n:{t:'n',d:30}});
 def('pl_check','pl','guardar punto de control aquí',{});
 def('pl_size','pl','poner tamaño del jugador al {n} %',{n:{t:'n',d:150}});
+def('pl_shoot','pl','lanzar un proyectil {c} con fuerza {v}',{c:{t:'c',d:'#00a2ff'},v:{t:'n',d:32}});
 // CONTROL
 def('ct_wait','ct','esperar {t} s',{t:{t:'n',d:1}});
+def('ct_waitrand','ct','esperar al azar entre {a} y {b} s',{a:{t:'n',d:1},b:{t:'n',d:3}});
 def('ct_repeat','ct','repetir {n} veces',{n:{t:'n',d:10}},{c:1});
 def('ct_forever','ct','por siempre',{},{c:1,cap:1});
 def('ct_if','ct','si {a} {o} {b} entonces',{a:{t:'val',d:'puntos'},o:{t:'d',o:OPS,d:'>'},b:{t:'n',d:5}},{c:1});
@@ -56,6 +61,7 @@ def('ct_stop','ct','parar este programa',{},{cap:1});
 // VARIABLES
 def('vr_set','vr','poner {v} a {n}',{v:{t:'v',d:'puntos'},n:{t:'n',d:0}});
 def('vr_add','vr','sumar {n} a {v}',{n:{t:'n',d:1},v:{t:'v',d:'puntos'}});
+def('vr_addv','vr','sumar {a} × {n} a {v}',{a:{t:'val',d:'@azar'},n:{t:'n',d:1},v:{t:'v',d:'puntos'}});
 def('vr_show','vr','mostrar {v} en pantalla',{v:{t:'v',d:'puntos'}});
 def('vr_hide','vr','esconder {v} de la pantalla',{v:{t:'v',d:'puntos'}});
 // JUEGO
@@ -65,6 +71,7 @@ def('gm_win','gm','ganar la partida',{},{cap:1});
 def('gm_lose','gm','perder la partida',{},{cap:1});
 def('gm_destroy','gm','destruir esto',{},{cap:1});
 def('gm_clone','gm','crear una copia en x {x} y {y} z {z}',{x:{t:'n',d:0},y:{t:'n',d:10},z:{t:'n',d:0}});
+def('gm_cloneof','gm','crear una copia de {o} en x {x} y {y} z {z}',{o:{t:'obj',d:''},x:{t:'n',d:0},y:{t:'n',d:5},z:{t:'n',d:0}});
 def('gm_timer','gm','{m} el cronómetro',{m:{t:'d',o:[['start','empezar'],['stop','parar']],d:'start'}});
 // SONIDO
 def('sn_play','sn','tocar sonido {s}',{s:{t:'d',o:SOUNDS,d:'coin'}});
@@ -131,6 +138,7 @@ function mount(root,opt){opt=opt||{};
     if(spec.t==='c'){const i=document.createElement('input');i.type='color';i.value=v;i.oninput=()=>{b.a[k]=i.value;if(live)changed()};return i}
     const s=document.createElement('select');let opts=spec.o;
     if(spec.t==='v')opts=vars().map(x=>[x,x]);
+    if(spec.t==='obj'){const ns=[...new Set((opt.objects&&opt.objects())||[])];opts=ns.length?ns.map(x=>[x,x]):[['','(no hay objetos)']]}
     if(spec.t==='val')opts=vars().map(x=>[x,x]).concat(BUILTIN_VALS);
     if(!opts.some(o=>o[0]===v))opts=opts.concat([[v,String(v).replace(/^@/,'')]]);
     s.innerHTML=opts.map(o=>`<option value="${esc(o[0])}">${esc(o[1])}</option>`).join('');s.value=v;s.onchange=()=>{b.a[k]=s.value;if(live)changed()};return s}
