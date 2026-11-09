@@ -125,6 +125,12 @@ function roomMenu(o){/* o: {game,title,col,intro,onSolo,onRoom} */
     ov.innerHTML=panel('ENTRANDO…',o.col,'<p>Buscando la sala…</p>');M.join(o.game,c).then(()=>lobby()).catch(e=>show(`<div class="k-err">${esc(M.errText(e))}</div>`))});
   if(M){M.on('players',()=>{if(ov.isConnected&&M.code&&ov.querySelector('.k-code'))lobby()});M.on('msg',d=>{if(d.t==='start'&&ov.isConnected){ov.remove();o.onRoom()}});
     M.on('disconnected',()=>{toast('SALA CERRADA','El anfitrión se ha ido','#ff4f4f')})}
+  /* un amigo pide entrar desde su lista de amigos: se crea la sala sola y empezáis juntos en cuanto entra */
+  let autoGo=false;
+  if(M){window.__cubiHost=who=>{if(!canMulti)return Promise.reject(new Error('noweb'));if(M.code)return Promise.resolve(M.code);
+      const playing=!ov.isConnected;autoGo=true;if(!playing)ov.innerHTML=panel('CREANDO SALA…',o.col,'<p>Tu amigo quiere jugar contigo. Conectando…</p>');
+      return M.create(o.game).then(c=>{if(!playing)lobby();else roomBadge();toast((who||'Tu amigo').toUpperCase()+' SE UNE','Empezáis juntos en cuanto entre','#3fd15c');return c},e=>{autoGo=false;if(!playing)show();throw e})};
+    M.on('join',()=>{if(autoGo&&M.isHost){autoGo=false;setTimeout(()=>{M.send({t:'start'});if(ov.isConnected)ov.remove();o.onRoom()},700)}})}
   show();const pc=new URLSearchParams(location.search).get('sala');
   if(pc&&canMulti){ov.innerHTML=panel('ENTRANDO…',o.col,'<p>Entrando en la partida de tu amigo…</p>');M.join(o.game,pc).then(()=>lobby()).catch(e=>show(`<div class="k-err">${esc(M.errText(e))}</div>`))}
   return ov}
