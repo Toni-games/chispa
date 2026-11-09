@@ -71,6 +71,13 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
 .gcard .th{position:relative}
 .gcard .new{position:absolute;top:8px;left:8px;background:var(--brand);color:var(--brand-ink);font-size:11px;font-weight:800;border-radius:999px;padding:2px 9px}
 .gcard b{font-size:15px}
+.studio{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;border-radius:16px;padding:20px;background:linear-gradient(120deg,#0b4f86,#00a2ff 60%,#43c6ff);color:#fff;overflow:hidden;position:relative}
+.studio h2{margin:0 0 4px;font-size:24px}.studio p{margin:0;opacity:.92;max-width:52ch}
+.studio .btn{background:#fff;color:#0b4f86;border-color:transparent;font-size:16px;padding:12px 20px}
+.studio svg.big{position:absolute;right:-20px;bottom:-30px;width:170px;height:170px;opacity:.18;pointer-events:none}
+@media (max-width:560px){.studio{grid-template-columns:1fr}}
+.gcard .by{position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px}
+.cmine{display:flex;flex-direction:column;gap:6px}.cmine .btn{padding:5px 10px;font-size:12px;align-self:flex-start}
 .gcard span{color:var(--muted);font-size:13px;margin-top:-6px}
 .chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:500;color:var(--muted)}
 .chip.ok{color:var(--play);border-color:color-mix(in srgb,var(--play) 40%,transparent)}
@@ -417,12 +424,15 @@ const V={
       <div class="row" style="margin-top:10px"><a class="btn" href="#avatar" style="text-decoration:none">Editar avatar</a><a class="btn" href="#catalogo" style="text-decoration:none">Ir al catálogo</a></div></div>
       <div class="daily"><b>Recompensa diaria</b><span class="chip">${canDaily?'¡Disponible!':'Vuelve mañana'}</span><button class="btn brand" data-act="daily" ${canDaily?'':'disabled'}>Recoger ${CUBE} 50</button></div></div>
     ${recent.length?`<section class="sec"><div class="sec-h"><h2>Seguir jugando</h2></div><div class="games">${recent.map(gameCard).join('')}</div></section>`:''}
+    ${studioBanner()}
     <section class="sec"><div class="sec-h"><h2>Tus juegos</h2><a href="#juegos">Ver todos</a></div><div class="games">${GAMES.map(gameCard).join('')}</div></section>
     <section class="sec"><div class="sec-h"><h2>Nuevo: animaciones y gestos</h2><a href="#catalogo" data-act="tocat" data-id="animacion">Ver todos</a></div><div class="items">${['an2','an5','an6','ge5','ge1','ge6'].map(id=>itemCard(A.BY[id],'item')).join('')}</div></section>
     <section class="sec"><div class="sec-h"><h2>Novedades del catálogo</h2><a href="#catalogo">Ver catálogo</a></div><div class="items">${['h11','b9','sh13','h14','b8','f11'].map(id=>itemCard(A.BY[id],'item')).join('')}</div></section>`},
   juegos(){const q=query.trim().toLowerCase();const list=GAMES.filter(g=>!q||(g.name+' '+g.tag+' '+g.desc).toLowerCase().includes(q));
     return `<h1>Juegos</h1><p class="sub">${q?`Resultados para «${esc(query)}»`:'Todos tus juegos en un solo sitio.'}</p>
-    ${list.length?`<div class="games">${list.map(gameCard).join('')}</div>`:`<div class="card">No hay ningún juego que se llame así. Prueba con otra palabra.</div>`}`},
+    ${q?'':studioBanner()}
+    ${list.length?`<div class="games">${list.map(gameCard).join('')}</div>`:`<div class="card">No hay ningún juego que se llame así. Prueba con otra palabra.</div>`}
+    ${q?'':creadosSec()}`},
   avatar(){const its=A.ITEMS.filter(i=>i.cat===avCat&&st.owned.includes(i.id));const more=A.ITEMS.filter(i=>i.cat===avCat&&!st.owned.includes(i.id)).length;
     return `<h1>Avatar</h1><p class="sub">Arrastra el muñeco para girarlo. Lo que te pongas aquí lo llevas en todos los juegos. En <b>Animaciones</b> eliges cómo andas, saltas y trepas; en <b>Gestos</b> pruebas los que puedes hacer en los juegos con la tecla G o el botón GESTOS.</p>
     <div class="av"><div style="min-width:0"><div class="stage" id="stage"><span class="hint">${webgl?'Arrastra para girar':'Tu navegador no puede mostrar 3D'}</span></div>
@@ -536,6 +546,18 @@ async function gateSubmit(e){e.preventDefault();const k=e.target.dataset.k,msg=$
   finally{btn.disabled=false;btn.textContent=old}}
 function gateDone(t){$('#gate').hidden=true;$('#gate').innerHTML='';st=A.state();if(Au)Au.sfx('levelup');render();toast(t)}
 if(CC)CC.on(inf=>{const t=$('#cloudtag');if(t&&inf.cuenta&&inf.cuenta.cloud)t.outerHTML=cloudTag(inf)});
+function studioBanner(){return `<section class="sec"><div class="studio"><div style="min-width:0;position:relative"><h2>CuboStudio</h2><p>Crea tus propios juegos en 3D: pon bloques, rampas, lava y monedas, prográmalos con bloques de colores y publícalos en Cubiverso.</p></div>
+  <button class="btn" data-act="studio">Abrir CuboStudio</button><svg class="big" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7z" fill="#fff"/></svg></div></section>`}
+function creados(){let L=[];try{L=JSON.parse(localStorage.getItem('cubo-publicados')||'[]')}catch(e){}return L}
+let COMUNIDAD=null,comErr='';
+function loadComunidad(){const cfg=window.CubiCuenta&&CubiCuenta.cfg;if(!cfg||COMUNIDAD)return;COMUNIDAD=[];
+  fetch(`https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/juegos?pageSize=60`).then(r=>r.json()).then(j=>{
+    COMUNIDAD=(j.documents||[]).map(d=>{const f=d.fields||{},g=x=>x?(x.stringValue!=null?x.stringValue:x.integerValue):'';return {id:'n:'+d.name.split('/').pop(),name:g(f.name),desc:g(f.desc),author:g(f.author),thumb:g(f.thumb),updated:+g(f.updated)||0,gameStr:g(f.game)}}).sort((a,b)=>b.updated-a.updated);
+    if(view==='juegos'||view==='inicio')render()}).catch(()=>{comErr='No se ha podido cargar la lista de la comunidad.'})}
+function ccard(c,mine){return `<div class="cmine"><button class="gcard" data-act="playc" data-id="${esc(c.id)}"><span class="th" style="${c.thumb?`background-image:url(${c.thumb})`:'background:linear-gradient(135deg,#0b4f86,#00a2ff)'}"><span class="by">de ${esc(c.author||'alguien')}</span></span><b>${esc(c.name)}</b><span>${esc((c.desc||'Hecho con CuboStudio').slice(0,60))}</span></button>${mine?`<button class="btn" data-act="unpub" data-id="${esc(c.id)}">Quitar de la lista</button>`:''}</div>`}
+function creadosSec(){const L=creados();loadComunidad();const me=(window.CubiCuenta&&CubiCuenta.actual()||{}).name;const com=(COMUNIDAD||[]).filter(c=>!L.some(x=>c.id.endsWith('_'+x.id)));
+  return `<section class="sec" style="margin-top:32px"><div class="sec-h"><h2>Creados con CuboStudio</h2><a href="#juegos" data-act="impgame">Tengo un código de juego</a></div>
+  ${L.length||com.length?`<div class="games">${L.map(c=>ccard(c,true)).join('')}${com.map(c=>ccard(c,false)).join('')}</div>`:`<div class="card">Todavía no hay juegos creados. Abre CuboStudio, haz el tuyo y pulsa «Publicar».</div>`}${comErr?`<p class="sub">${esc(comErr)}</p>`:''}</section>`}
 function render(){
   const v=V[view]?view:'inicio';
   document.querySelectorAll('#side a').forEach(a=>a.classList.toggle('on',a.dataset.v===v));
@@ -650,6 +672,17 @@ const ACT={
   restartgame(){if(curGame){$('#frame').src='about:blank';setTimeout(()=>{$('#frame').src=curGame.file+'#plataforma'},50)}ACT.resume()},
   fullgame(){const el=$('#play');try{if(document.fullscreenElement){document.exitFullscreen()}else{const r=(el.requestFullscreen||el.webkitRequestFullscreen).call(el);if(r&&r.catch)r.catch(()=>toast('Tu navegador no deja usar pantalla completa aquí'))}}catch(e){toast('Tu navegador no deja usar pantalla completa aquí')}ACT.resume()},
   exitgame:exitGame,
+  studio(){playGame({id:'studio',name:'CuboStudio',file:'estudio/index.html'})},
+  playc(id){let c=creados().find(x=>x.id===id),g=c&&c.game;if(!c){c=(COMUNIDAD||[]).find(x=>x.id===id);try{g=c&&JSON.parse(c.gameStr)}catch(e){g=null}}
+    if(!g){toast('No se ha podido abrir ese juego');return}g.author=g.author||c.author;try{localStorage.setItem('cubo-jugar',JSON.stringify(g))}catch(e){toast('No hay espacio en el dispositivo');return}
+    playGame({id:'c:'+id,name:c.name,file:'juegos/creado.html'})},
+  unpub(id){const L=creados().filter(x=>x.id!==id);localStorage.setItem('cubo-publicados',JSON.stringify(L));render();toast('Quitado de la lista (el proyecto sigue en CuboStudio)')},
+  impgame(){openModal('Jugar con un código',`<p style="margin-top:0">Pega el código de un juego de CuboStudio (empieza por CUBIJ1).</p><textarea class="field nocase" id="impc" style="width:100%;min-height:110px;text-transform:none;font-family:ui-monospace,monospace;font-size:12px"></textarea>
+    <p id="impm" style="color:var(--danger)"></p><div class="row"><button class="btn brand" data-act="impgo">Añadir y jugar</button><button class="btn" data-act="close">Cancelar</button></div>`)},
+  async impgo(){try{const c=$('#impc').value.replace(/\s+/g,'');const m=/^CUBIJ1(Z?)\.(.+)$/.exec(c);if(!m)throw 0;let t=m[2].replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';const bs=atob(t);let u=new Uint8Array(bs.length);for(let i=0;i<bs.length;i++)u[i]=bs.charCodeAt(i);
+      if(m[1])u=new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());const g=JSON.parse(new TextDecoder().decode(u));if(!g.objects)throw 0;
+      const id='i'+Date.now().toString(36);const L=creados();L.unshift({id,name:g.name||'Juego',desc:g.desc||'',author:g.author||'un amigo',thumb:'',updated:Date.now(),game:g});localStorage.setItem('cubo-publicados',JSON.stringify(L));closeModal();ACT.playc(id)}
+    catch(e){$('#impm').textContent='Ese código no vale. Cópialo entero, desde CUBIJ1.'}},
   logout(){openModal('Cerrar sesión',`<p style="margin-top:0">${CC.actual().cloud?'Tu progreso se guarda en la nube y desaparece de este dispositivo hasta que vuelvas a entrar.':'Tu cuenta se queda guardada en este dispositivo. Para volver, entra con tu nombre y contraseña.'}</p>
     <div class="row"><button class="btn danger" data-act="logoutgo">Cerrar sesión</button><button class="btn" data-act="close">Cancelar</button></div>`)},
   async logoutgo(){try{await CC.salir()}catch(e){closeModal();toast('No se ha podido guardar en la nube. Inténtalo con conexión.');return}closeModal();st=A.state();gTab='entrar';gate()},
