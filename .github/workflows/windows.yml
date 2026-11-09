@@ -1,0 +1,41 @@
+name: Cubiverso para Windows
+on:
+  push:
+    branches: [cubiverso-windows]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar Electron
+        run: npm install --no-audit --no-fund
+      - name: Incluir las librerías (para que el 3D funcione sin internet)
+        shell: bash
+        run: |
+          mkdir -p web/lib
+          curl -sSfL https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js -o web/lib/three.min.js
+          curl -sSfL https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js -o web/lib/peerjs.min.js
+      - name: Crear el instalador
+        run: npx electron-builder --win --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Publicar para descargar
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cubiverso-win-v1.0.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: Cubiverso para Windows (versión ${{ github.run_number }})
+          body: |
+            **Cubiverso-Instalador.exe**: lo instala con acceso directo en el escritorio y en el menú Inicio.
+            **Cubiverso-Portable.exe**: se abre sin instalar nada.
+            Windows puede avisar de que la app no es conocida: pulsa «Más información» y luego «Ejecutar de todas formas».
+          files: |
+            salida/Cubiverso-Instalador.exe
+            salida/Cubiverso-Portable.exe
+          make_latest: false

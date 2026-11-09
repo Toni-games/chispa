@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Carrera Imposible</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Layout: pista 3D a pantalla completa; tiempo y fase arriba, tabla de la sala a la derecha */
+body{background:#8fd0ff}
+#hud{top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);text-align:center;pointer-events:none}
+#time{font:400 clamp(30px,6vw,46px) "Lilita One","Arial Black",sans-serif;color:#fff;line-height:1;font-variant-numeric:tabular-nums}
+#stage{font-weight:900;font-size:15px}
+#board{top:calc(env(safe-area-inset-top,0px) + 54px);right:max(10px,env(safe-area-inset-right,0px));background:rgba(20,22,34,.85);border:3px solid #000;border-radius:12px;padding:8px 10px;font-weight:800;font-size:13px;min-width:170px;max-width:230px}
+#board div{display:flex;justify-content:space-between;gap:10px}
+#board b{color:#ffcc33}
+#hint{bottom:calc(env(safe-area-inset-bottom,0px) + 8px);left:50%;transform:translateX(-50%);font-size:12px;font-weight:800;white-space:nowrap;pointer-events:none}
+body.k-touch #hint{display:none}
+#reset{left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 10px)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud" class="k-ui"><div id="time" class="k-out">0.0 s</div><div id="stage" class="k-out">Fase 1 de 6</div></div>
+<div id="board" class="k-ui" hidden></div>
+<button id="reset" class="k-ui k-btn r k-out" data-act="cp">Volver al checkpoint</button>
+<div id="hint" class="k-ui k-out">WASD andar · Espacio saltar · Arrastra para girar la cámara · R volver al checkpoint</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../multi.js"></script>
+<script src="../audio.js"></script>
+<script>
+const K=Kit,{M,box,cyl}=K;
+const W=K.setup({sky:0x8fd0ff,fogNear:90,fogFar:260});const {scene,camera,renderer,sun}=W;
+const ctl=K.controls(W.canvas,{yaw:Math.PI,pitch:.42,dist:10});
+const $=s=>document.querySelector(s);
+/* ================= PISTA ================= */
+const plats=[];// {x,y,z,w,h,d,mesh,kind,move,phase,gone,t}
+const COLS=[0x3fa7ff,0xffcc33,0x3fd15c,0xff6fb5,0x9c6bff,0xff9a3d];
+function plat(x,y,z,w,h,d,col,kind,extra){const m=box(w,h,d,M(col),x,y,z,scene);m.castShadow=m.receiveShadow=true;const p=Object.assign({x,y,z,w,h,d,mesh:m,kind:kind||'solid',bx:x,by:y,bz:z},extra||{});plats.push(p);return p}
+const lava=new THREE.Mesh(new THREE.PlaneGeometry(80,420),M(0xff4a1a,{emissive:0xc62800,emissiveIntensity:.6}));lava.rotation.x=-Math.PI/2;lava.position.set(0,-4,180);scene.add(lava);
+const CPS=[];// checkpoints: [x,y,z]
+function checkpoint(x,y,z,n){plat(x,y,z,7,1,6,0xeeeeee);const pole=cyl(.08,.08,3,M(0x555555),x+2.8,y+2,z,scene);const fl=box(1.2,.7,.05,M(0x3fd15c),x+3.4,y+3.1,z,scene);CPS.push({x,y:y+.5,z,n,flag:fl})}
+// fase 0: salida
+plat(0,-.5,0,10,1,10,0xe0e4ec);CPS.push({x:0,y:0,z:0,n:0});
+const startSign=K.sprite(K.textTex([['CARRERA IMPOSIBLE',56,'#ffcc33',44],['¡Llega a la meta lo antes posible!',28,'#fff',96]],720,130),11,2);startSign.position.set(0,5,-4);scene.add(startSign);
+// fase 1: saltos
+let z=8,y=0;for(let i=0;i<8;i++){z+=4.2;y+=(i%3===2?1:0);plat(Math.sin(i*1.3)*2.5,y-.5,z,2.6,1,2.6,COLS[i%6])}
+checkpoint(0,y-.5,z+6,1);z+=6;
+// fase 2: plataformas móviles
+for(let i=0;i<6;i++){z+=5;plat(0,y-.5,z,3,.8,3,COLS[(i+2)%6],'move',{ax:i%2?'x':'y',amp:i%2?4:1.6,spd:1.2+i*.12,ph:i})}
+z+=6;checkpoint(0,y-.5,z,2);
+// fase 3: baldosas que desaparecen
+for(let r=0;r<7;r++){z+=3.2;for(let c=-1;c<=1;c++)if((r+c)%2===0||c===0)plat(c*3.2,y-.5,z,2.8,.5,2.8,0xffa31a,'fade',{t:0})}
+z+=6;checkpoint(0,y-.5,z,3);
+// fase 4: barras giratorias en una pasarela
+const spinners=[];
+{const L=34;plat(0,y-.5,z+L/2+3,2.4,1,L,0x9aa3ad);for(let i=0;i<4;i++){const sz=z+7+i*8;const piv=new THREE.Group();piv.position.set(0,y+.6,sz);scene.add(piv);
+  cyl(.25,.25,1,M(0x333a48),0,-.4,0,piv);const bar=box(9,.4,.4,M(0xff4f4f,{emissive:0x550000}),0,0,0,piv);bar.castShadow=true;spinners.push({piv,spd:(i%2?1:-1)*(1.4+i*.25),len:4.5})}
+  z+=L+6}
+checkpoint(0,y-.5,z,4);
+// escalera: hay que trepar para llegar a los trampolines
+const LADDERS=[];
+{plat(0,y-.5,z+5.5,4,1,5,0xe0e4ec);const lz=z+8;plat(0,y+2.5,lz+.3,4,6,.6,0x8d6e63);
+  const rm=M(0xffcc33);for(let k=0;k<11;k++)box(1.8,.12,.15,rm,0,y+.25+k*.5,lz-.08,scene);[-1,1].forEach(sx=>box(.14,5.9,.18,rm,sx*.95,y+2.5,lz-.08,scene));
+  const sg=K.sprite(K.textTex([['¡TREPA!',60,'#ffcc33',40]],300,80),3,.8);sg.position.set(0,y+6.6,lz);scene.add(sg);
+  LADDERS.push({x0:-1.15,x1:1.15,z0:lz-.95,z1:lz+.05,y0:y-.2,top:y+5.5,lz});
+  plat(0,y+5,lz+3.1,4,1,5,0xe0e4ec);y+=5.5;z=lz+3.1}
+// fase 5: trampolines
+for(let i=0;i<4;i++){z+=6;const yy=y+i*3;plat(i%2?3:-3,yy-.5,z,3,1,3,0x3fd15c,'pad');const pad=box(2.2,.15,2.2,M(0xffffff,{emissive:0x3fd15c,emissiveIntensity:.5}),i%2?3:-3,yy+.08,z,scene);z+=6;plat(i%2?-3:3,yy+3-.5,z,3.4,1,3.4,COLS[i])}
+y+=12;z+=6;checkpoint(0,y-.5,z,5);
+// fase 6: torre en espiral
+const towerZ=z+12,towerX=0;cyl(1.2,1.4,30,M(0xd7ccc8),towerX,y+14,towerZ,scene);
+for(let i=0;i<14;i++){const a=i*.62,r=4.4,yy=y+i*1.7;plat(towerX+Math.cos(a)*r,yy-.25,towerZ+Math.sin(a)*r,2.4,.5,2.4,COLS[i%6],i%4===3?'fade':'solid',{t:0})}
+const topY=y+14*1.7;plat(towerX,topY,towerZ,6,1,6,0xffd23f);
+const trophy=new THREE.Group();trophy.position.set(towerX,topY+.5,towerZ);scene.add(trophy);
+const gold=M(0xffcc33,{emissive:0x664400,emissiveIntensity:.35});cyl(.5,.7,.4,gold,0,.2,0,trophy);cyl(.12,.12,.8,gold,0,.8,0,trophy);const cup=cyl(.8,.35,1,gold,0,1.6,0,trophy);
+const finishZone={x:towerX,y:topY+.5,z:towerZ,r:2.6};
+const finSign=K.sprite(K.textTex([['META',80,'#ffcc33',56]],400,110),5,1.4);finSign.position.set(towerX,topY+4.6,towerZ);scene.add(finSign);
+// decorado: islas
+for(let i=0;i<30;i++){const c=new THREE.Mesh(new THREE.SphereGeometry(5+Math.random()*7,10,8),M(0xffffff,{transparent:true,opacity:.85}));c.scale.y=.4;c.position.set((Math.random()-.5)*160,20+Math.random()*30,Math.random()*300);scene.add(c)}
+
+/* ================= JUGADOR ================= */
+const me=K.person(scene,null,window.CubiAvatar?CubiAvatar.state().name:'Tú');
+const P={x:0,y:0,z:0,vx:0,vz:0,vy:0,face:0,walk:0,ground:true,cp:0,stood:null,climb:false};
+const PR=.32,PH=1.5;
+let started=false,running=false,t0=0,elapsed=0,finished=false,best=0,mode='solo';
+try{best=+localStorage.getItem('cubi-obby-best')||0}catch(e){}
+function respawn(){if(window.CubiAudio)CubiAudio.sfx('fall');const c=CPS[P.cp];P.climb=false;P.x=c.x;P.y=c.y+.1;P.z=c.z;P.vx=P.vz=P.vy=0;K.toast('¡UY!','Vuelves al checkpoint','#ff4f4f')}
+function overlap(p,x,y,z){return x+PR>p.x-p.w/2&&x-PR<p.x+p.w/2&&z+PR>p.z-p.d/2&&z-PR<p.z+p.d/2&&y+PH>p.y-p.h/2&&y<p.y+p.h/2}
+function physics(dt){
+  const mv=ctl.move(),sp=8.5;
+  P.vx+=(mv.x*sp-P.vx)*Math.min(1,(P.ground?14:6)*dt);P.vz+=(mv.z*sp-P.vz)*Math.min(1,(P.ground?14:6)*dt);
+  if(ctl.jump()&&P.ground){P.vy=11.5;P.ground=false}
+  P.vy-=30*dt;
+  // escaleras
+  const wasClimb=P.climb;P.climb=false;
+  for(const L of LADDERS){if(P.x>L.x0&&P.x<L.x1&&P.z>L.z0&&P.z<L.z1&&P.y>L.y0&&P.y<L.top){
+    if(ctl.jump()&&wasClimb&&!P.jumpHeld){P.vy=8;P.vz=-6;break}
+    if(mv.z>.3||(wasClimb&&mv.z>-.3)){P.climb=true;P.vx*=.5;P.vz=Math.max(0,P.vz);P.vy=mv.z>.3?4.6:0;P.face=0;
+      if(P.y>L.top-.5&&mv.z>.3){P.y=L.top;P.z=L.lz+.9;P.vy=0;P.climb=false;P.ground=true}}
+    else if(wasClimb&&mv.z<-.3){P.climb=true;P.vy=-4.5}
+    break}}
+  P.jumpHeld=ctl.jump();
+  // llevado por plataformas móviles
+  if(P.stood&&P.stood.dx!=null){P.x+=P.stood.dx;P.y+=P.stood.dy;P.z+=P.stood.dz}
+  const solid=plats.filter(p=>!p.gone);
+  P.x+=P.vx*dt;for(const p of solid)if(overlap(p,P.x,P.y,P.z)&&p.y+p.h/2-P.y>.35){P.x-=P.vx*dt;P.vx=0;break}
+  P.z+=P.vz*dt;for(const p of solid)if(overlap(p,P.x,P.y,P.z)&&p.y+p.h/2-P.y>.35){P.z-=P.vz*dt;P.vz=0;break}
+  const py=P.y;P.y+=P.vy*dt;P.ground=false;P.stood=null;
+  for(const p of solid){if(!overlap(p,P.x,P.y,P.z))continue;const top=p.y+p.h/2;
+    if(P.vy<=0&&py>=top-.4){P.y=top;P.vy=0;P.ground=true;P.stood=p;
+      if(p.kind==='pad'){P.vy=19;P.ground=false;if(window.CubiAudio)CubiAudio.sfx('boing');K.toast('¡BOING!','','#3fd15c')}
+      if(p.kind==='fade'&&!p.t)p.t=.01}
+    else if(P.vy>0){P.y=p.y-p.h/2-PH;P.vy=0}}
+  if(P.climb){if(Math.abs(P.vy)>.1)P.walk+=dt*6}else if(mv.len>.1){P.face=Math.atan2(mv.x,mv.z);P.walk+=dt*sp*1.4}
+  if(P.y<-3)respawn();
+  // barras giratorias
+  spinners.forEach(s=>{const a=s.piv.rotation.y;const dx=P.x-s.piv.position.x,dz=P.z-s.piv.position.z;if(Math.abs(P.y+.8-s.piv.position.y)>1.1)return;
+    const ca=Math.cos(a),sa=Math.sin(a);const along=dx*ca-dz*sa,perp=dx*sa+dz*ca;if(Math.abs(along)<s.len&&Math.abs(perp)<.55){if(window.CubiAudio)CubiAudio.sfx('hit');P.vy=9;P.ground=false;P.vx=-sa*14*Math.sign(s.spd);P.vz=-ca*14*Math.sign(s.spd);K.toast('¡ZAS!','','#ff4f4f')}});
+  // checkpoints
+  CPS.forEach((c,i)=>{if(i>P.cp&&Math.abs(P.x-c.x)<3.5&&Math.abs(P.z-c.z)<3&&Math.abs(P.y-c.y)<1.5){P.cp=i;if(window.CubiAudio)CubiAudio.sfx('checkpoint');c.flag.material.color.setHex(0xffcc33);K.toast('¡CHECKPOINT!','Fase '+(i+1)+' de 6','#3fd15c')}});
+  if(!running&&!finished&&Math.hypot(P.x,P.z)>5&&started){running=true;t0=performance.now()}
+  if(running&&Math.hypot(P.x-finishZone.x,P.z-finishZone.z)<finishZone.r&&P.y>=finishZone.y-.6)finish();
+}
+function finish(){if(window.CubiAudio)CubiAudio.sfx('win');running=false;finished=true;elapsed=(performance.now()-t0)/1000;const nb=!best||elapsed<best;if(nb){best=elapsed;try{localStorage.setItem('cubi-obby-best',best)}catch(e){}}
+  let reward=0;if(window.CubiAvatar){const s=CubiAvatar.state();const day=new Date().toDateString();if(s.obbyDay!==day){s.obbyDay=day;s.cubos+=15;reward=15;(s.history=s.history||[]).unshift({t:Date.now(),txt:'Carrera Imposible completada',amt:15});CubiAvatar.save(s)}}
+  if(window.CubiMulti&&CubiMulti.online)CubiMulti.send({t:'fin',time:elapsed});results[myKey()]={name:myName(),time:elapsed};
+  document.body.insertAdjacentHTML('beforeend',K.panel('¡META!','#ffcc33',`<p style="font-size:20px;color:#fff">Tu tiempo: <b>${elapsed.toFixed(1)} s</b>${nb?' · ¡Nuevo récord!':''}</p>
+    <p>Tu mejor marca: ${best.toFixed(1)} s</p>${reward?`<p style="color:#ffcc33">+${reward} Cubos de Cubiverso (premio del día)</p>`:''}
+    <button class="k-btn g k-out" data-act="again">OTRA CARRERA</button>`).replace('k-ov','k-ov fin'))}
+function again(){document.querySelectorAll('.fin').forEach(e=>e.remove());finished=false;P.cp=0;respawn();elapsed=0;CPS.forEach(c=>c.flag&&c.flag.material.color.setHex(0x3fd15c))}
+
+/* ================= MULTIJUGADOR ================= */
+const remotes=K.remotes(scene,.75);const results={};
+const myName=()=>window.CubiAvatar?CubiAvatar.state().name:'Tú';const myKey=()=>window.CubiMulti&&CubiMulti.myId||'yo';
+if(window.CubiMulti){CubiMulti.on('msg',(d,from)=>{if(d.t==='st')remotes.update(from,d);if(d.t==='fin'){const ps=CubiMulti.players();results[from]={name:(ps[from]||{}).name||'Amigo',time:d.time};K.toast('¡'+results[from].name+' ha llegado!',d.time.toFixed(1)+' s','#ffcc33')}});
+  CubiMulti.on('players',()=>K.roomBadge())}
+let netT=0;
+function board(){const b=$('#board');if(!(window.CubiMulti&&CubiMulti.online)){b.hidden=true;return}b.hidden=false;
+  const ps=CubiMulti.players();const rows=Object.entries(ps).map(([id,p])=>{const r=id===CubiMulti.myId?{cp:P.cp}:(remotes.map[id]&&remotes.map[id].data)||{};const res=results[id===CubiMulti.myId?myKey():id];
+    return {name:p.name,txt:res?res.time.toFixed(1)+' s':'Fase '+((r.cp||0)+1),done:res?res.time:1e9,cp:r.cp||0}}).sort((a,b)=>a.done-b.done||b.cp-a.cp);
+  b.innerHTML='<b>Sala '+CubiMulti.code+'</b>'+rows.map(r=>`<div><span>${r.name.replace(/</g,'&lt;')}</span><span>${r.txt}</span></div>`).join('')}
+
+/* ================= BUCLE ================= */
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;if(b.dataset.act==='cp'&&started&&!finished)respawn();if(b.dataset.act==='again')again()});
+addEventListener('keydown',e=>{if(e.key.toLowerCase()==='r'&&started&&!finished)respawn()});
+let last=performance.now(),T=0;
+function loop(t){const dt=Math.min((t-last)/1000,.05);last=t;T+=dt;
+  plats.forEach(p=>{if(p.kind==='move'){const ox=p.x,oy=p.y,oz=p.z;const s=Math.sin(T*p.spd+p.ph)*p.amp;if(p.ax==='x')p.x=p.bx+s;else p.y=p.by+s;p.dx=p.x-ox;p.dy=p.y-oy;p.dz=p.z-oz;p.mesh.position.set(p.x,p.y,p.z)}
+    if(p.kind==='fade'&&p.t){p.t+=dt;if(p.t<.8){p.mesh.material.transparent=true;p.mesh.material.opacity=1-p.t*.9}else if(p.t<3.6){p.gone=true;p.mesh.visible=false}else{p.gone=false;p.t=0;p.mesh.visible=true;p.mesh.material.opacity=1}}});
+  spinners.forEach(s=>s.piv.rotation.y+=s.spd*dt);trophy.rotation.y+=dt;
+  if(started&&!finished)physics(dt);
+  me.root.position.set(P.x,P.y,P.z);let df=P.face-me.root.rotation.y;df=Math.atan2(Math.sin(df),Math.cos(df));me.root.rotation.y+=df*Math.min(1,dt*14);K.walkAnim(me,P.walk,!P.ground&&!P.climb,{climb:P.climb});
+  if(running)elapsed=(t-t0)/1000;$('#time').textContent=elapsed.toFixed(1)+' s';$('#stage').textContent=finished?'¡Completada!':`Fase ${P.cp+1} de 6${best?` · Récord ${best.toFixed(1)} s`:''}`;
+  if(window.CubiMulti&&CubiMulti.online){netT+=dt;if(netT>.1){netT=0;CubiMulti.send({t:'st',x:P.x,y:P.y,z:P.z,ry:P.face,air:!P.ground&&!P.climb,cl:P.climb,cp:P.cp});board()}remotes.step(dt)}
+  if(ctl.keys.q)ctl.look.yaw+=dt*2;if(ctl.keys.e)ctl.look.yaw-=dt*2;
+  ctl.camera(camera,P.x,P.y,P.z,1.3);sun.position.set(P.x+30,P.y+60,P.z+20);sun.target.position.set(P.x,P.y,P.z);
+  renderer.render(scene,camera);requestAnimationFrame(loop)}
+P.cp=0;respawn();
+K.roomMenu({game:'obby',title:'CARRERA IMPOSIBLE',col:'#ff4f4f',
+  intro:`<p>Una carrera de obstáculos con 6 fases: saltos, plataformas que se mueven, baldosas que desaparecen, barras giratorias, una escalera para trepar, trampolines y una torre final.</p><p>En la escalera: empuja hacia ella para subir, hacia atrás para bajar y salta para soltarte. Con la tecla G (o el botón GESTOS) haces gestos.</p><ul><li>Si caes a la lava vuelves al último checkpoint.</li><li>El tiempo empieza al salir de la plataforma de inicio.</li><li>La primera vez que llegas a la meta cada día ganas 15 Cubos.</li></ul>`,
+  onSolo(){started=true},onRoom(){started=true;K.roomBadge();board()}});
+K.emotes(me);if(window.CubiAudio)CubiAudio.gameMusic('aventura');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

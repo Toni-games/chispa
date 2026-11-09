@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Torres del Castillo</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Layout: tablero 3D a pantalla completa; datos arriba, torres abajo, ficha de torre a la derecha */
+body{background:#9ad7f5}
+#top{top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);display:flex;gap:16px;background:rgba(20,24,38,.85);border:3px solid #000;border-radius:14px;padding:6px 14px;font-weight:900;white-space:nowrap}
+#top b{font:400 22px "Lilita One",sans-serif}
+#bar{left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 10px);display:flex;gap:8px;background:rgba(20,24,38,.85);border:3px solid #000;border-radius:14px;padding:8px;max-width:calc(100vw - 20px);overflow-x:auto}
+.tw{flex:0 0 auto;min-width:78px;border:3px solid #000;border-radius:12px;background:#2b3247;padding:6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:900;font-size:12px}
+.tw i{width:30px;height:30px;border-radius:8px;border:2px solid #000}
+.tw em{font-style:normal;color:#ffcc33}
+.tw.on{background:#2d5e9a;border-color:#fff}
+#wave{min-width:110px;background:#3fd15c;color:#06210f;font:400 18px "Lilita One",sans-serif}
+#speed{min-width:54px}
+#info{right:max(10px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 64px);width:min(230px,calc(100vw - 20px));background:rgba(20,24,38,.92);border:3px solid #000;border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+#info h3{margin:0;font:400 20px "Lilita One",sans-serif}
+#info p{margin:0;font-size:13px;font-weight:800;color:#cfd6e6}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="top" class="k-ui"><span>♥ <b id="lives">20</b></span><span>$ <b id="money">0</b></span><span>Oleada <b id="wn">0</b>/20</span></div>
+<div id="bar" class="k-ui"></div>
+<div id="info" class="k-ui" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script>
+const K=Kit,{M,box,cyl,sph}=K;
+const W=K.setup({sky:0x9ad7f5,fog:false});const {scene,camera,renderer,sun}=W;
+const ctl=K.controls(W.canvas,{yaw:0,pitch:1.0,dist:34,min:18,max:50,joystick:false});
+const $=s=>document.querySelector(s);
+/* ================= TABLERO ================= */
+const GW=16,GH=11,CS=2.4;
+const cpos=(x,z)=>[(x-GW/2+.5)*CS,(z-GH/2+.5)*CS];
+const WP=[[0,2],[5,2],[5,7],[2,7],[2,9],[10,9],[10,4],[8,4],[8,1],[13,1],[13,6],[15,6]];
+const grid=[];for(let x=0;x<GW;x++){grid[x]=[];for(let z=0;z<GH;z++)grid[x][z]=null}
+const pathCells=new Set();for(let i=0;i<WP.length-1;i++){const[a,b]=WP[i],[c,d]=WP[i+1];for(let x=Math.min(a,c);x<=Math.max(a,c);x++)for(let z=Math.min(b,d);z<=Math.max(b,d);z++)pathCells.add(x+','+z)}
+const base=box(GW*CS+2,1,GH*CS+2,M(0x6a4a2a),0,-.5,0,scene);
+for(let x=0;x<GW;x++)for(let z=0;z<GH;z++){const[wx,wz]=cpos(x,z);const p=pathCells.has(x+','+z);const t=box(CS*.98,.2,CS*.98,M(p?0xd9c48f:((x+z)%2?0x6fcf4f:0x66c247)),wx,.1,wz,scene);t.receiveShadow=true}
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(200,200),M(0x5cb84a));ground.rotation.x=-Math.PI/2;ground.position.y=-1;scene.add(ground);
+// castillo al final
+const[cx,cz]=cpos(15,6);const castle=new THREE.Group();castle.position.set(cx+CS*1.4,0,cz);scene.add(castle);
+box(3,3,4,M(0xbdbdbd),0,1.5,0,castle);[[-1.5,-2],[1.5,-2],[-1.5,2],[1.5,2]].forEach(([x,z])=>{cyl(.7,.7,4.2,M(0x9e9e9e),x,2.1,z,castle,10);const r=new THREE.Mesh(new THREE.ConeGeometry(.9,1.4,10),M(0x3fa7ff));r.position.set(x,4.9,z);castle.add(r)});
+box(.2,1.6,1.2,M(0x5d4037),-1.5,.8,0,castle);K.shadows(castle);
+const gen=K.person(scene,null,window.CubiAvatar?CubiAvatar.state().name:'Tú');gen.root.position.set(cx+CS*1.4-2.4,0,cz+3.2);gen.root.rotation.y=-Math.PI/2;
+// cueva de salida
+const[sx,sz]=cpos(0,2);const cave=new THREE.Mesh(new THREE.SphereGeometry(2.2,16,10,0,Math.PI*2,0,Math.PI/2),M(0x5d5d6a));cave.position.set(sx-CS*1.2,0,sz);scene.add(cave);
+for(let i=0;i<40;i++){const a=Math.random()*6.28,r=26+Math.random()*30;const t=new THREE.Group();t.position.set(Math.cos(a)*r,-1,Math.sin(a)*r*.8);scene.add(t);cyl(.3,.4,2,M(0x7a5232),0,1,0,t);const f=new THREE.Mesh(new THREE.ConeGeometry(1.6,3.6,8),M(0x2e7d32));f.position.y=3.4;t.add(f)}
+const pathPts=WP.map(([x,z])=>{const[a,b]=cpos(x,z);return new THREE.Vector3(a,0,b)});pathPts.unshift(new THREE.Vector3(sx-CS*1.2,0,sz));pathPts.push(new THREE.Vector3(cx+CS*1.2,0,cz));
+const segLen=[];let total=0;for(let i=0;i<pathPts.length-1;i++){const l=pathPts[i].distanceTo(pathPts[i+1]);segLen.push(l);total+=l}
+function posAt(d){let i=0;while(i<segLen.length&&d>segLen[i]){d-=segLen[i];i++}if(i>=segLen.length)return pathPts[pathPts.length-1].clone();return pathPts[i].clone().lerp(pathPts[i+1],d/segLen[i])}
+/* ================= TORRES ================= */
+const TW=[
+ {id:'arquero',name:'Arquero',col:'#8d6e63',cost:60,lv:[{dmg:7,rate:.6,range:6.5},{dmg:13,rate:.5,range:7.5},{dmg:24,rate:.38,range:8.5}],up:[80,170],desc:'Dispara flechas rápidas a un enemigo.'},
+ {id:'canon',name:'Cañón',col:'#455a64',cost:120,lv:[{dmg:18,rate:1.6,range:6,splash:2.2},{dmg:32,rate:1.4,range:6.5,splash:2.6},{dmg:60,rate:1.2,range:7.5,splash:3}],up:[150,320],desc:'Bolas que explotan y dañan a varios.'},
+ {id:'hielo',name:'Hielo',col:'#4fc3f7',cost:100,lv:[{dmg:3,rate:.9,range:5.5,slow:.5},{dmg:6,rate:.8,range:6.5,slow:.4},{dmg:10,rate:.7,range:7.5,slow:.3}],up:[120,240],desc:'Congela: los enemigos van más lentos.'},
+ {id:'laser',name:'Láser',col:'#e040fb',cost:250,lv:[{dmg:42,rate:.2,range:7},{dmg:75,rate:.2,range:8},{dmg:130,rate:.2,range:9}],up:[300,600],desc:'Un rayo continuo que hace muchísimo daño.',dps:1},
+];
+const towers=[];let tool=null,sel=null;
+function towerMesh(T,lv){const g=new THREE.Group();const c=new THREE.Color(T.col);cyl(.9,1.05,.5,M(0x9e9e9e),0,.45,0,g,12);
+  if(T.id==='arquero'){cyl(.6,.7,1.6+lv*.3,M(c),0,1.4,0,g,8);const r=new THREE.Mesh(new THREE.ConeGeometry(.9,.9,8),M(0x3fd15c));r.position.y=2.6+lv*.3;g.add(r)}
+  if(T.id==='canon'){box(1.3,.9,1.3,M(c),0,1.1,0,g);const b=cyl(.25,.3,1.4+lv*.2,M(0x263238),0,1.4,.4,g,12);b.rotation.x=Math.PI/2.6;g.userData.aim=b}
+  if(T.id==='hielo'){const cr=new THREE.Mesh(new THREE.OctahedronGeometry(.75+lv*.12),M(c,{emissive:0x0a5a8a,emissiveIntensity:.5}));cr.position.y=1.7;g.add(cr);g.userData.spin=cr}
+  if(T.id==='laser'){cyl(.35,.6,1.8+lv*.3,M(0x37474f),0,1.4,0,g,8);const o=sph(.4,M(c,{emissive:0xaa00cc,emissiveIntensity:.7}),0,2.5+lv*.3,0,g);g.userData.orb=o}
+  for(let k=0;k<lv;k++)box(.25,.12,.25,M(0xffcc33),-.4+k*.4,.75,.95,g);K.shadows(g);return g}
+function placeTower(x,z,T){const[wx,wz]=cpos(x,z);const t={T,x,z,wx,wz,lv:0,cd:0,spent:T.cost,g:towerMesh(T,0)};t.g.position.set(wx,.2,wz);scene.add(t.g);grid[x][z]=t;towers.push(t);return t}
+function upgradeTower(t){if(t.lv>=2)return;const c=t.T.up[t.lv];if(money<c)return;money-=c;if(window.CubiAudio)CubiAudio.sfx('levelup');t.spent+=c;t.lv++;scene.remove(t.g);t.g=towerMesh(t.T,t.lv);t.g.position.set(t.wx,.2,t.wz);scene.add(t.g);puff(t.wx,t.wz);showInfo(t)}
+function sellTower(t){if(window.CubiAudio)CubiAudio.sfx('cash');money+=Math.round(t.spent*.6);scene.remove(t.g);towers.splice(towers.indexOf(t),1);grid[t.x][t.z]=null;sel=null;$('#info').hidden=true;rangeRing.visible=false}
+const rangeRing=new THREE.Mesh(new THREE.RingGeometry(.95,1,48),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.6,side:THREE.DoubleSide}));rangeRing.rotation.x=-Math.PI/2;rangeRing.position.y=.25;rangeRing.visible=false;scene.add(rangeRing);
+const cursor=box(CS*.96,.3,CS*.96,new THREE.MeshBasicMaterial({color:0x3fd15c,transparent:true,opacity:.45,depthWrite:false}),0,.3,0,scene);cursor.visible=false;
+/* ================= ENEMIGOS (mocos inventados) ================= */
+const EN={
+ verde:{name:'Moco Verde',col:0x7cd65a,hp:30,sp:2.2,gold:6,sz:.7},
+ rapido:{name:'Moco Veloz',col:0xffd23f,hp:22,sp:4,gold:7,sz:.55},
+ tanque:{name:'Moco Tanque',col:0x8e44ad,hp:140,sp:1.4,gold:16,sz:1},
+ hielo:{name:'Moco Escarcha',col:0x9fe8ff,hp:70,sp:2.2,gold:10,sz:.75,res:1},
+ rey:{name:'Rey Moco',col:0xff4f4f,hp:1400,sp:1.1,gold:150,sz:1.6,boss:1}
+};
+const enemies=[];
+function enemyMesh(E){const g=new THREE.Group();const b=sph(E.sz,M(E.col,{transparent:true,opacity:.92}),0,E.sz*.8,0,g);b.scale.y=.8;
+  [-1,1].forEach(k=>{sph(E.sz*.22,M(0xffffff),k*E.sz*.35,E.sz*1.05,E.sz*.75,g);sph(E.sz*.11,M(0x111111),k*E.sz*.35,E.sz*1.05,E.sz*.92,g)});
+  if(E.boss){const cr=M(0xffcc33,{emissive:0x553300,emissiveIntensity:.4});cyl(.55,.55,.3,cr,0,E.sz*1.65,0,g,10);for(let k=0;k<5;k++){const c=new THREE.Mesh(new THREE.ConeGeometry(.12,.35,6),cr);c.position.set(Math.cos(k/5*6.28)*.5,E.sz*1.9,Math.sin(k/5*6.28)*.5);g.add(c)}}
+  const bg=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.16),new THREE.MeshBasicMaterial({color:0x222222,depthTest:false}));bg.position.y=E.sz*2+.4;bg.renderOrder=9;g.add(bg);
+  const fg=new THREE.Mesh(new THREE.PlaneGeometry(1.16,.12),new THREE.MeshBasicMaterial({color:0x3fd15c,depthTest:false}));fg.position.y=E.sz*2+.4;fg.position.z=.001;fg.renderOrder=10;g.add(fg);g.userData={bg,fg};
+  K.shadows(g);return g}
+function spawnEnemy(k,hpMul){const E=EN[k];const g=enemyMesh(E);scene.add(g);enemies.push({E,g,d:0,hp:E.hp*hpMul,max:E.hp*hpMul,slow:0,slowF:1})}
+/* ================= OLEADAS ================= */
+let money=200,lives=20,wave=0,inWave=false,queue=[],qT=0,speed=1,over=false;
+function buildWave(n){const q=[];const hp=1+n*.22+Math.pow(n,1.6)*.025;
+  const cnt=6+n*2;for(let i=0;i<cnt;i++){let k='verde';if(n>=3&&i%4===3)k='rapido';if(n>=5&&i%6===5)k='tanque';if(n>=8&&i%5===2)k='hielo';q.push([k,hp,n>=12?.55:.8])}
+  if(n%10===0)q.push(['rey',hp*.8,1.5]);if(n%5===0&&n%10)q.push(['tanque',hp*1.6,1]);return q}
+function nextWave(){if(inWave||over||wave>=20)return;wave++;if(window.CubiAudio)CubiAudio.sfx('wave');queue=buildWave(wave);qT=0;inWave=true;K.toast('OLEADA '+wave,wave%10===0?'¡Viene el Rey Moco!':'¡Defiende el castillo!',wave%10===0?'#ff4f4f':'#ffcc33');renderBar()}
+/* ================= PROYECTILES ================= */
+const shots=[],fx=[];
+function puff(x,z,col){for(let k=0;k<10;k++){const m=box(.25,.25,.25,new THREE.MeshBasicMaterial({color:col||0xffffff,transparent:true}),x,.6,z,scene);m.userData={v:new THREE.Vector3((Math.random()-.5)*5,3+Math.random()*3,(Math.random()-.5)*5),l:.6};fx.push(m)}}
+function damage(e,v){if(e.hp<=0)return;e.hp-=v;if(e.hp<=0){if(window.CubiAudio)CubiAudio.sfx('pop');money+=e.E.gold;puff(e.g.position.x,e.g.position.z,e.E.col);scene.remove(e.g);enemies.splice(enemies.indexOf(e),1)}}
+function towerStep(t,dt){const L=t.T.lv[t.lv];t.cd-=dt;if(t.g.userData.spin)t.g.userData.spin.rotation.y+=dt*2;
+  const inR=enemies.filter(e=>e.g.position.distanceTo(t.g.position)<L.range);if(!inR.length){t.beam&&(t.beam.visible=false);return}
+  const tgt=inR.reduce((a,b)=>b.d>a.d?b:a);t.g.rotation.y=Math.atan2(tgt.g.position.x-t.wx,tgt.g.position.z-t.wz);
+  if(t.T.dps){damage(tgt,L.dmg*dt);if(!t.beam){t.beam=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineBasicMaterial({color:0xff66ff}));scene.add(t.beam)}
+    t.beam.visible=true;const a=t.g.userData.orb.getWorldPosition(new THREE.Vector3());const pos=t.beam.geometry.attributes.position;pos.setXYZ(0,a.x,a.y,a.z);pos.setXYZ(1,tgt.g.position.x,tgt.g.position.y+tgt.E.sz*.8,tgt.g.position.z);pos.needsUpdate=true;return}
+  if(t.cd>0)return;t.cd=L.rate;if(window.CubiAudio)CubiAudio.sfx(t.T.id==='arquero'?'shoot':t.T.id==='canon'?'kick':'freeze');
+  const col=t.T.id==='arquero'?0x8d6e63:t.T.id==='canon'?0x263238:0x9fe8ff;const m=t.T.id==='arquero'?box(.1,.1,.6,M(col),t.wx,2.4,t.wz,scene):sph(t.T.id==='canon'?.3:.22,M(col),t.wx,2,t.wz,scene);
+  shots.push({m,t,tgt,L,sp:t.T.id==='arquero'?26:t.T.id==='canon'?12:16})}
+function shotStep(s,dt){const e=s.tgt;if(enemies.indexOf(e)<0&&s.t.T.id!=='canon'){scene.remove(s.m);return false}
+  const tp=e.g.position.clone();tp.y+=e.E.sz*.8;const d=tp.clone().sub(s.m.position);const l=d.length();if(l<.4||l<s.sp*dt){
+    if(s.t.T.id==='canon'){enemies.slice().forEach(o=>{if(o.g.position.distanceTo(tp)<s.L.splash)damage(o,s.L.dmg)});puff(tp.x,tp.z,0xff9a3d)}
+    else{if(s.t.T.id==='hielo'&&!e.E.res){e.slow=1.5;e.slowF=s.L.slow}damage(e,s.L.dmg)}scene.remove(s.m);return false}
+  s.m.position.addScaledVector(d.normalize(),s.sp*dt);s.m.lookAt(tp);return true}
+/* ================= INTERFAZ ================= */
+function renderBar(){$('#bar').innerHTML=TW.map(T=>`<button class="tw ${tool===T.id?'on':''}" data-act="tool" data-id="${T.id}" ${money<T.cost?'disabled':''} title="${T.desc}"><i style="background:${T.col}"></i>${T.name}<em>$${T.cost}</em></button>`).join('')+
+  `<button class="tw k-out" id="wave" data-act="wave" ${inWave||over||wave>=20?'disabled':''}>${wave===0?'EMPEZAR':inWave?'EN CURSO':'OLEADA '+(wave+1)}</button><button class="tw" id="speed" data-act="speed">x${speed}</button>`}
+function showInfo(t){sel=t;const L=t.T.lv[t.lv];const el=$('#info');el.hidden=false;
+  el.innerHTML=`<h3 class="k-out">${t.T.name} · nivel ${t.lv+1}</h3><p>${t.T.desc}</p><p>Daño ${t.T.dps?Math.round(L.dmg)+'/s':L.dmg} · alcance ${L.range}${L.slow?` · frena ${Math.round((1-L.slow)*100)}%`:''}</p>
+  ${t.lv<2?`<button class="k-btn g k-out" data-act="up" ${money<t.T.up[t.lv]?'disabled':''}>MEJORAR · $${t.T.up[t.lv]}</button>`:'<p>Nivel máximo.</p>'}
+  <button class="k-btn r k-out" data-act="sell">VENDER · $${Math.round(t.spent*.6)}</button><button class="k-btn k-out" data-act="desel">Cerrar</button>`;
+  rangeRing.visible=true;rangeRing.scale.setScalar(L.range);rangeRing.position.set(t.wx,.25,t.wz)}
+const ACT={tool(id){tool=tool===id?null:id;sel=null;$('#info').hidden=true;rangeRing.visible=false;renderBar()},wave:nextWave,speed(){speed=speed===1?2:speed===2?3:1;renderBar()},
+  up(){sel&&upgradeTower(sel)},sell(){sel&&sellTower(sel);renderBar()},desel(){sel=null;$('#info').hidden=true;rangeRing.visible=false},again(){location.reload()}};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;ACT[b.dataset.act]&&ACT[b.dataset.act](b.dataset.id)});
+const ray=new THREE.Raycaster(),v2=new THREE.Vector2(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),-.2),hit=new THREE.Vector3();
+function cellAt(cx,cy){v2.set(cx/innerWidth*2-1,-(cy/innerHeight)*2+1);ray.setFromCamera(v2,camera);if(!ray.ray.intersectPlane(plane,hit))return null;const x=Math.floor(hit.x/CS+GW/2),z=Math.floor(hit.z/CS+GH/2);return x>=0&&z>=0&&x<GW&&z<GH?[x,z]:null}
+let pd=null;W.canvas.addEventListener('pointerdown',e=>{pd={x:e.clientX,y:e.clientY}});
+W.canvas.addEventListener('pointerup',e=>{if(!pd||Math.hypot(e.clientX-pd.x,e.clientY-pd.y)>6){pd=null;return}pd=null;const c=cellAt(e.clientX,e.clientY);if(!c)return;const[x,z]=c;
+  if(grid[x][z]){tool=null;renderBar();showInfo(grid[x][z]);return}
+  if(!tool){ACT.desel();return}const T=TW.find(q=>q.id===tool);if(pathCells.has(x+','+z)){K.toast('AHÍ NO','No puedes construir en el camino','#ff4f4f');return}
+  if(money<T.cost){K.toast('SIN DINERO','Acaba con más mocos','#ff4f4f');return}money-=T.cost;if(window.CubiAudio)CubiAudio.sfx('place');const t=placeTower(x,z,T);puff(t.wx,t.wz);renderBar()});
+W.canvas.addEventListener('pointermove',e=>{const c=tool&&cellAt(e.clientX,e.clientY);if(!c){cursor.visible=false;return}const[x,z]=c;const[wx,wz]=cpos(x,z);cursor.visible=true;cursor.position.set(wx,.3,wz);
+  cursor.material.color.setHex(pathCells.has(x+','+z)||grid[x][z]?0xff4f4f:0x3fd15c);const T=TW.find(q=>q.id===tool);rangeRing.visible=true;rangeRing.scale.setScalar(T.lv[0].range);rangeRing.position.set(wx,.25,wz)});
+function finish(win){over=true;if(window.CubiAudio)CubiAudio.sfx(win?'win':'lose');if(window.CubiAvatar)CubiAvatar.emote(gen,win?'ge1':'ge3');let reward=0;if(win&&window.CubiAvatar){const s=CubiAvatar.state();const day=new Date().toDateString();if(s.torresDay!==day){s.torresDay=day;s.cubos+=25;reward=25;(s.history=s.history||[]).unshift({t:Date.now(),txt:'Victoria en Torres del Castillo',amt:25});CubiAvatar.save(s)}}
+  document.body.insertAdjacentHTML('beforeend',K.panel(win?'¡CASTILLO SALVADO!':'EL CASTILLO HA CAÍDO',win?'#3fd15c':'#ff4f4f',`<p style="color:#fff">${win?'Has aguantado las 20 oleadas.':`Has llegado a la oleada ${wave}.`}</p>${reward?`<p style="color:#ffcc33">+${reward} Cubos de Cubiverso (premio del día)</p>`:''}<button class="k-btn g k-out" data-act="again">JUGAR OTRA VEZ</button>`))}
+/* ================= BUCLE ================= */
+let last=performance.now(),uiT=0;
+function loop(t){let dt=Math.min((t-last)/1000,.05);last=t;K.walkAnim(gen,0,false,{moving:false});const gdt=over?0:dt*speed;
+  if(inWave){qT-=gdt;if(qT<=0&&queue.length){const[k,hp,gap]=queue.shift();spawnEnemy(k,hp);qT=gap}if(!queue.length&&!enemies.length){inWave=false;if(window.CubiAudio)CubiAudio.sfx('coin');if(window.CubiAvatar)CubiAvatar.emote(gen,'ge4');money+=40+wave*5;K.toast('¡OLEADA SUPERADA!','+$'+(40+wave*5),'#3fd15c');if(wave>=20)finish(true);renderBar()}}
+  for(let i=enemies.length-1;i>=0;i--){const e=enemies[i];if(e.slow>0)e.slow-=gdt;const sp=e.E.sp*(e.slow>0?e.slowF:1);e.d+=sp*gdt;const p=posAt(e.d);const q=posAt(e.d+.3);e.g.position.set(p.x,.2+Math.abs(Math.sin(t/200+i))*.15,p.z);e.g.rotation.y=Math.atan2(q.x-p.x,q.z-p.z);
+    const r=Math.max(0,e.hp/e.max);e.g.userData.fg.scale.x=Math.max(.001,r);e.g.userData.fg.position.x=-(1-r)*.58;e.g.userData.bg.quaternion.copy(camera.quaternion);e.g.userData.fg.quaternion.copy(camera.quaternion);
+    e.g.children[0].material.color.setHex(e.slow>0?0x9fe8ff:e.E.col);
+    if(e.d>=total){lives-=e.E.boss?10:1;if(window.CubiAudio)CubiAudio.sfx('hit');scene.remove(e.g);enemies.splice(i,1);K.toast('¡AY!','Un moco ha llegado al castillo','#ff4f4f');if(lives<=0&&!over){lives=0;finish(false)}}}
+  towers.forEach(tw=>towerStep(tw,gdt));for(let i=shots.length-1;i>=0;i--)if(!shotStep(shots[i],gdt))shots.splice(i,1);
+  for(let i=fx.length-1;i>=0;i--){const m=fx[i];m.userData.l-=dt;m.userData.v.y-=14*dt;m.position.addScaledVector(m.userData.v,dt);m.material.opacity=m.userData.l*1.6;if(m.userData.l<=0){scene.remove(m);fx.splice(i,1)}}
+  uiT+=dt;if(uiT>.2){uiT=0;$('#lives').textContent=lives;$('#money').textContent=money;$('#wn').textContent=wave;const nb=[...document.querySelectorAll('.tw[data-act=tool]')];nb.forEach(b=>{const T=TW.find(q=>q.id===b.dataset.id);b.disabled=money<T.cost});if(sel)showInfo(sel)}
+  ctl.camera(camera,0,0,0,0);renderer.render(scene,camera);requestAnimationFrame(loop)}
+renderBar();
+document.body.insertAdjacentHTML('beforeend',K.panel('TORRES DEL CASTILLO','#9c6bff',`<p>Una invasión de mocos va camino del castillo. Pon torres junto al camino para frenarlos.</p>
+  <ul><li>Elige una torre abajo y toca una casilla de hierba.</li><li>Toca una torre para mejorarla o venderla.</li><li>Pulsa <b>EMPEZAR</b> para lanzar cada oleada. Cada 10 oleadas llega el Rey Moco.</li><li>Si aguantas las 20 oleadas ganas 25 Cubos al día.</li></ul>
+  <button class="k-btn g k-out" onclick="this.closest('.k-ov').remove()">¡A DEFENDER!</button>`));
+if(window.CubiAudio)CubiAudio.gameMusic('aventura');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

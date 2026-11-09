@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1a1d24">
+<meta name="description" content="Plataforma de juegos con avatar, catálogo, pases y multijugador con amigos.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+<title>Cubiverso</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&family=Rubik+Mono+One&display=swap">
+<style>
+[hidden]{display:none!important}
+/* Layout: plataforma de juegos. Barra superior fija, menú lateral (abajo en móvil), contenido por secciones; los juegos se abren a pantalla completa */
+:root{
+  --bg:#111318; --panel:#1a1d24; --panel2:#242833; --line:rgba(255,255,255,.08); --fg:#f1f3f7; --muted:#9aa2b4;
+  --brand:#ffb020; --brand-ink:#2a1a00; --play:#21c063; --play-ink:#032b14; --danger:#ff5a5f; --sel:#4b93ff;
+  --f-ui:"Rubik","Segoe UI",system-ui,sans-serif; --f-logo:"Rubik Mono One","Arial Black",sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --bg:#eef0f4; --panel:#ffffff; --panel2:#f2f4f8; --line:rgba(17,19,24,.1); --fg:#151821; --muted:#5d6577;
+  --brand:#f29d00; --brand-ink:#2a1a00; --play:#16a34a; --play-ink:#ffffff; --danger:#e23b41; --sel:#2563eb; color-scheme:light}}
+:root[data-theme="light"]{--bg:#eef0f4; --panel:#ffffff; --panel2:#f2f4f8; --line:rgba(17,19,24,.1); --fg:#151821; --muted:#5d6577;
+  --brand:#f29d00; --brand-ink:#2a1a00; --play:#16a34a; --play-ink:#ffffff; --danger:#e23b41; --sel:#2563eb; color-scheme:light}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--panel)}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
+button:disabled{opacity:.5;cursor:not-allowed}
+a{color:inherit}
+.cube{width:1.1em;height:1.1em;vertical-align:-.18em;flex:none}
+/* barra superior */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--panel);border-bottom:1px solid var(--line)}
+.top .in{max-width:1320px;margin:0 auto;display:flex;align-items:center;gap:12px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none;font-family:var(--f-logo);font-size:17px;letter-spacing:.02em;white-space:nowrap}
+.logo .cube{width:30px;height:30px}
+.search{flex:1;min-width:0;max-width:440px;margin-inline:auto;position:relative}
+.search input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 12px 9px 36px}
+.search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;fill:none;stroke:var(--muted);stroke-width:2.2}
+.pill{display:flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:700;font-variant-numeric:tabular-nums;text-decoration:none;white-space:nowrap}
+.me{width:38px;height:38px;border-radius:50%;background:var(--panel2);border:2px solid var(--line);overflow:hidden;flex:none;display:block}
+.me img{width:100%;height:100%;object-fit:cover;display:block}
+/* estructura */
+.shell{max-width:1320px;margin:0 auto;display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.side{position:sticky;top:calc(env(safe-area-inset-top,0px) + 80px);align-self:start;display:flex;flex-direction:column;gap:4px}
+.side a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;text-decoration:none;font-weight:500;color:var(--muted)}
+.side a svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;flex:none}
+.side a:hover{background:var(--panel2);color:var(--fg)}
+.side a.on{background:var(--panel2);color:var(--fg);font-weight:700}
+.side a.on svg{stroke:var(--brand)}
+main{min-width:0}
+h1{font-size:28px;font-weight:800;margin:0 0 4px;text-wrap:balance}
+h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 18px}
+.sec{display:flex;flex-direction:column;gap:12px;margin-bottom:28px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.sec-h a{color:var(--sel);font-weight:500;text-decoration:none;font-size:14px}
+/* tarjetas de juego */
+.games{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
+.gcard{background:none;border:0;padding:0;text-align:left;display:flex;flex-direction:column;gap:8px;border-radius:12px}
+.gcard .th{aspect-ratio:16/9;width:100%;max-width:100%;border-radius:12px;background:var(--panel2) center/cover no-repeat;transition:transform .15s}
+.gcard:hover .th{transform:translateY(-3px)}
+.gcard .th{position:relative}
+.gcard .new{position:absolute;top:8px;left:8px;background:var(--brand);color:var(--brand-ink);font-size:11px;font-weight:800;border-radius:999px;padding:2px 9px}
+.gcard b{font-size:15px}
+.gcard span{color:var(--muted);font-size:13px;margin-top:-6px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:500;color:var(--muted)}
+.chip.ok{color:var(--play);border-color:color-mix(in srgb,var(--play) 40%,transparent)}
+/* inicio */
+.hello{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:28px}
+.hello .face{width:84px;height:84px;border-radius:50%;background:var(--panel2);overflow:hidden}
+.hello .face img{width:100%;height:100%;display:block}
+.daily{display:flex;flex-direction:column;align-items:flex-end;gap:6px;text-align:right}
+.btn{border:0;border-radius:10px;padding:10px 16px;font-weight:700;background:var(--panel2);border:1px solid var(--line)}
+.btn:hover:not(:disabled){filter:brightness(1.08)}
+.btn.play{background:var(--play);color:var(--play-ink);border-color:transparent}
+.btn.brand{background:var(--brand);color:var(--brand-ink);border-color:transparent}
+.btn.danger{background:var(--danger);color:#fff;border-color:transparent}
+.btn.big{padding:14px 26px;font-size:17px;border-radius:12px;display:inline-flex;align-items:center;gap:10px}
+.btn.big svg{width:20px;height:20px}
+/* avatar */
+.av{display:grid;grid-template-columns:minmax(260px,380px) minmax(0,1fr);gap:24px;align-items:start}
+.stage{position:sticky;top:calc(env(safe-area-inset-top,0px) + 80px);aspect-ratio:3/4;width:100%;max-width:100%;border-radius:16px;overflow:hidden;background:radial-gradient(120% 80% at 50% 10%,var(--panel2),var(--panel));border:1px solid var(--line);touch-action:none}
+.stage canvas{width:100%;height:100%;display:block;cursor:grab}
+.stage .hint{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-size:12px;color:var(--muted);pointer-events:none}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tab{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 14px;font-weight:500;font-size:14px;color:var(--muted)}
+.tab.on{background:var(--fg);color:var(--bg);border-color:transparent;font-weight:700}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:12px}
+.item{position:relative;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:6px;text-align:left}
+.item:hover{border-color:color-mix(in srgb,var(--sel) 50%,var(--line))}
+.item.on{border-color:var(--sel)}
+.item .pic{aspect-ratio:1;width:100%;max-width:100%;border-radius:8px;background:var(--panel2) center/contain no-repeat}
+.item .sw{aspect-ratio:1;width:100%;border-radius:8px}
+.item b{font-size:13px;font-weight:500;line-height:1.25}
+.item .pr{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.item .pr.free{color:var(--muted);font-weight:500}
+.item .pr.own{color:var(--play)}
+.item .eqd{position:absolute;top:12px;right:12px;background:var(--sel);color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:2px 8px}
+/* cubos */
+.packs{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+.pack{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;position:relative}
+.pack .stack{height:64px;display:flex;align-items:flex-end;justify-content:center}
+.pack .amt{font-size:22px;font-weight:800;display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.pack .tagp{position:absolute;top:-10px;background:var(--brand);color:var(--brand-ink);font-size:11px;font-weight:800;border-radius:999px;padding:2px 10px}
+.pack .btn{width:100%}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.field{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-transform:uppercase}
+.field.nocase{text-transform:none}
+.hist{display:flex;flex-direction:column}
+.hist div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.hist div:first-child{border-top:0}
+.hist b{font-variant-numeric:tabular-nums}
+.pos{color:var(--play)}.neg{color:var(--danger)}
+.test{display:flex;gap:10px;align-items:flex-start;background:color-mix(in srgb,var(--brand) 14%,transparent);border:1px solid color-mix(in srgb,var(--brand) 45%,transparent);border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:16px}
+/* modal */
+.ov{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:20px max(16px,env(safe-area-inset-right,0px)) 20px max(16px,env(safe-area-inset-left,0px))}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:18px;width:100%;max-width:560px;max-height:90vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.5)}
+.modal .mh{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+.modal .mb{padding:16px;display:flex;flex-direction:column;gap:12px}
+.x{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);font-size:18px;line-height:1}
+.banner{aspect-ratio:16/9;width:100%;max-width:100%;border-radius:12px;background:var(--panel2) center/cover}
+.pass-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--panel2)}
+.pass-row small{display:block;color:var(--muted);font-size:13px;line-height:1.35}
+.pass-ic{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.method{display:flex;gap:12px;align-items:flex-start;border:2px solid var(--line);border-radius:12px;padding:12px;cursor:pointer}
+.method.on{border-color:var(--sel)}
+.method input{margin-top:4px}
+.method small{display:block;color:var(--muted)}
+.sum{display:flex;justify-content:space-between;font-weight:700;font-variant-numeric:tabular-nums}
+.big-ok{font-size:40px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--play)}
+/* juego abierto */
+#play{position:fixed;inset:0;z-index:60;background:#000;display:flex;flex-direction:column}
+#play .bar{flex:none;display:flex;align-items:center;gap:10px;background:#0b0c10;color:#f1f3f7;padding:6px max(10px,env(safe-area-inset-right,0px)) 6px max(10px,env(safe-area-inset-left,0px));padding-top:calc(6px + env(safe-area-inset-top,0px))}
+#play .bar b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#play .bar .btn{padding:6px 12px;font-size:13px;background:#242833;border-color:rgba(255,255,255,.1);color:#f1f3f7}
+#play .bar .pill{background:#242833;border-color:rgba(255,255,255,.1);color:#f1f3f7;padding:4px 10px}
+#play iframe{flex:1;width:100%;border:0;background:#000}
+#gpanel{position:absolute;top:calc(52px + env(safe-area-inset-top,0px));left:max(10px,env(safe-area-inset-left,0px));background:#1a1d24;color:#f1f3f7;border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:4px;min-width:220px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+#gpanel button{background:none;border:0;text-align:left;padding:10px 12px;border-radius:8px;font-weight:500;color:#f1f3f7}
+#gpanel button:hover{background:#242833}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:80;background:var(--fg);color:var(--bg);border-radius:12px;padding:10px 16px;font-weight:700;box-shadow:0 10px 30px rgba(0,0,0,.35);max-width:calc(100vw - 32px)}
+/* música */
+.musb{width:38px;height:38px;border-radius:50%;background:var(--panel2);border:1px solid var(--line);display:grid;place-items:center;flex:none;padding:0}
+.musb svg{width:18px;height:18px;fill:none;stroke:var(--fg);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.musb.on{background:var(--brand);border-color:transparent}.musb.on svg{stroke:var(--brand-ink)}
+.musb.on svg{animation:pulse 1s ease-in-out infinite alternate}@keyframes pulse{to{transform:scale(1.15)}}
+.now{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center}
+.now .disc{width:64px;height:64px;border-radius:14px;background:conic-gradient(from 0deg,var(--brand),var(--sel),var(--play),var(--brand));display:grid;place-items:center}
+.now .disc svg{width:28px;height:28px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.now.playing .disc{animation:spin 6s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.now b{display:block;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.now small{color:var(--muted)}
+.ctl{display:flex;gap:6px}.ctl .btn{padding:10px 12px;min-width:44px}
+.tracks{display:flex;flex-direction:column;gap:6px}
+.trk{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--panel)}
+.trk.on{border-color:var(--brand)}
+.trk .pb{width:40px;height:40px;border-radius:50%;border:0;background:var(--panel2);display:grid;place-items:center;padding:0}
+.trk.on .pb{background:var(--brand);color:var(--brand-ink)}
+.trk .pb svg{width:16px;height:16px}
+.trk b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.trk small{color:var(--muted)}
+.sl{display:grid;grid-template-columns:110px minmax(0,1fr) 44px;gap:10px;align-items:center}
+.sl input{width:100%;accent-color:var(--brand)}
+.sel{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--fg);font:inherit;max-width:100%}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.board .btn{padding:12px 8px;font-size:13px}
+.upl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border:2px dashed var(--line);border-radius:12px;padding:14px}
+.upl.drag{border-color:var(--brand)}
+.demo{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;justify-content:center}.demo .btn{padding:7px 12px;font-size:13px}.demo .btn.on{background:var(--sel);color:#fff;border-color:transparent}
+.item .desc{font-size:11px;color:var(--muted);line-height:1.3}
+/* cuentas */
+#gate{position:fixed;inset:0;z-index:80;background:var(--bg);overflow:auto;display:grid;place-items:center;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+#gate .gbox{width:min(420px,100%);display:flex;flex-direction:column;gap:16px}
+#gate .glogo{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+#gate .glogo svg{width:72px;height:72px}#gate .glogo b{font-family:var(--f-logo);font-size:26px;letter-spacing:.03em}
+#gate .glogo span{color:var(--muted)}
+.gtabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;background:var(--panel2);border-radius:12px;padding:4px}
+.gtabs button{border:0;background:none;border-radius:9px;padding:9px 4px;font-weight:700;font-size:13px;color:var(--muted)}
+.gtabs button[aria-selected=true]{background:var(--panel);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.gform{display:flex;flex-direction:column;gap:12px}
+.gform label{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:14px}
+.gform input,.gform textarea{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--fg);font:inherit;font-weight:500;width:100%;box-sizing:border-box}
+.gform textarea{min-height:90px;resize:vertical;font-family:ui-monospace,Menlo,monospace;font-size:12px;word-break:break-all}
+.gform .btn{padding:13px;font-size:16px}
+.gmsg{min-height:20px;font-size:14px;color:var(--danger);margin:0}.gmsg.ok{color:var(--play)}
+.gnote{font-size:13px;color:var(--muted);margin:0;line-height:1.5}
+.gnote b{color:var(--fg)}
+.cloudtag{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:4px 10px;border-radius:99px;background:var(--panel2)}
+.cloudtag i{width:8px;height:8px;border-radius:50%;background:var(--muted)}.cloudtag.ok i{background:var(--play)}.cloudtag.err i{background:var(--danger)}.cloudtag.sync i{background:var(--brand)}
+.codebox{width:100%;box-sizing:border-box;min-height:80px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;color:var(--fg);font-family:ui-monospace,Menlo,monospace;font-size:11px;word-break:break-all}
+@media (max-width:820px){
+  .shell{grid-template-columns:minmax(0,1fr);padding-bottom:calc(90px + env(safe-area-inset-bottom,0px))}
+  .side{position:fixed;inset:auto 0 0 0;top:auto;z-index:25;flex-direction:row;justify-content:space-around;background:var(--panel);border-top:1px solid var(--line);padding:6px max(6px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px));gap:0}
+  .side a{flex-direction:column;gap:2px;font-size:10.5px;padding:6px 2px;min-width:0;flex:1;justify-content:center;text-align:center}
+  .av{grid-template-columns:minmax(0,1fr)}
+  .stage{position:relative;top:0;aspect-ratio:1;max-height:56vh;margin-inline:auto}
+  .hello{grid-template-columns:auto minmax(0,1fr)}
+  .daily{grid-column:1/-1;align-items:flex-start;text-align:left}
+  #toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+}
+@media (max-width:560px){.logo span{display:none}.search{max-width:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header class="top"><div class="in">
+  <a class="logo" href="#inicio" aria-label="Cubiverso, inicio"><svg class="cube" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7z" fill="#ffb020"/><path d="M12 2l9 5-9 5-9-5z" fill="#ffd27a"/><path d="M12 12v10l-9-5V7z" fill="#e08e00"/></svg><span>CUBIVERSO</span></a>
+  <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" type="search" placeholder="Buscar juegos" autocomplete="off"></label>
+  <button class="musb" id="musbtn" data-act="mustoggle" aria-label="Música: pulsa para encender o apagar" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></button>
+  <a class="pill" href="#cubos" id="bal" aria-label="Tus Cubos"></a>
+  <a class="me" href="#avatar" aria-label="Tu avatar"><img id="meimg" alt=""></a>
+</div></header>
+<div class="shell">
+  <nav class="side" id="side">
+    <a href="#inicio" data-v="inicio"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>Inicio</a>
+    <a href="#juegos" data-v="juegos"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="4"/><path d="M7 11v3M5.5 12.5h3M16 12h.01M18 14h.01"/></svg>Juegos</a>
+    <a href="#avatar" data-v="avatar"><svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="8" rx="1"/><path d="M5 22v-6a4 4 0 014-4h6a4 4 0 014 4v6"/></svg>Avatar</a>
+    <a href="#catalogo" data-v="catalogo"><svg viewBox="0 0 24 24"><path d="M4 8h16l-1.5 12h-13z"/><path d="M8 8a4 4 0 018 0"/></svg>Catálogo</a>
+    <a href="#musica" data-v="musica"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Música</a>
+    <a href="#amigos" data-v="amigos"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15 20c0-2 .9-4 3-5"/></svg>Amigos</a>
+    <a href="#cubos" data-v="cubos"><svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>Cubos</a>
+    <a href="#ajustes" data-v="ajustes"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>Ajustes</a>
+  </nav>
+  <main id="view"></main>
+</div>
+<div id="play" hidden>
+  <div class="bar">
+    <button class="btn" id="gmenubtn" aria-expanded="false">☰ Menú</button>
+    <b id="gname"></b>
+    <span class="pill" id="gbal"></span>
+    <button class="btn" data-act="musmute" id="gmute" aria-pressed="false">Sonido: sí</button>
+    <button class="btn" data-act="exitgame">Salir</button>
+  </div>
+  <iframe id="frame" title="Juego" allow="fullscreen; autoplay"></iframe>
+  <div id="gpanel" hidden>
+    <button data-act="resume">Volver al juego</button>
+    <button data-act="restartgame">Reiniciar el juego</button>
+    <button data-act="fullgame">Pantalla completa</button>
+    <button data-act="exitgame">Salir a Cubiverso</button>
+  </div>
+</div>
+<div id="gate" hidden></div>
+<div id="modal"></div>
+<div id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="avatar.js"></script>
+<script src="audio.js"></script>
+<script src="firebase-config.js"></script>
+<script src="cuenta.js"></script>
+<script src="pases.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="multi.js"></script>
+<script>
+const A=window.CubiAvatar;
+let st=A.state();
+const save=()=>A.save(st);
+const $=s=>document.querySelector(s);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtC=n=>Math.floor(n).toLocaleString('es-ES');
+const eur=n=>n.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+const CUBE='<svg class="cube" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7z" fill="#ffb020"/><path d="M12 2l9 5-9 5-9-5z" fill="#ffd27a"/><path d="M12 12v10l-9-5V7z" fill="#e08e00"/></svg>';
+const NOTE_SVG='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>';
+const PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>';
+let toastT;function toast(t){if(window.CubiAudio)CubiAudio.sfx(/falta|no existe|ya canjeaste|no tienes|escribe/i.test(t)?'error':'notify');const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2600)}
+function addHist(txt,amt){(st.history=st.history||[]).unshift({t:Date.now(),txt,amt});st.history=st.history.slice(0,30)}
+
+/* ================= JUEGOS ================= */
+function art(draw){const c=document.createElement('canvas');c.width=480;c.height=270;const g=c.getContext('2d');try{draw(g,480,270)}catch(e){}return c.toDataURL()}
+function rr(g,x,y,w,h,col){g.fillStyle=col;g.fillRect(x,y,w,h)}
+function windows(g,x,y,w,h,col){g.fillStyle=col;for(let yy=y+8;yy<y+h-10;yy+=16)for(let xx=x+6;xx<x+w-10;xx+=14)g.fillRect(xx,yy,7,8)}
+function person(g,x,y,s,shirt){rr(g,x-6*s,y-14*s,12*s,10*s,'#ffd29a');rr(g,x-8*s,y-4*s,16*s,14*s,shirt);rr(g,x-8*s,y+10*s,7*s,12*s,'#2d3a5a');rr(g,x+1*s,y+10*s,7*s,12*s,'#2d3a5a');g.fillStyle='#111';g.fillRect(x-3*s,y-11*s,2*s,3*s);g.fillRect(x+1*s,y-11*s,2*s,3*s)}
+const GAMES=[
+ {id:'obby',name:'Carrera Imposible',file:'juegos/carrera-imposible.html',tag:'Obby · Multijugador',avatar:true,multi:true,nuevo:true,
+  desc:'Una carrera de obstáculos con 6 fases: saltos, plataformas móviles, baldosas que desaparecen, barras giratorias, trampolines y una torre final. Juega solo o crea una sala para competir con tus amigos.',
+  draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#5fb8f5');sk.addColorStop(1,'#d8f1ff');g.fillStyle=sk;g.fillRect(0,0,w,h);
+    const lv=g.createLinearGradient(0,200,0,h);lv.addColorStop(0,'#ff7a1a');lv.addColorStop(1,'#c62800');g.fillStyle=lv;g.fillRect(0,200,w,70);
+    [[30,190,'#3fa7ff'],[110,170,'#ffcc33'],[190,150,'#3fd15c'],[270,130,'#ff6fb5'],[350,110,'#9c6bff']].forEach(([x,y,c])=>{rr(g,x,y,60,16,c);g.fillStyle='rgba(0,0,0,.2)';g.fillRect(x,y+12,60,4)});
+    rr(g,400,40,60,70,'#ffcc33');rr(g,420,110,20,20,'#e0a400');rr(g,410,130,40,8,'#e0a400');g.fillStyle='#3fd15c';g.fillRect(455,20,4,40);g.fillRect(459,20,20,12);
+    person(g,300,128,1.6,'#ff4f4f');person(g,140,168,1.6,'#3fa7ff');person(g,220,148,1.6,'#ffcc33')}},
+ {id:'globos',name:'Guerra de Globos',file:'juegos/guerra-de-globos.html',tag:'Acción · Multijugador',avatar:true,multi:true,nuevo:true,
+  desc:'Batalla de globos de agua de 3 minutos en una arena con cajas para cubrirte. Cada globo te moja; a la tercera estás empapado. Juega contra 4 bots o con tus amigos en una sala.',
+  draw(g,w,h){rr(g,0,0,w,h,'#8fd3ff');rr(g,0,150,w,120,'#7fd36b');[[60,120,'#ffcc33'],[380,110,'#ff6fb5'],[210,130,'#9c6bff']].forEach(([x,y,c])=>rr(g,x,y,60,50,c));
+    g.strokeStyle='rgba(255,255,255,.8)';g.lineWidth=3;g.setLineDash([8,8]);g.beginPath();g.moveTo(120,170);g.quadraticCurveTo(240,40,350,160);g.stroke();g.setLineDash([]);
+    [['#ff4f4f',250,72],['#3fa7ff',300,100]].forEach(([c,x,y])=>{g.fillStyle=c;g.beginPath();g.ellipse(x,y,13,16,0,0,7);g.fill()});
+    g.fillStyle='#7fd6ff';for(let k=0;k<8;k++){g.beginPath();g.arc(350+Math.cos(k)*22,175+Math.sin(k)*10,5,0,7);g.fill()}
+    person(g,110,200,2,'#3fa7ff');person(g,360,205,2,'#ff4f4f')}},
+ {id:'pesca',name:'Pesca Tranquila',file:'juegos/pesca-tranquila.html',tag:'Relax · Coleccionar',avatar:true,nuevo:true,
+  desc:'Un lago con 13 peces por descubrir, del Sardinilla Saltarina al rarísimo Pez Cubiverso. Lanza, espera a que pique y sácalo con el minijuego. Vende, compra cañas mejores y completa el libro de peces.',
+  draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#ffb47a');sk.addColorStop(1,'#ffe1b8');g.fillStyle=sk;g.fillRect(0,0,w,h);
+    g.fillStyle='#2f8fd8';g.fillRect(0,150,w,120);g.fillStyle='rgba(255,255,255,.25)';for(let k=0;k<10;k++)g.fillRect((k*53)%w,170+(k*17)%80,30,3);
+    rr(g,0,135,w,16,'#3fae4a');rr(g,170,160,140,14,'#9c6b3e');[180,210,240,270,300].forEach(x=>rr(g,x,174,6,40,'#7a5230'));
+    person(g,280,148,1.8,'#ff9a3d');g.strokeStyle='#c8a165';g.lineWidth=4;g.beginPath();g.moveTo(292,128);g.lineTo(380,70);g.stroke();
+    g.strokeStyle='#fff';g.lineWidth=1.5;g.beginPath();g.moveTo(380,70);g.lineTo(410,200);g.stroke();g.fillStyle='#ff4f4f';g.beginPath();g.arc(410,204,6,0,7);g.fill();
+    g.fillStyle='#ffb300';g.beginPath();g.ellipse(120,215,28,14,0,0,7);g.fill();g.beginPath();g.moveTo(92,215);g.lineTo(76,202);g.lineTo(76,228);g.fill()}},
+ {id:'torres',name:'Torres del Castillo',file:'juegos/torres-del-castillo.html',tag:'Estrategia',avatar:false,nuevo:true,
+  desc:'Una invasión de mocos va hacia tu castillo. Coloca arqueros, cañones, torres de hielo y láseres junto al camino, mejóralas y aguanta 20 oleadas con el Rey Moco incluido.',
+  draw(g,w,h){rr(g,0,0,w,h,'#5cb84a');g.fillStyle='#d9c48f';[[0,60,200,30],[170,60,30,140],[170,170,250,30],[390,40,30,160],[390,40,90,30]].forEach(a=>g.fillRect(...a));
+    [[90,120,'#8d6e63'],[260,110,'#455a64'],[320,240,'#4fc3f7'],[460,130,'#e040fb']].forEach(([x,y,c])=>{rr(g,x-14,y-30,28,40,c);rr(g,x-18,y+8,36,8,'#9e9e9e')});
+    [[60,75,'#7cd65a'],[185,130,'#ffd23f'],[300,185,'#8e44ad']].forEach(([x,y,c])=>{g.fillStyle=c;g.beginPath();g.ellipse(x,y,14,11,0,0,7);g.fill();g.fillStyle='#fff';g.beginPath();g.arc(x-4,y-3,3,0,7);g.arc(x+4,y-3,3,0,7);g.fill()});
+    rr(g,430,10,44,40,'#bdbdbd');g.fillStyle='#3fa7ff';g.beginPath();g.moveTo(426,12);g.lineTo(452,-6);g.lineTo(478,12);g.fill()}},
+ {id:'ladrones',name:'Ladrones de Brainrots',file:'juegos/ladrones-de-brainrots.html',tag:'Coleccionar · Robar',avatar:true,nuevo:true,
+  desc:'Compra brainrots absurdos en la alfombra roja, róbaselos a Lola, Max y Kiko y defiende tu base con el bloqueo. Cada brainrot da dinero cada segundo. 12 criaturas y 6 rarezas.',
+  draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#5fb8f5');sk.addColorStop(1,'#c9ecff');g.fillStyle=sk;g.fillRect(0,0,w,h);
+    rr(g,0,160,w,110,'#5cc23f');g.fillStyle='#c62828';g.beginPath();g.moveTo(0,215);g.lineTo(w,195);g.lineTo(w,232);g.lineTo(0,255);g.fill();
+    g.strokeStyle='#ffcc33';g.lineWidth=4;g.beginPath();g.moveTo(0,215);g.lineTo(w,195);g.moveTo(0,255);g.lineTo(w,232);g.stroke();
+    rr(g,300,110,160,70,'#3fa7ff');rr(g,308,118,144,56,'#eef3fb');[[330,150],[380,150],[430,150]].forEach(([x,y])=>{rr(g,x-14,y,28,14,'#ffffff')});
+    rr(g,120,170,70,58,'#8a5a2a');rr(g,126,176,58,46,'#d9a25a');rr(g,110,232,92,8,'#e53935');g.fillStyle='#fff';[[118,244],[194,244]].forEach(([x,y])=>{g.beginPath();g.arc(x,y,6,0,7);g.fill()});
+    [[140,192],[164,192]].forEach(([x,y])=>{g.fillStyle='#fff';g.beginPath();g.arc(x,y,8,0,7);g.fill();g.fillStyle='#111';g.beginPath();g.arc(x+1,y+2,4,0,7);g.fill()});g.fillStyle='#5a1010';g.beginPath();g.ellipse(152,212,9,6,0,0,7);g.fill();
+    person(g,250,205,2.2,'#ff4f4f');g.fillStyle='#ffcc33';g.font='900 26px Arial';g.textAlign='center';g.lineWidth=5;g.strokeStyle='#000';g.strokeText('+$15/s',380,96);g.fillText('+$15/s',380,96)}},
+ {id:'patadon',name:'Patadón de Lucky Blocks',file:'juegos/patadon-lucky-blocks.html',tag:'Habilidad · Coleccionar',avatar:true,nuevo:true,
+  desc:'Patea bloques de la suerte lo más lejos que puedas. Al caer se abren y dan monedas, mascotas y a veces Cubos de Cubiverso. Mejora tu patada y consigue bloques de oro, diamante y galácticos.',
+  draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#5fb0f0');sk.addColorStop(1,'#d6f0ff');g.fillStyle=sk;g.fillRect(0,0,w,h);
+    rr(g,0,170,w,100,'#5cc23f');g.fillStyle='#e9eef5';g.beginPath();g.moveTo(180,270);g.lineTo(300,270);g.lineTo(255,170);g.lineTo(225,170);g.fill();
+    ['#9c6bff','#3fa7ff','#5cc23f'].forEach((c,i)=>{g.fillStyle=c;g.globalAlpha=.35;g.fillRect(228-i*8,180+i*30,24+i*16,10);g.globalAlpha=1});
+    g.strokeStyle='rgba(255,255,255,.8)';g.lineWidth=4;g.setLineDash([10,10]);g.beginPath();g.moveTo(150,230);g.quadraticCurveTo(260,10,380,120);g.stroke();g.setLineDash([]);
+    g.save();g.translate(380,110);g.rotate(.4);const gr=g.createLinearGradient(-30,-30,30,30);gr.addColorStop(0,'#ffd23f');gr.addColorStop(1,'#e0a400');g.fillStyle=gr;g.fillRect(-30,-30,60,60);
+    g.fillStyle='rgba(255,255,255,.85)';g.fillRect(-4,-30,8,60);g.fillRect(-30,-4,60,8);g.fillStyle='#2e9e45';[[0,-9],[9,0],[0,9],[-9,0]].forEach(([x,y])=>{g.beginPath();g.arc(x,y,7,0,7);g.fill()});g.lineWidth=3;g.strokeStyle='#000';g.strokeRect(-30,-30,60,60);g.restore();
+    person(g,140,240,2.2,'#3fa7ff')}},
+ {id:'barrio',name:'Barrio Tycoon',file:'juegos/barrio-tycoon.html',tag:'Tycoon · Construcción',avatar:true,
+  desc:'Empieza en un terreno vacío y levanta una ciudad: casas, tiendas, servicios, trenes, tranvías y autobuses. Tu avatar de Cubiverso aparece en el juego y los pases se compran con Cubos.',
+  draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#62b8f5');sk.addColorStop(1,'#cfeeff');g.fillStyle=sk;g.fillRect(0,0,w,h);
+    rr(g,0,170,w,100,'#5cc23f');g.fillStyle='rgba(255,255,255,.18)';for(let x=6;x<w;x+=14)for(let y=176;y<h;y+=14){g.beginPath();g.arc(x,y,3,0,7);g.fill()}
+    rr(g,0,205,w,26,'#4a4f5c');g.fillStyle='#ffe082';for(let x=10;x<w;x+=40)g.fillRect(x,216,20,4);
+    [[30,90,60,80,'#ff8a65'],[110,40,56,130,'#64b5f6'],[180,110,70,60,'#ba68c8'],[270,20,64,150,'#90caf9'],[350,95,58,75,'#ffd54f'],[420,60,50,110,'#ef5350']].forEach(([x,y,bw,bh,c])=>{rr(g,x,y,bw,bh,c);windows(g,x,y,bw,bh,'#2a3f66');rr(g,x-3,y-6,bw+6,8,'#3b4456')});
+    person(g,240,230,2.2,'#ff7a2f');g.fillStyle='#21c063';g.beginPath();g.arc(420,40,22,0,7);g.fill();g.fillStyle='#fff';g.font='900 28px Arial';g.textAlign='center';g.textBaseline='middle';g.fillText('$',420,42)}},
+ {id:'tormentas',name:'Repartidor de Tormentas',file:'juegos/repartidor-tormentas.html',tag:'Aventura · Parkour',
+  desc:'Reparte paquetes por una ciudad que flota entre las nubes mientras llegan vendavales, inundaciones, rayos y niebla. Tres mundos, mejoras y cámara en primera persona.',
+  draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#241c42');sk.addColorStop(1,'#6b5aa0');g.fillStyle=sk;g.fillRect(0,0,w,h);
+    g.strokeStyle='rgba(200,220,255,.35)';g.lineWidth=2;for(let k=0;k<70;k++){const x=(k*53)%w,y=(k*37)%h;g.beginPath();g.moveTo(x,y);g.lineTo(x-6,y+16);g.stroke()}
+    g.fillStyle='#6a5244';g.beginPath();g.moveTo(80,190);g.lineTo(400,190);g.lineTo(300,260);g.lineTo(180,260);g.closePath();g.fill();rr(g,70,180,340,14,'#7a8aa0');
+    [[100,120,50,60,'#e8a87c'],[165,90,46,90,'#85c1c4'],[225,130,60,50,'#f2d16b'],[300,70,50,110,'#c38ad6'],[360,120,40,60,'#8fc98b']].forEach(([x,y,bw,bh,c])=>{rr(g,x,y,bw,bh,c);windows(g,x,y,bw,bh,'#4b6a8f')});
+    g.strokeStyle='#ffe66b';g.lineWidth=6;g.lineJoin='round';g.beginPath();g.moveTo(330,0);g.lineTo(300,50);g.lineTo(325,52);g.lineTo(290,110);g.stroke();
+    rr(g,190,150,26,22,'#c58a4a');g.strokeStyle='#7a5228';g.lineWidth=2;g.strokeRect(190,150,26,22);person(g,175,170,1.6,'#ff8a3d')}},
+ {id:'bolsillo',name:'Ciudad de Bolsillo',file:'juegos/ciudad-de-bolsillo.html',tag:'Simulación',
+  desc:'Una maqueta encima de la mesa con un lago y un río. Pon carreteras, casas, tiendas, fábricas, parques y centrales, y mira cómo crece de aldea a metrópolis.',
+  draw(g,w,h){rr(g,0,0,w,h,'#a9d6f0');const t=g.createLinearGradient(0,150,0,h);t.addColorStop(0,'#c89a62');t.addColorStop(1,'#8a5a3a');g.fillStyle=t;g.fillRect(0,150,w,h);
+    g.fillStyle='#7cc06a';g.beginPath();g.moveTo(90,200);g.lineTo(390,200);g.lineTo(440,250);g.lineTo(40,250);g.closePath();g.fill();
+    g.fillStyle='#4aa3d8';g.beginPath();g.ellipse(120,228,40,12,0,0,7);g.fill();rr(g,180,222,250,6,'#4a4a55');
+    [[200,180,22,30,'#f08a6a'],[232,170,22,40,'#f2c46a'],[264,160,24,50,'#9fd0e8'],[300,175,22,35,'#c8a6e8'],[340,150,26,60,'#6aa0d8']].forEach(([x,y,bw,bh,c])=>{rr(g,x,y+10,bw,bh,c);g.fillStyle='#b5483a';g.beginPath();g.moveTo(x-3,y+10);g.lineTo(x+bw/2,y);g.lineTo(x+bw+3,y+10);g.fill()});
+    g.fillStyle='#ffd84d';g.beginPath();g.arc(410,50,26,0,7);g.fill()}},
+ {id:'cambiazo',name:'El Cambiazo',file:'juegos/el-cambiazo.html',tag:'Aventura · Social',
+  desc:'Empiezas con un móvil de 1997. Recorre el barrio de noche, habla con los vecinos y convéncelos para cambiar su móvil por el tuyo. No siempre querrán.',
+  draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#15102a');sk.addColorStop(1,'#2b2342');g.fillStyle=sk;g.fillRect(0,0,w,h);
+    const gl=g.createRadialGradient(360,90,4,360,90,120);gl.addColorStop(0,'rgba(255,179,71,.55)');gl.addColorStop(1,'rgba(255,179,71,0)');g.fillStyle=gl;g.fillRect(0,0,w,h);
+    rr(g,0,200,w,70,'#1c1827');rr(g,356,70,6,140,'#222033');g.fillStyle='#ffd59a';g.beginPath();g.arc(359,70,9,0,7);g.fill();
+    rr(g,110,90,60,120,'#4a4740');rr(g,150,50,10,44,'#2e2c29');rr(g,120,104,40,40,'#9fbc7a');for(let r=0;r<3;r++)for(let k=0;k<3;k++)rr(g,120+k*14,154+r*16,10,10,'#2e2c29');
+    g.fillStyle='#ffb347';g.font='900 46px Arial';g.textAlign='center';g.fillText('⇄',240,160);
+    const ph=g.createLinearGradient(290,80,350,200);ph.addColorStop(0,'#ffb347');ph.addColorStop(1,'#c54bd6');g.fillStyle=ph;g.fillRect(290,80,64,124);g.fillStyle='#2b1550';g.fillRect(295,86,54,112)}}
+];
+GAMES.forEach(gm=>gm.img=art(gm.draw));
+function gameCard(gm){return `<button class="gcard" data-act="game" data-id="${gm.id}"><span class="th" style="background-image:url(${gm.img})">${gm.nuevo?'<span class="new">NUEVO</span>':''}</span><b>${esc(gm.name)}</b><span>${esc(gm.tag)}</span></button>`}
+
+/* ================= MINIATURAS 3D ================= */
+let TR=null,TSc=null,TC=null,webgl=true;
+function thumbSetup(){try{TR=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});TR.setPixelRatio(1);TR.setSize(192,192);TR.setClearColor(0x000000,0);
+  TSc=new THREE.Scene();TSc.add(new THREE.HemisphereLight(0xffffff,0x667788,.95));const d=new THREE.DirectionalLight(0xffffff,.55);d.position.set(2,3,4);TSc.add(d);TC=new THREE.PerspectiveCamera(30,1,.1,50)}catch(e){webgl=false}}
+function dispose(o){o.traverse(m=>{if(m.geometry)m.geometry.dispose();if(m.material){(Array.isArray(m.material)?m.material:[m.material]).forEach(mt=>{if(mt.map)mt.map.dispose();mt.dispose()})}})}
+const VIEWS={head:[[.55,2.0,2.1],[0,1.97,0]],hat:[[.6,2.25,2.5],[0,2.12,0]],torso:[[.7,1.25,2.7],[0,1.15,0]],legs:[[.6,.6,2.5],[0,.45,0]],back:[[-1.3,1.45,-2.7],[0,1.15,0]],full:[[1.4,1.6,5],[0,1.05,0]]};
+const CATVIEW={piel:'head',cara:'head',cabeza:'hat',accesorio:'head',camiseta:'torso',pantalon:'legs',espalda:'back',animacion:'full',gesto:'full'};
+function renderThumb(eq,view,pose){if(!TR&&webgl)thumbSetup();if(!webgl)return '';const av=A.makeAvatar(THREE,eq);TSc.add(av.root);if(pose)try{pose(av)}catch(e){}
+  const[p,l]=VIEWS[view]||VIEWS.full;TC.position.set(...p);TC.lookAt(...l);TR.render(TSc,TC);const url=String(TR.domElement.toDataURL()||'');TSc.remove(av.root);dispose(av.root);return url}
+const thumbs={};
+function itemThumb(it){if(thumbs[it.id]!==undefined)return thumbs[it.id];const eq=Object.assign({},A.DEF_EQ,{[it.cat]:it.id});let pose=null;
+  if(it.cat==='animacion')pose=av=>{av.root.rotation.y=-.6;A.animate(av,{walk:1.25,moving:1,dt:.016,pack:it.id})};
+  if(it.cat==='gesto')pose=av=>{av.root.rotation.y=-.4;A.emote(av,it.id);const n=Math.round((it.dur||2.5)*.42/.1);for(let k=0;k<n;k++)A.animate(av,{dt:.1,moving:0})};
+  return thumbs[it.id]=renderThumb(eq,CATVIEW[it.cat],pose)}
+let headKey='',headUrl='';
+function headshot(){const k=JSON.stringify(st.eq);if(k!==headKey){headKey=k;headUrl=renderThumb(st.eq,'head')}return headUrl}
+
+/* ================= VISOR DEL AVATAR ================= */
+let PV=null;
+function mountPreview(el){
+  if(!webgl)return;
+  if(!PV){try{
+    const r=new THREE.WebGLRenderer({antialias:true,alpha:true});r.setPixelRatio(Math.min(devicePixelRatio,2));r.setClearColor(0x000000,0);
+    const s=new THREE.Scene();s.add(new THREE.HemisphereLight(0xffffff,0x556070,.95));const d=new THREE.DirectionalLight(0xffffff,.7);d.position.set(3,5,4);s.add(d);
+    const disc=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.2,.12,40),new THREE.MeshLambertMaterial({color:0x4b93ff}));disc.position.y=-.06;s.add(disc);
+    const c=new THREE.PerspectiveCamera(30,1,.1,50);c.position.set(0,1.45,6.4);c.lookAt(0,1.1,0);
+    PV={r,s,c,av:null,yaw:-.5,drag:null,idle:0,t:0,mode:'idle',walk:0,jy:0};
+    const cvs=r.domElement;
+    cvs.addEventListener('pointerdown',e=>{PV.drag={x:e.clientX};try{cvs.setPointerCapture(e.pointerId)}catch(_){}cvs.style.cursor='grabbing'});
+    cvs.addEventListener('pointermove',e=>{if(!PV.drag)return;PV.yaw+=(e.clientX-PV.drag.x)*.012;PV.drag.x=e.clientX;PV.idle=0});
+    const up=()=>{PV.drag=null;cvs.style.cursor='grab'};cvs.addEventListener('pointerup',up);cvs.addEventListener('pointercancel',up);
+  }catch(e){webgl=false;return}}
+  el.prepend(PV.r.domElement);sizePV();rebuildPV();
+}
+function rebuildPV(){if(!PV)return;if(PV.av){PV.s.remove(PV.av.root);dispose(PV.av.root)}PV.av=A.makeAvatar(THREE,st.eq);PV.s.add(PV.av.root)}
+function sizePV(){if(!PV)return;const el=PV.r.domElement.parentElement;if(!el)return;const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);PV.r.setSize(w,h,false);PV.c.aspect=w/h;PV.c.updateProjectionMatrix()}
+addEventListener('resize',sizePV);
+let lastT=performance.now();
+function tick(t){const dt=Math.min(.05,(t-lastT)/1000);lastT=t;
+  if(PV&&PV.av&&PV.r.domElement instanceof Node&&document.body.contains(PV.r.domElement)&&$('#play').hidden){PV.t+=dt;PV.idle+=dt;if(!PV.drag&&PV.idle>2.5)PV.yaw+=dt*.35;
+    PV.av.root.rotation.y=PV.yaw;const m=PV.mode;let air=false,moving=m==='walk'||m==='climb';if(moving)PV.walk+=dt*8;
+    if(m==='jump'){const ph=(PV.t%1.3)/1.3;air=ph<.55;PV.av.root.position.y=air?Math.sin(ph/.55*Math.PI)*1.1:0;if(!air)moving=false}else PV.av.root.position.y=0;
+    A.animate(PV.av,{walk:PV.walk,moving,air,climb:m==='climb',dt});if(PV.av._emote===null&&PV.mode==='emote')PV.mode='idle';PV.r.render(PV.s,PV.c)}
+  requestAnimationFrame(tick)}
+requestAnimationFrame(tick);
+
+/* ================= VISTAS ================= */
+let view='inicio',avCat='piel',catCat='todo',query='';
+function priceHTML(it){if(st.owned.includes(it.id))return `<span class="pr own">Tuyo</span>`;if(!it.price)return `<span class="pr free">Gratis</span>`;return `<span class="pr">${CUBE}${fmtC(it.price)}</span>`}
+function itemPic(it){if(it.cat==='piel')return `<span class="sw" style="background:${it.col}"></span>`;const u=itemThumb(it);return `<span class="pic" style="${u?`background-image:url(${u})`:''}"></span>`}
+function itemCard(it,act){const on=st.eq[it.cat]===it.id;return `<button class="item ${on?'on':''}" data-act="${act}" data-id="${it.id}" aria-pressed="${on}">${itemPic(it)}<b>${esc(it.name)}</b>${it.desc?`<span class="desc">${esc(it.desc)}</span>`:''}${priceHTML(it)}${on?'<span class="eqd">Puesto</span>':''}</button>`}
+const V={
+  inicio(){const canDaily=Date.now()-(st.daily||0)>20*3600e3;const recent=st.recent.map(id=>GAMES.find(g=>g.id===id)).filter(Boolean);
+    return `<div class="hello"><div class="face">${headshot().startsWith('data:')?`<img src="${headshot()}" alt="Tu avatar">`:''}</div>
+      <div style="min-width:0"><h1>Hola, ${esc(st.name)}</h1><p class="sub" style="margin:0">Tienes ${CUBE} <b>${fmtC(st.cubos)}</b> Cubos y ${st.owned.filter(id=>A.BY[id].price).length} objetos comprados.</p>
+      <div class="row" style="margin-top:10px"><a class="btn" href="#avatar" style="text-decoration:none">Editar avatar</a><a class="btn" href="#catalogo" style="text-decoration:none">Ir al catálogo</a></div></div>
+      <div class="daily"><b>Recompensa diaria</b><span class="chip">${canDaily?'¡Disponible!':'Vuelve mañana'}</span><button class="btn brand" data-act="daily" ${canDaily?'':'disabled'}>Recoger ${CUBE} 50</button></div></div>
+    ${recent.length?`<section class="sec"><div class="sec-h"><h2>Seguir jugando</h2></div><div class="games">${recent.map(gameCard).join('')}</div></section>`:''}
+    <section class="sec"><div class="sec-h"><h2>Tus juegos</h2><a href="#juegos">Ver todos</a></div><div class="games">${GAMES.map(gameCard).join('')}</div></section>
+    <section class="sec"><div class="sec-h"><h2>Nuevo: animaciones y gestos</h2><a href="#catalogo" data-act="tocat" data-id="animacion">Ver todos</a></div><div class="items">${['an2','an5','an6','ge5','ge1','ge6'].map(id=>itemCard(A.BY[id],'item')).join('')}</div></section>
+    <section class="sec"><div class="sec-h"><h2>Novedades del catálogo</h2><a href="#catalogo">Ver catálogo</a></div><div class="items">${['h11','b9','sh13','h14','b8','f11'].map(id=>itemCard(A.BY[id],'item')).join('')}</div></section>`},
+  juegos(){const q=query.trim().toLowerCase();const list=GAMES.filter(g=>!q||(g.name+' '+g.tag+' '+g.desc).toLowerCase().includes(q));
+    return `<h1>Juegos</h1><p class="sub">${q?`Resultados para «${esc(query)}»`:'Todos tus juegos en un solo sitio.'}</p>
+    ${list.length?`<div class="games">${list.map(gameCard).join('')}</div>`:`<div class="card">No hay ningún juego que se llame así. Prueba con otra palabra.</div>`}`},
+  avatar(){const its=A.ITEMS.filter(i=>i.cat===avCat&&st.owned.includes(i.id));const more=A.ITEMS.filter(i=>i.cat===avCat&&!st.owned.includes(i.id)).length;
+    return `<h1>Avatar</h1><p class="sub">Arrastra el muñeco para girarlo. Lo que te pongas aquí lo llevas en todos los juegos. En <b>Animaciones</b> eliges cómo andas, saltas y trepas; en <b>Gestos</b> pruebas los que puedes hacer en los juegos con la tecla G o el botón GESTOS.</p>
+    <div class="av"><div style="min-width:0"><div class="stage" id="stage"><span class="hint">${webgl?'Arrastra para girar':'Tu navegador no puede mostrar 3D'}</span></div>
+    ${webgl?`<div class="demo" role="group" aria-label="Probar animaciones">${[['idle','Quieto'],['walk','Andar'],['jump','Saltar'],['climb','Trepar']].map(([k,n])=>`<button class="btn ${PV&&PV.mode===k?'on':''}" data-act="demo" data-id="${k}">${n}</button>`).join('')}<button class="btn" data-act="demoemote">Gesto: ${esc((A.BY[st.eq.gesto]||A.BY.ge0).name)}</button></div>`:''}</div>
+    <div style="min-width:0"><div class="tabs" role="tablist">${A.CATS.map(([id,n])=>`<button class="tab ${avCat===id?'on':''}" role="tab" aria-selected="${avCat===id}" data-act="avcat" data-id="${id}">${n}</button>`).join('')}</div>
+    <div class="items">${its.map(i=>itemCard(i,'equip')).join('')}</div>
+    ${more?`<div class="card row" style="margin-top:14px;justify-content:space-between"><span>Hay ${more} ${more===1?'objeto':'objetos'} más de esta categoría en el catálogo.</span><button class="btn" data-act="tocat" data-id="${avCat}">Ver en el catálogo</button></div>`:''}
+    <div class="row" style="margin-top:14px"><button class="btn" data-act="randomav">Combinación aleatoria</button></div></div></div>`},
+  catalogo(){const list=A.ITEMS.filter(i=>(catCat==='todo'||i.cat===catCat)&&!(i.price===0&&['h0','a0','b0'].includes(i.id)));
+    return `<h1>Catálogo</h1><p class="sub">Compra ropa, accesorios, animaciones y gestos con Cubos. Tienes ${CUBE} <b>${fmtC(st.cubos)}</b>.</p>
+    <div class="tabs"><button class="tab ${catCat==='todo'?'on':''}" data-act="catcat" data-id="todo">Todo</button>${A.CATS.map(([id,n])=>`<button class="tab ${catCat===id?'on':''}" data-act="catcat" data-id="${id}">${n}</button>`).join('')}</div>
+    <div class="items">${list.map(i=>itemCard(i,'item')).join('')}</div>`},
+  cubos(){return `<h1>Cubos</h1><p class="sub">La moneda de Cubiverso. Sirve para el catálogo y para los pases de los juegos.</p>
+    <div class="test"><b>Modo de prueba.</b><span>Aquí no se cobra dinero real ni se piden datos de tarjeta. Puedes pagar con saldo de tarjeta regalo o con un pago de prueba.</span></div>
+    <section class="sec"><div class="packs">${PACKS.map((p,i)=>`<div class="pack">${p.tag?`<span class="tagp">${p.tag}</span>`:''}<div class="stack">${cubeStack(i)}</div><div class="amt">${CUBE}${fmtC(p.c)}</div><span class="chip">${eur(p.e)}</span><button class="btn play" data-act="buypack" data-id="${i}">Comprar</button></div>`).join('')}</div></section>
+    <div class="two">
+      <div class="card sec" style="margin:0"><h2>Tarjeta regalo</h2><p style="margin:0;color:var(--muted)">Saldo disponible: <b style="color:var(--fg)">${eur(st.gift||0)}</b>. Canjea un código para añadir saldo o Cubos.</p>
+        <form class="row" id="giftform"><input class="field" id="giftcode" placeholder="Código" maxlength="24" autocomplete="off" aria-label="Código de tarjeta regalo"><button class="btn brand" type="submit">Canjear</button></form>
+        <p style="margin:0;font-size:13px;color:var(--muted)">Códigos de prueba: REGALO-10, REGALO-25 y BIENVENIDA.</p></div>
+      <div class="card sec" style="margin:0"><h2>Movimientos</h2><div class="hist">${(st.history||[]).length?st.history.slice(0,8).map(h=>`<div><span>${esc(h.txt)}</span><b class="${h.amt>=0?'pos':'neg'}">${h.amt>=0?'+':''}${fmtC(h.amt)}</b></div>`).join(''):'<div><span style="color:var(--muted)">Todavía no hay movimientos.</span></div>'}</div></div>
+    </div>`},
+  amigos(){const fr=(st.friends||[]).slice(0,30);const multi=GAMES.filter(g=>g.multi);const can=window.CubiMulti&&CubiMulti.available();
+    const ago=t=>{const m=Math.round((Date.now()-t)/60000);return m<1?'ahora':m<60?`hace ${m} min`:m<1440?`hace ${Math.round(m/60)} h`:`hace ${Math.round(m/1440)} días`};
+    return `<h1>Amigos</h1><p class="sub">Juega con tus amigos en salas privadas con código.</p>
+    ${can?'':'<div class="test"><b>Aviso.</b><span>Dentro de Claude no se puede jugar online. El multijugador funciona en la web y en la app de Cubiverso.</span></div>'}
+    <section class="sec"><div class="sec-h"><h2>Cómo jugar con amigos</h2></div><div class="card" style="display:flex;flex-direction:column;gap:6px">
+      <span>1. Abre un juego multijugador y pulsa <b>Crear sala</b>.</span><span>2. Pasa el código de 5 letras a tus amigos.</span><span>3. Ellos abren el mismo juego, escriben el código y pulsan <b>Unirse</b>.</span><span>4. Cuando estéis todos, el anfitrión pulsa <b>¡Empezar!</b></span></div></section>
+    <section class="sec"><div class="sec-h"><h2>Juegos multijugador</h2></div><div class="games">${multi.map(gameCard).join('')}</div></section>
+    <section class="sec"><div class="sec-h"><h2>Has jugado con</h2></div>${fr.length?`<div class="card hist">${fr.map(f=>`<div><span><b>${esc(f.name)}</b> · ${esc((GAMES.find(g=>g.id===({obby:'obby',globos:'globos'}[f.game]||f.game))||{name:f.game}).name)}</span><span style="color:var(--muted)">${ago(f.last)}</span></div>`).join('')}</div>`:'<div class="card">Aquí aparecerán las personas con las que juegues en una sala.</div>'}</section>`},
+  musica(){const Au=window.CubiAudio;if(!Au)return '<h1>Música</h1><div class="card">El sonido no está disponible.</div>';const S=Au.get(),U=Au.user();
+    const trk=(t,user)=>`<div class="trk" data-trk="${t.id}"><button class="pb" data-act="musplay" data-id="${t.id}" aria-label="Escuchar ${esc(t.name)}">${PLAY}</button>
+      <div style="min-width:0"><b>${esc(t.name)}</b><small>${user?`Tu música${t.size?' · '+(t.size/1048576).toFixed(1)+' MB':''}`:`${esc(t.mood)} · ${t.bpm} pulsaciones por minuto · Compuesta para Cubiverso`}</small></div>
+      ${user?`<button class="btn" data-act="musdel" data-id="${t.id}" aria-label="Quitar ${esc(t.name)}">Quitar</button>`:'<span></span>'}</div>`;
+    const opts=[['auto','La de cada juego'],['off','Sin música en los juegos']].concat(Au.tracks().map(t=>[t.id,'Siempre: '+t.name]));
+    const SND=[['click','Clic'],['coin','Moneda'],['buy','Compra'],['jump','Salto'],['boing','Muelle'],['splash','Chapuzón'],['pop','Pop'],['kick','Patada'],['laser','Láser'],['freeze','Hielo'],['boom','Explosión'],['win','Victoria'],['lose','Derrota'],['levelup','Subir nivel'],['alarm','Alarma'],['lucky','Suerte'],['train','Tren'],['horn','Bocina'],['thunder','Trueno'],['phone','Teléfono']];
+    return `<h1>Música</h1><p class="sub">Canciones compuestas para Cubiverso, tu propia música y todos los sonidos.</p>
+    <div class="card now" id="now"><div class="disc">${NOTE_SVG}</div><div style="min-width:0"><b id="nowname">Nada sonando</b><small id="nowsub">Elige una canción</small></div>
+      <div class="ctl"><button class="btn" data-act="musprev" aria-label="Anterior">⏮</button><button class="btn brand" data-act="mustoggle" id="nowbtn" aria-label="Reproducir o parar">▶</button><button class="btn" data-act="musnext" aria-label="Siguiente">⏭</button></div></div>
+    <div class="two" style="margin-top:16px">
+      <div class="card sec" style="margin:0"><h2>Volumen</h2>
+        <label class="sl"><span>Música</span><input type="range" min="0" max="100" value="${Math.round(S.music*100)}" data-vol="music"><b>${Math.round(S.music*100)}</b></label>
+        <label class="sl"><span>Efectos</span><input type="range" min="0" max="100" value="${Math.round(S.sfx*100)}" data-vol="sfx"><b>${Math.round(S.sfx*100)}</b></label>
+        <div class="row"><button class="btn ${S.muted?'danger':''}" data-act="musmute" aria-pressed="${S.muted}">${S.muted?'Sonido apagado: encender':'Silenciar todo'}</button>
+        <button class="btn" data-act="musshuffle" aria-pressed="${S.shuffle}">Aleatorio: ${S.shuffle?'sí':'no'}</button></div></div>
+      <div class="card sec" style="margin:0"><h2>Música en los juegos</h2><p style="margin:0;color:var(--muted)">Cada juego tiene su canción. Puedes cambiarla por otra o por tu música.</p>
+        <select class="sel" id="mustrack" aria-label="Música en los juegos">${opts.map(([v,n])=>`<option value="${v}" ${S.track===v?'selected':''}>${esc(n)}</option>`).join('')}</select></div>
+    </div>
+    <section class="sec"><div class="sec-h"><h2>Canciones de Cubiverso</h2></div><div class="tracks">${Au.builtin.map(t=>trk(t)).join('')}</div></section>
+    <section class="sec"><div class="sec-h"><h2>Tu música</h2></div>
+      <div class="upl" id="upl"><label class="btn brand" style="cursor:pointer">Cargar canciones<input type="file" id="musfile" accept="audio/*,.mp3,.ogg,.wav,.m4a,.aac,.flac,.opus" multiple hidden></label>
+      <span style="color:var(--muted);font-size:14px;min-width:0;flex:1 1 220px">Elige archivos de audio (MP3, M4A, OGG, WAV…) o arrástralos aquí. Se guardan solo en este dispositivo.</span></div>
+      <div class="tracks" style="margin-top:10px">${U.length?U.map(t=>trk(t,true)).join(''):'<div class="card">Todavía no has cargado ninguna canción.</div>'}</div></section>
+    <section class="sec"><div class="sec-h"><h2>Mesa de sonidos</h2></div><div class="board">${SND.map(([k,n])=>`<button class="btn" data-act="sfx" data-id="${k}" data-nosound="1">${n}</button>`).join('')}</div></section>`},
+  ajustes(){const C=window.CubiCuenta,cu=C&&C.actual(),inf=C&&C.info();
+    return `<h1>Ajustes</h1><p class="sub">${cu?(cu.cloud?'Tu cuenta y tu progreso se guardan en internet.':'Tu cuenta está guardada en este dispositivo.'):''}</p>
+    ${cu?`<div class="card sec" style="margin:0 0 16px"><h2>Tu cuenta</h2>
+      <div class="row" style="justify-content:space-between"><div style="min-width:0"><b style="font-size:20px">${esc(cu.name)}</b><br>${cloudTag(inf)}</div>
+      <div class="row">${cu.cloud?'<button class="btn" data-act="syncnow">Guardar ahora</button>':''}<button class="btn" data-act="logout">Cerrar sesión</button></div></div>
+      ${!cu.cloud&&C.nube?`<form class="row" id="tocloud" style="margin-top:12px"><input class="field nocase" type="password" id="tocloudpw" placeholder="Tu contraseña" autocomplete="current-password" aria-label="Tu contraseña"><button class="btn brand" type="submit">Subir mi cuenta a internet</button></form>`:''}
+      ${!cu.cloud&&!C.nube?'<p class="gnote" style="margin-top:10px">Para usar esta cuenta en otro dispositivo, genera un código de transferencia y pégalo allí en «Tengo un código».</p>':''}
+      <div style="margin-top:14px"><h2 style="font-size:16px">Código de transferencia</h2><p class="gnote">Copia de seguridad de tu cuenta y de todas tus partidas. En otro dispositivo, elige «Tengo un código», pega el código y escribe tu contraseña.</p>
+      <div id="codewrap" style="margin-top:8px"><button class="btn" data-act="mkcode">Generar código</button></div></div></div>`:''}
+    <div class="two"><form class="card sec" style="margin:0" id="nameform"><h2>Nombre</h2><div class="row"><input class="field nocase" id="nameinput" maxlength="20" value="${esc(st.name)}" aria-label="Tu nombre"><button class="btn brand" type="submit">Guardar</button></div></form>
+    <div class="card sec" style="margin:0"><h2>Empezar de cero</h2><p style="margin:0;color:var(--muted)">Borra tu avatar, tus Cubos y tus compras. Las partidas de cada juego se guardan aparte.</p><div id="resetbox"><button class="btn danger" data-act="resetask">Borrar mi cuenta</button></div></div></div>`}
+};
+const PACKS=[{c:400,e:4.99},{c:800,e:9.99},{c:1700,e:19.99,tag:'+6% extra'},{c:4500,e:49.99,tag:'Popular'},{c:10000,e:99.99,tag:'Mejor precio'}];
+const GIFTS={'REGALO-10':{eur:10},'REGALO-25':{eur:25},'BIENVENIDA':{cubos:250}};
+function cubeStack(i){const n=[1,2,3,4,6][i];let s='';for(let k=0;k<n;k++)s+=`<span style="display:inline-block;margin-left:${k?'-10px':'0'};transform:translateY(${-(k%2)*8}px)">${CUBE.replace('class="cube"','class="cube" style="width:34px;height:34px"')}</span>`;return s}
+/* ================= CUENTAS ================= */
+const CC=window.CubiCuenta;
+function cloudTag(inf){if(!inf||!inf.cuenta)return '';if(!inf.cuenta.cloud)return '<span class="cloudtag"><i></i>Solo en este dispositivo</span>';
+  const e=inf.estado||{},cls=e.sync==='error'?'err':e.sync==='sync'?'sync':'ok';return `<span class="cloudtag ${cls}" id="cloudtag"><i></i>${esc(e.msg||'En la nube')}</span>`}
+const GLOGO='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7z" fill="#ffb020"/><path d="M12 2l9 5-9 5-9-5z" fill="#ffd27a"/><path d="M12 12v10l-9-5V7z" fill="#e08e00"/></svg>';
+let gTab='crear';
+function gate(){const g=$('#gate');const hayProgreso=Object.keys(localStorage).some(k=>k==='cubiverso-v1');const locs=CC.locales();
+  const tabs=[['crear','Crear cuenta'],['entrar','Entrar'],['codigo','Tengo un código']];
+  const nota=CC.nube?'Tu cuenta se guarda en internet: entra con el mismo nombre y contraseña en cualquier dispositivo con Cubiverso y tendrás todo tu progreso.'
+    :'Ahora mismo las cuentas se guardan <b>en este dispositivo</b>. Para llevarla a otro, usa el código de transferencia (en Ajustes).';
+  let form='';
+  if(gTab==='crear')form=`<form class="gform" id="gf" data-k="crear" novalidate>
+    <label>Nombre de cuenta<input id="acname" autocomplete="username" maxlength="16" autocapitalize="off" spellcheck="false" placeholder="Por ejemplo: Toni_2013" required></label>
+    <label>Contraseña<input id="gpass" type="password" autocomplete="new-password" placeholder="Mínimo 6 caracteres" required></label>
+    <label>Repite la contraseña<input id="gpass2" type="password" autocomplete="new-password" required></label>
+    <p class="gnote">${hayProgreso?'<b>Lo que ya tienes</b> (Cubos, avatar, partidas) pasa a tu cuenta nueva. ':''}No uses la contraseña de otras webs o apps.</p>
+    <p class="gmsg" id="gmsg" role="alert"></p><button class="btn brand" type="submit">Crear mi cuenta</button></form>`;
+  if(gTab==='entrar')form=`<form class="gform" id="gf" data-k="entrar" novalidate>
+    <label>Nombre de cuenta<input id="acname" autocomplete="username" maxlength="16" autocapitalize="off" spellcheck="false" required ${locs.length?`list="glocs"`:''}></label>${locs.length?`<datalist id="glocs">${locs.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>`:''}
+    <label>Contraseña<input id="gpass" type="password" autocomplete="current-password" required></label>
+    ${hayProgreso?'<p class="gnote">Al entrar, el progreso de este dispositivo se cambia por el de tu cuenta.</p>':''}
+    <p class="gmsg" id="gmsg" role="alert"></p><button class="btn brand" type="submit">Entrar</button></form>`;
+  if(gTab==='codigo')form=`<form class="gform" id="gf" data-k="codigo" novalidate>
+    <label>Código de transferencia<textarea id="gcode" placeholder="CUBI1…" spellcheck="false" required></textarea></label>
+    <label>Contraseña de esa cuenta<input id="gpass" type="password" autocomplete="current-password" required></label>
+    <p class="gmsg" id="gmsg" role="alert"></p><button class="btn brand" type="submit">Traer mi cuenta</button></form>`;
+  g.innerHTML=`<div class="gbox"><div class="glogo">${GLOGO}<b>CUBIVERSO</b><span>${gTab==='crear'?'Crea tu cuenta para empezar a jugar':gTab==='entrar'?'Entra en tu cuenta':'Trae tu cuenta de otro dispositivo'}</span></div>
+    <div class="gtabs" role="tablist">${tabs.map(([k,n])=>`<button type="button" role="tab" aria-selected="${gTab===k}" data-gtab="${k}">${n}</button>`).join('')}</div>
+    <div class="card">${form}</div><p class="gnote" style="text-align:center">${nota}</p></div>`;
+  g.hidden=false;const f=$('#gf');f.addEventListener('submit',gateSubmit);const first=f.querySelector('input,textarea');if(first&&!matchMedia('(pointer:coarse)').matches)first.focus()}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-gtab]');if(t){gTab=t.dataset.gtab;gate()}});
+async function gateSubmit(e){e.preventDefault();const k=e.target.dataset.k,msg=$('#gmsg'),btn=e.target.querySelector('button[type=submit]');
+  const name=($('#acname')||{}).value,pass=$('#gpass').value;msg.className='gmsg';
+  if(k==='crear'){const er=CC.checkName(name)||CC.checkPass(pass)||(pass!==$('#gpass2').value?'Las dos contraseñas no coinciden':'');if(er){msg.textContent=er;if(Au)Au.sfx('error');return}}
+  btn.disabled=true;const old=btn.textContent;btn.textContent='Un momento…';msg.textContent='';
+  try{let r;
+    if(k==='crear'){try{await CC.crear(name,pass)}catch(err){if(CC.nube&&/conexión/.test(CC.nice(err))){msg.innerHTML='No hay conexión con el servidor. <button type="button" class="btn" id="glocal" style="padding:6px 10px;font-size:13px">Crearla solo en este dispositivo</button>';
+        $('#glocal').onclick=async()=>{await CC.crear(name,pass,true);gateDone('¡Cuenta creada!')};throw null}throw err}
+      gateDone('¡Cuenta creada! Bienvenido, '+name.trim())}
+    if(k==='entrar'){r=await CC.entrar(name,pass);gateDone('¡Hola de nuevo!')}
+    if(k==='codigo'){const n=await CC.usarCodigo($('#gcode').value,pass);gateDone('Cuenta traída: '+n)}
+  }catch(err){if(err){msg.textContent=CC.nice(err).replace(/^Algo ha fallado: /,'');if(Au)Au.sfx('error')}}
+  finally{btn.disabled=false;btn.textContent=old}}
+function gateDone(t){$('#gate').hidden=true;$('#gate').innerHTML='';st=A.state();if(Au)Au.sfx('levelup');render();toast(t)}
+if(CC)CC.on(inf=>{const t=$('#cloudtag');if(t&&inf.cuenta&&inf.cuenta.cloud)t.outerHTML=cloudTag(inf)});
+function render(){
+  const v=V[view]?view:'inicio';
+  document.querySelectorAll('#side a').forEach(a=>a.classList.toggle('on',a.dataset.v===v));
+  $('#view').innerHTML=V[v]();
+  $('#bal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;
+  const hs=headshot();if(hs&&hs.startsWith('data:'))$('#meimg').src=hs;
+  if(v==='avatar')mountPreview($('#stage'));
+  if(v==='musica')musBind();
+  musUI();
+  const gf=$('#giftform');if(gf)gf.addEventListener('submit',e=>{e.preventDefault();redeem($('#giftcode').value)});
+  const tc=$('#tocloud');if(tc)tc.addEventListener('submit',async e=>{e.preventDefault();try{await CC.subirANube($('#tocloudpw').value);toast('¡Tu cuenta ya está en internet!');render()}catch(err){toast(CC.nice(err).replace(/^Algo ha fallado: /,''))}});
+  const nf=$('#nameform');if(nf)nf.addEventListener('submit',e=>{e.preventDefault();const n=$('#nameinput').value.trim().slice(0,20);if(!n){toast('Escribe un nombre');return}st.name=n;save();toast('Nombre guardado');render()});
+}
+/* ================= MÚSICA ================= */
+const Au=window.CubiAudio;
+function musUI(){if(!Au)return;const S=Au.status(),on=!!S.cur&&!S.settings.muted;const b=$('#musbtn');if(b){b.classList.toggle('on',on&&S.playing);b.setAttribute('aria-pressed',String(on))}
+  const gm=$('#gmute');if(gm){gm.textContent=S.settings.muted?'Sonido: no':'Sonido: sí';gm.setAttribute('aria-pressed',String(!S.settings.muted))}
+  const now=$('#now');if(now){now.classList.toggle('playing',S.playing);$('#nowname').textContent=S.track?S.track.name:'Nada sonando';
+    $('#nowsub').textContent=S.waiting?'Toca cualquier parte para que empiece a sonar':S.track?(S.track.user?'Tu música':S.track.mood+' · compuesta para Cubiverso'):'Elige una canción';$('#nowbtn').textContent=S.cur?'■':'▶'}
+  document.querySelectorAll('.trk').forEach(t=>{const o=t.dataset.trk===S.cur;t.classList.toggle('on',o);const pb=t.querySelector('.pb');if(pb)pb.innerHTML=o?'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" fill="currentColor"/></svg>':PLAY})}
+let userN=-1;
+if(Au)Au.on(()=>{if(view==='musica'&&Au.user().length!==userN){userN=Au.user().length;render()}else musUI()});
+function musBind(){userN=Au?Au.user().length:0;const f=$('#musfile');if(f)f.addEventListener('change',()=>addMusic(f.files));
+  document.querySelectorAll('[data-vol]').forEach(r=>r.addEventListener('input',()=>{Au.set(r.dataset.vol,r.value/100);r.nextElementSibling.textContent=r.value;if(r.dataset.vol==='sfx')Au.sfx('coin')}));
+  const t=$('#mustrack');if(t)t.addEventListener('change',()=>{Au.set('track',t.value);if(t.value!=='auto'&&t.value!=='off')Au.play(t.value,true);toast(t.value==='off'?'Los juegos no pondrán música':'Música de los juegos cambiada')});
+  const u=$('#upl');if(u){u.addEventListener('dragover',e=>{e.preventDefault();u.classList.add('drag')});u.addEventListener('dragleave',()=>u.classList.remove('drag'));
+    u.addEventListener('drop',e=>{e.preventDefault();u.classList.remove('drag');addMusic(e.dataTransfer.files)})}}
+function addMusic(files){if(!files||!files.length)return;Au.addFiles(files).then(n=>{if(!n){toast('Eso no parece un archivo de audio');return}Au.sfx('buy');toast(n===1?'Canción añadida':`${n} canciones añadidas`);render()})
+  .catch(()=>toast('No se ha podido guardar. Puede que el móvil no tenga espacio.'))}
+function route(){view=(location.hash||'#inicio').slice(1);if(!V[view])view='inicio';closeModal();render();scrollTo(0,0)}
+addEventListener('hashchange',route);
+
+/* ================= MODALES ================= */
+function openModal(title,body){$('#modal').innerHTML=`<div class="ov" data-act="ovclose"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="mh"><h2>${esc(title)}</h2><button class="x" data-act="close" aria-label="Cerrar">✕</button></div><div class="mb">${body}</div></div></div>`}
+function closeModal(){$('#modal').innerHTML=''}
+function gameModal(gm){openModal(gm.name,`<div class="banner" style="background-image:url(${gm.img})"></div>
+  <div class="row"><span class="chip">${esc(gm.tag)}</span>${gm.avatar?'<span class="chip ok">Usa tu avatar</span>':''}${gm.multi?'<span class="chip" style="color:var(--sel)">Multijugador</span>':''}</div>
+  <p style="margin:0">${esc(gm.desc)}</p>
+  <div><button class="btn play big" data-act="playgame" data-id="${gm.id}">${PLAY}Jugar</button></div>
+  ${passList(gm.id)}`)}
+const GID={barrio:'barrio',tormentas:'tormentas',bolsillo:'bolsillo',cambiazo:'cambiazo',ladrones:'ladrones',patadon:'patadon'};
+function passList(gid){const P=window.CubiPases;if(!P||!P.CAT[gid])return '';
+  return `<div style="display:flex;flex-direction:column;gap:8px"><h2 style="font-size:17px">Pases del juego</h2>${P.CAT[gid].map(p=>{const o=P.owned(gid,p.id);
+    return `<div class="pass-row"><span class="pass-ic" style="background:${p.col}">${esc(p.ic)}</span><div style="min-width:0"><b>${esc(p.name)}</b>${p.excl?' <span class="chip" style="padding:0 8px;color:var(--brand)">Exclusivo</span>':''}<small>${esc(p.desc)}</small></div>
+    ${o?'<span class="chip ok">Comprado</span>':`<button class="btn brand" data-act="buypass" data-id="${gid}:${p.id}">${CUBE}${fmtC(p.price)}</button>`}</div>`}).join('')}</div>`}
+function itemModal(it){const own=st.owned.includes(it.id),on=st.eq[it.cat]===it.id,u=it.cat==='piel'?'':itemThumb(it);
+  openModal(it.name,`<div style="display:grid;grid-template-columns:140px minmax(0,1fr);gap:16px;align-items:center">
+    ${it.cat==='piel'?`<span style="aspect-ratio:1;border-radius:14px;background:${it.col}"></span>`:`<span style="aspect-ratio:1;border-radius:14px;background:var(--panel2) center/contain no-repeat;${u?`background-image:url(${u})`:''}"></span>`}
+    <div style="display:flex;flex-direction:column;gap:8px"><span class="chip" style="align-self:flex-start">${A.CATS.find(c=>c[0]===it.cat)[1]}</span>${it.desc?`<span style="color:var(--muted)">${esc(it.desc)}</span>`:''}${it.cat==='gesto'?'<span style="color:var(--muted)">Hazlo en los juegos con la tecla G o el botón GESTOS.</span>':''}
+    <div style="font-size:22px;font-weight:800;display:flex;align-items:center;gap:6px">${own?'<span class="pos">Ya es tuyo</span>':it.price?CUBE+fmtC(it.price):'Gratis'}</div>
+    ${own?'':`<span style="color:var(--muted);font-size:14px">Tienes ${fmtC(st.cubos)} Cubos.</span>`}</div></div>
+  <div class="row">${own?`<button class="btn play" data-act="equip" data-id="${it.id}" ${on?'disabled':''}>${on?'Ya lo llevas puesto':'Ponérmelo'}</button>`:
+    st.cubos>=it.price?`<button class="btn play" data-act="buyitem" data-id="${it.id}">Comprar por ${fmtC(it.price)} Cubos</button>`:
+    `<span>Te faltan <b>${fmtC(it.price-st.cubos)}</b> Cubos.</span><a class="btn brand" href="#cubos" style="text-decoration:none">Conseguir Cubos</a>`}</div>`)}
+let pendingPack=null,method='gift';
+function checkoutModal(i){const p=PACKS[i];pendingPack=i;method=(st.gift||0)>=p.e?'gift':'test';drawCheckout()}
+function drawCheckout(){const p=PACKS[pendingPack],g=st.gift||0,canGift=g>=p.e;
+  openModal('Comprar Cubos',`<div class="sum"><span>${CUBE} ${fmtC(p.c)} Cubos</span><span>${eur(p.e)}</span></div>
+  <div class="test" style="margin:0"><b>Modo de prueba.</b><span>No se cobra dinero real.</span></div>
+  <b>Método de pago</b>
+  <label class="method ${method==='gift'?'on':''}"><input type="radio" name="pm" id="pm-gift" value="gift" ${method==='gift'?'checked':''} ${canGift?'':'disabled'}><span><b>Saldo de tarjeta regalo</b><small>${canGift?`Tienes ${eur(g)}. Te quedarán ${eur(g-p.e)}.`:`Tienes ${eur(g)}. No llega: canjea un código en la página de Cubos.`}</small></span></label>
+  <label class="method ${method==='test'?'on':''}"><input type="radio" name="pm" id="pm-test" value="test" ${method==='test'?'checked':''}><span><b>Pago de prueba</b><small>Simula un pago aprobado. Sirve para probar la tienda.</small></span></label>
+  <div id="payarea"><button class="btn play big" data-act="pay" style="width:100%;justify-content:center">Pagar ${eur(p.e)}</button></div>`);
+  document.querySelectorAll('input[name=pm]').forEach(r=>r.addEventListener('change',()=>{method=r.value;drawCheckout()}))}
+function pay(){const p=PACKS[pendingPack];if(method==='gift'&&(st.gift||0)<p.e){toast('No tienes saldo suficiente');return}
+  $('#payarea').innerHTML='<button class="btn big" disabled style="width:100%;justify-content:center">Procesando el pago…</button>';
+  setTimeout(()=>{if(method==='gift')st.gift=Math.round(((st.gift||0)-p.e)*100)/100;st.cubos+=p.c;addHist(`${fmtC(p.c)} Cubos (${method==='gift'?'tarjeta regalo':'pago de prueba'})`,p.c);save();
+    if(Au)Au.sfx('cash');openModal('Compra completada',`<div class="big-ok">+${CUBE}${fmtC(p.c)}</div><p style="text-align:center;margin:0">Ahora tienes <b>${fmtC(st.cubos)}</b> Cubos.</p><button class="btn play" data-act="close">Genial</button>`);
+    $('#bal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;if(view==='cubos')render()},1200)}
+function redeem(code){code=(code||'').trim().toUpperCase();if(!code){toast('Escribe un código');return}
+  const g=GIFTS[code];if(!g){toast('Ese código no existe');return}if(st.codes[code]){toast('Ya canjeaste ese código');return}
+  st.codes[code]=1;if(g.eur){st.gift=(st.gift||0)+g.eur;addHist(`Tarjeta regalo ${code} (+${eur(g.eur)} de saldo)`,0);toast(`Saldo añadido: ${eur(g.eur)}`)}
+  if(g.cubos){st.cubos+=g.cubos;addHist(`Código ${code}`,g.cubos);toast(`+${g.cubos} Cubos`)}save();render()}
+
+/* ================= JUGAR ================= */
+let curGame=null;
+function playGame(gm){curGame=gm;if(Au)Au.sfx('open');closeModal();st.recent=[gm.id].concat(st.recent.filter(i=>i!==gm.id)).slice(0,4);save();
+  $('#gname').textContent=gm.name;$('#gbal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;$('#gpanel').hidden=true;
+  $('#frame').src=gm.file+'#plataforma';$('#play').hidden=false;document.body.style.overflow='hidden';
+  const el=$('#play');try{const f=el.requestFullscreen||el.webkitRequestFullscreen;if(f){const r=f.call(el);if(r&&r.catch)r.catch(()=>{})}}catch(e){}
+  setTimeout(()=>{try{$('#frame').focus()}catch(e){}},300)}
+function previewItem(it){if(!PV||!PV.av)return;if(it.cat==='animacion')ACT.demo('walk');if(it.cat==='gesto'){A.emote(PV.av,it.id);PV.mode='emote'}}
+function exitGame(){if(window.CubiCuenta)CubiCuenta.guardar();$('#frame').src='about:blank';$('#play').hidden=true;document.body.style.overflow='';curGame=null;
+  try{if(document.fullscreenElement||document.webkitFullscreenElement)(document.exitFullscreen||document.webkitExitFullscreen).call(document)}catch(e){}
+  st=A.state();render();if(Au)Au.gameMusic('bienvenida')}
+addEventListener('storage',e=>{if(e.key===A.KEY){st=A.state();$('#bal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;$('#gbal').innerHTML=`${CUBE}${fmtC(st.cubos)}`}});
+setInterval(()=>{if(!$('#play').hidden){const s=A.state();$('#gbal').innerHTML=`${CUBE}${fmtC(s.cubos)}`}},1500);
+
+/* ================= ACCIONES ================= */
+const ACT={
+  close:closeModal,
+  ovclose(e){if(e.target.classList.contains('ov'))closeModal()},
+  game(id){gameModal(GAMES.find(g=>g.id===id))},
+  playgame(id){playGame(GAMES.find(g=>g.id===id))},
+  buypass(v){const[g,id]=v.split(':');const r=CubiPases.buy(g,id);st=A.state();const p=CubiPases.CAT[g].find(x=>x.id===id);
+    if(!r.ok){toast(`Te faltan ${fmtC(r.need)} Cubos para ${p.name}`);return}if(Au)Au.sfx('buy');toast(`¡Pase comprado: ${p.name}!`);render();gameModal(GAMES.find(x=>x.id===g))},
+  item(id){itemModal(A.BY[id])},
+  equip(id){const it=A.BY[id];if(!st.owned.includes(id)){itemModal(it);return}st.eq[it.cat]=id;save();closeModal();rebuildPV();if(Au)Au.sfx('equip');render();previewItem(it);if(view!=='avatar')toast(`Te has puesto: ${it.name}`)},
+  buyitem(id){const it=A.BY[id];if(st.owned.includes(id))return;if(st.cubos<it.price){itemModal(it);return}
+    st.cubos-=it.price;st.owned.push(id);st.eq[it.cat]=id;addHist(`Catálogo: ${it.name}`,-it.price);save();rebuildPV();closeModal();if(Au)Au.sfx('buy');render();previewItem(it);toast(`¡Comprado! Ya llevas puesto: ${it.name}`)},
+  avcat(id){avCat=id;render()},
+  catcat(id){catCat=id;render()},
+  tocat(id){catCat=id;location.hash='#catalogo'},
+  randomav(){A.CATS.forEach(([c])=>{const own=A.ITEMS.filter(i=>i.cat===c&&st.owned.includes(i.id));st.eq[c]=own[Math.floor(Math.random()*own.length)].id});save();rebuildPV();render()},
+  daily(){if(Date.now()-(st.daily||0)<=20*3600e3)return;if(Au)Au.sfx('daily');st.daily=Date.now();st.cubos+=50;addHist('Recompensa diaria',50);save();render();toast('+50 Cubos. ¡Vuelve mañana!')},
+  buypack(i){checkoutModal(+i)},
+  pay,
+  resetask(){$('#resetbox').innerHTML=`<p style="margin:0 0 8px">¿Seguro? No se puede deshacer.</p><div class="row"><button class="btn danger" data-act="resetgo">Sí, borrar todo</button><button class="btn" data-act="resetno">Cancelar</button></div>`},
+  resetno(){render()},
+  resetgo(){try{localStorage.removeItem(A.KEY)}catch(e){}st=A.state();save();rebuildPV();headKey='';render();toast('Cuenta borrada')},
+  resume(){$('#gpanel').hidden=true;$('#gmenubtn').setAttribute('aria-expanded','false');try{$('#frame').focus()}catch(e){}},
+  restartgame(){if(curGame){$('#frame').src='about:blank';setTimeout(()=>{$('#frame').src=curGame.file+'#plataforma'},50)}ACT.resume()},
+  fullgame(){const el=$('#play');try{if(document.fullscreenElement){document.exitFullscreen()}else{const r=(el.requestFullscreen||el.webkitRequestFullscreen).call(el);if(r&&r.catch)r.catch(()=>toast('Tu navegador no deja usar pantalla completa aquí'))}}catch(e){toast('Tu navegador no deja usar pantalla completa aquí')}ACT.resume()},
+  exitgame:exitGame,
+  logout(){openModal('Cerrar sesión',`<p style="margin-top:0">${CC.actual().cloud?'Tu progreso se guarda en la nube y desaparece de este dispositivo hasta que vuelvas a entrar.':'Tu cuenta se queda guardada en este dispositivo. Para volver, entra con tu nombre y contraseña.'}</p>
+    <div class="row"><button class="btn danger" data-act="logoutgo">Cerrar sesión</button><button class="btn" data-act="close">Cancelar</button></div>`)},
+  async logoutgo(){try{await CC.salir()}catch(e){closeModal();toast('No se ha podido guardar en la nube. Inténtalo con conexión.');return}closeModal();st=A.state();gTab='entrar';gate()},
+  async syncnow(){try{await CC.subir();toast('Guardado en la nube')}catch(e){toast(CC.nice(e))}},
+  async mkcode(){const w=$('#codewrap');w.innerHTML='<p class="gnote">Generando…</p>';const c=await CC.codigo();
+    w.innerHTML=`<textarea class="codebox" readonly id="codetxt" aria-label="Tu código de transferencia">${c}</textarea><div class="row" style="margin-top:8px"><button class="btn brand" data-act="copycode">Copiar código</button><span class="gnote">${c.length.toLocaleString('es')} caracteres</span></div>`},
+  copycode(){const t=$('#codetxt');const ok=()=>toast('Código copiado');try{navigator.clipboard.writeText(t.value).then(ok,()=>{t.select();document.execCommand('copy');ok()})}catch(e){t.select();try{document.execCommand('copy');ok()}catch(e2){toast('Selecciona el código y cópialo')}}},
+  mustoggle(){if(!Au)return;const S=Au.status();if(S.settings.muted){Au.set('muted',false);if(!S.cur)Au.play(curGame?null:'bienvenida');return}if(S.cur)Au.stop();else Au.play(Au.get().track&&!['auto','off'].includes(Au.get().track)?Au.get().track:'bienvenida',true)},
+  musplay(id){const S=Au.status();if(S.cur===id)Au.stop();else{if(S.settings.muted)Au.set('muted',false);Au.play(id,true)}},
+  musnext(){Au.next(1)},musprev(){Au.next(-1)},
+  musmute(){Au.set('muted',!Au.get().muted);if(view==='musica')render()},
+  musshuffle(){Au.set('shuffle',!Au.get().shuffle);render()},
+  musdel(id){Au.removeUser(id).then(()=>{toast('Canción quitada');render()})},
+  sfx(k){Au.sfx(k)},
+  demo(k){if(!PV)return;PV.mode=k;PV.walk=0;if(PV.av)PV.av._emote=null;document.querySelectorAll('[data-act=demo]').forEach(b=>b.classList.toggle('on',b.dataset.id===k))},
+  demoemote(){if(!PV||!PV.av)return;ACT.demo('idle');A.emote(PV.av,st.eq.gesto||'ge0');PV.mode='emote';if(Au)Au.sfx('emote')}
+};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;const f=ACT[b.dataset.act];if(!f)return;
+  if(b.dataset.act==='ovclose'){f(e);return}e.preventDefault();f(b.dataset.id)});
+$('#gmenubtn').addEventListener('click',()=>{const p=$('#gpanel');p.hidden=!p.hidden;$('#gmenubtn').setAttribute('aria-expanded',String(!p.hidden))});
+$('#q').addEventListener('input',e=>{query=e.target.value;if(view!=='juegos')location.hash='#juegos';else render();setTimeout(()=>{const q=$('#q');q.focus()},0)});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modal').innerHTML)closeModal()});
+route();
+if(Au)Au.gameMusic('bienvenida');
+if(CC){if(!CC.actual())gate();else CC.alAbrir().then(p=>{if(p){st=A.state();render();toast('Progreso traído de tu cuenta')}})}
+window.Cubiverso={atras(){if(!$('#gate').hidden)return false;if(!$('#play').hidden){exitGame();return true}if($('#modal').innerHTML){closeModal();return true}if(view!=='inicio'){location.hash='#inicio';return true}return false}};
+if('serviceWorker' in navigator&&location.protocol==='https:'&&!/claude\.ai|claudeusercontent/.test(location.hostname)&&!/CubiversoApp/.test(navigator.userAgent)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Guerra de Globos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Layout: arena 3D a pantalla completa; tiempo arriba, marcador a la izquierda, barra de mojado abajo, botón de lanzar a la derecha */
+body{background:#9fd8ff}
+#hud{top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);text-align:center;pointer-events:none}
+#time{font:400 clamp(30px,6vw,44px) "Lilita One","Arial Black",sans-serif;line-height:1;font-variant-numeric:tabular-nums}
+#sub{font-weight:900;font-size:14px}
+#score{top:calc(env(safe-area-inset-top,0px) + 10px);left:max(10px,env(safe-area-inset-left,0px));background:rgba(16,30,52,.85);border:3px solid #000;border-radius:12px;padding:8px 10px;font-weight:800;font-size:13px;min-width:170px}
+#score div{display:flex;justify-content:space-between;gap:12px}#score .me{color:#ffcc33}
+#wet{left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);width:min(300px,60vw);height:18px;border:3px solid #000;border-radius:10px;background:rgba(0,0,0,.35);overflow:hidden}
+#wet i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fd6ff,#1e88e5);transition:width .15s}
+#wetl{left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 40px);font-weight:900;font-size:13px;pointer-events:none}
+#throw{right:max(22px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 128px);width:92px;height:92px;border-radius:50%;border:4px solid #000;background:#3fa7ff;font:400 18px "Lilita One",sans-serif;display:none;touch-action:none}
+body.k-touch #throw{display:block}
+body.k-touch #wet,body.k-touch #wetl{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
+#cross{left:50%;top:46%;width:18px;height:18px;margin:-9px 0 0 -9px;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.5);pointer-events:none}
+#hint{bottom:calc(env(safe-area-inset-bottom,0px) + 70px);left:50%;transform:translateX(-50%);font-size:12px;font-weight:800;white-space:nowrap;pointer-events:none}
+body.k-touch #hint{display:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud" class="k-ui"><div id="time" class="k-out">3:00</div><div id="sub" class="k-out">Empapa a los demás</div></div>
+<div id="score" class="k-ui"></div>
+<div id="cross" class="k-ui"></div>
+<div id="wetl" class="k-ui k-out">Mojado</div><div id="wet" class="k-ui"><i></i></div>
+<button id="throw" class="k-ui k-out">LANZAR</button>
+<div id="hint" class="k-ui k-out">WASD moverte · Clic o F lanzar · Arrastra para apuntar · Espacio saltar</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../multi.js"></script>
+<script src="../audio.js"></script>
+<script>
+const K=Kit,{M,box,cyl,sph}=K;
+const W=K.setup({sky:0x9fd8ff,fogNear:70,fogFar:160});const {scene,camera,renderer,sun}=W;
+const ctl=K.controls(W.canvas,{yaw:Math.PI,pitch:.32,dist:7,min:4,max:14});
+const $=s=>document.querySelector(s);
+const ROUND=180,HALF=22;
+/* ================= ARENA ================= */
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(HALF*2,HALF*2),M(0x7fd36b,{map:K.studs([22,22])}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+[[0,-HALF,HALF*2+1,1],[0,HALF,HALF*2+1,1],[-HALF,0,1,HALF*2+1],[HALF,0,1,HALF*2+1]].forEach(([x,z,w,d])=>{const m=box(w,1.6,d,M(0x3fa7ff),x,.8,z,scene);m.receiveShadow=true});
+const crates=[];
+const layout=[[-8,-8,3,2],[8,-8,3,2],[-8,8,3,2],[8,8,3,2],[0,0,2,4],[0,0,4,2],[-14,0,2,5],[14,0,2,5],[0,-14,5,2],[0,14,5,2],[-16,-15,2,2],[16,15,2,2],[-16,15,2,2],[16,-15,2,2]];
+layout.forEach(([x,z,w,d],i)=>{const h=1.6+(i%3)*.4;const m=box(w,h,d,M([0xffcc33,0xff6fb5,0x9c6bff,0xff9a3d][i%4]),x,h/2,z,scene);m.castShadow=m.receiveShadow=true;crates.push({x,z,w,d,h})});
+const pool=new THREE.Mesh(new THREE.CircleGeometry(3,28),M(0x4fc3f7,{emissive:0x0a3a5a}));pool.rotation.x=-Math.PI/2;pool.position.set(-12,.02,12);scene.add(pool);
+function push(o,r){if(Math.abs(o.x)>HALF-r-.6)o.x=Math.sign(o.x)*(HALF-r-.6);if(Math.abs(o.z)>HALF-r-.6)o.z=Math.sign(o.z)*(HALF-r-.6);
+  crates.forEach(c=>{const dx=o.x-c.x,dz=o.z-c.z,hx=c.w/2+r,hz=c.d/2+r;if(Math.abs(dx)<hx&&Math.abs(dz)<hz&&(o.y||0)<c.h-.2){const px=hx-Math.abs(dx),pz=hz-Math.abs(dz);if(px<pz)o.x=c.x+Math.sign(dx||1)*hx;else o.z=c.z+Math.sign(dz||1)*hz}})}
+function spawnPt(){for(let k=0;k<30;k++){const o={x:(Math.random()-.5)*(HALF*2-6),z:(Math.random()-.5)*(HALF*2-6),y:0};let ok=true;crates.forEach(c=>{if(Math.abs(o.x-c.x)<c.w/2+1&&Math.abs(o.z-c.z)<c.d/2+1)ok=false});if(ok)return o}return {x:0,z:-18,y:0}}
+
+/* ================= JUGADORES ================= */
+const myName=window.CubiAvatar?CubiAvatar.state().name:'Tú';
+const me=K.person(scene,null,myName);
+const P=Object.assign(spawnPt(),{vy:0,face:0,walk:0,ground:true,wet:0,cd:0,inv:0});
+const scores={};const names={};const ME_ID=()=>window.CubiMulti&&CubiMulti.online?CubiMulti.myId:'yo';
+const BOTN=['Mojarrita','Chapuzón','Gotita','Tsunami'];
+let bots=[];
+function makeBots(){bots.forEach(b=>scene.remove(b.a.root));bots=BOTN.map((n,i)=>{const eq=window.CubiAvatar?(()=>{const e={};CubiAvatar.CATS.forEach(([c])=>{const its=CubiAvatar.ITEMS.filter(x=>x.cat===c);e[c]=its[Math.floor(Math.random()*its.length)].id});return e})():null;
+  const a=K.person(scene,eq,n);const s=spawnPt();names['bot'+i]=n;scores['bot'+i]=0;return Object.assign(s,{id:'bot'+i,a,face:0,walk:0,wet:0,cd:1+Math.random()*2,tgt:null,think:0,inv:0})})}
+/* ================= GLOBOS ================= */
+const balloons=[],splashes=[];const BCOL=[0xff4f4f,0x3fa7ff,0xffcc33,0x3fd15c,0xff6fb5,0x9c6bff];
+function spawnBalloon(o,x,y,z,vx,vy,vz,c){const m=sph(.22,M(BCOL[c%6]),x,y,z,scene);m.castShadow=true;balloons.push({m,x,y,z,vx,vy,vz,owner:o,c})}
+function splash(x,y,z,c){if(window.CubiAudio)CubiAudio.sfx('splash');for(let k=0;k<12;k++){const m=sph(.08,M(0x7fd6ff,{transparent:true,opacity:.9}),x,y,z,scene);m.userData={v:new THREE.Vector3((Math.random()-.5)*5,2+Math.random()*3,(Math.random()-.5)*5),l:.6};splashes.push(m)}
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.2,.5,20),new THREE.MeshBasicMaterial({color:0x7fd6ff,transparent:true,opacity:.8,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.set(x,.03,z);ring.userData={l:.8,ring:1};scene.add(ring);splashes.push(ring)}
+let myColor=Math.floor(Math.random()*6);
+function throwMine(){if(!playing||P.cd>0)return;P.cd=.45;const yaw=ctl.look.yaw+Math.PI,pitch=ctl.look.pitch;const dx=Math.sin(yaw),dz=Math.cos(yaw);
+  P.face=yaw;const sp=17,up=4+(.6-pitch)*5;const x=P.x+dx*.6,y=P.y+1.6,z=P.z+dz*.6;spawnBalloon(ME_ID(),x,y,z,dx*sp,up,dz*sp,myColor);
+  me.armR.rotation.x=-2.6;if(window.CubiAudio)CubiAudio.sfx('throw');if(online())CubiMulti.send({t:'throw',x,y,z,vx:dx*sp,vy:up,vz:dz*sp,c:myColor})}
+function online(){return window.CubiMulti&&CubiMulti.online}
+function addScore(id){scores[id]=(scores[id]||0)+1}
+function soak(victimIsMe,by,victim){if(victimIsMe){if(window.CubiAudio)CubiAudio.sfx('lose');K.toast('¡EMPAPADO!',`Te ha mojado ${names[by]||'alguien'}`,'#3fa7ff');Object.assign(P,spawnPt());P.wet=0;P.inv=2;if(online())CubiMulti.send({t:'soak',by})}addScore(by);
+  if(by===ME_ID()&&!victimIsMe)if(window.CubiAudio)CubiAudio.sfx('coin'),K.toast('¡+1!',`Has empapado a ${names[victim]||'alguien'}`,'#3fd15c')}
+function hitPerson(o,b,isMe){if(o.inv>0||b.owner===(isMe?ME_ID():o.id))return false;const dx=b.x-o.x,dz=b.z-o.z,dy=b.y-(o.y||0)-1.1;if(dx*dx+dz*dz<.55&&Math.abs(dy)<1.1){o.wet+=34;
+  if(isMe&&online())CubiMulti.send({t:'hitme',by:b.owner});if(o.wet>=100){if(isMe)soak(true,b.owner);else{const v=o.id;Object.assign(o,spawnPt());o.wet=0;o.inv=2;soak(false,b.owner,v)}}return true}return false}
+function stepBalloons(dt){for(let k=balloons.length-1;k>=0;k--){const b=balloons[k];b.vy-=18*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;b.z+=b.vz*dt;b.m.position.set(b.x,b.y,b.z);let hit=b.y<.2||Math.abs(b.x)>HALF||Math.abs(b.z)>HALF;
+  if(!hit)crates.forEach(c=>{if(Math.abs(b.x-c.x)<c.w/2&&Math.abs(b.z-c.z)<c.d/2&&b.y<c.h)hit=true});
+  if(!hit&&playing){if(hitPerson(P,b,true))hit=true;if(!hit)bots.forEach(o=>{if(!hit&&hitPerson(o,b,false))hit=true});
+    if(!hit&&online()&&b.owner===ME_ID())Object.entries(remotes.map).forEach(([id,r])=>{if(!hit&&Math.hypot(b.x-r.x,b.z-r.z)<.75&&Math.abs(b.y-r.y-1.1)<1.1)hit=true})}
+  if(hit){splash(b.x,Math.max(.2,b.y),b.z,b.c);scene.remove(b.m);balloons.splice(k,1)}}}
+/* ================= BOTS ================= */
+function botStep(o,dt){o.inv-=dt;o.cd-=dt;o.think-=dt;
+  const targets=[{x:P.x,z:P.z,id:'me'}].concat(bots.filter(b=>b!==o).map(b=>({x:b.x,z:b.z,id:b.id})));
+  if(o.think<=0){o.think=.8+Math.random();o.tgt=targets.reduce((a,b)=>Math.hypot(b.x-o.x,b.z-o.z)<Math.hypot(a.x-o.x,a.z-o.z)?b:a);o.strafe=(Math.random()-.5)*2}
+  const t=o.tgt;if(!t)return;const dx=t.x-o.x,dz=t.z-o.z,d=Math.hypot(dx,dz)||1;let mx=0,mz=0;
+  if(d>9){mx=dx/d;mz=dz/d}else if(d<5){mx=-dx/d;mz=-dz/d}mx+=-dz/d*o.strafe*.6;mz+=dx/d*o.strafe*.6;const l=Math.hypot(mx,mz)||1;
+  const sp=5.2;o.x+=mx/l*sp*dt;o.z+=mz/l*sp*dt;push(o,.4);o.face=Math.atan2(dx,dz);o.walk+=dt*sp*1.4;
+  if(o.cd<=0&&d<16){o.cd=1.1+Math.random()*1.2;const fl=d/17,err=(Math.random()-.5)*1.4;const ax=(t.x+err)-o.x,az=(t.z+err)-o.z,dd=Math.hypot(ax,az)||1;
+    spawnBalloon(o.id,o.x+ax/dd*.6,1.6,o.z+az/dd*.6,ax/dd*17,Math.max(2.5,18*fl/2-1.4/fl),az/dd*17,Number(o.id.slice(3))+1);o.a.armR.rotation.x=-2.6}
+  o.a.root.position.set(o.x,0,o.z);let df=o.face-o.a.root.rotation.y;df=Math.atan2(Math.sin(df),Math.cos(df));o.a.root.rotation.y+=df*Math.min(1,dt*10);K.walkAnim(o.a,o.walk,false);if(o.cd>.9)o.a.armR.rotation.x=-2.4}
+/* ================= RED ================= */
+const remotes=K.remotes(scene,.75);
+if(window.CubiMulti){CubiMulti.on('msg',(d,from)=>{const ps=CubiMulti.players();if(ps[from])names[from]=ps[from].name;
+  if(d.t==='st')remotes.update(from,d);if(d.t==='throw')spawnBalloon(from,d.x,d.y,d.z,d.vx,d.vy,d.vz,d.c);if(d.t==='soak'){addScore(d.by);if(d.by===ME_ID())K.toast('¡+1!',`Has empapado a ${names[from]||'alguien'}`,'#3fd15c')}});
+  CubiMulti.on('players',ps=>{Object.entries(ps).forEach(([id,p])=>{names[id]=p.name;if(scores[id]==null)scores[id]=0});K.roomBadge()})}
+/* ================= RONDA ================= */
+let playing=false,left=ROUND,solo=true,netT=0;
+function start(isSolo){solo=isSolo;playing=true;left=ROUND;Object.keys(scores).forEach(k=>scores[k]=0);names[ME_ID()]=myName;scores[ME_ID()]=0;Object.assign(P,spawnPt());P.wet=0;
+  if(solo)makeBots();else{bots.forEach(b=>scene.remove(b.a.root));bots=[]}}
+function endRound(){playing=false;const rows=Object.keys(scores).map(id=>({id,name:names[id]||'?',s:scores[id]})).sort((a,b)=>b.s-a.s);const win=rows[0]&&rows[0].id===ME_ID()&&rows[0].s>0;if(window.CubiAudio)CubiAudio.sfx(win?'win':'lose');
+  let reward=0;if(win&&window.CubiAvatar){const s=CubiAvatar.state();const day=new Date().toDateString();if(s.globosDay!==day){s.globosDay=day;s.cubos+=15;reward=15;(s.history=s.history||[]).unshift({t:Date.now(),txt:'Ganador en Guerra de Globos',amt:15});CubiAvatar.save(s)}}
+  document.body.insertAdjacentHTML('beforeend',K.panel(win?'¡HAS GANADO!':'FIN DE LA RONDA',win?'#ffcc33':'#3fa7ff',`<div>${rows.map((r,i)=>`<p style="color:#fff">${i+1}. ${r.name.replace(/</g,'&lt;')} · <b>${r.s}</b></p>`).join('')}</div>
+    ${reward?`<p style="color:#ffcc33">+${reward} Cubos de Cubiverso (premio del día)</p>`:''}<button class="k-btn g k-out" data-act="again">OTRA RONDA</button>`).replace('k-ov','k-ov fin'))}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(b&&b.dataset.act==='again'){document.querySelectorAll('.fin').forEach(x=>x.remove());start(solo)}});
+let down=null;W.canvas.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,t:performance.now()}});
+W.canvas.addEventListener('pointerup',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)<6&&e.pointerType==='mouse')throwMine();down=null});
+$('#throw').addEventListener('pointerdown',e=>{e.preventDefault();throwMine()});
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if((k==='f'||k==='enter')&&!e.repeat)throwMine()});
+function hud(){const m=Math.max(0,Math.ceil(left));$('#time').textContent=`${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`;$('#wet i').style.width=Math.min(100,P.wet)+'%';
+  const rows=Object.keys(scores).map(id=>({id,name:names[id]||'?',s:scores[id]})).sort((a,b)=>b.s-a.s);
+  $('#score').innerHTML=rows.map(r=>`<div class="${r.id===ME_ID()?'me':''}"><span>${r.name.replace(/</g,'&lt;')}</span><b>${r.s}</b></div>`).join('')}
+let last=performance.now();
+function loop(t){const dt=Math.min((t-last)/1000,.05);last=t;
+  if(playing){left-=dt;if(left<=0){left=0;endRound()}
+    const mv=ctl.move(),sp=7;P.x+=mv.x*sp*dt;P.z+=mv.z*sp*dt;push(P,.4);if(ctl.jump()&&P.ground){P.vy=9;P.ground=false}P.vy-=28*dt;P.y+=P.vy*dt;if(P.y<=0){P.y=0;P.vy=0;P.ground=true}
+    if(mv.len>.1){P.walk+=dt*sp*1.4;P.face=Math.atan2(mv.x,mv.z)}else P.walk*=.8;P.cd-=dt;P.inv-=dt;P.wet=Math.max(0,P.wet-dt*4);
+    bots.forEach(o=>{botStep(o,dt);o.wet=Math.max(0,o.wet-dt*4)})}
+  stepBalloons(dt);
+  for(let k=splashes.length-1;k>=0;k--){const s=splashes[k];s.userData.l-=dt;if(s.userData.ring){s.scale.setScalar(1+(.8-s.userData.l)*4);s.material.opacity=s.userData.l}else{s.userData.v.y-=12*dt;s.position.addScaledVector(s.userData.v,dt)}if(s.userData.l<=0){scene.remove(s);splashes.splice(k,1)}}
+  me.root.position.set(P.x,P.y,P.z);let df=P.face-me.root.rotation.y;df=Math.atan2(Math.sin(df),Math.cos(df));me.root.rotation.y+=df*Math.min(1,dt*14);K.walkAnim(me,P.walk,!P.ground);if(P.cd>.2)me.armR.rotation.x=-2.4;
+  me.root.visible=!(P.inv>0&&Math.floor(t/100)%2);
+  if(online()){netT+=dt;if(netT>.1){netT=0;CubiMulti.send({t:'st',x:P.x,y:P.y,z:P.z,ry:P.face,air:!P.ground})}remotes.step(dt)}
+  if(ctl.keys.q)ctl.look.yaw+=dt*2;if(ctl.keys.e)ctl.look.yaw-=dt*2;
+  ctl.camera(camera,P.x,P.y,P.z,1.6);hud();renderer.render(scene,camera);requestAnimationFrame(loop)}
+K.roomMenu({game:'globos',title:'GUERRA DE GLOBOS',col:'#3fa7ff',
+  intro:`<p>Una batalla de globos de agua de 3 minutos. Cada globo que te da te moja un poco; a la tercera estás empapado y el que te lanzó gana un punto.</p><ul><li>Apunta girando la cámara y lanza con clic, F o el botón LANZAR.</li><li>Escóndete detrás de las cajas.</li><li>Si juegas solo, te enfrentas a 4 bots. Si ganas la ronda, te llevas 15 Cubos al día.</li></ul>`,
+  onSolo(){start(true)},onRoom(){start(false);K.roomBadge()}});
+K.emotes(me);if(window.CubiAudio)CubiAudio.gameMusic('batalla');
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
