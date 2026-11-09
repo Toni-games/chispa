@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CuboStudio</title>
+<style>
+/* CuboStudio: barra superior y cinta de herramientas arriba; explorador a la izquierda, propiedades a la derecha,
+   y en el centro dos pestañas: la escena 3D y el programa con bloques del objeto elegido. */
+:root{--bg:#1e2028;--p1:#252833;--p2:#2e3240;--p3:#3a3f50;--line:#3c4152;--fg:#e9ecf3;--mut:#9aa3b5;--acc:#00a2ff;--acc2:#0b7fd0;--sel:#ffb020;--ok:#3fbf6a;--bad:#e5484d;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:500 13px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+#app{display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;height:100%;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+/* barra superior */
+#top{display:flex;align-items:center;gap:8px;padding:6px 10px;padding-top:calc(env(safe-area-inset-top,0px) + 6px);background:#16181f;border-bottom:1px solid var(--line);min-width:0}
+.logo{display:flex;align-items:center;gap:7px;font-weight:900;letter-spacing:.02em;white-space:nowrap}
+.logo svg{width:22px;height:22px}
+#pname{background:transparent;border:1px solid transparent;border-radius:6px;padding:5px 8px;font-weight:700;min-width:0;width:220px;max-width:30vw}
+#pname:hover,#pname:focus{border-color:var(--line);background:var(--p1);outline:0}
+.sp{flex:1}
+.tb{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--p2);border-radius:7px;padding:6px 11px;font-weight:700;white-space:nowrap}
+.tb:hover{background:var(--p3)}
+.tb svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tb.play{background:var(--ok);border-color:transparent;color:#05220f}
+.tb.pub{background:var(--acc);border-color:transparent;color:#00121f}
+.tb.on{background:var(--acc2);border-color:transparent;color:#fff}
+.tb:disabled{opacity:.45;cursor:default}
+#saved{color:var(--mut);font-size:12px;white-space:nowrap}
+/* cinta */
+#ribbon{display:flex;gap:4px;padding:6px 8px;background:var(--p1);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:thin}
+.grp{display:flex;flex-direction:column;gap:3px;padding:0 8px;border-right:1px solid var(--line);flex:none}
+.grp:last-child{border-right:0}
+.grp>div{display:flex;gap:3px;align-items:center}
+.grp small{color:var(--mut);font-size:10.5px;text-align:center;text-transform:uppercase;letter-spacing:.06em}
+.rb{display:flex;flex-direction:column;align-items:center;gap:2px;border:1px solid transparent;background:none;border-radius:7px;padding:4px 7px;min-width:52px;font-size:11.5px;font-weight:600}
+.rb svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.rb:hover{background:var(--p2)}
+.rb.on{background:var(--acc2);color:#fff}
+.sw{width:20px;height:20px;border-radius:4px;border:1px solid rgba(0,0,0,.5);padding:0}
+.swg{display:grid;grid-template-columns:repeat(8,20px);gap:3px}
+.sel{background:var(--p2);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+/* cuerpo */
+#body{display:grid;grid-template-columns:220px minmax(0,1fr) 270px;min-height:0}
+.side{background:var(--p1);display:flex;flex-direction:column;min-height:0;min-width:0}
+#left{border-right:1px solid var(--line)}#right{border-left:1px solid var(--line)}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);border-bottom:1px solid var(--line)}
+.ph button{border:0;background:none;color:var(--mut);padding:2px 6px;border-radius:5px}
+#explorer{overflow:auto;padding:4px 0;flex:1}
+.ex{display:flex;align-items:center;gap:7px;width:100%;border:0;background:none;padding:5px 10px;text-align:left;border-radius:0;font-size:13px}
+.ex:hover{background:var(--p2)}
+.ex.on{background:var(--acc2);color:#fff}
+.ex i{width:14px;height:14px;border-radius:3px;flex:none;border:1px solid rgba(0,0,0,.4)}
+.ex .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ex .sc{font-size:10px;background:#ffab19;color:#000;border-radius:4px;padding:1px 4px;font-weight:800}
+.ex.child{padding-left:24px}
+#props{overflow:auto;flex:1;padding:6px 0 30px}
+.pr{display:grid;grid-template-columns:96px minmax(0,1fr);gap:6px;align-items:center;padding:4px 10px}
+.pr label{color:var(--mut);font-size:12px}
+.pr input:not([type=checkbox]):not([type=color]),.pr select,.pr textarea{width:100%;min-width:0;background:var(--p2);border:1px solid var(--line);border-radius:5px;padding:4px 6px}
+.pr textarea{resize:vertical;min-height:54px}
+.v3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.v3 input{padding:4px 4px!important;text-align:center}
+.pcat{padding:8px 10px 2px;font-weight:800;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+.varl{display:flex;flex-wrap:wrap;gap:4px}
+.chip{display:inline-flex;align-items:center;gap:4px;background:#ff8c1a;color:#000;border-radius:99px;padding:2px 4px 2px 9px;font-weight:700;font-size:12px}
+.chip button{border:0;background:rgba(0,0,0,.2);border-radius:50%;width:18px;height:18px;line-height:1;padding:0}
+/* centro */
+#center{display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0;min-width:0}
+#tabs{display:flex;gap:2px;background:#16181f;padding:4px 6px 0}
+#tabs button{border:1px solid var(--line);border-bottom:0;background:var(--p1);color:var(--mut);border-radius:7px 7px 0 0;padding:6px 14px;font-weight:700}
+#tabs button.on{background:var(--bg);color:var(--fg)}
+#vp{position:relative;min-height:0;overflow:hidden;touch-action:none}
+#vp canvas{display:block;width:100%;height:100%}
+#vphint{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.55);border-radius:7px;padding:5px 9px;font-size:11.5px;color:#cfd6e4;pointer-events:none;max-width:calc(100% - 20px)}
+#code{min-height:0;display:flex;flex-direction:column}
+#codeh{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--p1);border-bottom:1px solid var(--line);font-weight:700}
+#codeh .tip{color:var(--mut);font-weight:500;font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#blocks{flex:1;min-height:0}
+/* barra inferior (móvil) */
+#mob{display:none;gap:4px;padding:6px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 6px);background:#16181f;border-top:1px solid var(--line)}
+#mob button{flex:1}
+/* diálogos */
+#dlg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:50;padding:16px}
+.dbox{background:var(--p1);border:1px solid var(--line);border-radius:14px;width:min(640px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:18px;display:flex;flex-direction:column;gap:12px}
+.dbox h2{margin:0;font-size:20px}
+.dbox p{margin:0;color:var(--mut);line-height:1.5}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.pc{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);background:var(--p2);border-radius:10px;padding:8px;text-align:left}
+.pc:hover{border-color:var(--acc)}
+.pc .th{aspect-ratio:16/9;border-radius:6px;background:#11131a center/cover;max-width:100%;display:grid;place-items:center;color:var(--mut);font-size:11px}
+.pc b{font-size:13px}.pc small{color:var(--mut)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.fld{display:flex;flex-direction:column;gap:5px;font-weight:700}
+.fld input,.fld textarea{background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:9px;font-weight:500}
+.fld textarea{min-height:70px;resize:vertical}
+.codebox{width:100%;min-height:90px;font-family:ui-monospace,Menlo,monospace;font-size:11px;word-break:break-all;background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:8px}
+.note{font-size:12.5px;color:var(--mut)}
+.okmsg{color:var(--ok);font-weight:700}
+#test{position:fixed;inset:0;z-index:60;background:#000}
+#test iframe{border:0;width:100%;height:100%;display:block}
+#toast{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:#0d0f14;border:1px solid var(--line);padding:9px 14px;border-radius:9px;font-weight:700;z-index:70;transition:opacity .2s;pointer-events:none;max-width:90vw}
+/* menús emergentes */
+.menu{position:fixed;z-index:55;background:var(--p1);border:1px solid var(--line);border-radius:10px;padding:5px;display:flex;flex-direction:column;min-width:200px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.menu button{border:0;background:none;text-align:left;padding:8px 10px;border-radius:6px;display:flex;gap:9px;align-items:center}
+.menu button:hover{background:var(--p2)}
+.menu button i{width:14px;height:14px;border-radius:3px;flex:none}
+.menu small{color:var(--mut);display:block;font-size:11px}
+@media (max-width:900px){
+  #body{grid-template-columns:minmax(0,1fr)}
+  .side{position:fixed;top:0;bottom:0;z-index:40;width:min(300px,86vw);box-shadow:0 0 40px rgba(0,0,0,.6);padding-top:env(safe-area-inset-top,0px)}
+  #left{left:0}#right{right:0}
+  .side:not(.open){display:none}
+  #mob{display:flex}
+  #pname{width:130px}
+  .hidem{display:none!important}
+  #vphint{display:none}
+  #codeh .tip{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <span class="logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l9 5v10l-9 5-9-5V7z" fill="#00a2ff"/><path d="M12 2l9 5-9 5-9-5z" fill="#7fd0ff"/><path d="M12 12v10l-9-5V7z" fill="#0b6fb8"/></svg><span class="hidem">CuboStudio</span></span>
+    <input id="pname" aria-label="Nombre del juego" maxlength="40">
+    <button class="tb" data-a="files" title="Tus proyectos"><svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg><span class="hidem">Proyectos</span></button>
+    <button class="tb" data-a="undo" id="bundo" title="Deshacer (Ctrl+Z)" aria-label="Deshacer"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg></button>
+    <button class="tb" data-a="redo" id="bredo" title="Rehacer (Ctrl+Y)" aria-label="Rehacer"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 000 10h3"/></svg></button>
+    <span id="saved" class="hidem"></span>
+    <span class="sp"></span>
+    <button class="tb play" data-a="test" title="Probar el juego (F5)"><svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" fill="currentColor"/></svg>Probar</button>
+    <button class="tb pub" data-a="publish"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/></svg><span class="hidem">Publicar</span></button>
+  </header>
+  <nav id="ribbon" aria-label="Herramientas">
+    <div class="grp"><div>
+      <button class="rb on" data-tool="sel" title="Seleccionar (1)"><svg viewBox="0 0 24 24"><path d="M5 3l14 8-6 2-2 6z"/></svg>Elegir</button>
+      <button class="rb" data-tool="move" title="Mover (2)"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg>Mover</button>
+      <button class="rb" data-tool="scale" title="Escalar (3)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/><path d="M14 4h6v6M10 20H4v-6"/></svg>Escalar</button>
+      <button class="rb" data-tool="rot" title="Girar (4)"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 11-3-6.3"/><path d="M20 3v5h-5"/></svg>Girar</button>
+    </div><small>Herramientas</small></div>
+    <div class="grp"><div>
+      <button class="rb" data-ins="bloque" title="Insertar bloque"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>Bloque</button>
+      <button class="rb" data-ins="esfera"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><ellipse cx="12" cy="12" rx="8" ry="3"/></svg>Esfera</button>
+      <button class="rb" data-ins="cilindro"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/></svg>Cilindro</button>
+      <button class="rb" data-ins="cuna"><svg viewBox="0 0 24 24"><path d="M3 19h18V7z"/></svg>Rampa</button>
+      <button class="rb" data-a="prefabs"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M17.5 14v7M14 17.5h7"/></svg>Objetos</button>
+    </div><small>Insertar</small></div>
+    <div class="grp"><div>
+      <button class="rb" data-a="dup" title="Duplicar (Ctrl+D)"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></svg>Duplicar</button>
+      <button class="rb" data-a="del" title="Borrar (Supr)"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Borrar</button>
+      <button class="rb" data-a="anchor" id="banchor" title="Anclado: no se cae"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M12 7v14M5 13a7 7 0 0014 0M9 10h6"/></svg>Anclar</button>
+      <button class="rb" data-a="focus" title="Enfocar (F)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M3 8V3h5M21 8V3h-5M3 16v5h5M21 16v5h-5"/></svg>Enfocar</button>
+    </div><small>Editar</small></div>
+    <div class="grp"><div><div class="swg" id="swatches"></div></div><small>Color</small></div>
+    <div class="grp"><div style="flex-direction:column;align-items:stretch;gap:4px">
+      <select class="sel" id="rmat" aria-label="Material"></select>
+      <select class="sel" id="rsnap" aria-label="Cuadrícula"><option value="1">Cuadrícula: 1</option><option value="0.5">Cuadrícula: 0,5</option><option value="2">Cuadrícula: 2</option><option value="0">Sin cuadrícula</option></select>
+    </div><small>Material y ajuste</small></div>
+  </nav>
+  <main id="body">
+    <aside class="side" id="left"><div class="ph">Explorador<button data-a="closeside" aria-label="Cerrar">✕</button></div><div id="explorer" role="listbox" aria-label="Objetos del juego"></div></aside>
+    <section id="center">
+      <div id="tabs" role="tablist"><button role="tab" data-tab="scene" class="on">Escena</button><button role="tab" data-tab="code" id="tabcode">Programar</button></div>
+      <div id="vp"><div id="vphint">Arrastra para girar la cámara · Rueda para acercar · Mayús+arrastrar o botón derecho para desplazar · WASD QE para volar · 1-4 herramientas</div></div>
+      <div id="code" hidden><div id="codeh"><span id="codewho"></span><span class="tip">Arrastra bloques de la izquierda y encájalos. En el móvil, toca un bloque para añadirlo.</span></div><div id="blocks"></div></div>
+    </section>
+    <aside class="side" id="right"><div class="ph">Propiedades<button data-a="closeside" aria-label="Cerrar">✕</button></div><div id="props"></div></aside>
+  </main>
+  <div id="mob"><button class="tb" data-a="openleft">Explorador</button><button class="tb" data-a="openright">Propiedades</button></div>
+</div>
+<div id="dlg" hidden></div>
+<div id="test" hidden></div>
+<div id="toast" style="opacity:0"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../avatar.js"></script>
+<script src="../audio.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="../cuenta.js"></script>
+<script src="escena.js"></script>
+<script src="bloques.js"></script>
+<script src="estudio.js"></script>
+</body>
+</html>

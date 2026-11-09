@@ -13,6 +13,9 @@ Barrio Tycoon · Repartidor de Tormentas · Ciudad de Bolsillo · El Cambiazo ·
 ## Cuentas
 Al entrar se crea una cuenta con nombre y contraseña. Con el servidor activado (Firebase, en `firebase-config.js`) la cuenta y todo el progreso se guardan en internet y se recuperan en cualquier dispositivo. Sin servidor, la cuenta se pasa a otro dispositivo con el código de transferencia (Ajustes).
 
+## CuboStudio
+Editor para crear juegos 3D (carpeta `estudio/`): piezas, herramientas mover/escalar/girar, objetos preparados y programación con bloques. Los juegos se juegan con `juegos/creado.html`.
+
 ## Publicarlo en GitHub Pages
 1. Crea un repositorio público llamado `cubiverso`.
 2. Sube todos los archivos de esta carpeta (con la carpeta `juegos`).

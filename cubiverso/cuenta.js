@@ -119,11 +119,12 @@ async function subirANube(pass){const c=A.cur;if(!c||c.cloud||!CFG)return;if(awa
   const t=await cloudAuth('signUp',c.name,pass);Object.assign(c,{cloud:true,uid:t.uid,rt:t.rt});tok={id:t.id,exp:t.exp};wr(A);await subir(true);emit()}
 
 /* guardar solo: cada 15 s si cambió algo, y al salir de la app */
-setInterval(()=>{if(A.cur&&A.cur.cloud)subir(false).catch(()=>{})},15000);
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&A.cur&&A.cur.cloud)subir(false).catch(()=>{})});
+const top_=(()=>{try{return window.parent===window}catch(e){return false}})();
+if(top_)setInterval(()=>{if(A.cur&&A.cur.cloud)subir(false).catch(()=>{})},15000);
+if(top_)document.addEventListener('visibilitychange',()=>{if(document.hidden&&A.cur&&A.cur.cloud)subir(false).catch(()=>{})});
 window.addEventListener('storage',e=>{if(e.key===AK){A=rd();A.locales=A.locales||{};emit()}});
 
-const api={nube:!!CFG,actual:()=>A.cur?{name:A.cur.name,cloud:!!A.cur.cloud,created:A.cur.created}:null,locales:()=>Object.values(A.locales).map(l=>l.name),
+const api={cfg:CFG,uid:()=>A.cur&&A.cur.cloud?A.cur.uid:null,token:()=>idToken(),nube:!!CFG,actual:()=>A.cur?{name:A.cur.name,cloud:!!A.cur.cloud,created:A.cur.created}:null,locales:()=>Object.values(A.locales).map(l=>l.name),
   info:()=>({cuenta:api.actual(),nube:!!CFG,estado}),crear,entrar,salir,guardar:()=>subir(false).catch(()=>false),subir:()=>subir(true),alAbrir,codigo,usarCodigo,subirANube,
   on:f=>{subs.push(f);return()=>subs.splice(subs.indexOf(f),1)},checkName,checkPass,nice};
 window.CubiCuenta=api;

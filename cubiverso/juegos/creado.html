@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Juego de CuboStudio</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Reproductor de juegos hechos con CuboStudio */
+body{background:#8fd0ff}
+#vars{top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:none;flex-wrap:wrap;justify-content:center;max-width:70vw}
+#vars div{background:rgba(20,22,34,.82);border:3px solid #000;border-radius:12px;padding:4px 12px;font-weight:900;font-size:15px}
+#vars b{color:#ffcc33;font:400 20px "Lilita One","Arial Black",sans-serif;margin-left:6px}
+#banner{top:30%;left:50%;transform:translateX(-50%);font:400 clamp(26px,5vw,44px) "Lilita One","Arial Black",sans-serif;color:#fff;text-align:center;pointer-events:none;max-width:90vw;transition:opacity .3s}
+#title{left:max(10px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 10px);font-weight:900;font-size:13px;pointer-events:none;opacity:.9}
+body.k-touch #title{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 54px)}
+#tools{left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 10px);display:flex;gap:6px}
+#stop{right:max(10px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 10px);background:#e5484d}
+#keys{right:max(10px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 330px);display:none;flex-direction:column;gap:8px}
+body.k-touch #keys{display:flex}
+#keys button{width:58px;height:58px;border-radius:50%;border:3px solid #000;background:#ffcc33;color:#000;font:400 22px "Lilita One",sans-serif}
+#err{inset:0;display:grid;place-items:center;background:#11131a;text-align:center;padding:20px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="vars" class="k-ui"></div>
+<div id="banner" class="k-ui k-out" style="opacity:0"></div>
+<div id="title" class="k-ui k-out"></div>
+<div id="tools" class="k-ui"><button class="k-btn r k-out" id="restart">Reiniciar</button></div>
+<div id="keys" class="k-ui"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script src="../estudio/escena.js"></script>
+<script src="../estudio/bloques.js"></script>
+<script>
+const K=Kit,E=CuboEscena,$=s=>document.querySelector(s);
+const MODO=location.hash.includes('prueba')?'prueba':location.hash.includes('plataforma')?'plataforma':'suelto';
+let GAME=null;try{GAME=JSON.parse(localStorage.getItem('cubo-jugar')||'null')}catch(e){}
+if(!GAME||!GAME.objects){document.body.insertAdjacentHTML('beforeend','<div id="err" class="k-ui"><div><h2>No hay ningún juego cargado</h2><p>Abre un juego desde Cubiverso o pruébalo desde CuboStudio.</p></div></div>');throw new Error('sin juego')}
+document.title=GAME.name||'Juego de CuboStudio';
+$('#title').textContent=(GAME.name||'Juego')+(GAME.author?' · de '+GAME.author:'');
+if(MODO==='prueba'){const b=document.createElement('button');b.id='stop';b.className='k-ui k-btn r k-out';b.textContent='Detener';b.onclick=()=>parent.postMessage({cuboStop:1},'*');document.body.appendChild(b)}
+
+/* ---------- mundo ---------- */
+const {renderer,scene,camera,sun}=K.setup({sky:(E.SKIES[GAME.sky]||E.SKIES.dia).sky,fogNear:90,fogFar:320,far:900});
+const W=E.world(THREE,scene,GAME);sun.intensity=W.sky.sun;
+const GRAV=+GAME.grav||60;let SPEED=+GAME.speed||16,JUMP=+GAME.jump||28;
+const PSCALE=1.9;let pscale=PSCALE;
+const R=[];const byMesh=new Map();
+function addObj(o,fireStart){const m=E.mesh(THREE,o);scene.add(m);
+  const r={o,m,pos:o.pos.slice(),size:o.size.slice(),rot:o.rot||0,home:o.pos.slice(),solid:o.collide!==false,visible:!o.hidden,alive:true,label:null,touching:false,hats:{}};
+  if(o.shape==='spawn')r.solid=true;
+  R.push(r);byMesh.set(m,r);if(fireStart)fire(r,'ev_start');return r}
+GAME.objects.forEach(o=>addObj(o,false));
+const GROUND={o:{shape:'bloque'},pos:[0,-.5,0],size:[512,1,512],rot:0,solid:true,alive:true,visible:true,ground:true};
+const spawn=R.find(r=>r.o.shape==='spawn');
+/* ---------- jugador ---------- */
+const me=K.person(scene,null,null,PSCALE);
+const PH=2.25*PSCALE,PR=.42*PSCALE;
+const P={x:0,y:0,z:0,vx:0,vy:0,vz:0,ground:false,walk:0,face:0,cp:null,stood:null,inv:0};
+function startPos(){if(P.cp)return P.cp.slice();if(spawn)return [spawn.pos[0],spawn.pos[1]+spawn.size[1]/2+.05,spawn.pos[2]];return [0,1,0]}
+function respawn(){const s=startPos();P.x=s[0];P.y=s[1];P.z=s[2];P.vx=P.vy=P.vz=0;P.inv=.6}
+respawn();
+const ctl=K.controls(renderer.domElement,{dist:20,min:6,max:70,pitch:.38,yaw:Math.PI,onTap:tap});
+K.emotes(me);
+/* ---------- choques ---------- */
+const box=(r)=>E.aabb({rot:r.rot},r.pos,r.size);
+function pbox(x,y,z){const rr=PR*pscale/PSCALE,h=PH*pscale/PSCALE;return {x0:x-rr,x1:x+rr,y0:y,y1:y+h,z0:z-rr,z1:z+rr}}
+const hit=(a,b)=>a.x0<b.x1&&a.x1>b.x0&&a.y0<b.y1&&a.y1>b.y0&&a.z0<b.z1&&a.z1>b.z0;
+function topAt(r,x,z){if(r.o.shape==='cuna')return E.wedgeTop({rot:r.rot},r.pos,r.size,x,z);return r.pos[1]+r.size[1]/2}
+function solids(){const s=R.filter(r=>r.alive&&r.solid&&r.visible);if(GAME.base!==false)s.push(GROUND);return s}
+function physics(dt){
+  const mv=ctl.move(),sp=SPEED;
+  P.vx+=(mv.x*sp-P.vx)*Math.min(1,(P.ground?12:5)*dt);P.vz+=(mv.z*sp-P.vz)*Math.min(1,(P.ground?12:5)*dt);
+  if(ctl.jump()&&P.ground){P.vy=JUMP;P.ground=false}
+  P.vy-=GRAV*dt;if(P.vy<-120)P.vy=-120;
+  if(P.stood&&P.stood.dp){P.x+=P.stood.dp[0];P.y+=P.stood.dp[1];P.z+=P.stood.dp[2]}
+  const S=solids();
+  const blockStep=(r,b)=>{const top=r.ground?0:(r.o.shape==='cuna'?topAt(r,P.x,P.z):b.y1);return top-P.y>.6};
+  P.x+=P.vx*dt;for(const r of S){const b=r.ground?{x0:-256,x1:256,y0:-1,y1:0,z0:-256,z1:256}:box(r);if(hit(pbox(P.x,P.y+.05,P.z),b)&&blockStep(r,b)){P.x-=P.vx*dt;P.vx=0;break}}
+  P.z+=P.vz*dt;for(const r of S){const b=r.ground?{x0:-256,x1:256,y0:-1,y1:0,z0:-256,z1:256}:box(r);if(hit(pbox(P.x,P.y+.05,P.z),b)&&blockStep(r,b)){P.z-=P.vz*dt;P.vz=0;break}}
+  const py=P.y;P.y+=P.vy*dt;P.ground=false;P.stood=null;
+  for(const r of S){const b=r.ground?{x0:-256,x1:256,y0:-1,y1:0,z0:-256,z1:256}:box(r);const pb=pbox(P.x,P.y,P.z);if(!hit(pb,b))continue;
+    const top=r.ground?0:topAt(r,P.x,P.z);
+    if(P.vy<=0&&py>=top-.7){if(P.y<top+.05){P.y=top;P.vy=0;P.ground=true;P.stood=r}}
+    else if(P.vy>0&&!(r.o.shape==='cuna')){P.y=b.y0-PH*pscale/PSCALE;P.vy=0}}
+  // sigue pegado a una cuña al bajar
+  if(!P.ground&&P.vy<=0){for(const r of S){if(r.ground||r.o.shape!=='cuna')continue;const b=box(r);if(P.x>b.x0&&P.x<b.x1&&P.z>b.z0&&P.z<b.z1){const t=topAt(r,P.x,P.z);if(P.y-t<.6&&P.y-t>-.7){P.y=t;P.vy=0;P.ground=true;P.stood=r}}}}
+  if(mv.len>.1){P.face=Math.atan2(mv.x,mv.z);P.walk+=dt*sp*.75}
+  if(P.y<-60)kill();
+  P.inv=Math.max(0,P.inv-dt);
+}
+/* toques */
+function touches(){const pb=pbox(P.x,P.y-.08,P.z);pb.x0-=.12;pb.x1+=.12;pb.z0-=.12;pb.z1+=.12;pb.y1+=.1;
+  R.forEach(r=>{if(!r.alive||!r.visible){r.touching=false;return}const t=hit(pb,box(r));if(t&&!r.touching&&P.inv<=0)fire(r,'ev_touch');r.touching=t})}
+/* clic en objetos */
+const ray=new THREE.Raycaster();
+function tap(e){const rc=renderer.domElement.getBoundingClientRect();const v=new THREE.Vector2((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);
+  ray.setFromCamera(v,camera);const hits=ray.intersectObjects(R.filter(r=>r.alive&&r.visible).map(r=>r.m),false);if(!hits.length)return false;
+  const r=byMesh.get(hits[0].object);if(r&&has(r,'ev_click')){fire(r,'ev_click');return true}return false}
+/* ---------- programas ---------- */
+const VARS={};(GAME.vars||['puntos']).forEach(v=>VARS[v]=0);const SHOWN=new Set();
+let T=0,crono=0,cronoOn=false,over=false;let threads=[];
+const STAGE={o:{scripts:GAME.scripts||[],id:'juego'},pos:[0,0,0],size:[0,0,0],rot:0,alive:true,visible:true,stage:true,hats:{}};
+function stacksOf(r){return (r.o.scripts||[]).filter(s=>s.b&&s.b[0])}
+function has(r,op){return stacksOf(r).some(s=>s.b[0].op===op)}
+function fire(r,op,arg){if(over||!r.alive)return;stacksOf(r).forEach((s,i)=>{const h=s.b[0];if(h.op!==op)return;
+  if(op==='ev_key'&&h.a.k!==arg)return;if(op==='ev_msg'&&String(h.a.m).trim().toLowerCase()!==String(arg).trim().toLowerCase())return;
+  const key=i;const old=r.hats[key];
+  if(old&&!old.done){if(op==='ev_msg'){old.done=true}else return}
+  const th={r,gen:runList(s.b.slice(1),r),done:false,wake:0};r.hats[key]=th;threads.push(th)})}
+function broadcast(m){[STAGE].concat(R).forEach(r=>fire(r,'ev_msg',m))}
+function num(v){v=+v;return isFinite(v)?v:0}
+function val(name){if(name==='@altura')return +P.y.toFixed(2);if(name==='@tiempo')return Math.floor(T);if(name==='@azar')return 1+Math.floor(Math.random()*10);if(name==='@crono')return +crono.toFixed(1);
+  if(name==='@dist')return 0;return VARS[name]||0}
+function cond(a,r){let x=a.a==='@dist'?Math.hypot(P.x-r.pos[0],P.z-r.pos[2],P.y-r.pos[1]):val(a.a);const y=num(a.b);
+  switch(a.o){case '>':return x>y;case '<':return x<y;case '=':return Math.abs(x-y)<1e-6;case '≠':return Math.abs(x-y)>=1e-6}return false}
+function* runList(list,r){for(const b of list){if(!r.alive||over)return 'stop';const res=yield* exec(b,r);if(res==='stop')return 'stop'}}
+function* waitT(t){const end=T+Math.max(0,num(t));while(T<end)yield}
+function setPos(r,p){const old=r.pos.slice();r.pos=p;r.m.position.set(p[0],p[1],p[2]);r.dp=[p[0]-old[0]+(r.dp?r.dp[0]:0),p[1]-old[1]+(r.dp?r.dp[1]:0),p[2]-old[2]+(r.dp?r.dp[2]:0)]}
+function* tween(r,to,t){const from=r.pos.slice(),d=Math.max(.01,num(t)),st=T;while(true){const k=Math.min(1,(T-st)/d);setPos(r,from.map((v,i)=>v+(to[i]-v)*k));if(k>=1)break;yield}}
+function sfx(s){if(window.CubiAudio)CubiAudio.sfx(s)}
+function* exec(b,r){const a=b.a||{};if(r.stage&&/^(mv_|lk_|gm_destroy|gm_clone|ct_iftouch|pl_check)/.test(b.op)){return}
+  switch(b.op){
+    case 'mv_move':yield* tween(r,[r.pos[0]+num(a.x),r.pos[1]+num(a.y),r.pos[2]+num(a.z)],a.t);break;
+    case 'mv_goto':setPos(r,[num(a.x),num(a.y),num(a.z)]);break;
+    case 'mv_back':yield* tween(r,r.home.slice(),a.t);break;
+    case 'mv_turn':r.rot=(r.rot+num(a.g))%360;r.m.rotation.y=r.rot*Math.PI/180;break;
+    case 'mv_spin':{const from=r.rot,g=num(a.g),d=Math.max(.01,num(a.t)),st=T;while(true){const k=Math.min(1,(T-st)/d);r.rot=from+g*k;r.m.rotation.y=r.rot*Math.PI/180;if(k>=1)break;yield}r.rot%=360;break}
+    case 'mv_chase':{const end=T+num(a.t);let last=T;while(T<end){const dt=T-last;last=T;const dx=P.x-r.pos[0],dz=P.z-r.pos[2],d=Math.hypot(dx,dz);if(d>.3){const s=Math.min(d,num(a.v)*dt);setPos(r,[r.pos[0]+dx/d*s,r.pos[1],r.pos[2]+dz/d*s]);r.rot=Math.atan2(dx,dz)*180/Math.PI;r.m.rotation.y=r.rot*Math.PI/180}yield}break}
+    case 'lk_color':r.o=Object.assign({},r.o,{color:a.c});E.refresh(THREE,r.m,Object.assign({},r.o,{pos:r.pos,size:r.size,rot:r.rot,hidden:!r.visible}));break;
+    case 'lk_mat':r.o=Object.assign({},r.o,{mat:a.m});E.refresh(THREE,r.m,Object.assign({},r.o,{pos:r.pos,size:r.size,rot:r.rot,hidden:!r.visible}));break;
+    case 'lk_transp':r.o=Object.assign({},r.o,{transp:Math.max(0,Math.min(100,num(a.n)))});E.refresh(THREE,r.m,Object.assign({},r.o,{pos:r.pos,size:r.size,rot:r.rot,hidden:!r.visible}));break;
+    case 'lk_size':r.size=[Math.max(.1,num(a.x)),Math.max(.1,num(a.y)),Math.max(.1,num(a.z))];r.m.scale.set(...r.size);break;
+    case 'lk_show':r.visible=true;r.m.visible=true;break;
+    case 'lk_hide':r.visible=false;r.m.visible=false;break;
+    case 'lk_solid':r.solid=a.m==='si';break;
+    case 'lk_say':{if(r.label){r.m.remove(r.label);r.label=null}const t=String(a.s||'');if(t){const sp=K.sprite(K.textTex([[t,46,'#ffffff',58]],512,90,'rgba(20,22,34,.85)'),6,1.05);
+        sp.position.set(0,.5+1.1/r.size[1],0);sp.scale.set(6/r.size[0],1.05/r.size[1],1);r.m.add(sp);r.label=sp}break}
+    case 'pl_kill':kill();break;
+    case 'pl_tp':P.x=num(a.x);P.y=num(a.y);P.z=num(a.z);P.vx=P.vy=P.vz=0;break;
+    case 'pl_launch':P.vy=num(a.n);P.ground=false;sfx('boing');break;
+    case 'pl_speed':SPEED=Math.max(0,Math.min(200,num(a.n)));break;
+    case 'pl_jumpp':JUMP=Math.max(0,Math.min(300,num(a.n)));break;
+    case 'pl_size':pscale=PSCALE*Math.max(.2,Math.min(5,num(a.n)/100));me.root.scale.setScalar(pscale);break;
+    case 'pl_check':{const np=[r.pos[0],r.pos[1]+r.size[1]/2+.05,r.pos[2]];if(!P.cp||P.cp.join()!==np.join()){P.cp=np;sfx('checkpoint');K.toast('PUNTO DE CONTROL','','#3fd15c')}break}
+    case 'ct_wait':yield* waitT(a.t);break;
+    case 'ct_repeat':{const n=Math.min(100000,Math.floor(num(a.n)));for(let i=0;i<n;i++){const x=yield* runList(b.s||[],r);if(x==='stop')return 'stop';yield}break}
+    case 'ct_forever':while(true){const x=yield* runList(b.s||[],r);if(x==='stop')return 'stop';yield}
+    case 'ct_if':if(cond(a,r)){const x=yield* runList(b.s||[],r);if(x==='stop')return 'stop'}break;
+    case 'ct_ifelse':{const x=yield* runList(cond(a,r)?(b.s||[]):(b.s2||[]),r);if(x==='stop')return 'stop';break}
+    case 'ct_iftouch':if(r.touching){const x=yield* runList(b.s||[],r);if(x==='stop')return 'stop'}break;
+    case 'ct_until':while(!cond(a,r))yield;break;
+    case 'ct_stop':return 'stop';
+    case 'vr_set':if(!(a.v in VARS))VARS[a.v]=0;VARS[a.v]=num(a.n);hud();break;
+    case 'vr_add':if(!(a.v in VARS))VARS[a.v]=0;VARS[a.v]=+(VARS[a.v]+num(a.n)).toFixed(4);hud();break;
+    case 'vr_show':SHOWN.add(a.v);hud();break;
+    case 'vr_hide':SHOWN.delete(a.v);hud();break;
+    case 'gm_msg':banner(String(a.s||''),num(a.t));break;
+    case 'gm_send':broadcast(a.m);break;
+    case 'gm_win':end(true);return 'stop';
+    case 'gm_lose':end(false);return 'stop';
+    case 'gm_destroy':r.alive=false;scene.remove(r.m);return 'stop';
+    case 'gm_clone':{if(R.length>400)break;const o=JSON.parse(JSON.stringify(Object.assign({},r.o,{pos:[num(a.x),num(a.y),num(a.z)],size:r.size,rot:r.rot,hidden:false})));o.id=E.newId();o.clone=true;addObj(o,true);break}
+    case 'gm_timer':cronoOn=a.m==='start';if(cronoOn)crono=0;hud();break;
+    case 'sn_play':sfx(a.s);break;
+    case 'sn_music':if(window.CubiAudio){if(a.m==='ninguna')CubiAudio.stop();else CubiAudio.play(a.m,true)}break;
+  }}
+function kill(){if(over||P.inv>0)return;sfx('fall');respawn();K.toast('¡AY!','Vuelves al punto de control','#ff6a6a')}
+let bannerT=null;function banner(t,s){const b=$('#banner');b.textContent=t;b.style.opacity=1;clearTimeout(bannerT);bannerT=setTimeout(()=>b.style.opacity=0,Math.max(.3,s||2)*1000)}
+function hud(){const show=[...SHOWN];if(cronoOn||crono>0)show.push('@crono');
+  $('#vars').innerHTML=show.map(v=>`<div class="k-out">${v==='@crono'?'Tiempo':esc(v)}<b>${v==='@crono'?crono.toFixed(1)+' s':VARS[v]}</b></div>`).join('')}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function end(win){if(over)return;over=true;sfx(win?'win':'lose');if(window.CubiAvatar)CubiAvatar.emote(me,win?'ge4':'ge3');
+  const extra=[...SHOWN].map(v=>`${esc(v)}: <b>${VARS[v]}</b>`).concat(crono>0?[`Tiempo: <b>${crono.toFixed(1)} s</b>`]:[]).join(' · ');
+  setTimeout(()=>{document.body.insertAdjacentHTML('beforeend',`<div id="endov">${K.panel(win?'¡HAS GANADO!':'FIN DE LA PARTIDA',win?'#3fd15c':'#e5484d',`<p style="text-align:center;font-size:16px">${extra||(win?'¡Lo has conseguido!':'Inténtalo otra vez')}</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="k-btn g k-out" onclick="location.reload()">Jugar otra vez</button>${MODO==='prueba'?'<button class="k-btn r k-out" onclick="parent.postMessage({cuboStop:1},\'*\')">Volver al editor</button>':''}</div>`)}</div>`)},700)}
+$('#restart').onclick=()=>location.reload();
+/* teclas */
+const KEYMAP={' ':'espacio'};
+addEventListener('keydown',e=>{if(e.repeat||e.target.tagName==='INPUT')return;const k=KEYMAP[e.key]||e.key.toLowerCase();[STAGE].concat(R).forEach(r=>fire(r,'ev_key',k))});
+{const used=new Set();[STAGE].concat(R).forEach(r=>stacksOf(r).forEach(s=>{if(s.b[0].op==='ev_key'&&s.b[0].a.k!=='espacio')used.add(s.b[0].a.k)}));
+  const kb=$('#keys');used.forEach(k=>{const b=document.createElement('button');b.className='k-out';b.textContent=k.toUpperCase();b.onpointerdown=e=>{e.preventDefault();[STAGE].concat(R).forEach(r=>fire(r,'ev_key',k))};kb.appendChild(b)})}
+/* ---------- bucle ---------- */
+let last=performance.now();
+function step(){const now=performance.now();let dt=Math.min(.05,(now-last)/1000);last=now;
+  if(!over){T+=dt;if(cronoOn){crono+=dt;if(Math.floor(crono*10)!==Math.floor((crono-dt)*10))hud()}}
+  R.forEach(r=>r.dp=null);
+  // programas: cada uno avanza hasta su siguiente espera
+  const t0=performance.now();
+  threads.forEach(th=>{if(th.done)return;if(!th.r.alive){th.done=true;return}let n=0;try{const x=th.gen.next();if(x.done)th.done=true}catch(err){th.done=true;console.warn('Error en un programa',err)}});
+  threads=threads.filter(t=>!t.done);
+  if(!over){physics(dt);touches()}
+  me.root.position.set(P.x,P.y,P.z);me.root.rotation.y+=(((P.face-me.root.rotation.y+Math.PI*3)%(Math.PI*2))-Math.PI)*Math.min(1,dt*12);
+  K.walkAnim(me,P.walk,!P.ground);
+  ctl.camera(camera,P.x,P.y,P.z,2.6*pscale/PSCALE*1.4);
+  sun.position.set(P.x+40,P.y+80,P.z+30);sun.target.position.set(P.x,P.y,P.z);
+  renderer.render(scene,camera);requestAnimationFrame(step)}
+/* empezar */
+[STAGE].concat(R).forEach(r=>fire(r,'ev_start'));hud();
+if(window.CubiAudio)CubiAudio.gameMusic('aventura');
+K.toast((GAME.name||'¡A jugar!').toUpperCase(),GAME.desc?GAME.desc.slice(0,80):'',"#ffcc33");
+requestAnimationFrame(step);
+</script>
+</body>
+</html>
