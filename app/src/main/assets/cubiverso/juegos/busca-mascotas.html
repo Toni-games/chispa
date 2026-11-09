@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Busca las Mascotas</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Busca las mascotas: parque en 3D; tiempo y contador arriba; álbum a la izquierda */
+body{background:#aee3ff}
+#album{left:max(10px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 56px);background:rgba(20,22,34,.82);border:3px solid #000;border-radius:12px;padding:6px 8px;display:grid;grid-template-columns:repeat(4,22px);gap:4px}
+#album i{width:22px;height:22px;border-radius:6px;border:2px solid #000;background:#2b3047}
+#arrowtip{top:50%;left:50%;width:0;height:0;pointer-events:none}
+#arrowtip div{position:absolute;left:-30px;top:-120px;width:60px;height:60px;transform-origin:30px 120px;font:400 46px "Lilita One",sans-serif;color:#ffcc33;text-align:center}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="album" class="k-ui" aria-label="Mascotas encontradas"></div>
+<div id="arrowtip" class="k-ui" hidden><div class="k-out">▲</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script src="comun.js"></script>
+<script>
+const K=Kit,J=Juego,$=s=>document.querySelector(s);
+const {renderer,scene,camera,sun}=K.setup({sky:0xaee3ff,fogNear:60,fogFar:170});
+const ground=new THREE.Mesh(new THREE.BoxGeometry(160,1,160),K.M(0xffffff,{map:K.studs([80,80])}));ground.material.color.set(0x7cc95a);ground.position.y=-.5;ground.receiveShadow=true;scene.add(ground);
+const boxes=[];
+function solid(w,h,d,col,x,y,z,mat){const m=K.box(w,h,d,mat||K.M(col),x,y+h/2,z,scene);m.castShadow=m.receiveShadow=true;boxes.push({x0:x-w/2,x1:x+w/2,z0:z-d/2,z1:z+d/2,top:y+h,bottom:y});return m}
+/* ---------- parque ---------- */
+// caminos
+K.box(6,.05,90,K.M(0xe9c99a),0,.02,0,scene).receiveShadow=true;K.box(90,.05,6,K.M(0xe9c99a),0,.02,0,scene).receiveShadow=true;
+// estanque
+const pond=K.cyl(9,9,.1,new THREE.MeshPhongMaterial({color:0x29b6f6,shininess:80}),-22,.06,22,scene,32);
+// casas con escaleras para subir al tejado
+[[28,-26,0xffb74d],[-28,-28,0x90caf9],[30,28,0xce93d8]].forEach(([x,z,c])=>{solid(10,6,10,c,x,0,z);for(let i=0;i<5;i++)solid(2,1.2*(i+1),2,0x8d6e63,x-6,0,z+4-i*2)});
+// árboles y arbustos
+const TREES=[[-10,-14],[12,-16],[-36,4],[38,4],[8,36],[-8,40],[22,10],[-14,8],[16,-38],[-40,-14],[42,-12],[0,-44]];
+TREES.forEach(([x,z])=>{solid(1,3.2,1,0x6d4c41,x,0,z);const c=K.sph(2.6,K.M(0x2e7d32),x,4.6,z,scene);c.castShadow=true});
+const BUSH=[[-6,-6],[6,8],[-18,-24],[20,-6],[-30,18],[34,16],[-4,26],[10,24],[-24,-6],[26,-18]];
+BUSH.forEach(([x,z])=>{const b=K.sph(1.6,K.M(0x43a047),x,1,z,scene);b.scale.y=.8;b.castShadow=true});
+// bancos, columpio y tobogán
+[[-5,14],[5,-12],[14,4],[-15,-3]].forEach(([x,z])=>{solid(3,.9,1,0x8d6e63,x,0,z)});
+solid(6,.6,6,0xffcc33,-30,3.5,-30+70);solid(1,3.5,1,0xff6a00,-32,0,40);solid(1,3.5,1,0xff6a00,-28,0,40);
+solid(4,5,4,0xef5350,40,0,40);
+// escalones para subir al columpio y al tobogán
+for(let i=0;i<4;i++){solid(2,1.1*(i+1),2,0x8d6e63,-30+(i-4)*2,0,36);solid(2,1.2*(i+1),2,0x8d6e63,40-(4-i)*2-1,0,39)}
+/* ---------- mascotas (diseños propios hechos con cubos) ---------- */
+const KINDS=[['Gato',0xff9800],['Perro',0x8d6e63],['Conejo',0xf5f5f5],['Pollito',0xffeb3b],['Rana',0x66bb6a],['Cerdito',0xf48fb1],['Panda',0xfafafa],['Pingüino',0x263238],['Zorro',0xff7043],['Tortuga',0x558b2f],['Oveja',0xeeeeee],['Pato',0xfff176]];
+function pet(kind,col){const g=new THREE.Group();const m=K.M(col),dark=K.M(0x222222);
+  K.box(.9,.6,1.2,m,0,.5,0,g);K.box(.7,.6,.6,m,0,1,.65,g);K.box(.12,.12,.05,dark,-.17,1.07,.96,g);K.box(.12,.12,.05,dark,.17,1.07,.96,g);
+  [[-.3,-.4],[.3,-.4],[-.3,.4],[.3,.4]].forEach(([x,z])=>K.box(.2,.3,.2,m,x,.15,z,g));
+  if(kind==='Gato'||kind==='Zorro'){K.box(.18,.25,.1,m,-.22,1.4,.6,g);K.box(.18,.25,.1,m,.22,1.4,.6,g);K.box(.15,.15,.6,m,0,.8,-.85,g)}
+  if(kind==='Conejo'){K.box(.15,.6,.1,m,-.15,1.6,.6,g);K.box(.15,.6,.1,m,.15,1.6,.6,g)}
+  if(kind==='Pollito'||kind==='Pato')K.box(.3,.1,.25,K.M(0xff9800),0,.95,1.02,g);
+  if(kind==='Cerdito')K.box(.3,.2,.1,K.M(0xf06292),0,.95,.98,g);
+  if(kind==='Panda'){K.box(.2,.2,.1,dark,-.22,1.4,.6,g);K.box(.2,.2,.1,dark,.22,1.4,.6,g)}
+  if(kind==='Perro'){K.box(.15,.3,.2,K.M(0x5d4037),-.4,1.05,.6,g);K.box(.15,.3,.2,K.M(0x5d4037),.4,1.05,.6,g)}
+  if(kind==='Tortuga')K.box(1.1,.4,1.3,K.M(0x33691e),0,.85,0,g);
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true});return g}
+/* escondites posibles (x,y,z): detrás de arbustos, bajo bancos, en tejados, en árboles... */
+const SPOTS=[...BUSH.map(([x,z])=>[x+.8,0,z+1.2]),[28,6,-26],[-28,6,-28],[30,6,28],[-30,4.1,40],[40,5,40],[-22,0,32],[-12,0,22],[0,0,-46],[46,0,0],[-46,0,0],[18,0,-38.5],[-8,0,41.5],[-36,0,6],[38,0,6],[5,0,-10.6],[-5,0,15.4],[14,0,5.4],[-15,0,-1.6]];
+let pets=[],found=0,T=0,running=false,penalty=0;
+function setup(){pets.forEach(p=>scene.remove(p.g));pets=[];found=0;T=0;penalty=0;
+  const spots=SPOTS.slice().sort(()=>Math.random()-.5);KINDS.forEach(([n,c],i)=>{const g=pet(n,c);const s=spots[i];g.position.set(s[0],s[1],s[2]);g.rotation.y=Math.random()*6.28;scene.add(g);pets.push({n,c,g,found:false,ph:Math.random()*6})});
+  $('#album').innerHTML=KINDS.map((k,i)=>`<i title="${k[0]}" id="al${i}"></i>`).join('');hud()}
+function hud(){J.hud([['Mascotas',found+'/'+KINDS.length],['Tiempo',Math.floor(T+penalty)+' s'],running?['Pista (H)','+15 s']:null])}
+/* jugador */
+const ctl=K.controls(renderer.domElement,{dist:12,pitch:.5,yaw:Math.PI});
+const P=J.player(scene,ctl,{x:0,z:-4,speed:9,jump:11,boxes,bound:70});K.emotes(P.a);
+let hintT=0;
+function hint(){if(!running)return;const left=pets.filter(p=>!p.found);if(!left.length)return;penalty+=15;hintT=4;J.sfx('notify');K.toast('PISTA','Sigue la flecha amarilla (+15 s)','#ffcc33')}
+J.action('PISTA','h',hint,{col:'#ffcc33',bottom:130});
+/* bucle */
+let last=performance.now();
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
+  P.frozen=!running;P.update(dt,camera,1.4);sun.position.set(P.x+30,60,P.z+20);sun.target.position.set(P.x,0,P.z);
+  pets.forEach(p=>{if(p.found){p.g.position.y+=dt*6;p.g.rotation.y+=dt*8;if(p.g.position.y>40)p.g.visible=false;return}
+    p.ph+=dt;p.g.position.y=p.g.userData.y0??(p.g.userData.y0=p.g.position.y);p.g.position.y+=Math.abs(Math.sin(p.ph*3))*.15;
+    if(running&&Math.hypot(P.x-p.g.position.x,P.z-p.g.position.z)<2.2&&Math.abs(P.y-p.g.userData.y0)<2.5){p.found=true;found++;J.sfx('lucky');K.toast('¡'+p.n.toUpperCase()+'!','Encontrado '+found+' de '+KINDS.length,'#3fd15c');
+      const i=pets.indexOf(p);const a=$('#al'+i);if(a)a.style.background='#'+p.c.toString(16).padStart(6,'0');if(found===KINDS.length)win()}});
+  if(running){T+=dt;if(Math.floor(T*2)!==Math.floor((T-dt)*2))hud()}
+  // flecha de pista
+  hintT-=dt;const at=$('#arrowtip');if(hintT>0){const left=pets.filter(p=>!p.found);let n=null,bd=1e9;left.forEach(p=>{const d=Math.hypot(P.x-p.g.position.x,P.z-p.g.position.z);if(d<bd){bd=d;n=p}});
+    if(n){at.hidden=false;const ang=Math.atan2(n.g.position.x-P.x,n.g.position.z-P.z);const cy=ctl.look.yaw;const rel=-(ang-(cy+Math.PI));at.firstElementChild.style.transform=`rotate(${rel}rad)`}}else at.hidden=true;
+  renderer.render(scene,camera);requestAnimationFrame(loop)}
+function win(){running=false;const tot=Math.floor(T+penalty);const rec=J.saveBest('mascotas',tot,false);J.sfx('win');if(window.CubiAvatar)CubiAvatar.emote(P.a,'ge1');
+  setTimeout(()=>J.end({title:'¡TODAS ENCONTRADAS!',col:'#3fd15c',lines:[`Tiempo: <b style="color:#ffcc33">${tot} s</b>`,`Récord: ${J.best('mascotas')} s`],record:rec,onAgain(){setup();P.x=0;P.z=-4;running=true}}),1200)}
+setup();J.music('bienvenida');
+J.start({title:'BUSCA LAS MASCOTAS',col:'#ff9800',sub:'Se han escondido 12 mascotas por el parque. ¡Encuéntralas todas lo antes posible! Cada partida se esconden en sitios distintos.',
+  howto:['Busca detrás de los arbustos, bajo los bancos, en los tejados…','Sube a los tejados por las escaleras de cajas','Pulsa <b>H</b> (o PISTA) si te atascas: una flecha te guía, pero suma 15 s'],
+  record:J.best('mascotas')!=null?J.best('mascotas')+' s':null,onStart(){running=true}});
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
