@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lluvia de Meteoritos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Meteoritos: plataforma en el espacio; puntos, vidas y tiempo arriba */
+body{background:#070a1a}
+#hurt{inset:0;pointer-events:none;box-shadow:inset 0 0 120px rgba(255,120,0,.7);opacity:0;transition:opacity .25s}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hurt" class="k-ui"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script src="comun.js"></script>
+<script>
+const K=Kit,J=Juego,$=s=>document.querySelector(s);
+const {renderer,scene,camera,sun,hemi}=K.setup({sky:0x070a1a,fogNear:80,fogFar:260});
+const R0=20;
+const plat=K.cyl(R0,R0*.6,5,K.M(0x78909c),0,-2.5,0,scene,48);plat.receiveShadow=true;
+const topP=K.cyl(R0-.1,R0-.1,.1,K.M(0xffffff,{map:K.studs([20,20])}),0,.02,0,scene,48);topP.material.color.set(0x90a4ae);topP.receiveShadow=true;
+// estrellas y planeta
+{const n=900,pos=new Float32Array(n*3);for(let i=0;i<n;i++){const a=Math.random()*6.28,b=Math.random()*Math.PI-Math.PI/2,r=300;pos[i*3]=Math.cos(a)*Math.cos(b)*r;pos[i*3+1]=Math.sin(b)*r;pos[i*3+2]=Math.sin(a)*Math.cos(b)*r}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));scene.add(new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:1.4,fog:false})))}
+const planet=K.sph(40,new THREE.MeshLambertMaterial({color:0x5c6bc0}),120,-30,-200,scene);const ring=new THREE.Mesh(new THREE.TorusGeometry(62,4,2,60),new THREE.MeshBasicMaterial({color:0xb39ddb,fog:false}));ring.position.copy(planet.position);ring.rotation.x=1.2;scene.add(ring);
+/* ---------- jugador ---------- */
+const ctl=K.controls(renderer.domElement,{dist:16,pitch:.8,yaw:Math.PI,min:10,max:30});
+const onP=(x,z)=>Math.hypot(x,z)<R0-.3;
+const P=J.player(scene,ctl,{x:0,z:0,speed:9.5,jump:11,boxes:[],bound:200,noFloor:true,floorFn:(x,z)=>onP(x,z)?0:null});K.emotes(P.a);
+let lives=3,stars=0,T=0,running=false,spawnT=1,inv=0,shield=0;
+const M=[],S=[],FX=[];
+const ringGeo=new THREE.RingGeometry(.85,1,40);
+function meteor(x,z,big){const r=big?4:2.6;const mark=new THREE.Mesh(ringGeo,new THREE.MeshBasicMaterial({color:0xff3d00,transparent:true,opacity:.9,side:THREE.DoubleSide}));mark.rotation.x=-Math.PI/2;mark.position.set(x,.08,z);mark.scale.setScalar(r);scene.add(mark);
+  const fill=new THREE.Mesh(new THREE.CircleGeometry(1,40),new THREE.MeshBasicMaterial({color:0xff3d00,transparent:true,opacity:.25}));fill.rotation.x=-Math.PI/2;fill.position.set(x,.07,z);fill.scale.setScalar(.01);scene.add(fill);
+  const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(big?1.8:1.1),K.M(0x5d4037));rock.position.set(x+10,60,z-6);rock.castShadow=true;scene.add(rock);
+  const trail=K.sph(big?1.5:1,new THREE.MeshBasicMaterial({color:0xff9800,transparent:true,opacity:.7}),0,0,0,rock);trail.position.set(.8,1.2,-.5);
+  M.push({x,z,r,mark,fill,rock,t:0,dur:Math.max(1.1,2.2-T*.012)})}
+function star(){const a=Math.random()*6.28,d=Math.random()*(R0-3);const m=K.sph(.55,new THREE.MeshBasicMaterial({color:0xffe066}),Math.cos(a)*d,1,Math.sin(a)*d,scene);S.push({m,t:0,kind:Math.random()<.12?'escudo':'estrella'});if(S[S.length-1].kind==='escudo')m.material.color.set(0x40c4ff)}
+function boom(x,z,r){const m=K.sph(1,new THREE.MeshBasicMaterial({color:0xffb300,transparent:true,opacity:.85}),x,0,z,scene);FX.push({m,t:0,r});J.sfx('boom')}
+function hit(x,z){if(inv>0)return;if(shield>0){shield=0;inv=1;J.sfx('freeze');K.toast('¡EL ESCUDO TE HA SALVADO!','','#40c4ff');return}
+  lives--;inv=1.5;$('#hurt').style.opacity=1;setTimeout(()=>$('#hurt').style.opacity=0,250);const dx=P.x-x,dz=P.z-z,d=Math.hypot(dx,dz)||1;P.vx+=dx/d*14;P.vz+=dz/d*14;P.vy=8;P.ground=false;
+  if(lives<=0)end();else K.toast('¡AY!',lives+' vida'+(lives>1?'s':''),'#ff6a00')}
+function end(){if(!running)return;running=false;J.sfx('lose');const score=stars*10+Math.floor(T);const rec=J.saveBest('meteoritos',score,true);
+  setTimeout(()=>J.end({title:'¡FIN DE LA LLUVIA!',col:'#ff6a00',lines:[`Aguantaste <b style="color:#ffcc33">${Math.floor(T)} s</b> y cogiste ${stars} estrellas`,`Puntos: <b style="color:#ffcc33">${score}</b>`,`Récord: ${J.best('meteoritos')}`],record:rec,onAgain(){reset();running=true}}),900)}
+function reset(){[...M.flatMap(m=>[m.mark,m.fill,m.rock]),...S.map(s=>s.m),...FX.map(f=>f.m)].forEach(o=>scene.remove(o));M.length=0;S.length=0;FX.length=0;lives=3;stars=0;T=0;spawnT=1;inv=0;shield=0;P.x=0;P.z=0;P.y=0;P.vx=P.vz=P.vy=0}
+const shieldM=K.sph(1.6,new THREE.MeshBasicMaterial({color:0x40c4ff,transparent:true,opacity:.25}),0,0,0,scene);
+/* ---------- bucle ---------- */
+let last=performance.now();
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
+  P.frozen=!running;P.update(dt,camera,1.4);
+  if(running){T+=dt;inv=Math.max(0,inv-dt);shield=Math.max(0,shield-dt);spawnT-=dt;
+    if(spawnT<=0){const n=1+Math.floor(T/25);for(let i=0;i<n;i++){let x,z;if(Math.random()<.35){x=P.x+(Math.random()-.5)*4;z=P.z+(Math.random()-.5)*4}else{const a=Math.random()*6.28,d=Math.random()*(R0-2);x=Math.cos(a)*d;z=Math.sin(a)*d}meteor(x,z,T>30&&Math.random()<.2)}
+      spawnT=Math.max(.45,1.5-T*.015)}
+    if(S.length<4&&Math.random()<dt*.9)star();
+    if(P.y<-15){inv=0;shield=0;hit(P.x,P.z);if(running){P.x=0;P.z=0;P.y=5;P.vx=P.vz=P.vy=0}}
+    if(Math.floor(T*2)!==Math.floor((T-dt)*2))hud()}
+  P.a.root.visible=inv<=0||Math.floor(T*10)%2===0;shieldM.visible=shield>0;shieldM.position.set(P.x,P.y+1.2,P.z);
+  for(let i=M.length-1;i>=0;i--){const m=M[i];m.t+=dt;const k=Math.min(1,m.t/m.dur);m.fill.scale.setScalar(Math.max(.01,m.r*k));m.rock.position.set(m.x+10*(1-k),60*(1-k)+.5,m.z-6*(1-k));m.rock.rotation.x+=dt*4;
+    if(k>=1){boom(m.x,m.z,m.r);if(running&&Math.hypot(P.x-m.x,P.z-m.z)<m.r+.3&&P.y<3)hit(m.x,m.z);[m.mark,m.fill,m.rock].forEach(o=>scene.remove(o));M.splice(i,1)}}
+  for(let i=FX.length-1;i>=0;i--){const f=FX[i];f.t+=dt;f.m.scale.setScalar(f.r*(.5+f.t*3));f.m.material.opacity=Math.max(0,.85-f.t*2.2);if(f.t>.4){scene.remove(f.m);FX.splice(i,1)}}
+  for(let i=S.length-1;i>=0;i--){const s=S[i];s.t+=dt;s.m.position.y=1+Math.sin(s.t*3)*.25;s.m.rotation.y+=dt*3;
+    if(running&&Math.hypot(P.x-s.m.position.x,P.z-s.m.position.z)<1.4&&P.y<3){if(s.kind==='escudo'){shield=8;J.sfx('freeze');K.toast('¡ESCUDO!','8 segundos','#40c4ff')}else{stars++;J.sfx('coin')}scene.remove(s.m);S.splice(i,1);hud()}
+    else if(s.t>12){scene.remove(s.m);S.splice(i,1)}}
+  sun.position.set(P.x+20,50,P.z+20);sun.target.position.set(P.x,0,P.z);
+  renderer.render(scene,camera);requestAnimationFrame(loop)}
+function hud(){J.hud([['Vidas','❤'.repeat(Math.max(0,lives))||'0'],['Estrellas',stars],['Tiempo',Math.floor(T)+' s'],shield>0?['Escudo',Math.ceil(shield)+' s']:null])}
+hud();J.music('neon');
+J.start({title:'LLUVIA DE METEORITOS',col:'#ff6a00',sub:'Caen meteoritos sobre la plataforma. Quítate de los círculos rojos antes de que lleguen y coge estrellas.',
+  howto:['<b>WASD</b> o joystick para correr, <b>ESPACIO</b> para saltar','El círculo rojo se llena: cuando está lleno, ¡bum!','Estrellas amarillas: 10 puntos. Bolas azules: escudo de 8 s','Cada segundo que aguantas suma 1 punto'],
+  record:J.best('meteoritos')!=null?J.best('meteoritos')+' puntos':null,onStart(){running=true}});
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

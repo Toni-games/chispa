@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Granja Cúbica</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Granja: el campo en 3D; dinero y cesta arriba; semillas abajo */
+body{background:#9fdcff}
+#seeds{bottom:calc(env(safe-area-inset-bottom,0px) + 10px);left:50%;transform:translateX(-50%);display:flex;gap:6px}
+#seeds button{border:3px solid #000;border-radius:12px;background:#2b3047;padding:6px 10px;font-weight:900;font-size:13px;line-height:1.1;text-align:center;min-width:76px}
+#seeds button small{display:block;color:#ffcc33;font-size:11px}
+#seeds button.on{background:#3fd15c;color:#06210f}#seeds button.on small{color:#06210f}
+body.k-touch #seeds{left:auto;right:max(10px,env(safe-area-inset-right,0px));transform:none;bottom:auto;top:calc(env(safe-area-inset-top,0px) + 56px);flex-direction:column}
+#tip{bottom:calc(env(safe-area-inset-bottom,0px) + 72px);left:50%;transform:translateX(-50%);font-weight:900;font-size:16px;pointer-events:none;white-space:nowrap}
+body.k-touch #tip{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="seeds" class="k-ui"></div>
+<div id="tip" class="k-ui k-out"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script src="comun.js"></script>
+<script>
+const K=Kit,J=Juego,$=s=>document.querySelector(s);
+const {renderer,scene,camera,sun}=K.setup({sky:0x9fdcff,fogNear:70,fogFar:180});
+const SK='cubi-granja';
+const CROPS={zanahoria:{name:'Zanahoria',cost:2,time:8,price:6,col:0xff8a1c},tomate:{name:'Tomate',cost:5,time:16,price:15,col:0xe53935},calabaza:{name:'Calabaza',cost:12,time:32,price:42,col:0xff9800},fresa:{name:'Fresa',cost:20,time:45,price:70,col:0xff3d6e}};
+const PRICES=[0,0,0,0,0,0,25,40,60,80,110,150,200,260,330,420,520,650];
+let S={money:20,plots:6,cesta:{},ganado:0,unlocked:['zanahoria','tomate'],land:[]};
+try{const s=JSON.parse(localStorage.getItem(SK)||'null');if(s)S=Object.assign(S,s)}catch(e){}
+const save=()=>{try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}};
+/* ---------- escenario ---------- */
+const ground=new THREE.Mesh(new THREE.BoxGeometry(140,1,140),K.M(0xffffff,{map:K.studs([70,70])}));ground.material.color.set(0x6cbf4a);ground.position.y=-.5;ground.receiveShadow=true;scene.add(ground);
+const boxes=[];
+function solid(w,h,d,col,x,y,z){const m=K.box(w,h,d,K.M(col),x,y+h/2,z,scene);m.castShadow=m.receiveShadow=true;boxes.push({x0:x-w/2,x1:x+w/2,z0:z-d/2,z1:z+d/2,top:y+h});return m}
+// granero y casa
+solid(10,7,8,0xc62828,-22,0,-18);K.box(10.6,.6,8.6,K.M(0xeeeeee),-22,7.3,-18,scene);K.box(3,4,.2,K.M(0x5d4037),-22,2,-13.9,scene);
+solid(8,6,7,0xfff3e0,22,0,-20);const roof=K.cyl(0,6.2,3,K.M(0x795548),22,7.5,-20,scene,4);roof.rotation.y=Math.PI/4;
+// puesto de venta
+const stand=solid(5,2.2,2.4,0x8d6e63,0,0,-14);K.box(5.4,.3,3,K.M(0xffcc33),0,3.6,-14,scene);[-2.4,2.4].forEach(x=>K.box(.25,3.6,.25,K.M(0x5d4037),x,1.8,-15,scene));
+const sTag=K.sprite(K.textTex([['VENDER',46,'#ffcc33',36]],300,70),3.4,.8);sTag.position.set(0,4.6,-14);scene.add(sTag);
+// valla
+for(let i=-30;i<=30;i+=3){[[i,-34],[i,34]].forEach(([x,z])=>K.box(.3,1.4,3,K.M(0xd7ccc8),x,.7,z,scene).rotation.y=Math.PI/2);[[-34,i],[34,i]].forEach(([x,z])=>K.box(.3,1.4,3,K.M(0xd7ccc8),x,.7,z,scene))}
+// árboles
+[[-28,10],[-30,24],[28,14],[30,26],[-12,30],[14,30]].forEach(([x,z])=>{K.cyl(.5,.6,3,K.M(0x6d4c41),x,1.5,z,scene);const c=K.sph(2.4,K.M(0x2e7d32),x,4.4,z,scene);c.castShadow=true});
+/* ---------- parcelas: 3 filas x 6 ---------- */
+const PL=[];const soil=K.M(0x6d4c41),soilWet=K.M(0x4e342e),lockM=K.M(0x9e9e9e);
+for(let r=0;r<3;r++)for(let c=0;c<6;c++){const i=PL.length,x=-15+c*6,z=-2+r*7;
+  const m=K.box(4.6,.4,4.6,soil,x,.2,z,scene);m.receiveShadow=true;
+  const g=new THREE.Group();g.position.set(x,.4,z);scene.add(g);
+  const lab=K.sprite(K.textTex([['',40,'#fff',32]],260,64),2.6,.65);lab.position.set(x,2.4,z);lab.visible=false;scene.add(lab);
+  PL.push({i,x,z,m,g,lab,st:null})}
+function landOf(i){return S.land[i]||null}
+function plantMesh(p,crop,k){p.g.clear();if(!crop)return;const C=CROPS[crop];const leaf=K.M(0x43a047);
+  const n=4;for(let a=0;a<n;a++)for(let b=0;b<n;b++){const x=-1.5+a,z=-1.5+b;if(k<.34){K.box(.15,.4,.15,leaf,x,.2,z,p.g)}else if(k<1){K.box(.35,.9*k+.3,.35,leaf,x,.5*k+.2,z,p.g)}
+    else{K.box(.4,.9,.4,leaf,x,.6,z,p.g);if(crop==='zanahoria'){const c=K.cyl(.22,.02,.7,K.M(C.col),x,.2,z,p.g);c.rotation.x=Math.PI}
+      else if(crop==='calabaza'){if(a%2===0&&b%2===0)K.sph(.7,K.M(C.col),x+.5,.6,z+.5,p.g)}else K.sph(crop==='fresa'?.22:.3,K.M(C.col),x,1,z+.25,p.g)}}
+  p.g.traverse(o=>{if(o.isMesh)o.castShadow=true})}
+function refreshPlot(p){const L=landOf(p.i);const unlocked=p.i<S.plots;p.m.material=unlocked?(L&&L.wet?soilWet:soil):lockM;
+  if(!unlocked){p.g.clear();p.lab.visible=true;setLabel(p,`${PRICES[p.i]} $`);return}
+  if(!L){p.g.clear();p.lab.visible=false;p.k=-1;return}
+  const k=growth(L);if(p.k!==bucket(k)){p.k=bucket(k);plantMesh(p,L.crop,k)}p.lab.visible=k>=1;if(k>=1)setLabel(p,'¡LISTO!')}
+const bucket=k=>k<.34?0:k<.67?1:k<1?2:3;
+function setLabel(p,t){if(p.labT===t)return;p.labT=t;p.lab.material.map=K.textTex([[t,40,'#ffcc33',32]],260,64);p.lab.material.needsUpdate=true}
+function growth(L){const C=CROPS[L.crop];return Math.min(1,(Date.now()-L.t)/1000/(C.time*(L.wet?.6:1)))}
+/* ---------- jugador ---------- */
+const ctl=K.controls(renderer.domElement,{dist:13,pitch:.6,yaw:Math.PI});
+const P=J.player(scene,ctl,{x:0,z:-8,speed:8,jump:9,boxes,bound:32});K.emotes(P.a);
+let sel='zanahoria';
+function seeds(){$('#seeds').innerHTML=Object.entries(CROPS).map(([k,c],i)=>{const own=S.unlocked.includes(k);return `<button data-s="${k}" class="${sel===k?'on':''}">${c.name}<small>${own?`${c.cost} $ · ${c.time} s`:`Desbloquear ${c.cost*15} $`}</small></button>`}).join('')}
+$('#seeds').addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(!b)return;const k=b.dataset.s;
+  if(!S.unlocked.includes(k)){const c=CROPS[k].cost*15;if(S.money<c){J.sfx('error');K.toast('TE FALTA DINERO',`Necesitas ${c} $`,'#ff6a6a');return}S.money-=c;S.unlocked.push(k);J.sfx('buy');K.toast('¡SEMILLA NUEVA!',CROPS[k].name,'#3fd15c');save()}
+  sel=k;seeds();hud()});
+addEventListener('keydown',e=>{const n=+e.key;const ks=Object.keys(CROPS);if(n>=1&&n<=ks.length){const b=$(`[data-s="${ks[n-1]}"]`);if(b)b.click()}});
+function hud(){const n=Object.values(S.cesta).reduce((a,b)=>a+b,0);J.hud([['Dinero',S.money+' $'],['Cesta',n],['Ganado',S.ganado+' $']])}
+function near(){let best=null,bd=3.3;PL.forEach(p=>{const d=Math.hypot(P.x-p.x,P.z-p.z);if(d<bd){bd=d;best=p}});return best}
+function nearStand(){return Math.hypot(P.x,P.z+14)<4.2}
+function act(){if(nearStand()){const n=Object.values(S.cesta).reduce((a,b)=>a+b,0);if(!n){K.toast('LA CESTA ESTÁ VACÍA','Recoge lo que hayas plantado','#ffcc33');return}
+    let tot=0;for(const k in S.cesta)tot+=S.cesta[k]*CROPS[k].price;S.money+=tot;S.ganado+=tot;S.cesta={};J.sfx('cash');K.toast('+'+tot+' $','¡Todo vendido!','#3fd15c');save();hud();return}
+  const p=near();if(!p)return;
+  if(p.i>=S.plots){if(p.i!==S.plots){K.toast('COMPRA ANTES LA ANTERIOR','','#ffcc33');return}const c=PRICES[p.i];if(S.money<c){J.sfx('error');K.toast('TE FALTA DINERO',`Esta parcela cuesta ${c} $`,'#ff6a6a');return}
+    S.money-=c;S.plots++;J.sfx('buy');K.toast('¡PARCELA NUEVA!','','#3fd15c');save();PL.forEach(refreshPlot);hud();return}
+  const L=landOf(p.i);
+  if(!L){const C=CROPS[sel];if(S.money<C.cost){J.sfx('error');K.toast('TE FALTA DINERO','Vende lo que tengas en la cesta','#ff6a6a');return}S.money-=C.cost;S.land[p.i]={crop:sel,t:Date.now(),wet:false};J.sfx('place');p.k=-1;save();hud();refreshPlot(p);return}
+  if(growth(L)>=1){const n=8;S.cesta[L.crop]=(S.cesta[L.crop]||0)+n;S.land[p.i]=null;J.sfx('pop');K.toast('+'+n+' '+CROPS[L.crop].name.toUpperCase(),'Véndelas en el puesto','#ffcc33');save();hud();refreshPlot(p);return}
+  if(!L.wet){const k=growth(L);L.wet=true;// regar acelera lo que falta
+    L.t=Date.now()-k*CROPS[L.crop].time*.6*1000;J.sfx('splash');K.toast('¡REGADO!','Ahora crece más deprisa','#3fa7ff');save();refreshPlot(p);return}
+  K.toast('CRECIENDO…',Math.ceil((1-growth(L))*CROPS[L.crop].time*.6)+' s','#ffcc33')}
+J.action('USAR','e',act,{col:'#3fd15c'});
+renderer.domElement.addEventListener('dblclick',act);
+/* ---------- bucle ---------- */
+let last=performance.now(),tick=0,started=false;
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
+  P.frozen=!started;P.update(dt,camera,1.4);sun.position.set(P.x+30,60,P.z+20);sun.target.position.set(P.x,0,P.z);
+  tick+=dt;if(tick>.5){tick=0;PL.forEach(refreshPlot)}
+  // consejo de lo que hará la tecla E
+  let tip='';if(nearStand())tip='E: vender la cesta';else{const p=near();if(p){const L=landOf(p.i);if(p.i>=S.plots)tip=`E: comprar parcela (${PRICES[p.i]} $)`;else if(!L)tip=`E: plantar ${CROPS[sel].name} (${CROPS[sel].cost} $)`;else if(growth(L)>=1)tip='E: cosechar';else if(!L.wet)tip='E: regar';else tip='Creciendo…'}}
+  const te=$('#tip');if(te.textContent!==tip)te.textContent=tip;
+  renderer.render(scene,camera);requestAnimationFrame(loop)}
+PL.forEach(refreshPlot);seeds();hud();J.music('lago');
+J.start({title:'GRANJA CÚBICA',col:'#3fd15c',sub:'Planta, riega, cosecha y vende para hacer crecer tu granja. Las plantas siguen creciendo aunque cierres el juego.',
+  howto:['Acércate a una parcela y pulsa <b>E</b> (o USAR) para plantar la semilla elegida','Pulsa E otra vez para <b>regar</b>: crece más rápido','Cuando ponga ¡LISTO!, pulsa E para cosechar','Vende la cesta en el puesto amarillo','Compra parcelas y semillas nuevas'],
+  record:J.best('granja')!=null?J.best('granja')+' $ ganados':null,onStart(){started=true}});
+setInterval(()=>{J.saveBest('granja',S.ganado,true)},5000);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

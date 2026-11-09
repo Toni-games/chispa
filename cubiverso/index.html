@@ -286,21 +286,21 @@ function rr(g,x,y,w,h,col){g.fillStyle=col;g.fillRect(x,y,w,h)}
 function windows(g,x,y,w,h,col){g.fillStyle=col;for(let yy=y+8;yy<y+h-10;yy+=16)for(let xx=x+6;xx<x+w-10;xx+=14)g.fillRect(xx,yy,7,8)}
 function person(g,x,y,s,shirt){rr(g,x-6*s,y-14*s,12*s,10*s,'#ffd29a');rr(g,x-8*s,y-4*s,16*s,14*s,shirt);rr(g,x-8*s,y+10*s,7*s,12*s,'#2d3a5a');rr(g,x+1*s,y+10*s,7*s,12*s,'#2d3a5a');g.fillStyle='#111';g.fillRect(x-3*s,y-11*s,2*s,3*s);g.fillRect(x+1*s,y-11*s,2*s,3*s)}
 const GAMES=[
- {id:'obby',name:'Carrera Imposible',file:'juegos/carrera-imposible.html',tag:'Obby · Multijugador',avatar:true,multi:true,nuevo:true,
+ {id:'obby',name:'Carrera Imposible',file:'juegos/carrera-imposible.html',tag:'Obby · Multijugador',avatar:true,multi:true,
   desc:'Una carrera de obstáculos con 6 fases: saltos, plataformas móviles, baldosas que desaparecen, barras giratorias, trampolines y una torre final. Juega solo o crea una sala para competir con tus amigos.',
   draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#5fb8f5');sk.addColorStop(1,'#d8f1ff');g.fillStyle=sk;g.fillRect(0,0,w,h);
     const lv=g.createLinearGradient(0,200,0,h);lv.addColorStop(0,'#ff7a1a');lv.addColorStop(1,'#c62800');g.fillStyle=lv;g.fillRect(0,200,w,70);
     [[30,190,'#3fa7ff'],[110,170,'#ffcc33'],[190,150,'#3fd15c'],[270,130,'#ff6fb5'],[350,110,'#9c6bff']].forEach(([x,y,c])=>{rr(g,x,y,60,16,c);g.fillStyle='rgba(0,0,0,.2)';g.fillRect(x,y+12,60,4)});
     rr(g,400,40,60,70,'#ffcc33');rr(g,420,110,20,20,'#e0a400');rr(g,410,130,40,8,'#e0a400');g.fillStyle='#3fd15c';g.fillRect(455,20,4,40);g.fillRect(459,20,20,12);
     person(g,300,128,1.6,'#ff4f4f');person(g,140,168,1.6,'#3fa7ff');person(g,220,148,1.6,'#ffcc33')}},
- {id:'globos',name:'Guerra de Globos',file:'juegos/guerra-de-globos.html',tag:'Acción · Multijugador',avatar:true,multi:true,nuevo:true,
+ {id:'globos',name:'Guerra de Globos',file:'juegos/guerra-de-globos.html',tag:'Acción · Multijugador',avatar:true,multi:true,
   desc:'Batalla de globos de agua de 3 minutos en una arena con cajas para cubrirte. Cada globo te moja; a la tercera estás empapado. Juega contra 4 bots o con tus amigos en una sala.',
   draw(g,w,h){rr(g,0,0,w,h,'#8fd3ff');rr(g,0,150,w,120,'#7fd36b');[[60,120,'#ffcc33'],[380,110,'#ff6fb5'],[210,130,'#9c6bff']].forEach(([x,y,c])=>rr(g,x,y,60,50,c));
     g.strokeStyle='rgba(255,255,255,.8)';g.lineWidth=3;g.setLineDash([8,8]);g.beginPath();g.moveTo(120,170);g.quadraticCurveTo(240,40,350,160);g.stroke();g.setLineDash([]);
     [['#ff4f4f',250,72],['#3fa7ff',300,100]].forEach(([c,x,y])=>{g.fillStyle=c;g.beginPath();g.ellipse(x,y,13,16,0,0,7);g.fill()});
     g.fillStyle='#7fd6ff';for(let k=0;k<8;k++){g.beginPath();g.arc(350+Math.cos(k)*22,175+Math.sin(k)*10,5,0,7);g.fill()}
     person(g,110,200,2,'#3fa7ff');person(g,360,205,2,'#ff4f4f')}},
- {id:'pesca',name:'Pesca Tranquila',file:'juegos/pesca-tranquila.html',tag:'Relax · Coleccionar',avatar:true,nuevo:true,
+ {id:'pesca',name:'Pesca Tranquila',file:'juegos/pesca-tranquila.html',tag:'Relax · Coleccionar',avatar:true,
   desc:'Un lago con 13 peces por descubrir, del Sardinilla Saltarina al rarísimo Pez Cubiverso. Lanza, espera a que pique y sácalo con el minijuego. Vende, compra cañas mejores y completa el libro de peces.',
   draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#ffb47a');sk.addColorStop(1,'#ffe1b8');g.fillStyle=sk;g.fillRect(0,0,w,h);
     g.fillStyle='#2f8fd8';g.fillRect(0,150,w,120);g.fillStyle='rgba(255,255,255,.25)';for(let k=0;k<10;k++)g.fillRect((k*53)%w,170+(k*17)%80,30,3);
@@ -308,13 +308,13 @@ const GAMES=[
     person(g,280,148,1.8,'#ff9a3d');g.strokeStyle='#c8a165';g.lineWidth=4;g.beginPath();g.moveTo(292,128);g.lineTo(380,70);g.stroke();
     g.strokeStyle='#fff';g.lineWidth=1.5;g.beginPath();g.moveTo(380,70);g.lineTo(410,200);g.stroke();g.fillStyle='#ff4f4f';g.beginPath();g.arc(410,204,6,0,7);g.fill();
     g.fillStyle='#ffb300';g.beginPath();g.ellipse(120,215,28,14,0,0,7);g.fill();g.beginPath();g.moveTo(92,215);g.lineTo(76,202);g.lineTo(76,228);g.fill()}},
- {id:'torres',name:'Torres del Castillo',file:'juegos/torres-del-castillo.html',tag:'Estrategia',avatar:false,nuevo:true,
+ {id:'torres',name:'Torres del Castillo',file:'juegos/torres-del-castillo.html',tag:'Estrategia',avatar:false,
   desc:'Una invasión de mocos va hacia tu castillo. Coloca arqueros, cañones, torres de hielo y láseres junto al camino, mejóralas y aguanta 20 oleadas con el Rey Moco incluido.',
   draw(g,w,h){rr(g,0,0,w,h,'#5cb84a');g.fillStyle='#d9c48f';[[0,60,200,30],[170,60,30,140],[170,170,250,30],[390,40,30,160],[390,40,90,30]].forEach(a=>g.fillRect(...a));
     [[90,120,'#8d6e63'],[260,110,'#455a64'],[320,240,'#4fc3f7'],[460,130,'#e040fb']].forEach(([x,y,c])=>{rr(g,x-14,y-30,28,40,c);rr(g,x-18,y+8,36,8,'#9e9e9e')});
     [[60,75,'#7cd65a'],[185,130,'#ffd23f'],[300,185,'#8e44ad']].forEach(([x,y,c])=>{g.fillStyle=c;g.beginPath();g.ellipse(x,y,14,11,0,0,7);g.fill();g.fillStyle='#fff';g.beginPath();g.arc(x-4,y-3,3,0,7);g.arc(x+4,y-3,3,0,7);g.fill()});
     rr(g,430,10,44,40,'#bdbdbd');g.fillStyle='#3fa7ff';g.beginPath();g.moveTo(426,12);g.lineTo(452,-6);g.lineTo(478,12);g.fill()}},
- {id:'ladrones',name:'Ladrones de Brainrots',file:'juegos/ladrones-de-brainrots.html',tag:'Coleccionar · Robar',avatar:true,nuevo:true,
+ {id:'ladrones',name:'Ladrones de Brainrots',file:'juegos/ladrones-de-brainrots.html',tag:'Coleccionar · Robar',avatar:true,
   desc:'Compra brainrots absurdos en la alfombra roja, róbaselos a Lola, Max y Kiko y defiende tu base con el bloqueo. Cada brainrot da dinero cada segundo. 12 criaturas y 6 rarezas.',
   draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#5fb8f5');sk.addColorStop(1,'#c9ecff');g.fillStyle=sk;g.fillRect(0,0,w,h);
     rr(g,0,160,w,110,'#5cc23f');g.fillStyle='#c62828';g.beginPath();g.moveTo(0,215);g.lineTo(w,195);g.lineTo(w,232);g.lineTo(0,255);g.fill();
@@ -323,7 +323,7 @@ const GAMES=[
     rr(g,120,170,70,58,'#8a5a2a');rr(g,126,176,58,46,'#d9a25a');rr(g,110,232,92,8,'#e53935');g.fillStyle='#fff';[[118,244],[194,244]].forEach(([x,y])=>{g.beginPath();g.arc(x,y,6,0,7);g.fill()});
     [[140,192],[164,192]].forEach(([x,y])=>{g.fillStyle='#fff';g.beginPath();g.arc(x,y,8,0,7);g.fill();g.fillStyle='#111';g.beginPath();g.arc(x+1,y+2,4,0,7);g.fill()});g.fillStyle='#5a1010';g.beginPath();g.ellipse(152,212,9,6,0,0,7);g.fill();
     person(g,250,205,2.2,'#ff4f4f');g.fillStyle='#ffcc33';g.font='900 26px Arial';g.textAlign='center';g.lineWidth=5;g.strokeStyle='#000';g.strokeText('+$15/s',380,96);g.fillText('+$15/s',380,96)}},
- {id:'patadon',name:'Patadón de Lucky Blocks',file:'juegos/patadon-lucky-blocks.html',tag:'Habilidad · Coleccionar',avatar:true,nuevo:true,
+ {id:'patadon',name:'Patadón de Lucky Blocks',file:'juegos/patadon-lucky-blocks.html',tag:'Habilidad · Coleccionar',avatar:true,
   desc:'Patea bloques de la suerte lo más lejos que puedas. Al caer se abren y dan monedas, mascotas y a veces Cubos de Cubiverso. Mejora tu patada y consigue bloques de oro, diamante y galácticos.',
   draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#5fb0f0');sk.addColorStop(1,'#d6f0ff');g.fillStyle=sk;g.fillRect(0,0,w,h);
     rr(g,0,170,w,100,'#5cc23f');g.fillStyle='#e9eef5';g.beginPath();g.moveTo(180,270);g.lineTo(300,270);g.lineTo(255,170);g.lineTo(225,170);g.fill();
@@ -361,9 +361,59 @@ const GAMES=[
     rr(g,0,200,w,70,'#1c1827');rr(g,356,70,6,140,'#222033');g.fillStyle='#ffd59a';g.beginPath();g.arc(359,70,9,0,7);g.fill();
     rr(g,110,90,60,120,'#4a4740');rr(g,150,50,10,44,'#2e2c29');rr(g,120,104,40,40,'#9fbc7a');for(let r=0;r<3;r++)for(let k=0;k<3;k++)rr(g,120+k*14,154+r*16,10,10,'#2e2c29');
     g.fillStyle='#ffb347';g.font='900 46px Arial';g.textAlign='center';g.fillText('⇄',240,160);
-    const ph=g.createLinearGradient(290,80,350,200);ph.addColorStop(0,'#ffb347');ph.addColorStop(1,'#c54bd6');g.fillStyle=ph;g.fillRect(290,80,64,124);g.fillStyle='#2b1550';g.fillRect(295,86,54,112)}}
+    const ph=g.createLinearGradient(290,80,350,200);ph.addColorStop(0,'#ffb347');ph.addColorStop(1,'#c54bd6');g.fillStyle=ph;g.fillRect(290,80,64,124);g.fillStyle='#2b1550';g.fillRect(295,86,54,112)}},
+ {id:'granja',name:'Granja Cúbica',file:'juegos/granja-cubica.html',tag:'Simulación · Relax',avatar:true,nuevo:true,
+  desc:'Planta zanahorias, tomates, calabazas y fresas, riégalas, cosecha y vende en el puesto. Compra parcelas y semillas nuevas. Tus plantas siguen creciendo aunque cierres el juego.',
+  draw(g,w,h){rr(g,0,0,w,h,'#9fdcff');rr(g,0,120,w,150,'#6cbf4a');for(let r=0;r<2;r++)for(let c=0;c<5;c++){const x=30+c*90,y=140+r*60;rr(g,x,y,70,40,'#6d4c41');for(let k=0;k<4;k++){g.fillStyle='#43a047';g.fillRect(x+8+k*16,y+10,6,16);g.fillStyle=['#ff8a1c','#e53935','#ff9800','#ff3d6e'][c%4];g.fillRect(x+6+k*16,y+24,10,8)}}
+    rr(g,360,50,90,70,'#c62828');rr(g,355,40,100,14,'#eeeeee');person(g,230,128,1.7,'#3fa7ff')}},
+ {id:'golf',name:'Minigolf Cúbico',file:'juegos/minigolf.html',tag:'Deporte · Relax',avatar:true,nuevo:true,
+  desc:'9 hoyos de minigolf con cintas que empujan, arena, agua y un molino que gira. Apunta, carga la fuerza y métela con los menos golpes posibles.',
+  draw(g,w,h){rr(g,0,0,w,h,'#8fd0ff');rr(g,40,90,400,160,'#8d6e63');for(let r=0;r<4;r++)for(let c=0;c<9;c++)rr(g,52+c*42,102+r*34,42,34,(r+c)%2?'#4caf50':'#43a047');
+    g.fillStyle='#111';g.beginPath();g.ellipse(360,150,14,7,0,0,7);g.fill();g.fillStyle='#eee';g.fillRect(358,70,4,80);g.fillStyle='#ff4f4f';g.fillRect(362,70,30,18);
+    g.fillStyle='#fff';g.beginPath();g.arc(150,200,9,0,7);g.fill();g.strokeStyle='#fff';g.lineWidth=3;g.setLineDash([6,6]);g.beginPath();g.moveTo(160,195);g.lineTo(340,155);g.stroke();g.setLineDash([]);person(g,120,180,1.5,'#ffcc33')}},
+ {id:'mascotas',name:'Busca las Mascotas',file:'juegos/busca-mascotas.html',tag:'Aventura · Relax',avatar:true,nuevo:true,
+  desc:'12 mascotas se han escondido por el parque: detrás de arbustos, bajo los bancos, en los tejados… Encuéntralas todas lo antes posible. Cada partida se esconden en sitios distintos.',
+  draw(g,w,h){rr(g,0,0,w,h,'#aee3ff');rr(g,0,140,w,130,'#7cc95a');rr(g,200,140,80,130,'#e9c99a');[[70,150],[400,160],[130,210]].forEach(([x,y])=>{g.fillStyle='#43a047';g.beginPath();g.ellipse(x,y,46,30,0,0,7);g.fill()});
+    [[100,140,'#ff9800'],[372,150,'#f5f5f5'],[300,205,'#ffeb3b']].forEach(([x,y,c])=>{rr(g,x,y,30,18,c);rr(g,x+18,y-12,16,14,c);g.fillStyle='#222';g.fillRect(x+27,y-8,3,3)});
+    g.fillStyle='#ffcc33';g.font='900 46px sans-serif';g.fillText('?',420,80);person(g,240,150,1.6,'#3fa7ff')}},
+ {id:'cocina',name:'Cocina Rápida',file:'juegos/cocina-rapida.html',tag:'Simulación · Rapidez',avatar:true,nuevo:true,
+  desc:'Los clientes llegan al mostrador con su pedido: hamburguesas, ensaladas, refrescos y menús. Coge ingredientes, haz la carne en la plancha sin que se queme y sirve antes de que se cansen.',
+  draw(g,w,h){rr(g,0,0,w,h,'#ffe0b2');rr(g,0,60,w,90,'#eeeeee');['#e0a35a','#e57373','#37474f','#66bb6a','#e53935','#ffd54f'].forEach((c,i)=>{rr(g,20+i*76,80,60,40,'#90a4ae');rr(g,26+i*76,72,48,14,c)});
+    rr(g,0,190,w,30,'#ff7043');person(g,120,150,1.7,'#ffffff');person(g,330,190,1.7,'#9c6bff');
+    rr(g,300,110,120,46,'rgba(20,22,34,.9)');rr(g,320,128,24,8,'#e0a35a');rr(g,320,120,24,8,'#6d4c41');rr(g,320,114,24,6,'#ffd54f');g.fillStyle='#fff';g.font='900 16px sans-serif';g.fillText('+12 $',356,138)}},
+ {id:'torre',name:'Torre de Bloques',file:'juegos/torre-bloques.html',tag:'Habilidad · Rapidez',avatar:true,nuevo:true,
+  desc:'Apila bloques lo más alto que puedas. Toca justo a tiempo: lo que sobresale se cae y te quedas con menos sitio. Encadena tres perfectos para que el bloque crezca.',
+  draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#1b2a4a');sk.addColorStop(1,'#3a5a8a');g.fillStyle=sk;g.fillRect(0,0,w,h);rr(g,160,230,160,40,'#37474f');
+    for(let i=0;i<9;i++){const ww=140-i*6+(i%3?0:4);g.fillStyle=`hsl(${200+i*12},65%,55%)`;g.fillRect(240-ww/2+(i%2?4:-3),214-i*22,ww,20)}
+    g.fillStyle='hsl(320,65%,55%)';g.fillRect(310,14,110,20);g.fillStyle='#ffcc33';g.font='400 40px Lilita One,sans-serif';g.fillText('9',30,250)}},
+ {id:'zombis',name:'Noche de Zombis',file:'juegos/zombis.html',tag:'Acción · Supervivencia',avatar:true,nuevo:true,
+  desc:'Aguanta oleadas de zombis en un patio de noche. Cada oleada trae más, más rápidos y alguno gigante. Recoge vida y disparo triple.',
+  draw(g,w,h){rr(g,0,0,w,h,'#0b1022');g.fillStyle='#e8ecff';g.beginPath();g.arc(400,50,26,0,7);g.fill();rr(g,0,170,w,100,'#3d4a3a');
+    [[60,150],[130,160],[350,150],[410,165]].forEach(([x,y])=>{rr(g,x,y,26,26,'#5d4037');rr(g,x+4,y-22,18,18,'#7cb342');g.fillStyle='#ff1744';g.fillRect(x+8,y-16,3,3);g.fillRect(x+15,y-16,3,3);rr(g,x+20,y+2,20,8,'#7cb342')});
+    person(g,240,170,1.7,'#3fa7ff');g.fillStyle='#ffe066';[[275,140],[300,138],[325,136]].forEach(([x,y])=>{g.beginPath();g.arc(x,y,4,0,7);g.fill()})}},
+ {id:'karts',name:'Karts Cúbicos',file:'juegos/karts.html',tag:'Carreras · Acción',avatar:true,nuevo:true,
+  desc:'Carrera de karts de 3 vueltas contra 4 pilotos por un circuito con curvas y turbos. Si te sales a la hierba, frenas.',
+  draw(g,w,h){rr(g,0,0,w,h,'#8fd0ff');rr(g,0,120,w,150,'#5aa845');g.fillStyle='#3a3f4a';g.beginPath();g.moveTo(140,270);g.lineTo(220,120);g.lineTo(260,120);g.lineTo(340,270);g.fill();
+    for(let i=0;i<6;i++){g.fillStyle=i%2?'#fff':'#ff4f4f';g.fillRect(132+i*-1,250-i*22,10,20);g.fillRect(338-i*-1,250-i*22,10,20)}
+    [[200,200,'#3fa7ff'],[260,160,'#ff4f4f'],[230,135,'#ffcc33']].forEach(([x,y,c],i)=>{const s=1-i*.25;rr(g,x,y,60*s,30*s,c);g.fillStyle='#111';g.fillRect(x-4*s,y+20*s,12*s,12*s);g.fillRect(x+52*s,y+20*s,12*s,12*s);rr(g,x+20*s,y-16*s,20*s,18*s,'#ffd29a')})}},
+ {id:'lava',name:'El Suelo es Lava',file:'juegos/suelo-lava.html',tag:'Plataformas · Acción',avatar:true,nuevo:true,
+  desc:'La lava sube sin parar: salta de plataforma en plataforma hasta lo más alto. Unas se mueven, otras se caen al pisarlas. Coge monedas por el camino.',
+  draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#3a1410');sk.addColorStop(1,'#7a2a14');g.fillStyle=sk;g.fillRect(0,0,w,h);
+    const lv=g.createLinearGradient(0,200,0,h);lv.addColorStop(0,'#ffa726');lv.addColorStop(1,'#ff3d00');g.fillStyle=lv;g.fillRect(0,210,w,60);
+    [[60,180,'#90a4ae'],[150,150,'#8d6e63'],[240,120,'#3fa7ff'],[320,90,'#ffcc33'],[390,55,'#3fd15c']].forEach(([x,y,c])=>rr(g,x,y,60,14,c));person(g,265,120,1.5,'#3fa7ff');g.fillStyle='#ffcc33';g.beginPath();g.arc(350,70,7,0,7);g.fill()}},
+ {id:'espadas',name:'Duelo de Espadas',file:'juegos/espadas.html',tag:'Lucha · Acción',avatar:true,nuevo:true,
+  desc:'Lucha con espada contra rivales en una arena flotante. Empújalos fuera del borde o quítales toda la vida. Cada ronda vienen más.',
+  draw(g,w,h){rr(g,0,0,w,h,'#5b3f8a');g.fillStyle='#9e9e9e';g.beginPath();g.ellipse(240,200,200,50,0,0,7);g.fill();g.fillStyle='#c5b38e';g.beginPath();g.ellipse(240,192,192,44,0,0,7);g.fill();
+    person(g,180,180,1.8,'#3fa7ff');person(g,300,180,1.8,'#ff4f4f');g.fillStyle='#dfe7ef';g.save();g.translate(214,128);g.rotate(-.7);g.fillRect(0,0,6,50);g.restore();g.save();g.translate(282,120);g.rotate(.7);g.fillRect(0,0,6,50);g.restore();
+    g.fillStyle='#ffcc33';g.font='900 30px sans-serif';g.fillText('¡ZAS!',210,90)}},
+ {id:'meteoritos',name:'Lluvia de Meteoritos',file:'juegos/meteoritos.html',tag:'Esquivar · Acción',avatar:true,nuevo:true,
+  desc:'Caen meteoritos sobre una plataforma en el espacio. Quítate de los círculos rojos antes de que lleguen, coge estrellas y escudos, y aguanta todo lo que puedas.',
+  draw(g,w,h){rr(g,0,0,w,h,'#070a1a');g.fillStyle='#fff';for(let i=0;i<60;i++)g.fillRect((i*73)%w,(i*37)%160,2,2);g.fillStyle='#5c6bc0';g.beginPath();g.arc(420,60,40,0,7);g.fill();
+    g.fillStyle='#90a4ae';g.beginPath();g.ellipse(240,220,210,46,0,0,7);g.fill();g.strokeStyle='#ff3d00';g.lineWidth=4;g.beginPath();g.ellipse(300,215,40,12,0,0,7);g.stroke();
+    g.fillStyle='#ff9800';g.beginPath();g.arc(330,90,16,0,7);g.fill();g.strokeStyle='rgba(255,152,0,.6)';g.lineWidth=10;g.beginPath();g.moveTo(342,80);g.lineTo(390,30);g.stroke();person(g,190,200,1.6,'#3fa7ff');g.fillStyle='#ffe066';g.beginPath();g.arc(120,200,8,0,7);g.fill()}}
 ];
 GAMES.forEach(gm=>gm.img=art(gm.draw));
+const ACCION=['obby','globos','ladrones','tormentas','zombis','karts','lava','espadas','meteoritos','patadon'];let gFilt='todo';
 function gameCard(gm){return `<button class="gcard" data-act="game" data-id="${gm.id}"><span class="th" style="background-image:url(${gm.img})">${gm.nuevo?'<span class="new">NUEVO</span>':''}</span><b>${esc(gm.name)}</b><span>${esc(gm.tag)}</span></button>`}
 
 /* ================= MINIATURAS 3D ================= */
@@ -428,9 +478,10 @@ const V={
     <section class="sec"><div class="sec-h"><h2>Tus juegos</h2><a href="#juegos">Ver todos</a></div><div class="games">${GAMES.map(gameCard).join('')}</div></section>
     <section class="sec"><div class="sec-h"><h2>Nuevo: animaciones y gestos</h2><a href="#catalogo" data-act="tocat" data-id="animacion">Ver todos</a></div><div class="items">${['an2','an5','an6','ge5','ge1','ge6'].map(id=>itemCard(A.BY[id],'item')).join('')}</div></section>
     <section class="sec"><div class="sec-h"><h2>Novedades del catálogo</h2><a href="#catalogo">Ver catálogo</a></div><div class="items">${['h11','b9','sh13','h14','b8','f11'].map(id=>itemCard(A.BY[id],'item')).join('')}</div></section>`},
-  juegos(){const q=query.trim().toLowerCase();const list=GAMES.filter(g=>!q||(g.name+' '+g.tag+' '+g.desc).toLowerCase().includes(q));
+  juegos(){const q=query.trim().toLowerCase();const list=GAMES.filter(g=>(!q||(g.name+' '+g.tag+' '+g.desc).toLowerCase().includes(q))&&(gFilt==='todo'||(gFilt==='accion')===ACCION.includes(g.id)&&gFilt!=='nuevo'||gFilt==='nuevo'&&g.nuevo));
     return `<h1>Juegos</h1><p class="sub">${q?`Resultados para «${esc(query)}»`:'Todos tus juegos en un solo sitio.'}</p>
     ${q?'':studioBanner()}
+    <div class="tabs" role="tablist" style="margin-bottom:14px">${[['todo','Todos'],['nuevo','Nuevos'],['tranquilo','Tranquilos'],['accion','Acción']].map(([k,n])=>`<button class="tab ${gFilt===k?'on':''}" role="tab" aria-selected="${gFilt===k}" data-act="gfilt" data-id="${k}">${n}</button>`).join('')}</div>
     ${list.length?`<div class="games">${list.map(gameCard).join('')}</div>`:`<div class="card">No hay ningún juego que se llame así. Prueba con otra palabra.</div>`}
     ${q?'':creadosSec()}`},
   avatar(){const its=A.ITEMS.filter(i=>i.cat===avCat&&st.owned.includes(i.id));const more=A.ITEMS.filter(i=>i.cat===avCat&&!st.owned.includes(i.id)).length;
@@ -672,6 +723,7 @@ const ACT={
   restartgame(){if(curGame){$('#frame').src='about:blank';setTimeout(()=>{$('#frame').src=curGame.file+'#plataforma'},50)}ACT.resume()},
   fullgame(){const el=$('#play');try{if(document.fullscreenElement){document.exitFullscreen()}else{const r=(el.requestFullscreen||el.webkitRequestFullscreen).call(el);if(r&&r.catch)r.catch(()=>toast('Tu navegador no deja usar pantalla completa aquí'))}}catch(e){toast('Tu navegador no deja usar pantalla completa aquí')}ACT.resume()},
   exitgame:exitGame,
+  gfilt(k){gFilt=k;render()},
   studio(){playGame({id:'studio',name:'CuboStudio',file:'estudio/index.html'})},
   playc(id){let c=creados().find(x=>x.id===id),g=c&&c.game;if(!c){c=(COMUNIDAD||[]).find(x=>x.id===id);try{g=c&&JSON.parse(c.gameStr)}catch(e){g=null}}
     if(!g){toast('No se ha podido abrir ese juego');return}g.author=g.author||c.author;try{localStorage.setItem('cubo-jugar',JSON.stringify(g))}catch(e){toast('No hay espacio en el dispositivo');return}
