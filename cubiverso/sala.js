@@ -24,7 +24,7 @@ const CSS=`
 .s-in{flex:1;min-width:0;border:3px solid #000;border-radius:10px;padding:10px;font:900 16px system-ui;background:#fff;color:#000}
 .s-code{font:400 40px "Lilita One","Arial Black",sans-serif;letter-spacing:.12em;text-align:center;background:#11131c;border:3px solid #000;border-radius:12px;padding:8px;user-select:text}
 .s-err{background:#4a1a1a;color:#ffb3b3;border-radius:10px;padding:8px 12px;font-weight:800}
-.s-list{display:flex;flex-wrap:wrap;gap:6px}.s-list span{background:#2b3047;border:2px solid #000;border-radius:999px;padding:3px 10px;font-weight:800;font-size:13px}
+.s-list{display:flex;flex-wrap:wrap;gap:6px}.s-add{border:2px solid #000;border-radius:8px;background:#3fd15c;color:#06210f;font:900 11px system-ui;padding:1px 6px;margin-left:4px;cursor:pointer}.s-list span{background:#2b3047;border:2px solid #000;border-radius:999px;padding:3px 10px;font-weight:800;font-size:13px}
 #s-chat{position:fixed;z-index:61;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 12px);display:flex;gap:6px;width:min(460px,92vw)}
 #s-emop{position:fixed;z-index:61;right:max(8px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 108px);margin-right:84px;background:rgba(20,22,34,.95);border:3px solid #000;border-radius:14px;padding:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;width:min(280px,70vw)}
 #s-emop button{border:2px solid #000;border-radius:10px;background:#2b3047;color:#fff;padding:7px 6px;font:800 13px system-ui;text-align:left;cursor:pointer}#s-emop button[aria-disabled=true]{opacity:.5}
@@ -46,7 +46,7 @@ function panel(title,body){return `<div class="s-ov"><div class="s-panel" role="
 function openRoom(extra){closeOv();const can=M&&M.available();
   if(online()){const ps=players();
     ui.ov=el(panel('SALA '+M.code,`<p>Pasa este código a tus amigos para que entren en este juego:</p><div class="s-code">${esc(M.code)}</div>
-      <p>En la sala (${Object.keys(ps).length}):</p><div class="s-list">${Object.values(ps).map(p=>`<span>${esc(p.name)}</span>`).join('')}</div>
+      <p>En la sala (${Object.keys(ps).length}):</p><div class="s-list">${Object.values(ps).map(p=>`<span>${esc(p.name)}${addBtn(p)}</span>`).join('')}</div>
       ${O.onStart?(M.isHost?`<button class="s-btn g" data-s="start">${started?'Empezar otra vez todos juntos':'¡Empezar todos a la vez!'}</button>`:'<p>El anfitrión puede hacer que empecéis todos a la vez.</p>'):''}
       ${O.shared?`<p style="font-size:13px">${esc(O.shared)}</p>`:''}
       <button class="s-btn r" data-s="leave">Salir de la sala</button>`));return}
@@ -55,9 +55,13 @@ function openRoom(extra){closeOv();const can=M&&M.available();
     ${extra||''}
     <button class="s-btn y" data-s="create" ${can?'':'disabled'}>CREAR SALA</button>
     <form class="s-row" data-s="joinform"><input class="s-in" id="s-codein" maxlength="5" placeholder="CÓDIGO" aria-label="Código de la sala" autocomplete="off" style="text-transform:uppercase;letter-spacing:.1em" ${can?'':'disabled'}><button class="s-btn b" type="submit" ${can?'':'disabled'}>UNIRSE</button></form>`))}
+function addBtn(p){const F=window.CubiAmigos;if(!F||!p.fid||p.fid===F.fid)return '';const d=F.data();
+  if(d.list[p.fid])return ' <small style="color:#7fe08a">· amigo</small>';if(d.sent[p.fid])return ' <small style="color:#ffcc33">· pedido</small>';
+  return ` <button class="s-add" data-s="addf" data-f="${esc(p.fid)}">+ AMIGO</button>`}
 function closeOv(){if(ui.ov){ui.ov.remove();ui.ov=null}}
 function wire(){document.addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(!b||b.disabled||b.tagName==='FORM')return;const k=b.dataset.s;
     if(k==='close'){closeOv();return}
+    if(k==='addf'&&window.CubiAmigos){b.disabled=true;b.textContent='…';CubiAmigos.add(b.dataset.f).then(r=>{log(r==='ok'||r==='ya'?'<b>¡Ya sois amigos!</b>':'<b>Solicitud de amistad enviada</b>');if(ui.ov)openRoom()}).catch(()=>{b.textContent='+ AMIGO';b.disabled=false});return}
     if(k==='create'){ui.ov.querySelector('.s-pb').innerHTML='<p>Creando la sala…</p>';M.create(O.game).then(()=>{sfx('levelup');joined();openRoom()}).catch(err=>openRoom(`<div class="s-err">${esc(M.errText(err))}</div>`))}
     if(k==='leave'){M.leave();left();closeOv();bar()}
     if(k==='start'){seed=Math.floor(Math.random()*1e9);M.send({t:'__start',seed});closeOv();doStart(seed)}});
@@ -114,7 +118,12 @@ S.init=function(o){O=Object.assign({scale:.75,board:null,emotes:false,rate:100},
   M.on('disconnected',()=>{log('<b>La sala se ha cerrado</b>: el anfitrión se ha ido');M.leave();left();bar()});
   setInterval(()=>{if(!online()||!O.getState)return;const s=O.getState();if(s){s.t='st';M.send(s)}},O.rate);
   let last=performance.now();const step=t=>{const dt=Math.min(.1,(t-last)/1000);last=t;if(remotes)remotes.step(dt);if(O.remote&&O.remote.step)O.remote.step(dt);requestAnimationFrame(step)};requestAnimationFrame(step);
-  wire();bar();return S};
+  wire();bar();
+  const pc=new URLSearchParams(location.search).get('sala');
+  if(pc&&M.available())setTimeout(()=>{log('Entrando en la partida de tu amigo…');M.join(O.game,pc).then(()=>{sfx('levelup');joined()}).catch(err=>openRoom(`<div class="s-err">${esc(M.errText(err))}</div>`))},400);
+  return S};
+S.hostNow=function(who){if(!M)return Promise.reject(new Error('noweb'));if(online())return Promise.resolve(M.code);
+  return M.create(O.game).then(c=>{sfx('levelup');joined();log(`<b>${esc(who||'Un amigo')}</b> se está uniendo a tu partida`);return c})};
 S.score=function(v,txt){myScore={v,txt:txt==null?String(v):String(txt)};if(online())M.send({t:'__sc',v,txt:myScore.txt});board()};
 S.send=function(t,data){if(!online())return;M.send(Object.assign({t},data||{}))};
 S.on=function(t,f){(handlers[t]=handlers[t]||[]).push(f)};
