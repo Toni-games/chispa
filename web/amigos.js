@@ -32,7 +32,7 @@ function where(){if(API.provider){try{const r=API.provider();if(r)return r}catch
   if(!inGame)return {where:'menu'};
   let rel=location.href;if(ROOT&&rel.indexOf(ROOT)===0)rel=rel.slice(ROOT.length);else rel='juegos/'+p.split('/juegos/')[1]+location.search;
   rel=rel.replace(/([?&])sala=[^&#]*&?/,'$1').replace(/[?&]$/,'').split('#')[0];
-  const M=window.CubiMulti;return {where:'game',title:gameTitle(),url:rel,code:M&&M.code||'',players:M&&M.code?Object.keys(M.players()).length:1,host:window.Sala&&Sala.hostNow?(n=>Sala.hostNow(n)):null}}
+  const M=window.CubiMulti;return {where:'game',title:gameTitle(),url:rel,code:M&&M.code||'',players:M&&M.code?Object.keys(M.players()).length:1,host:window.Sala&&Sala.hostNow?(n=>Sala.hostNow(n)):window.__cubiHost?(n=>window.__cubiHost(n)):null}}
 function profile(){const s=AV()?AV().state():{};const d=load();
   const w=where();return Object.assign(meBasic(),{items:(s.owned||[]).length,creations:(s.mine||[]).length,friends:Object.keys(d.list).length,since:d.since||0,status:{where:w.where,title:w.title,room:!!w.code,players:w.players}})}
 
@@ -69,8 +69,8 @@ function serve(c){c.on('data',async m=>{if(!m||typeof m!=='object')return;const 
     if(m.t==='join'){if(!from||!d.list[from.fid]){reply({t:'no',why:'nofriend'});return}known(from);const w=where();
       if(w.where!=='game'){reply({t:'no',why:'menu'});return}
       if(!w.url){reply({t:'no',why:'creado',title:w.title});return}
-      if(w.code){reply({t:'room',code:w.code,url:w.url,title:w.title});return}
-      if(w.host){try{const code=await w.host(from.name);reply({t:'room',code,url:w.url,title:w.title})}catch(e){reply({t:'no',why:'fail'})}return}
+      if(w.code){reply({t:'room',code:w.code,url:w.url,title:w.title,extra:w.extra||null});return}
+      if(w.host){try{const code=await w.host(from.name);reply({t:'room',code,url:w.url,title:w.title,extra:w.extra||null})}catch(e){reply({t:'no',why:'fail'})}return}
       reply({t:'no',why:'lobby',title:w.title});return}});
   c.on('error',()=>{})}
 function friendRec(p){return {name:clip(p.name,20),eq:p.eq,defs:(p.defs||[]).slice(0,8),since:Date.now(),last:Date.now()}}
@@ -113,11 +113,11 @@ const API={
       if(r&&r.t==='ok'){upd(x=>{delete x.sent[fid];x.list[fid]=friendRec(r.me||{name:'Amigo'})});emit('new',r.me||{})}
       else if(r&&r.t==='pend'){upd(x=>{if(x.sent[fid])x.sent[fid].delivered=true})}}catch(e){}}},
   /* pide entrar en la partida del amigo: devuelve la dirección del juego con el código de sala */
-  async join(fid){const r=await ask(fid,{t:'join'},15000);if(!r)throw new Error('offline');
-    if(r.t==='room'){const u=r.url+(r.url.indexOf('?')>=0?'&':'?')+'sala='+encodeURIComponent(r.code);return {url:ROOT+u,rel:u,code:r.code,title:r.title}}
+  async join(fid){let r=null;for(let k=0;k<4;k++){r=await ask(fid,{t:'join'},15000);if(!r)throw new Error('offline');if(r.t!=='no'||r.why!=='lobby')break;await new Promise(z=>setTimeout(z,2000))}
+    if(r.t==='room'){const u=r.url+(r.url.indexOf('?')>=0?'&':'?')+'sala='+encodeURIComponent(r.code);return {url:ROOT+u,rel:u,code:r.code,title:r.title,extra:r.extra||null}}
     throw new Error(r.why||'fail')},
   joinText(e){const m=e&&e.message||'';return {offline:'Tu amigo ya no está conectado.',menu:'Tu amigo está en el menú, no en un juego.',
-    lobby:'Tu amigo está eligiendo cómo jugar. Prueba otra vez en unos segundos.',nofriend:'Todavía no sois amigos en los dos lados.',creado:'Tu amigo está en un juego de CuboStudio o en el editor: ahí no se puede entrar desde el perfil.',fail:'Tu amigo no ha podido abrir la sala. Prueba otra vez.',noweb:'Esto funciona en la app de Cubiverso y en su web, no dentro de Claude.'}[m]||'No se ha podido entrar. Prueba otra vez.'}
+    lobby:'El juego de tu amigo no ha podido abrir la sala. Comprobad que los dos tenéis la última versión de Cubiverso (cerrad y abrid la app).',nofriend:'Todavía no sois amigos en los dos lados.',creado:'Tu amigo está creando un juego en el editor de CuboStudio. Cuando le dé a jugar, podrás unirte.',fail:'Tu amigo no ha podido abrir la sala. Prueba otra vez.',noweb:'Esto funciona en la app de Cubiverso y en su web, no dentro de Claude.'}[m]||'No se ha podido entrar. Prueba otra vez.'}
 };
 window.CubiAmigos=API;
 /* Los juegos empiezan a escuchar enseguida para que los amigos los vean jugando */
