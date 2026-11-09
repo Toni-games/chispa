@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Torre de Bloques</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Torre: pantalla entera para tocar; altura arriba */
+body{background:#1b2a4a}
+#tap{inset:0;z-index:4}
+#big{top:calc(env(safe-area-inset-top,0px) + 50px);left:50%;transform:translateX(-50%);font:400 clamp(48px,10vw,84px) "Lilita One","Arial Black",sans-serif;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="tap" class="k-ui" aria-label="Toca para soltar el bloque"></div>
+<div id="big" class="k-ui k-out">0</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script src="comun.js"></script>
+<script>
+const K=Kit,J=Juego,$=s=>document.querySelector(s);
+const {renderer,scene,camera,sun,hemi}=K.setup({sky:0x1b2a4a,fog:false});
+const BH=1;let stack=[],cur=null,debris=[],axis='x',dir=1,speed=7,running=false,score=0,combo=0;
+const base=K.box(10,6,10,K.M(0x37474f),0,-3,0,scene);base.receiveShadow=true;
+const me=K.person(scene,null,null,.9);me.root.position.set(4,0,4);me.root.rotation.y=-Math.PI*.75;
+const col=i=>new THREE.Color().setHSL((i*.035+.55)%1,.65,.55);
+function mk(w,d,x,y,z,i){const m=new THREE.Mesh(new THREE.BoxGeometry(w,BH,d),new THREE.MeshLambertMaterial({color:col(i)}));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;scene.add(m);return m}
+function reset(){[...stack,...debris].forEach(b=>scene.remove(b.m||b));if(cur)scene.remove(cur.m);stack=[];debris=[];score=0;combo=0;speed=7;
+  stack.push({w:6,d:6,x:0,z:0,y:BH/2,m:mk(6,6,0,BH/2,0,0)});spawn();$('#big').textContent='0'}
+function spawn(){const top=stack[stack.length-1];axis=stack.length%2?'x':'z';dir=Math.random()<.5?1:-1;const y=top.y+BH;
+  const c={w:top.w,d:top.d,x:axis==='x'?-dir*9:top.x,z:axis==='z'?-dir*9:top.z,y};c.m=mk(c.w,c.d,c.x,c.y,c.z,stack.length);cur=c}
+function drop(){if(!running||!cur)return;const top=stack[stack.length-1];const c=cur;const k=axis==='x'?'x':'z',sz=axis==='x'?'w':'d';
+  const delta=c[k]-top[k],over=Math.abs(delta);
+  if(over>=top[sz]){// fuera del todo
+    debris.push({m:c.m,vy:0,vx:0});cur=null;J.sfx('fall');over_();return}
+  if(over<.18){// perfecto
+    c[k]=top[k];combo++;J.sfx(combo>2?'levelup':'coin');if(combo>=3){c[sz]=Math.min(6,c[sz]+.3)}K.toast(combo>=3?'¡PERFECTO x'+combo+'!':'¡PERFECTO!','','#3fd15c')}
+  else{combo=0;const keep=top[sz]-over;const cutW=over;const sign=Math.sign(delta);
+    // trozo que se cae: queda justo fuera del borde del bloque de abajo
+    const dc=top[k]+sign*(top[sz]/2+cutW/2);const dm=mk(axis==='x'?cutW:c.w,axis==='x'?c.d:cutW,axis==='x'?dc:c.x,c.y,axis==='z'?dc:c.z,stack.length);
+    debris.push({m:dm,vy:0,vx:sign*2,ax:k});
+    c[sz]=keep;c[k]=top[k]+delta/2;J.sfx('place')}
+  scene.remove(c.m);c.m=mk(c.w,c.d,c.x,c.y,c.z,stack.length);stack.push(c);cur=null;score++;$('#big').textContent=score;speed=Math.min(16,7+score*.18);
+  if(score%10===0){J.sfx('levelup');if(window.CubiAvatar)CubiAvatar.emote(me,'ge4')}spawn()}
+function over_(){running=false;const rec=J.saveBest('torre',score,true);if(window.CubiAvatar)CubiAvatar.emote(me,'ge3');J.sfx('lose');
+  setTimeout(()=>J.end({title:'¡SE CAYÓ!',col:'#9c6bff',lines:[`Altura: <b style="color:#ffcc33">${score}</b> bloques`,`Récord: ${J.best('torre')}`],record:rec,onAgain(){reset();running=true}}),900)}
+$('#tap').addEventListener('pointerdown',e=>{e.preventDefault();drop()});
+addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();if(!e.repeat)drop()}});
+let last=performance.now(),camY=8;
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
+  if(cur&&running){cur[axis]+=dir*speed*dt;if(Math.abs(cur[axis]-stack[stack.length-1][axis])>9)dir*=-1;cur.m.position[axis]=cur[axis]}
+  debris.forEach(d=>{d.vy-=25*dt;d.m.position.y+=d.vy*dt;if(d.ax)d.m.position[d.ax]+=d.vx*dt;d.m.rotation.x+=dt*(d.vx||1)*.6});debris=debris.filter(d=>{if(d.m.position.y<-40){scene.remove(d.m);return false}return true});
+  const ty=(stack.length?stack[stack.length-1].y:0)+6;camY+=(ty-camY)*Math.min(1,dt*3);camera.position.set(14,camY+4,14);camera.lookAt(0,camY-4,0);
+  scene.background.setHSL(.62-Math.min(.12,score*.004),.5,.18+Math.min(.25,score*.006));
+  sun.position.set(20,camY+30,10);sun.target.position.set(0,camY-6,0);K.walkAnim(me,0,false,{moving:false});
+  renderer.render(scene,camera);requestAnimationFrame(loop)}
+reset();J.music('neon');
+J.start({title:'TORRE DE BLOQUES',col:'#9c6bff',sub:'Apila los bloques lo más alto que puedas. Lo que sobresale se cae, así que cada vez tendrás menos sitio.',
+  howto:['Toca la pantalla o pulsa <b>ESPACIO</b> para soltar el bloque','Si lo dejas justo encima es un ¡PERFECTO!','Tres perfectos seguidos hacen el bloque un poco más grande'],
+  record:J.best('torre')!=null?J.best('torre')+' bloques':null,onStart(){running=true}});
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

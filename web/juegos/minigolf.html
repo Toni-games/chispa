@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Minigolf Cúbico</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Minigolf: hoyo en 3D, marcador arriba, barra de fuerza abajo */
+body{background:#8fd0ff}
+#power{bottom:calc(env(safe-area-inset-bottom,0px) + 18px);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
+#power .j-bar{width:min(320px,60vw);height:20px}#power .j-bar i{background:linear-gradient(90deg,#3fd15c,#ffcc33,#ff4f4f);width:0}
+#power span{font-weight:900;font-size:13px}
+body.k-touch #power{bottom:calc(env(safe-area-inset-bottom,0px) + 120px)}
+#hit{right:max(22px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 24px);width:96px;height:96px;border-radius:50%;border:3px solid #000;background:#ffcc33;color:#000;font-weight:900;display:none;touch-action:none}
+body.k-touch #hit{display:block}
+#aim{left:max(18px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 24px);display:none;gap:8px}
+body.k-touch #aim{display:flex}
+#aim button{width:70px;height:70px;border-radius:50%;border:3px solid #000;background:rgba(255,255,255,.8);color:#000;font-weight:900;font-size:22px;touch-action:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="power" class="k-ui"><div class="j-bar"><i id="pw"></i></div><span class="k-out" id="pwt">Mantén ESPACIO para cargar el golpe</span></div>
+<button id="hit" class="k-ui k-out">GOLPEAR</button>
+<div id="aim" class="k-ui"><button id="al" aria-label="Apuntar a la izquierda">◀</button><button id="ar" aria-label="Apuntar a la derecha">▶</button></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script src="comun.js"></script>
+<script>
+const K=Kit,J=Juego,$=s=>document.querySelector(s);
+const {renderer,scene,camera,sun}=K.setup({sky:0x8fd0ff,fogNear:60,fogFar:160});
+const ground=new THREE.Mesh(new THREE.BoxGeometry(300,1,300),K.M(0x5aa845));ground.position.y=-1.5;ground.receiveShadow=true;scene.add(ground);
+/* Cada hoyo es un mapa: # pared, . césped, S salida, H hoyo, B tope, ~ arena, w agua, > < ^ v cinta, M molino */
+const HOLES=[
+ {par:2,map:["#######","#..H..#","#.....#","#.....#","#..S..#","#######"]},
+ {par:3,map:["#########","#S......#","#######.#","      #.#","      #.#","      #H#","      ###"]},
+ {par:3,map:["#########","#...H...#","#.......#","#..BBB..#","#.......#","#.~~~~~.#","#...S...#","#########"]},
+ {par:3,map:["###########","#S...#...H#","#....#....#","#.........#","#.........#","###########"]},
+ {par:4,map:["#########","#...H...#","#.......#","#...M...#","#.......#","#wwwwwww#","#.......#","#...S...#","#########"]},
+ {par:3,map:["#########","#S>>>>>.#","#######.#","#H....<<#","#########"]},
+ {par:4,map:["###########","#S..#.....#","#...#..B..#","#...#.....#","#.......#.#","#####...#H#","    #####.#","        ###"]},
+ {par:2,map:["#####","#.H.#","#...#","#.B.#","#...#","#...#","#.S.#","#####"]},
+ {par:5,map:["#############","#S.........##","#####.~~~...#","#...#.....B.#","#.H.^...M...#","#...#.......#","#############"]}];
+const CS=2;let hole=0,strokes=0,total=0,cards=[];
+const grp=new THREE.Group();scene.add(grp);
+let grid=[],W=0,H=0,ball,ballV=new THREE.Vector2(),holePos,startPos,mill=null,lastSafe;
+const mG=K.M(0x4caf50),mG2=K.M(0x43a047),mW=K.M(0x8d6e63),mS=K.M(0xe9c99a),mWa=new THREE.MeshPhongMaterial({color:0x1e88e5,transparent:true,opacity:.85,shininess:80}),mB=K.M(0xff6a00),mC=K.M(0x607d8b);
+function cellAt(x,z){const c=Math.floor(x/CS),r=Math.floor(z/CS);if(r<0||r>=H||c<0||c>=W)return '#';return grid[r][c]}
+function build(i){grp.clear();mill=null;const h=HOLES[i];grid=h.map.map(r=>r.padEnd(Math.max(...h.map.map(x=>x.length)),' '));H=grid.length;W=grid[0].length;
+  for(let r=0;r<H;r++)for(let c=0;c<W;c++){const ch=grid[r][c],x=c*CS+CS/2,z=r*CS+CS/2;if(ch===' ')continue;
+    if(ch==='#'||ch==='B'){const m=K.box(CS,ch==='B'?1:.8,CS,ch==='B'?mB:mW,x,ch==='B'?.5:.4,z,grp);m.castShadow=m.receiveShadow=true;continue}
+    const mat=ch==='~'?mS:ch==='w'?mWa:'<>^v'.includes(ch)?mC:((r+c)%2?mG:mG2);const f=K.box(CS,.2,CS,mat,x,-.1,z,grp);f.receiveShadow=true;
+    if('<>^v'.includes(ch)){const a=K.cyl(0,.35,.6,K.M(0xffcc33),x,.05,z,grp,3);a.rotation.x=Math.PI/2;a.rotation.z={'>':-Math.PI/2,'<':Math.PI/2,'^':0,'v':Math.PI}[ch];a.rotation.order='XZY'}
+    if(ch==='S')startPos=new THREE.Vector2(x,z);
+    if(ch==='H'){holePos=new THREE.Vector2(x,z);const hm=K.cyl(.42,.42,.05,K.M(0x111111),x,.02,z,grp,24);K.cyl(.05,.05,2.4,K.M(0xeeeeee),x,1.2,z,grp);const fl=K.box(.9,.55,.04,K.M(0xff4f4f),x+.45,2.1,z,grp)}
+    if(ch==='M'){const piv=new THREE.Group();piv.position.set(x,.4,z);grp.add(piv);const bar=K.box(5.4,.6,.5,K.M(0xc62828),0,0,0,piv);bar.castShadow=true;K.cyl(.4,.4,1,K.M(0x795548),x,.5,z,grp);mill={piv,x,z,len:2.7}}}
+  const cx=W*CS/2,cz=H*CS/2;center=new THREE.Vector3(cx,0,cz);placeBall(startPos.x,startPos.y);strokes=0;lastSafe=startPos.clone();
+  aimYaw=Math.atan2(holePos.x-startPos.x,holePos.y-startPos.y);hudUpd();K.toast('HOYO '+(i+1),'Par '+HOLES[i].par,'#ffcc33')}
+let center;
+ball=new THREE.Mesh(new THREE.SphereGeometry(.25,20,14),new THREE.MeshPhongMaterial({color:0xffffff,shininess:60}));ball.castShadow=true;scene.add(ball);
+function placeBall(x,z){ball.position.set(x,.25,z);ballV.set(0,0)}
+// flecha para apuntar
+const arrow=new THREE.Group();const ar1=K.box(.12,.05,2,new THREE.MeshBasicMaterial({color:0xffffff}),0,0,1.2,arrow);const ar2=K.cyl(0,.3,.6,new THREE.MeshBasicMaterial({color:0xffffff}),0,0,2.4,arrow,3);ar2.rotation.x=Math.PI/2;scene.add(arrow);
+// golfista
+const me=K.person(scene,null,null,.75);K.emotes(me);
+let aimYaw=0,charging=false,power=0,pdir=1,moving=false,inHole=false,started=false;
+function hudUpd(){J.hud([['Hoyo',(hole+1)+'/'+HOLES.length],['Golpes',strokes],['Par',HOLES[hole].par],['Total',total]])}
+/* controles */
+const keys={};addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;if(k===' '){e.preventDefault();startCharge()}});addEventListener('keyup',e=>{const k=e.key.toLowerCase();keys[k]=false;if(k===' ')release()});
+function startCharge(){if(!started||moving||inHole||charging)return;charging=true;power=0;pdir=1}
+function release(){if(!charging)return;charging=false;if(power<.04){$('#pw').style.width='0';return}
+  ballV.set(Math.sin(aimYaw),Math.cos(aimYaw)).multiplyScalar(4+power*22);moving=true;strokes++;lastSafe=new THREE.Vector2(ball.position.x,ball.position.z);J.sfx('kick');me.armR.rotation.x=-1;hudUpd()}
+const hb=$('#hit');hb.addEventListener('pointerdown',e=>{e.preventDefault();startCharge()});['pointerup','pointercancel','pointerleave'].forEach(t=>hb.addEventListener(t,release));
+let turn=0;[['#al',1],['#ar',-1]].forEach(([s,d])=>{const b=$(s);b.addEventListener('pointerdown',e=>{e.preventDefault();turn=d});['pointerup','pointercancel','pointerleave'].forEach(t=>b.addEventListener(t,()=>turn=0))});
+// arrastrar para girar el apuntado
+let drag=null;renderer.domElement.addEventListener('pointerdown',e=>{drag={x:e.clientX};document.body.classList.toggle('k-touch',e.pointerType==='touch')});addEventListener('pointermove',e=>{if(drag){aimYaw-=(e.clientX-drag.x)*.008;drag.x=e.clientX}});addEventListener('pointerup',()=>drag=null);
+/* física de la bola sobre la cuadrícula */
+function step(dt){const p=ball.position;let fr=1.1;const ch=cellAt(p.x,p.z);if(ch==='~')fr=4.5;
+  const push={'>':[1,0],'<':[-1,0],'^':[0,-1],'v':[0,1]}[ch];if(push){ballV.x+=push[0]*14*dt;ballV.y+=push[1]*14*dt}
+  const sp=ballV.length();if(sp>0){const ns=Math.max(0,sp-fr*dt*(2+sp*.35));ballV.multiplyScalar(sp?ns/sp:0)}
+  let nx=p.x+ballV.x*dt,nz=p.z+ballV.y*dt;const r=.25;
+  const wallX=x=>{const c=cellAt(x+Math.sign(ballV.x)*r,p.z);return c==='#'||c==='B'||c===' '};const wallZ=z=>{const c=cellAt(p.x,z+Math.sign(ballV.y)*r);return c==='#'||c==='B'||c===' '};
+  if(wallX(nx)){ballV.x*=-.75;nx=p.x;J.sfx('tick')}p.x=nx;if(wallZ(nz)){ballV.y*=-.75;nz=p.z;J.sfx('tick')}p.z=nz;
+  if(mill){const a=mill.piv.rotation.y,dx=p.x-mill.x,dz=p.z-mill.z,ca=Math.cos(a),sa=Math.sin(a);const along=dx*ca-dz*sa,perp=dx*sa+dz*ca;
+    if(Math.abs(along)<mill.len&&Math.abs(perp)<.5){const n=new THREE.Vector2(sa,ca).multiplyScalar(Math.sign(perp)||1);ballV.add(n.multiplyScalar(6));p.x+=n.x*.05;p.z+=n.y*.05;J.sfx('hit')}}
+  if(cellAt(p.x,p.z)==='w'){J.sfx('splash');strokes++;hudUpd();placeBall(lastSafe.x,lastSafe.y);moving=false;K.toast('¡AL AGUA!','+1 golpe','#3fa7ff');return}
+  ball.rotation.x+=ballV.y*dt*4;ball.rotation.z-=ballV.x*dt*4;
+  const dh=Math.hypot(p.x-holePos.x,p.z-holePos.y);if(dh<.42&&ballV.length()<9){holeIn();return}
+  if(dh<1.2&&ballV.length()<2.5){const pull=new THREE.Vector2(holePos.x-p.x,holePos.y-p.z).multiplyScalar(dt*3);ballV.add(pull)}
+  if(ballV.length()<.06&&!push){ballV.set(0,0);moving=false;aimYaw=Math.atan2(holePos.x-p.x,holePos.y-p.z)}}
+function holeIn(){inHole=true;moving=false;ball.position.set(holePos.x,-.3,holePos.y);J.sfx(strokes<=HOLES[hole].par?'win':'coin');const d=strokes-HOLES[hole].par;
+  const names={'-3':'¡ALBATROS!','-2':'¡ÁGUILA!','-1':'¡BIRDIE!','0':'PAR'};const t=strokes===1?'¡HOYO EN UNO!':(names[d]||(d>0?'+'+d:'¡GENIAL!'));
+  K.toast(t,strokes+' golpe'+(strokes>1?'s':''),strokes<=HOLES[hole].par?'#3fd15c':'#ffcc33');if(window.CubiAvatar&&strokes<=HOLES[hole].par)CubiAvatar.emote(me,'ge4');
+  total+=strokes;cards.push(strokes);hudUpd();
+  setTimeout(()=>{inHole=false;hole++;if(hole>=HOLES.length)finish();else build(hole)},2200)}
+function finish(){started=false;const par=HOLES.reduce((a,h)=>a+h.par,0),rec=J.saveBest('golf',total,false);
+  J.end({title:'¡RECORRIDO TERMINADO!',col:'#3fd15c',lines:[`Golpes: <b style="color:#ffcc33">${total}</b> (par ${par})`,cards.map((c,i)=>`${i+1}: ${c}`).join(' · '),`Récord: ${J.best('golf')}`],record:rec,
+    onAgain(){hole=0;total=0;cards=[];build(0);started=true}})}
+/* bucle */
+let last=performance.now();
+function loop(t){const dt=Math.min(.033,(t-last)/1000);last=t;
+  if(mill)mill.piv.rotation.y+=dt*1.6;
+  if(!moving&&!inHole){if(keys.a||keys.arrowleft)aimYaw+=dt*1.6;if(keys.d||keys.arrowright)aimYaw-=dt*1.6;aimYaw+=turn*dt*1.6}
+  if(charging){power+=pdir*dt*.9;if(power>1){power=1;pdir=-1}if(power<0){power=0;pdir=1}$('#pw').style.width=(power*100)+'%'}else if(!moving)$('#pw').style.width='0';
+  if(moving){for(let i=0;i<3;i++)if(moving)step(dt/3)}
+  arrow.visible=!moving&&!inHole&&started;arrow.position.set(ball.position.x,.3,ball.position.z);arrow.rotation.y=aimYaw;arrow.scale.z=.6+power*.8;
+  // golfista al lado de la bola
+  const sx=ball.position.x-Math.cos(aimYaw)*1.1,sz=ball.position.z+Math.sin(aimYaw)*1.1;if(!moving&&!inHole){me.root.position.set(sx,0,sz);me.root.rotation.y=aimYaw-Math.PI/2}
+  K.walkAnim(me,0,false,{moving:false});if(charging){me.armL.rotation.x=me.armR.rotation.x=-.4-power*1.2}
+  // cámara detrás de la bola
+  const cd=7.5,ch=5;const tx=ball.position.x-Math.sin(aimYaw)*cd,tz=ball.position.z-Math.cos(aimYaw)*cd;camera.position.lerp(new THREE.Vector3(tx,ch,tz),Math.min(1,dt*4));camera.lookAt(ball.position.x+Math.sin(aimYaw)*3,0,ball.position.z+Math.cos(aimYaw)*3);
+  sun.position.set(ball.position.x+20,40,ball.position.z+10);sun.target.position.copy(ball.position);
+  renderer.render(scene,camera);requestAnimationFrame(loop)}
+build(0);J.music('lago');
+J.start({title:'MINIGOLF CÚBICO',col:'#3fd15c',sub:'9 hoyos con cintas, arena, agua y un molino. Mete la bola en el hoyo con los menos golpes posibles.',
+  howto:['Apunta con <b>A/D</b>, las flechas o arrastrando','Mantén <b>ESPACIO</b> (o GOLPEAR) para cargar la fuerza y suelta para golpear','La arena frena, el agua suma un golpe y las cintas empujan'],
+  record:J.best('golf')!=null?J.best('golf')+' golpes':null,onStart(){started=true}});
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

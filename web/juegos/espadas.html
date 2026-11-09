@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Duelo de Espadas</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Espadas: arena flotante; ronda y vida arriba */
+body{background:#5b3f8a}
+#life{top:calc(env(safe-area-inset-top,0px) + 52px);left:50%;transform:translateX(-50%);pointer-events:none}
+#life .j-bar{width:min(260px,60vw);height:16px}#life .j-bar i{background:#3fd15c;width:100%}
+#hurt{inset:0;pointer-events:none;box-shadow:inset 0 0 120px rgba(255,0,0,.6);opacity:0;transition:opacity .25s}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="life" class="k-ui"><div class="j-bar"><i id="hp"></i></div></div>
+<div id="hurt" class="k-ui"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script src="comun.js"></script>
+<script>
+const K=Kit,J=Juego,$=s=>document.querySelector(s);
+const {renderer,scene,camera,sun}=K.setup({sky:0x5b3f8a,fogNear:50,fogFar:160});
+const R0=16;
+const arena=K.cyl(R0,R0-2,4,K.M(0x9e9e9e),0,-2,0,scene,40);arena.receiveShadow=true;
+K.cyl(R0-.2,R0-.2,.1,K.M(0xc5b38e),0,.02,0,scene,40).receiveShadow=true;
+for(let i=0;i<10;i++){const a=i/10*Math.PI*2;const p=K.box(1.6,3,1.6,K.M(0x6d4c41),Math.cos(a)*(R0+3),-6,Math.sin(a)*(R0+3),scene)}
+// islas de fondo
+for(let i=0;i<14;i++){const a=Math.random()*6.28,r=40+Math.random()*50;const s=3+Math.random()*6;const isl=K.cyl(s,s*.4,s*.8,K.M(0x6d4c41),Math.cos(a)*r,-10+Math.random()*16,Math.sin(a)*r,scene,7);K.cyl(s,s,.4,K.M(0x66bb6a),0,s*.4+.2,0,isl,7).position.y=s*.4}
+/* ---------- espada ---------- */
+function sword(a,col){const g=new THREE.Group();K.box(.14,.5,.14,K.M(0x5d4037),0,-.25,0,g);K.box(.6,.12,.18,K.M(0xffcc33),0,0,0,g);const bl=K.box(.16,1.9,.07,new THREE.MeshPhongMaterial({color:col||0xdfe7ef,shininess:90}),0,1,0,g);
+  g.position.set(0,-.82,.15);g.rotation.x=Math.PI/2;a.armR.add(g);return g}
+/* ---------- jugador ---------- */
+const ctl=K.controls(renderer.domElement,{dist:14,pitch:.6,yaw:Math.PI,onTap:e=>{if(e.pointerType==='mouse'&&e.button===0)attack();return false}});
+const P=J.player(scene,ctl,{x:0,z:6,speed:8.5,jump:10,boxes:[],bound:200,noFloor:true,floorFn:(x,z)=>onArena(x,z)?0:null});K.emotes(P.a);sword(P.a);
+let hp=100,round=0,kos=0,running=false,atk=0,kb={x:0,z:0},between=0;
+const E=[];
+function randEq(){const A=window.CubiAvatar;if(!A)return {};const eq=Object.assign({},A.DEF_EQ);A.CATS.forEach(([c])=>{if(c==='animacion'||c==='gesto')return;const its=A.ITEMS.filter(i=>i.cat===c);eq[c]=its[Math.floor(Math.random()*its.length)].id});return eq}
+function spawnEnemy(i,n){const a=K.person(scene,randEq(),'Rival',.75);const ang=i/n*Math.PI*2+Math.random()*.4;const e={a,x:Math.cos(ang)*(R0-3),z:Math.sin(ang)*(R0-3),y:0,vx:0,vz:0,vy:0,hp:3+Math.floor(round/3),walk:0,atk:0,cd:1+Math.random(),speed:4.2+round*.25+Math.random(),stun:0,face:0};
+  sword(a,[0xff8a80,0x80d8ff,0xb9f6ca][i%3]);E.push(e)}
+function nextRound(){round++;const n=Math.min(7,1+round);for(let i=0;i<n;i++)spawnEnemy(i,n);K.toast('RONDA '+round,n+' rival'+(n>1?'es':''),'#ffcc33');J.sfx('alarm');hud()}
+function hud(){J.hud([['Ronda',round],['Rivales',E.length],['Derribados',kos]])}
+function attack(){if(!running||atk>0)return;atk=.35;J.sfx('whoosh');
+  const fx=Math.sin(P.face),fz=Math.cos(P.face);
+  E.forEach(e=>{const dx=e.x-P.x,dz=e.z-P.z,d=Math.hypot(dx,dz);if(d<3.2&&(dx*fx+dz*fz)/(d||1)>.2){e.hp--;e.stun=.45;const k=e.hp<=0?26:13;e.vx=dx/(d||1)*k;e.vz=dz/(d||1)*k;e.vy=6;J.sfx('hit')}})}
+J.action('ESPADA',['e','f'],attack,{col:'#ff4f4f'});
+function hurt(n,fx,fz){hp=Math.max(0,hp-n);$('#hp').style.width=hp+'%';$('#hurt').style.opacity=1;setTimeout(()=>$('#hurt').style.opacity=0,200);P.vx+=fx*12;P.vz+=fz*12;P.vy=5;P.ground=false;J.sfx('hit');if(hp<=0)lose('¡TE HAN DERROTADO!')}
+function lose(title){if(!running)return;running=false;J.sfx('lose');const rec=J.saveBest('espadas',kos,true);
+  setTimeout(()=>J.end({title,col:'#ff4f4f',lines:[`Ronda: <b style="color:#ffcc33">${round}</b> · Rivales derribados: <b style="color:#ffcc33">${kos}</b>`,`Récord: ${J.best('espadas')} derribados`],record:rec}),900)}
+/* ---------- bucle ---------- */
+let last=performance.now();
+function onArena(x,z){return Math.hypot(x,z)<R0-.3}
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
+  P.frozen=!running;const ix=P.x,iz=P.z;P.update(dt,camera,1.5);
+  // suelo: solo dentro de la arena
+  if(running&&P.y<-12)lose('¡TE HAS CAÍDO!');
+  atk=Math.max(0,atk-dt);if(atk>0)P.a.armR.rotation.x=-2.6+(1-atk/.35)*2.2;
+  if(running){if(!E.length){between+=dt;if(between>2){between=0;hp=Math.min(100,hp+25);$('#hp').style.width=hp+'%';nextRound()}}}
+  E.forEach(e=>{e.stun=Math.max(0,e.stun-dt);e.cd-=dt;const dx=P.x-e.x,dz=P.z-e.z,d=Math.hypot(dx,dz);
+    if(e.stun<=0&&running&&e.y>=-.1){const want=d>2.2?1:0;e.vx+=(dx/d*e.speed*want-e.vx)*Math.min(1,dt*6);e.vz+=(dz/d*e.speed*want-e.vz)*Math.min(1,dt*6);e.face=Math.atan2(dx,dz);
+      if(d<2.7&&e.cd<=0){e.atk=.4;e.cd=1.1+Math.random()*.8-Math.min(.5,round*.05);if(Math.abs(P.y)<1.5)hurt(8+round,dx/d,dz/d)}}
+    else{e.vx*=1-dt*1.5;e.vz*=1-dt*1.5}
+    e.x+=e.vx*dt;e.z+=e.vz*dt;e.vy-=28*dt;e.y+=e.vy*dt;if(onArena(e.x,e.z)&&e.y<=0&&e.y>-1.2){e.y=0;e.vy=0}
+    // evitar que se caigan solos
+    if(e.stun<=0&&Math.hypot(e.x,e.z)>R0-1.2&&e.y>=0){const r=Math.hypot(e.x,e.z);e.x*=(R0-1.2)/r;e.z*=(R0-1.2)/r}
+    e.atk=Math.max(0,e.atk-dt);e.a.root.position.set(e.x,e.y,e.z);e.a.root.rotation.y=e.face;e.walk+=dt*Math.hypot(e.vx,e.vz)*1.5;K.walkAnim(e.a,e.walk,e.y>.05);if(e.atk>0)e.a.armR.rotation.x=-2.6+(1-e.atk/.4)*2.2;else e.a.armR.rotation.x=-.6;
+    if(e.y<-14||e.hp<=0&&!onArena(e.x,e.z)&&e.y<-3){e.dead=true}});
+  for(let i=E.length-1;i>=0;i--){const e=E[i];if(e.dead||(e.hp<=0&&e.stun<=0)){scene.remove(e.a.root);E.splice(i,1);kos++;J.sfx('pop');hud()}}
+  // los rivales no se atraviesan
+  E.forEach(a=>{const dx=a.x-P.x,dz=a.z-P.z,d=Math.hypot(dx,dz);if(d<1.1&&d>0){a.x+=dx/d*(1.1-d);a.z+=dz/d*(1.1-d)}});
+  sun.position.set(P.x+20,50,P.z+20);sun.target.position.set(P.x,0,P.z);
+  renderer.render(scene,camera);requestAnimationFrame(loop)}
+hud();J.music('batalla');
+J.start({title:'DUELO DE ESPADAS',col:'#9c6bff',sub:'Lucha contra rivales con espada en una arena flotante. Empújalos fuera o quítales toda la vida. Cada ronda vienen más.',
+  howto:['<b>WASD</b> o joystick para moverte, <b>ESPACIO</b> para saltar','Ataca con <b>clic</b>, <b>E</b> o ESPADA (golpea lo que tengas delante)','¡Cuidado con el borde! Si te caes, pierdes'],
+  record:J.best('espadas')!=null?J.best('espadas')+' derribados':null,onStart(){running=true;nextRound()}});
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
