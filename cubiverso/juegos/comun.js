@@ -51,5 +51,6 @@ function player(scene,ctl,o){o=o||{};const a=K.person(scene,null,null,o.scale||.
   return P}
 const music=t=>{if(window.CubiAudio)CubiAudio.gameMusic(t)};
 const sfx=t=>{if(window.CubiAudio)CubiAudio.sfx(t)};
-window.Juego={start,end,hud,hint,action,player,best,saveBest,music,sfx,esc,el};
+function closePanels(){document.querySelectorAll('.k-ov').forEach(o=>o.remove())}
+window.Juego={closePanels,start,end,hud,hint,action,player,best,saveBest,music,sfx,esc,el};
 })();

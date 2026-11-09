@@ -21,6 +21,9 @@ body{background:#1b2a4a}
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
 <script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 const K=Kit,J=Juego,$=s=>document.querySelector(s);
 const {renderer,scene,camera,sun,hemi}=K.setup({sky:0x1b2a4a,fog:false});
@@ -58,6 +61,9 @@ function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
   scene.background.setHSL(.62-Math.min(.12,score*.004),.5,.18+Math.min(.25,score*.006));
   sun.position.set(20,camY+30,10);sun.target.position.set(0,camY-6,0);K.walkAnim(me,0,false,{moving:false});
   renderer.render(scene,camera);requestAnimationFrame(loop)}
+Sala.init({game:'torre',me,emotes:true,board:{label:'Altura'},shared:'Empezad todos a la vez y a ver quién hace la torre más alta.',
+  onStart(){J.closePanels();reset();running=true;K.toast('¡A APILAR!','Todos a la vez','#ffcc33')}});
+setInterval(()=>{if(window.Sala)Sala.score(score,score+(running?'':' (fin)'))},500);
 reset();J.music('neon');
 J.start({title:'TORRE DE BLOQUES',col:'#9c6bff',sub:'Apila los bloques lo más alto que puedas. Lo que sobresale se cae, así que cada vez tendrás menos sitio.',
   howto:['Toca la pantalla o pulsa <b>ESPACIO</b> para soltar el bloque','Si lo dejas justo encima es un ¡PERFECTO!','Tres perfectos seguidos hacen el bloque un poco más grande'],

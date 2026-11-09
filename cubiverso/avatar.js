@@ -110,7 +110,7 @@ function camoCanvas(col){const c=cv(64),g=c.getContext('2d');g.fillStyle=col;g.f
 
 /* ---------- construir el avatar ---------- */
 function build(THREE,p,eq){
-  eq=Object.assign({},DEF_EQ,eq||state().eq);p.eq=eq;const R=p.body||R;
+  eq=Object.assign({},DEF_EQ,eq||state().eq);p.eq=eq;const R=p.body||p.root;
   const M=(c,o)=>new THREE.MeshLambertMaterial(Object.assign({color:c},o||{}));
   const tex=c=>{const t=new THREE.CanvasTexture(c);t.anisotropy=4;return t};
   const box=(w,h,d,m,x,y,z,par)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);(par||R).add(o);return o};

@@ -72,6 +72,10 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <script src="../avatar.js"></script>
 <script src="../pases.js"></script>
 <script src="../audio.js"></script>
+<script src="../kit.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 /* ================= DATOS ================= */
 const BLOCKS=[
@@ -263,6 +267,11 @@ ov.innerHTML=panel('PATADÓN DE LUCKY BLOCKS','var(--red)',`<p>Patea bloques de 
   <li>Compra <b>mejoras</b> y <b>bloques</b> mejores. Tus 3 mejores mascotas multiplican lo que ganas.</li><li>A veces sale un premio especial de <b>Cubos de Cubiverso</b>.</li></ul>
   <button class="btn g out" data-act="close" style="width:100%;font-size:18px">¡A PATEAR!</button>`);
 if(window.CubiAudio)CubiAudio.gameMusic('bienvenida');
+const RP={};const lane=id=>Math.max(0,Object.keys(Sala.players).sort().indexOf(id));
+Sala.init({game:'patadon',scene,me,emotes:true,board:{label:'Monedas'},getState:()=>({lane:lane(Sala.myId),atk:state==='kick'?1:0}),shared:'Patead a la vez cada uno en su carril y comparad monedas.',
+  remote:{update(id,d){let r=RP[id];if(!r){const ps=Sala.players[id]||{};r=RP[id]=Kit.person(scene,ps.eq,ps.name,1)}const off=(d.lane-lane(Sala.myId))*3.5;r.root.position.set(off,0,-.6)},
+    step(){Object.values(RP).forEach(a=>Kit.walkAnim(a,0,false,{moving:false}))},remove(id){if(RP[id]){scene.remove(RP[id].root);delete RP[id]}},emote(id,e){if(RP[id]&&window.CubiAvatar)CubiAvatar.emote(RP[id],e)}}});
+setInterval(()=>Sala.score(S.coins,S.coins+' monedas'),1000);
 hud();requestAnimationFrame(loop);
 </script>
 </body>

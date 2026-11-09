@@ -22,6 +22,9 @@ body{background:#5b3f8a}
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
 <script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 const K=Kit,J=Juego,$=s=>document.querySelector(s);
 const {renderer,scene,camera,sun}=K.setup({sky:0x5b3f8a,fogNear:50,fogFar:160});
@@ -37,29 +40,34 @@ function sword(a,col){const g=new THREE.Group();K.box(.14,.5,.14,K.M(0x5d4037),0
 /* ---------- jugador ---------- */
 const ctl=K.controls(renderer.domElement,{dist:14,pitch:.6,yaw:Math.PI,onTap:e=>{if(e.pointerType==='mouse'&&e.button===0)attack();return false}});
 const P=J.player(scene,ctl,{x:0,z:6,speed:8.5,jump:10,boxes:[],bound:200,noFloor:true,floorFn:(x,z)=>onArena(x,z)?0:null});K.emotes(P.a);sword(P.a);
-let hp=100,round=0,kos=0,running=false,atk=0,kb={x:0,z:0},between=0;
+let hp=100,round=0,kos=0,running=false,atk=0,kb={x:0,z:0},between=0,pvp=false,lastBy=null,lastByT=0,koT=0;
 const E=[];
 function randEq(){const A=window.CubiAvatar;if(!A)return {};const eq=Object.assign({},A.DEF_EQ);A.CATS.forEach(([c])=>{if(c==='animacion'||c==='gesto')return;const its=A.ITEMS.filter(i=>i.cat===c);eq[c]=its[Math.floor(Math.random()*its.length)].id});return eq}
 function spawnEnemy(i,n){const a=K.person(scene,randEq(),'Rival',.75);const ang=i/n*Math.PI*2+Math.random()*.4;const e={a,x:Math.cos(ang)*(R0-3),z:Math.sin(ang)*(R0-3),y:0,vx:0,vz:0,vy:0,hp:3+Math.floor(round/3),walk:0,atk:0,cd:1+Math.random(),speed:4.2+round*.25+Math.random(),stun:0,face:0};
   sword(a,[0xff8a80,0x80d8ff,0xb9f6ca][i%3]);E.push(e)}
 function nextRound(){round++;const n=Math.min(7,1+round);for(let i=0;i<n;i++)spawnEnemy(i,n);K.toast('RONDA '+round,n+' rival'+(n>1?'es':''),'#ffcc33');J.sfx('alarm');hud()}
-function hud(){J.hud([['Ronda',round],['Rivales',E.length],['Derribados',kos]])}
+function hud(){if(window.Sala)Sala.score(kos,kos+' derribados');J.hud([['Ronda',round],['Rivales',E.length],['Derribados',kos]])}
 function attack(){if(!running||atk>0)return;atk=.35;J.sfx('whoosh');
   const fx=Math.sin(P.face),fz=Math.cos(P.face);
-  E.forEach(e=>{const dx=e.x-P.x,dz=e.z-P.z,d=Math.hypot(dx,dz);if(d<3.2&&(dx*fx+dz*fz)/(d||1)>.2){e.hp--;e.stun=.45;const k=e.hp<=0?26:13;e.vx=dx/(d||1)*k;e.vz=dz/(d||1)*k;e.vy=6;J.sfx('hit')}})}
+  E.forEach(e=>{const dx=e.x-P.x,dz=e.z-P.z,d=Math.hypot(dx,dz);if(d<3.2&&(dx*fx+dz*fz)/(d||1)>.2){e.hp--;e.stun=.45;const k=e.hp<=0?26:13;e.vx=dx/(d||1)*k;e.vz=dz/(d||1)*k;e.vy=6;J.sfx('hit')}});
+  if(pvp&&Sala.remotes)Object.entries(Sala.remotes.map).forEach(([id,r])=>{const dx=r.x-P.x,dz=r.z-P.z,d=Math.hypot(dx,dz);if(d<3.2&&(dx*fx+dz*fz)/(d||1)>.2){Sala.send('hit',{to:id,dx:dx/(d||1),dz:dz/(d||1)});J.sfx('hit')}})}
 J.action('ESPADA',['e','f'],attack,{col:'#ff4f4f'});
-function hurt(n,fx,fz){hp=Math.max(0,hp-n);$('#hp').style.width=hp+'%';$('#hurt').style.opacity=1;setTimeout(()=>$('#hurt').style.opacity=0,200);P.vx+=fx*12;P.vz+=fz*12;P.vy=5;P.ground=false;J.sfx('hit');if(hp<=0)lose('¡TE HAN DERROTADO!')}
-function lose(title){if(!running)return;running=false;J.sfx('lose');const rec=J.saveBest('espadas',kos,true);
+function hurt(n,fx,fz){if(koT>0)return;hp=Math.max(0,hp-n);$('#hp').style.width=hp+'%';$('#hurt').style.opacity=1;setTimeout(()=>$('#hurt').style.opacity=0,200);P.vx+=fx*12;P.vz+=fz*12;P.vy=5;P.ground=false;J.sfx('hit');if(hp<=0)lose('¡TE HAN DERROTADO!')}
+/* duelo entre amigos: si te derriban, vuelves a aparecer y el que te tiró suma un punto */
+function pvpKO(){koT=1.6;P.frozen=true;P.a.root.visible=false;if(lastBy&&performance.now()-lastByT<6000)Sala.send('ko',{by:lastBy});J.sfx('lose');K.toast('¡FUERA!','Vuelves enseguida','#ff4f4f');
+  setTimeout(()=>{const a=Math.random()*6.28;P.x=Math.cos(a)*(R0-4);P.z=Math.sin(a)*(R0-4);P.y=0;P.vx=P.vz=P.vy=0;hp=100;$('#hp').style.width='100%';P.a.root.visible=true;P.frozen=false;koT=0;lastBy=null},1600)}
+function lose(title){if(pvp){if(koT<=0)pvpKO();return}if(!running)return;running=false;J.sfx('lose');const rec=J.saveBest('espadas',kos,true);
   setTimeout(()=>J.end({title,col:'#ff4f4f',lines:[`Ronda: <b style="color:#ffcc33">${round}</b> · Rivales derribados: <b style="color:#ffcc33">${kos}</b>`,`Récord: ${J.best('espadas')} derribados`],record:rec}),900)}
 /* ---------- bucle ---------- */
 let last=performance.now();
 function onArena(x,z){return Math.hypot(x,z)<R0-.3}
 function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
-  P.frozen=!running;const ix=P.x,iz=P.z;P.update(dt,camera,1.5);
+  if(koT<=0)P.frozen=!running;const ix=P.x,iz=P.z;P.update(dt,camera,1.5);
   // suelo: solo dentro de la arena
   if(running&&P.y<-12)lose('¡TE HAS CAÍDO!');
   atk=Math.max(0,atk-dt);if(atk>0)P.a.armR.rotation.x=-2.6+(1-atk/.35)*2.2;
-  if(running){if(!E.length){between+=dt;if(between>2){between=0;hp=Math.min(100,hp+25);$('#hp').style.width=hp+'%';nextRound()}}}
+  koT=Math.max(0,koT-dt);E.forEach(e=>{});if(pvp&&Sala.remotes)Object.values(Sala.remotes.map).forEach(r=>{if(!r.sw){sword(r.a);r.sw=1}});
+  if(running&&!pvp){if(!E.length){between+=dt;if(between>2){between=0;hp=Math.min(100,hp+25);$('#hp').style.width=hp+'%';nextRound()}}}
   E.forEach(e=>{e.stun=Math.max(0,e.stun-dt);e.cd-=dt;const dx=P.x-e.x,dz=P.z-e.z,d=Math.hypot(dx,dz);
     if(e.stun<=0&&running&&e.y>=-.1){const want=d>2.2?1:0;e.vx+=(dx/d*e.speed*want-e.vx)*Math.min(1,dt*6);e.vz+=(dz/d*e.speed*want-e.vz)*Math.min(1,dt*6);e.face=Math.atan2(dx,dz);
       if(d<2.7&&e.cd<=0){e.atk=.4;e.cd=1.1+Math.random()*.8-Math.min(.5,round*.05);if(Math.abs(P.y)<1.5)hurt(8+round,dx/d,dz/d)}}
@@ -74,6 +82,12 @@ function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
   E.forEach(a=>{const dx=a.x-P.x,dz=a.z-P.z,d=Math.hypot(dx,dz);if(d<1.1&&d>0){a.x+=dx/d*(1.1-d);a.z+=dz/d*(1.1-d)}});
   sun.position.set(P.x+20,50,P.z+20);sun.target.position.set(P.x,0,P.z);
   renderer.render(scene,camera);requestAnimationFrame(loop)}
+Sala.init({game:'espadas',scene,me:P.a,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2),air:!P.ground,atk:atk>0?1:0}),board:{label:'Derribados'},
+  shared:'Al empezar todos a la vez, el duelo es entre vosotros: tirad a los demás de la arena. Cada derribo suma un punto.',
+  onStart(sd){J.closePanels();E.forEach(e=>scene.remove(e.a.root));E.length=0;pvp=true;kos=0;round=0;hp=100;$('#hp').style.width='100%';
+    const ids=Object.keys(Sala.players).sort(),i=Math.max(0,ids.indexOf(Sala.myId)),a=i/Math.max(1,ids.length)*Math.PI*2;P.x=Math.cos(a)*(R0-4);P.z=Math.sin(a)*(R0-4);P.y=0;running=true;hud();K.toast('¡DUELO!','Tira a tus amigos de la arena','#ffcc33')}});
+Sala.on('hit',(d,from)=>{if(!pvp||d.to!==Sala.myId)return;lastBy=from;lastByT=performance.now();hurt(12,d.dx,d.dz)});
+Sala.on('ko',d=>{if(d.by===Sala.myId){kos++;J.sfx('levelup');K.toast('¡DERRIBADO!','+1','#3fd15c');hud()}});
 hud();J.music('batalla');
 J.start({title:'DUELO DE ESPADAS',col:'#9c6bff',sub:'Lucha contra rivales con espada en una arena flotante. Empújalos fuera o quítales toda la vida. Cada ronda vienen más.',
   howto:['<b>WASD</b> o joystick para moverte, <b>ESPACIO</b> para saltar','Ataca con <b>clic</b>, <b>E</b> o ESPADA (golpea lo que tengas delante)','¡Cuidado con el borde! Si te caes, pierdes'],

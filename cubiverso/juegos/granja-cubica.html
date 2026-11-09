@@ -26,6 +26,9 @@ body.k-touch #tip{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
 <script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 const K=Kit,J=Juego,$=s=>document.querySelector(s);
 const {renderer,scene,camera,sun}=K.setup({sky:0x9fdcff,fogNear:70,fogFar:180});
@@ -72,13 +75,14 @@ function growth(L){const C=CROPS[L.crop];return Math.min(1,(Date.now()-L.t)/1000
 /* ---------- jugador ---------- */
 const ctl=K.controls(renderer.domElement,{dist:13,pitch:.6,yaw:Math.PI});
 const P=J.player(scene,ctl,{x:0,z:-8,speed:8,jump:9,boxes,bound:32});K.emotes(P.a);
+Sala.init({game:'granja',scene,me:P.a,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2),air:!P.ground}),board:{label:'Dinero ganado'},shared:'Cada uno cuida su propia granja. En el marcador veis quién gana más.'});
 let sel='zanahoria';
 function seeds(){$('#seeds').innerHTML=Object.entries(CROPS).map(([k,c],i)=>{const own=S.unlocked.includes(k);return `<button data-s="${k}" class="${sel===k?'on':''}">${c.name}<small>${own?`${c.cost} $ · ${c.time} s`:`Desbloquear ${c.cost*15} $`}</small></button>`}).join('')}
 $('#seeds').addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(!b)return;const k=b.dataset.s;
   if(!S.unlocked.includes(k)){const c=CROPS[k].cost*15;if(S.money<c){J.sfx('error');K.toast('TE FALTA DINERO',`Necesitas ${c} $`,'#ff6a6a');return}S.money-=c;S.unlocked.push(k);J.sfx('buy');K.toast('¡SEMILLA NUEVA!',CROPS[k].name,'#3fd15c');save()}
   sel=k;seeds();hud()});
 addEventListener('keydown',e=>{const n=+e.key;const ks=Object.keys(CROPS);if(n>=1&&n<=ks.length){const b=$(`[data-s="${ks[n-1]}"]`);if(b)b.click()}});
-function hud(){const n=Object.values(S.cesta).reduce((a,b)=>a+b,0);J.hud([['Dinero',S.money+' $'],['Cesta',n],['Ganado',S.ganado+' $']])}
+function hud(){if(window.Sala)Sala.score(S.ganado,S.ganado+' $');const n=Object.values(S.cesta).reduce((a,b)=>a+b,0);J.hud([['Dinero',S.money+' $'],['Cesta',n],['Ganado',S.ganado+' $']])}
 function near(){let best=null,bd=3.3;PL.forEach(p=>{const d=Math.hypot(P.x-p.x,P.z-p.z);if(d<bd){bd=d;best=p}});return best}
 function nearStand(){return Math.hypot(P.x,P.z+14)<4.2}
 function act(){if(nearStand()){const n=Object.values(S.cesta).reduce((a,b)=>a+b,0);if(!n){K.toast('LA CESTA ESTÁ VACÍA','Recoge lo que hayas plantado','#ffcc33');return}

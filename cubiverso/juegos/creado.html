@@ -33,6 +33,9 @@ body.k-touch #keys{display:flex}
 <script src="../avatar.js"></script>
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script src="../estudio/escena.js"></script>
 <script src="../estudio/bloques.js"></script>
 <script>
@@ -218,6 +221,11 @@ function step(){const now=performance.now();let dt=Math.min(.05,(now-last)/1000)
 [STAGE].concat(R).forEach(r=>fire(r,'ev_start'));hud();
 if(window.CubiAudio)CubiAudio.gameMusic('aventura');
 K.toast((GAME.name||'¡A jugar!').toUpperCase(),GAME.desc?GAME.desc.slice(0,80):'',"#ffcc33");
+/* multijugador: os veis en el mismo juego y comparáis la primera variable que se muestre */
+if(MODO!=='prueba'){let h=0;const key=(GAME.name||'')+'|'+(GAME.author||'');for(let i=0;i<key.length;i++)h=(h*31+key.charCodeAt(i))>>>0;
+  Sala.init({game:'cs'+h.toString(36),scene,me,scale:PSCALE,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2),air:!P.ground}),board:{label:'Marcador'},
+    shared:'Jugáis juntos en el mismo mapa. Los objetos y los programas funcionan para cada uno por separado.'});
+  setInterval(()=>{const v=[...SHOWN][0]||(GAME.vars||[])[0];if(v)Sala.score(VARS[v]||0,v+': '+(VARS[v]||0))},800)}
 requestAnimationFrame(step);
 </script>
 </body>
