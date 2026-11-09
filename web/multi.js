@@ -1,9 +1,10 @@
 /* Cubiverso · multijugador por salas con código (conexión directa entre jugadores) */
 (function(){
+const ME_SRC=(document.currentScript&&document.currentScript.src)||'';
 const PREFIX='cubiverso-v1-';
 let peer=null,conns=[],host=false,code='',myId='',game='',players={},H={};
 const emit=(ev,...a)=>{(H[ev]||[]).forEach(f=>{try{f(...a)}catch(e){console.warn(e)}})};
-function meInfo(){const s=window.CubiAvatar?CubiAvatar.state():{name:'Jugador',eq:null};return {name:s.name||'Jugador',eq:s.eq,defs:window.CubiAvatar&&CubiAvatar.customDefs?CubiAvatar.customDefs(s.eq):[]}}
+function meInfo(){const s=window.CubiAvatar?CubiAvatar.state():{name:'Jugador',eq:null};return {name:s.name||'Jugador',fid:window.CubiAmigos?CubiAmigos.fid:'',eq:s.eq,defs:window.CubiAvatar&&CubiAvatar.customDefs?CubiAvatar.customDefs(s.eq):[]}}
 function regDefs(p){if(!p||!window.CubiAvatar||!CubiAvatar.register)return;try{(p.defs||[]).slice(0,8).forEach(d=>CubiAvatar.register(d))}catch(e){}}
 function available(){return !!window.Peer&&!!window.RTCPeerConnection}
 function rid(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<5;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
@@ -40,5 +41,6 @@ function errText(e){const m=e&&(e.message||e.type)||'';
   if(m==='nosala')return 'No existe ninguna sala con ese código. Revisa que esté bien escrito y que tu amigo siga dentro.';
   if(m==='timeout')return 'No se ha podido conectar. Comprueba tu conexión a internet y vuelve a probar.';
   return 'No se ha podido conectar ('+m+'). Prueba otra vez.'}
+if(!window.CubiAmigos&&ME_SRC){const s=document.createElement('script');s.src=ME_SRC.replace(/multi\.js(\?.*)?$/,'amigos.js');document.head.appendChild(s)}
 window.CubiMulti={available,create,join,send,leave,on,errText,get code(){return code},get isHost(){return host},get myId(){return myId},get online(){return !!peer&&!!myId},players:()=>players};
 })();

@@ -125,7 +125,9 @@ function roomMenu(o){/* o: {game,title,col,intro,onSolo,onRoom} */
     ov.innerHTML=panel('ENTRANDO…',o.col,'<p>Buscando la sala…</p>');M.join(o.game,c).then(()=>lobby()).catch(e=>show(`<div class="k-err">${esc(M.errText(e))}</div>`))});
   if(M){M.on('players',()=>{if(ov.isConnected&&M.code&&ov.querySelector('.k-code'))lobby()});M.on('msg',d=>{if(d.t==='start'&&ov.isConnected){ov.remove();o.onRoom()}});
     M.on('disconnected',()=>{toast('SALA CERRADA','El anfitrión se ha ido','#ff4f4f')})}
-  show();return ov}
+  show();const pc=new URLSearchParams(location.search).get('sala');
+  if(pc&&canMulti){ov.innerHTML=panel('ENTRANDO…',o.col,'<p>Entrando en la partida de tu amigo…</p>');M.join(o.game,pc).then(()=>lobby()).catch(e=>show(`<div class="k-err">${esc(M.errText(e))}</div>`))}
+  return ov}
 function roomBadge(){const M=window.CubiMulti;if(!M||!M.online)return;let b=$('#k-room');if(!b)b=el('<div id="k-room" class="k-ui"></div>');
   const n=Object.keys(M.players()).length;b.innerHTML=`Sala <b>${M.code}</b> · ${n} ${n===1?'jugador':'jugadores'}`}
 /* ---------- jugadores remotos ---------- */

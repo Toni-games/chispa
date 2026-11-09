@@ -242,6 +242,22 @@ input[type=color]{width:42px;height:32px;border:1px solid var(--line);border-rad
 @media (max-width:820px){.tleft{position:relative;top:0}}
 @media (max-width:420px){.side a{font-size:9.5px;letter-spacing:-.01em}}
 .tmsg{margin:0;color:var(--danger);min-height:1em}
+.side a{position:relative}
+.mecard{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+.mecard .pic{aspect-ratio:1;border-radius:12px;background:var(--panel2) center/contain no-repeat}.mecard small{display:block;color:var(--muted);font-size:12.5px}
+.fcode{display:block;font-size:26px;letter-spacing:.12em;font-family:ui-monospace,"SF Mono",Menlo,monospace;user-select:all}
+@media (max-width:520px){.mecard{grid-template-columns:60px minmax(0,1fr)}.mecard .row{grid-column:1/-1}}
+.addf{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}.addf .field{flex:1;min-width:200px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.fcard{display:flex;flex-direction:column;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px}
+.fcard .fav{padding:0;border:0;background:none;cursor:pointer}.fcard .pic{display:block;aspect-ratio:1;border-radius:10px;background:var(--panel2) center/contain no-repeat}
+.fcard b{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fcard .row .btn{padding:7px 11px;font-size:13px}
+.fst{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);line-height:1.3}.fst i{flex:none;width:9px;height:9px;border-radius:50%;background:#8a90a0}
+.fst.play{color:var(--fg)}.fst.play i{background:#21c063;box-shadow:0 0 0 3px rgba(33,192,99,.25)}.fst.on i{background:#3fa7ff}.fst.wait i{background:#ffcc33}
+.fprof{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;align-items:center}.fprof .pic.big{aspect-ratio:1;border-radius:14px;background:var(--panel2) center/contain no-repeat}
+@media (max-width:460px){.fprof{grid-template-columns:1fr}.fprof .pic.big{max-width:200px}}
+.fstats{display:flex;gap:16px;flex-wrap:wrap}.fstats span{display:flex;flex-direction:column;font-size:12px;color:var(--muted)}.fstats b{font-size:18px;color:var(--fg)}
+.nb{position:absolute;top:2px;right:6px;min-width:17px;height:17px;border-radius:9px;background:#ff3b3b;color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;padding:0 4px}
 </style>
 
 <header class="top"><div class="in">
@@ -292,6 +308,7 @@ input[type=color]{width:42px;height:32px;border:1px solid var(--line);border-rad
 <script src="cuenta.js"></script>
 <script src="pases.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="amigos.js"></script>
 <script src="multi.js"></script>
 <script>
 const A=window.CubiAvatar;
@@ -533,14 +550,18 @@ const V={
         <p style="margin:0;font-size:13px;color:var(--muted)">Códigos de prueba: REGALO-10, REGALO-25 y BIENVENIDA.</p></div>
       <div class="card sec" style="margin:0"><h2>Movimientos</h2><div class="hist">${(st.history||[]).length?st.history.slice(0,8).map(h=>`<div><span>${esc(h.txt)}</span><b class="${h.amt>=0?'pos':'neg'}">${h.amt>=0?'+':''}${fmtC(h.amt)}</b></div>`).join(''):'<div><span style="color:var(--muted)">Todavía no hay movimientos.</span></div>'}</div></div>
     </div>`},
-  amigos(){const fr=(st.friends||[]).slice(0,30);const multi=GAMES.filter(g=>g.multi);const can=window.CubiMulti&&CubiMulti.available();
+  amigos(){const fr=(st.friends||[]).slice(0,30);const multi=GAMES.filter(g=>g.multi);const F=window.CubiAmigos,can=F&&F.available();
     const ago=t=>{const m=Math.round((Date.now()-t)/60000);return m<1?'ahora':m<60?`hace ${m} min`:m<1440?`hace ${Math.round(m/60)} h`:`hace ${Math.round(m/1440)} días`};
-    return `<h1>Amigos</h1><p class="sub">Juega con tus amigos en salas privadas con código.</p>
-    ${can?'':'<div class="test"><b>Aviso.</b><span>Dentro de Claude no se puede jugar online. El multijugador funciona en la web y en la app de Cubiverso.</span></div>'}
-    <section class="sec"><div class="sec-h"><h2>Cómo jugar con amigos</h2></div><div class="card" style="display:flex;flex-direction:column;gap:6px">
-      <span>1. Abre un juego multijugador y pulsa <b>Crear sala</b>.</span><span>2. Pasa el código de 5 letras a tus amigos.</span><span>3. Ellos abren el mismo juego, escriben el código y pulsan <b>Unirse</b>.</span><span>4. Cuando estéis todos, el anfitrión pulsa <b>¡Empezar!</b></span></div></section>
+    const hs=headshot();
+    return `<h1>Amigos</h1><p class="sub">Añade a tus amigos con su código de amigo. Verás su avatar y su perfil, y si están jugando podrás unirte con un toque, sin códigos de sala.</p>
+    ${can?'':'<div class="test"><b>Aviso.</b><span>Dentro de Claude no se puede conectar con otros jugadores. Los amigos funcionan en la web y en la app de Cubiverso.</span></div>'}
+    <div class="mecard"><span class="pic" style="${hs?`background-image:url(${hs})`:''}"></span><div style="min-width:0"><small>Tu código de amigo</small><b class="fcode" id="myfc">${F?F.fmt(F.fid):'—'}</b>
+      <small>Dáselo a tus amigos para que te añadan.</small></div><div class="row"><button class="btn" data-act="copyfc">Copiar</button></div></div>
+    <form class="addf" id="addf"><input class="field nocase" id="fcin" maxlength="9" placeholder="Código de tu amigo (ABCD-1234)" autocomplete="off" aria-label="Código de amigo" style="text-transform:uppercase;letter-spacing:.08em">
+      <button class="btn brand" type="submit" ${can?'':'disabled'}>Añadir amigo</button></form><p id="fmsg" class="sub" role="status" style="margin-top:6px"></p>
+    <div id="flist">${friendsHTML()}</div>
     <section class="sec"><div class="sec-h"><h2>Juegos multijugador</h2></div><div class="games">${multi.map(gameCard).join('')}</div></section>
-    <section class="sec"><div class="sec-h"><h2>Has jugado con</h2></div>${fr.length?`<div class="card hist">${fr.map(f=>`<div><span><b>${esc(f.name)}</b> · ${esc((GAMES.find(g=>g.id===({obby:'obby',globos:'globos'}[f.game]||f.game))||{name:f.game}).name)}</span><span style="color:var(--muted)">${ago(f.last)}</span></div>`).join('')}</div>`:'<div class="card">Aquí aparecerán las personas con las que juegues en una sala.</div>'}</section>`},
+    <section class="sec"><div class="sec-h"><h2>Has jugado con</h2></div>${fr.length?`<div class="card hist">${fr.map(f=>`<div><span><b>${esc(f.name)}</b> · ${esc((GAMES.find(g=>g.id===({obby:'obby',globos:'globos'}[f.game]||f.game))||{name:f.game}).name)}</span><span style="color:var(--muted)">${ago(f.last)}</span></div>`).join('')}</div>`:'<div class="card">Aquí aparecerán las personas con las que juegues en una sala. Dentro de la sala puedes pulsar «+ AMIGO» para añadirlas.</div>'}</section>`},
   musica(){const Au=window.CubiAudio;if(!Au)return '<h1>Música</h1><div class="card">El sonido no está disponible.</div>';const S=Au.get(),U=Au.user();
     const trk=(t,user)=>`<div class="trk" data-trk="${t.id}"><button class="pb" data-act="musplay" data-id="${t.id}" aria-label="Escuchar ${esc(t.name)}">${PLAY}</button>
       <div style="min-width:0"><b>${esc(t.name)}</b><small>${user?`Tu música${t.size?' · '+(t.size/1048576).toFixed(1)+' MB':''}`:`${esc(t.mood)} · ${t.bpm} pulsaciones por minuto · Compuesta para Cubiverso`}</small></div>
@@ -646,6 +667,7 @@ function render(){
   if(v!=='taller'&&PV&&PV.eqOver){PV.eqOver=null;rebuildPV()}
   if(v==='avatar'){mountPreview($('#stage'));pvCam('full')}
   if(v==='taller')tallerBind();
+  if(v==='amigos')refreshFriends();
   if(v==='musica')musBind();
   musUI();
   const gf=$('#giftform');if(gf)gf.addEventListener('submit',e=>{e.preventDefault();redeem($('#giftcode').value)});
@@ -716,7 +738,7 @@ function redeem(code){code=(code||'').trim().toUpperCase();if(!code){toast('Escr
 
 /* ================= JUGAR ================= */
 let curGame=null;
-function playGame(gm){curGame=gm;if(Au)Au.sfx('open');closeModal();st.recent=[gm.id].concat(st.recent.filter(i=>i!==gm.id)).slice(0,4);save();
+function playGame(gm){curGame=gm;if(Au)Au.sfx('open');closeModal();if(GAMES.some(g=>g.id===gm.id))st.recent=[gm.id].concat(st.recent.filter(i=>i!==gm.id)).slice(0,4);save();
   $('#gname').textContent=gm.name;$('#gbal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;$('#gpanel').hidden=true;
   $('#frame').src=gm.file+'#plataforma';$('#play').hidden=false;document.body.style.overflow='hidden';
   const el=$('#play');try{const f=el.requestFullscreen||el.webkitRequestFullscreen;if(f){const r=f.call(el);if(r&&r.catch)r.catch(()=>{})}}catch(e){}
@@ -1000,6 +1022,66 @@ Object.assign(ACT,{
     else{catCat='crea';if(view==='catalogo')render();else location.hash='#catalogo';itemModal(it)}}
 });
 
+/* ================= AMIGOS ================= */
+const FST={};let fTimer=0,fBusy=false;const FTH={};
+function friendPic(f){const k=JSON.stringify(f.eq||{});if(FTH[k]===undefined){if(f.defs)f.defs.forEach(d=>A.register(d));FTH[k]=f.eq?renderThumb(Object.assign({},A.DEF_EQ,f.eq),'full'):''}return FTH[k]}
+function fStatus(fid){const x=FST[fid];if(!x)return {cls:'wait',txt:'Buscando…'};if(!x.p)return {cls:'off',txt:'Desconectado'};const s=x.p.status||{};
+  if(s.where==='game')return {cls:'play',txt:`Jugando a ${s.title||'un juego'}${s.room?` · sala de ${s.players}`:''}`,game:true};return {cls:'on',txt:'Conectado · en el menú'}}
+function friendsHTML(){const F=window.CubiAmigos;if(!F)return '';const d=F.data();const L=Object.entries(d.list),R=Object.entries(d.req),S=Object.entries(d.sent);
+  return `${R.length?`<section class="sec"><div class="sec-h"><h2>Solicitudes de amistad (${R.length})</h2></div><div class="mylist">${R.map(([fid,r])=>`<div class="myrow"><span class="pic" style="${friendPic(r)?`background-image:url(${friendPic(r)})`:''}"></span>
+      <div style="min-width:0"><b>${esc(r.name)}</b><small>Quiere ser tu amigo · ${F.fmt(fid)}</small></div><div class="row"><button class="btn brand" data-act="facc" data-id="${fid}">Aceptar</button><button class="btn" data-act="frej" data-id="${fid}">Rechazar</button></div></div>`).join('')}</div></section>`:''}
+  <section class="sec"><div class="sec-h"><h2>Tus amigos (${L.length})</h2>${L.length?'<a href="#amigos" data-act="frefresh">Actualizar</a>':''}</div>
+  ${L.length?`<div class="fgrid">${L.sort((a,b)=>(FST[b[0]]&&FST[b[0]].p?1:0)-(FST[a[0]]&&FST[a[0]].p?1:0)).map(([fid,f])=>{const s=fStatus(fid),u=friendPic(f);
+    return `<div class="fcard"><button class="fav" data-act="fprof" data-id="${fid}" aria-label="Ver el perfil de ${esc(f.name)}"><span class="pic" style="${u?`background-image:url(${u})`:''}"></span></button>
+      <b>${esc(f.name)}</b><span class="fst ${s.cls}"><i></i>${esc(s.txt)}</span>
+      <div class="row">${s.game?`<button class="btn play" data-act="fjoin" data-id="${fid}">Unirse</button>`:''}<button class="btn" data-act="fprof" data-id="${fid}">Perfil</button></div></div>`}).join('')}</div>`
+    :'<div class="card">Aún no tienes amigos añadidos. Escribe arriba el código de amigo de alguien, o pulsa «+ AMIGO» dentro de una sala.</div>'}</section>
+  ${S.length?`<section class="sec"><div class="sec-h"><h2>Solicitudes enviadas</h2></div><div class="card hist">${S.map(([fid,x])=>`<div><span><b>${F.fmt(fid)}</b> · ${x.delivered?'le ha llegado, falta que acepte':'se enviará cuando se conecte'}</span><button class="btn" data-act="fcancel" data-id="${fid}">Cancelar</button></div>`).join('')}</div></section>`:''}`}
+function renderFriends(){const el=$('#flist');if(el&&view==='amigos')el.innerHTML=friendsHTML()}
+async function refreshFriends(){const F=window.CubiAmigos;if(!F||!F.available()||fBusy)return;fBusy=true;
+  try{await F.start();const ids=Object.keys(F.data().list);await Promise.all(ids.map(fid=>F.info(fid).then(p=>{FST[fid]={p,at:Date.now()}}).catch(()=>{FST[fid]={p:null,at:Date.now()}})));
+    F.resend().catch(()=>{})}finally{fBusy=false}renderFriends();if($('#fprofile'))profileModal($('#fprofile').dataset.id,true)}
+function amigoProvider(){if(!curGame)return {where:'menu'};let w=null;try{w=$('#frame').contentWindow}catch(e){}
+  const M=w&&w.CubiMulti,S=w&&w.Sala,custom=/^(c:|studio)/.test(curGame.id||'');
+  return {where:'game',title:curGame.name,url:custom?'':curGame.file,code:M&&M.code||'',players:M&&M.code?Object.keys(M.players()).length:1,host:S&&S.hostNow?(n=>S.hostNow(n)):null}}
+function profileModal(fid,again){const F=window.CubiAmigos;const f=F.data().list[fid];if(!f)return;const x=FST[fid],p=x&&x.p,s=fStatus(fid),u=friendPic(f);
+  const since=f.since?new Date(f.since).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}):'';
+  const body=`<div id="fprofile" data-id="${fid}" class="fprof"><span class="pic big" style="${u?`background-image:url(${u})`:''}"></span><div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+    <b style="font-size:22px">${esc(f.name)}</b><span class="fst ${s.cls}"><i></i>${esc(s.txt)}</span><small style="color:var(--muted)">Código de amigo ${F.fmt(fid)}${since?` · amigos desde el ${since}`:''}</small>
+    ${p?`<div class="fstats"><span><b>${p.items||0}</b>objetos</span><span><b>${p.creations||0}</b>creaciones</span><span><b>${p.friends||0}</b>amigos</span></div>`:'<small style="color:var(--muted)">Cuando se conecte verás sus datos y si está jugando.</small>'}</div></div>
+    <p id="fjmsg" class="sub" role="status"></p>
+    <div class="row">${s.game?`<button class="btn play" data-act="fjoin" data-id="${fid}">Unirse a su partida</button>`:''}<button class="btn" data-act="frefresh">Actualizar</button><button class="btn" data-act="fdel" data-id="${fid}">Eliminar amigo</button><button class="btn" data-act="close">Cerrar</button></div>`;
+  if(again){if($('#fprofile'))openModal(f.name,body);return}openModal(f.name,body)}
+async function joinFriend(fid){const F=window.CubiAmigos;const f=F.data().list[fid];const msg=$('#fjmsg');const say=t=>{if(msg)msg.textContent=t;else toast(t)};
+  say(`Avisando a ${f?f.name:'tu amigo'}…`);
+  try{const r=await F.join(fid);const base=r.rel.split('?')[0];const gm=GAMES.find(g=>g.file===base);
+    closeModal();playGame({id:gm?gm.id:'amigo',name:gm?gm.name:(r.title||'Juego'),file:r.rel});toast(`Entrando en la partida de ${f?f.name:'tu amigo'}`)}
+  catch(e){say(F.joinText(e))}}
+Object.assign(ACT,{
+  copyfc(){const F=window.CubiAmigos;const t=F.fmt(F.fid);try{navigator.clipboard.writeText(t).then(()=>toast('Código copiado'),()=>toast('Tu código: '+t))}catch(e){toast('Tu código: '+t)}},
+  async addfriend(){const F=window.CubiAmigos,inp=$('#fcin'),m=$('#fmsg');const v=inp.value;m.textContent='Buscando…';
+    try{const r=await F.add(v);inp.value='';m.textContent={ok:'¡Ya sois amigos!',ya:'Ya sois amigos.',pend:'Solicitud enviada. Cuando la acepte, aparecerá en tu lista.',offline:'Tu amigo no está conectado ahora. La solicitud le llegará en cuanto abra Cubiverso y tú estés conectado.'}[r];
+      if(r==='ok'&&Au)Au.sfx('levelup');renderFriends();refreshFriends()}
+    catch(e){m.textContent=e.message==='self'?'Ese es tu propio código.':e.message==='code'?'El código tiene 8 letras y números, como ABCD-1234.':F.joinText(e)}},
+  facc(fid){window.CubiAmigos.accept(fid);if(Au)Au.sfx('levelup');toast('¡Ahora sois amigos!');renderFriends();refreshFriends()},
+  frej(fid){window.CubiAmigos.reject(fid);renderFriends()},
+  fcancel(fid){window.CubiAmigos.cancel(fid);renderFriends()},
+  fprof(fid){profileModal(fid)},
+  fjoin(fid){joinFriend(fid)},
+  frefresh(){refreshFriends();toast('Actualizando…')},
+  fdel(fid){const f=window.CubiAmigos.data().list[fid];openModal('Eliminar amigo',`<p style="margin:0">¿Quitar a <b>${esc(f?f.name:'')}</b> de tus amigos?</p><div class="row"><button class="btn danger" data-act="fdelgo" data-id="${fid}">Sí, eliminar</button><button class="btn" data-act="close">Cancelar</button></div>`)},
+  fdelgo(fid){window.CubiAmigos.remove(fid);delete FST[fid];closeModal();renderFriends();toast('Amigo eliminado')}
+});
+if(window.CubiAmigos){const F=CubiAmigos;F.provider=amigoProvider;
+  F.on('request',p=>{toast(`${p.name} quiere ser tu amigo`);if(Au)Au.sfx('notify');renderFriends();badgeFriends()});
+  F.on('new',p=>{toast(`¡${p.name||'Tu amigo'} y tú ya sois amigos!`);renderFriends()});
+  F.on('change',()=>{renderFriends();badgeFriends()});
+  setTimeout(()=>{F.start().then(ok=>{if(ok){refreshFriends()}})},600);
+  setInterval(()=>{if(view==='amigos'&&!document.hidden&&$('#play').hidden)refreshFriends()},15000)}
+function badgeFriends(){const a=document.querySelector('#side a[data-v=amigos]');if(!a||!window.CubiAmigos)return;const n=Object.keys(CubiAmigos.data().req).length;
+  let b=a.querySelector('.nb');if(!n){if(b)b.remove();return}if(!b){b=document.createElement('span');b.className='nb';a.appendChild(b)}b.textContent=n}
+badgeFriends();
+document.addEventListener('submit',e=>{if(e.target.id==='addf'){e.preventDefault();ACT.addfriend()}});
 async function buyCustom(it){if(it.mode==='me'){toast('Ese objeto no está a la venta');return}
   if(it.limited&&!stockLeft(it)){toast('Agotado: ya no quedan unidades');itemModal(it);return}
   const cloud=CC&&CC.cfg&&MERC&&MERC[it.id];
