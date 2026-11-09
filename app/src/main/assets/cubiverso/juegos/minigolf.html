@@ -29,6 +29,9 @@ body.k-touch #aim{display:flex}
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
 <script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 const K=Kit,J=Juego,$=s=>document.querySelector(s);
 const {renderer,scene,camera,sun}=K.setup({sky:0x8fd0ff,fogNear:60,fogFar:160});
@@ -66,8 +69,17 @@ function placeBall(x,z){ball.position.set(x,.25,z);ballV.set(0,0)}
 const arrow=new THREE.Group();const ar1=K.box(.12,.05,2,new THREE.MeshBasicMaterial({color:0xffffff}),0,0,1.2,arrow);const ar2=K.cyl(0,.3,.6,new THREE.MeshBasicMaterial({color:0xffffff}),0,0,2.4,arrow,3);ar2.rotation.x=Math.PI/2;scene.add(arrow);
 // golfista
 const me=K.person(scene,null,null,.75);K.emotes(me);
+/* multijugador: se ve a los demás junto a su bola si están en el mismo hoyo */
+const RM={};
+Sala.init({game:'golf',scene,me,board:{label:'Golpes',lower:true},shared:'Empezad todos a la vez para jugar el mismo recorrido. Veréis las bolas de los demás si estáis en el mismo hoyo.',
+  getState:()=>({x:+me.root.position.x.toFixed(2),y:0,z:+me.root.position.z.toFixed(2),ry:+me.root.rotation.y.toFixed(2),bx:+ball.position.x.toFixed(2),by:+ball.position.y.toFixed(2),bz:+ball.position.z.toFixed(2),h:hole}),
+  remote:{update(id,d){let r=RM[id];if(!r){const ps=Sala.players[id]||{};const a=K.person(scene,ps.eq,ps.name,.75);const b=new THREE.Mesh(new THREE.SphereGeometry(.25,16,12),new THREE.MeshPhongMaterial({color:0xffcc33}));scene.add(b);r=RM[id]={a,b}}
+      r.d=d;const vis=d.h===hole;r.a.root.visible=r.b.visible=vis;r.a.root.position.set(d.x,0,d.z);r.a.root.rotation.y=d.ry;r.b.position.set(d.bx,d.by,d.bz)},
+    step(dt){Object.values(RM).forEach(r=>K.walkAnim(r.a,0,false,{moving:false}))},
+    remove(id){const r=RM[id];if(r){scene.remove(r.a.root);scene.remove(r.b);delete RM[id]}},emote(id,e){if(RM[id]&&window.CubiAvatar)CubiAvatar.emote(RM[id].a,e)}},
+  onStart(){J.closePanels();hole=0;total=0;cards=[];build(0);started=true}});
 let aimYaw=0,charging=false,power=0,pdir=1,moving=false,inHole=false,started=false;
-function hudUpd(){J.hud([['Hoyo',(hole+1)+'/'+HOLES.length],['Golpes',strokes],['Par',HOLES[hole].par],['Total',total]])}
+function hudUpd(){if(window.Sala)Sala.score(total+(inHole?0:strokes),'Hoyo '+Math.min(HOLES.length,hole+1)+' · '+(total+(inHole?0:strokes)));J.hud([['Hoyo',(hole+1)+'/'+HOLES.length],['Golpes',strokes],['Par',HOLES[hole].par],['Total',total]])}
 /* controles */
 const keys={};addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;if(k===' '){e.preventDefault();startCharge()}});addEventListener('keyup',e=>{const k=e.key.toLowerCase();keys[k]=false;if(k===' ')release()});
 function startCharge(){if(!started||moving||inHole||charging)return;charging=true;power=0;pdir=1}

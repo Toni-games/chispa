@@ -23,6 +23,9 @@ body{background:#aee3ff}
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
 <script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 const K=Kit,J=Juego,$=s=>document.querySelector(s);
 const {renderer,scene,camera,sun}=K.setup({sky:0xaee3ff,fogNear:60,fogFar:170});
@@ -63,13 +66,16 @@ function pet(kind,col){const g=new THREE.Group();const m=K.M(col),dark=K.M(0x222
 /* escondites posibles (x,y,z): detrás de arbustos, bajo bancos, en tejados, en árboles... */
 const SPOTS=[...BUSH.map(([x,z])=>[x+.8,0,z+1.2]),[28,6,-26],[-28,6,-28],[30,6,28],[-30,4.1,40],[40,5,40],[-22,0,32],[-12,0,22],[0,0,-46],[46,0,0],[-46,0,0],[18,0,-38.5],[-8,0,41.5],[-36,0,6],[38,0,6],[5,0,-10.6],[-5,0,15.4],[14,0,5.4],[-15,0,-1.6]];
 let pets=[],found=0,T=0,running=false,penalty=0;
-function setup(){pets.forEach(p=>scene.remove(p.g));pets=[];found=0;T=0;penalty=0;
-  const spots=SPOTS.slice().sort(()=>Math.random()-.5);KINDS.forEach(([n,c],i)=>{const g=pet(n,c);const s=spots[i];g.position.set(s[0],s[1],s[2]);g.rotation.y=Math.random()*6.28;scene.add(g);pets.push({n,c,g,found:false,ph:Math.random()*6})});
+function setup(sd){pets.forEach(p=>scene.remove(p.g));pets=[];found=0;T=0;penalty=0;const rnd=sd?Sala.rng(sd):Math.random;
+  const spots=SPOTS.slice().map(s=>[rnd(),s]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);KINDS.forEach(([n,c],i)=>{const g=pet(n,c);const s=spots[i];g.position.set(s[0],s[1],s[2]);g.rotation.y=Math.random()*6.28;scene.add(g);pets.push({n,c,g,found:false,ph:Math.random()*6})});
   $('#album').innerHTML=KINDS.map((k,i)=>`<i title="${k[0]}" id="al${i}"></i>`).join('');hud()}
-function hud(){J.hud([['Mascotas',found+'/'+KINDS.length],['Tiempo',Math.floor(T+penalty)+' s'],running?['Pista (H)','+15 s']:null])}
+function hud(){if(window.Sala)Sala.score(found*1000-Math.floor(T+penalty),found===KINDS.length?'¡Todas! '+Math.floor(T+penalty)+' s':found+'/'+KINDS.length);J.hud([['Mascotas',found+'/'+KINDS.length],['Tiempo',Math.floor(T+penalty)+' s'],running?['Pista (H)','+15 s']:null])}
 /* jugador */
 const ctl=K.controls(renderer.domElement,{dist:12,pitch:.5,yaw:Math.PI});
 const P=J.player(scene,ctl,{x:0,z:-4,speed:9,jump:11,boxes,bound:70});K.emotes(P.a);
+Sala.init({game:'mascotas',scene,me:P.a,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2),air:!P.ground}),board:{label:'Mascotas'},shared:'Al empezar todos a la vez, las mascotas se esconden en los mismos sitios para todos. ¡Gana quien las encuentre antes!',
+  onStart(sd){$$ov();setup(sd);P.x=0;P.z=-4;P.y=0;running=true;K.toast('¡A BUSCAR!','Todos a la vez','#ffcc33')}});
+function $$ov(){document.querySelectorAll('.k-ov').forEach(o=>o.remove())}
 let hintT=0;
 function hint(){if(!running)return;const left=pets.filter(p=>!p.found);if(!left.length)return;penalty+=15;hintT=4;J.sfx('notify');K.toast('PISTA','Sigue la flecha amarilla (+15 s)','#ffcc33')}
 J.action('PISTA','h',hint,{col:'#ffcc33',bottom:130});

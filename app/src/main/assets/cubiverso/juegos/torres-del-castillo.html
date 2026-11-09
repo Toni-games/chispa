@@ -31,6 +31,9 @@ body{background:#9ad7f5}
 <script src="../avatar.js"></script>
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 const K=Kit,{M,box,cyl,sph}=K;
 const W=K.setup({sky:0x9ad7f5,fog:false});const {scene,camera,renderer,sun}=W;
@@ -152,6 +155,8 @@ renderBar();
 document.body.insertAdjacentHTML('beforeend',K.panel('TORRES DEL CASTILLO','#9c6bff',`<p>Una invasión de mocos va camino del castillo. Pon torres junto al camino para frenarlos.</p>
   <ul><li>Elige una torre abajo y toca una casilla de hierba.</li><li>Toca una torre para mejorarla o venderla.</li><li>Pulsa <b>EMPEZAR</b> para lanzar cada oleada. Cada 10 oleadas llega el Rey Moco.</li><li>Si aguantas las 20 oleadas ganas 25 Cubos al día.</li></ul>
   <button class="k-btn g k-out" onclick="this.closest('.k-ov').remove()">¡A DEFENDER!</button>`));
+Sala.init({game:'torres',me:gen,emotes:true,board:{label:'Oleada'},shared:'Cada uno defiende su castillo. En el marcador veis por qué oleada va cada uno.'});
+setInterval(()=>Sala.score(wave*100+lives,'Oleada '+wave+' · '+lives+' vidas'),1000);
 if(window.CubiAudio)CubiAudio.gameMusic('aventura');
 requestAnimationFrame(loop);
 </script>

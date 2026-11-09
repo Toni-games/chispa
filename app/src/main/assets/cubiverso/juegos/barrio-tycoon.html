@@ -152,6 +152,10 @@ body.build #cog{display:none}
 <script src="../avatar.js"></script>
 <script src="../pases.js"></script>
 <script src="../audio.js"></script>
+<script src="../kit.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 /* ================= DATOS ================= */
 const N=26,TS=4,W=N*TS;
@@ -678,7 +682,7 @@ const nameTag=(()=>{const c=document.createElement('canvas');c.width=256;c.heigh
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));s.scale.set(2.4,.55,1);s.position.y=3.1;s.renderOrder=8;avatar.add(s);return s})();
 const P={x:0,y:0,z:0,vy:0,face:0,walk:0,ground:true};
 const PLAT=location.hash==='#plataforma'&&!!window.CubiAvatar;
-if(PLAT){try{CubiAvatar.build(THREE,{root:avatar,legL,legR,armL,armR,keep:[nameTag]},CubiAvatar.state().eq)}catch(e){console.warn(e)}}
+if(window.CubiAvatar){try{CubiAvatar.build(THREE,{root:avatar,legL,legR,armL,armR,keep:[nameTag]},CubiAvatar.state().eq)}catch(e){console.warn(e)}}
 function spawnPlayer(){P.x=0;P.z=6;P.y=0;P.vy=0}
 
 /* ================= MODOS Y CÁMARA ================= */
@@ -1007,6 +1011,8 @@ function loop(t){
 }
 addEventListener('beforeunload',persist);
 if(window.CubiAudio){CubiAudio.gameMusic('bienvenida');['place','placeTile','build','buyVehicle','placeVehicle','placeVeh'].forEach(n=>CubiAudio.wrap(n,'place'));['bulldoze','demolish','removeTile'].forEach(n=>CubiAudio.wrap(n,'remove'))}
+Sala.init({game:'barrio',scene,me:Object.assign(AV,{root:avatar}),scale:.55,emotes:true,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2),air:!P.ground}),board:{label:'Dinero'},shared:'Paseáis juntos por el barrio; cada uno construye y gana su propio dinero.'});
+setInterval(()=>Sala.score(Math.floor(S.cash),'$'+Math.floor(S.cash).toLocaleString('es')),1000);
 requestAnimationFrame(loop);
 </script>
 

@@ -89,6 +89,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
     <button class="sp" data-act="speed" data-id="3">x3</button>
     <button class="sp" data-act="speed" data-id="10" id="sp10" hidden>x10</button>
     <button class="sp" data-act="pases" id="pasesbtn" hidden style="background:#ffb020;color:#2a1a00">Pases</button>
+    <button class="sp" data-act="pasear" id="walkbtn" title="Pasea por tu ciudad con tu avatar">Pasear</button>
     <button class="sp" data-act="menu">Menú</button>
   </div>
 </div>
@@ -108,6 +109,10 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <script src="../avatar.js"></script>
 <script src="../pases.js"></script>
 <script src="../audio.js"></script>
+<script src="../kit.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 /* ================= DATOS ================= */
 const N=24,TS=2;
@@ -438,7 +443,7 @@ canvas.addEventListener('pointerdown',e=>{
   pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pointers.size===2){const [a,b]=[...pointers.values()];pinch={d:Math.hypot(a.x-b.x,a.y-b.y),cx:(a.x+b.x)/2,cy:(a.y+b.y)/2};downInfo=null;return}
   const T=TOOLS.find(q=>q.id===tool);
-  downInfo={x:e.clientX,y:e.clientY,btn:e.button,shift:e.shiftKey,moved:false,paint:T.drag&&e.button===0&&!e.shiftKey};
+  downInfo={x:e.clientX,y:e.clientY,btn:e.button,shift:e.shiftKey,moved:false,paint:!walker&&T.drag&&e.button===0&&!e.shiftKey};
   if(downInfo.paint){const t=tileAt(e.clientX,e.clientY);if(t){place(t[0],t[1]);dragging=true;lastPaint=t.join(',')}}
 });
 canvas.addEventListener('pointermove',e=>{
@@ -459,14 +464,14 @@ canvas.addEventListener('pointermove',e=>{
 function endPointer(e){
   pointers.delete(e.pointerId);
   if(pointers.size<2)pinch=null;
-  if(downInfo&&!downInfo.moved&&!downInfo.paint&&downInfo.btn===0){const t=tileAt(e.clientX,e.clientY);if(t)place(t[0],t[1])}
+  if(downInfo&&!downInfo.moved&&!downInfo.paint&&downInfo.btn===0){const t=tileAt(e.clientX,e.clientY);if(t){if(walker){const[wx,wz]=tpos(t[0],t[1]);walker.tx=wx;walker.tz=wz}else place(t[0],t[1])}}
   if(pointers.size===0){downInfo=null;dragging=false;lastPaint=null}
 }
 canvas.addEventListener('pointerup',endPointer);canvas.addEventListener('pointercancel',endPointer);
 canvas.addEventListener('pointerleave',()=>{cursor.visible=false;document.getElementById('tip').hidden=true;rangeRing.visible=false});
 canvas.addEventListener('wheel',e=>{e.preventDefault();cam.dist*=1+Math.sign(e.deltaY)*.1;placeCamera()},{passive:false});
 function panBy(dx,dy){const s=cam.dist*.0016;const c=Math.cos(cam.yaw),sn=Math.sin(cam.yaw);cam.tx-=(dx*c+dy*sn)*s;cam.tz-=(-dx*sn+dy*c)*s}
-addEventListener('keydown',e=>{const k=e.key.toLowerCase();
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(walker){wkeys[k]=true;if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k))return}
   if(k==='q')cam.yaw+=.15;if(k==='e')cam.yaw-=.15;
   const s=1.2,c=Math.cos(cam.yaw),sn=Math.sin(cam.yaw);
   if(k==='w'||k==='arrowup'){cam.tx-=sn*s;cam.tz-=c*s}if(k==='s'||k==='arrowdown'){cam.tx+=sn*s;cam.tz+=c*s}
@@ -535,6 +540,7 @@ const ACT={
   tool(id){setTool(id)},
   close(){ov.innerHTML=''},
   menu(){menu()},
+  pasear(){toggleWalk()},
   save(){persist();toast('Guardado','Tu ciudad está a salvo')},
   newask(){document.getElementById('confirm').innerHTML=`<p style="margin-top:12px">¿Seguro? Se borrará tu ciudad actual.</p><button class="btn main" data-act="newgo">Sí, empezar de cero</button>`},
   newgo(){G=freshGame();for(let z=0;z<N;z++)for(let x=0;x<N;x++)buildMesh(x,z);cars.splice(0).forEach(c=>scene.remove(c.g));simulate(false);persist();renderStats();ov.innerHTML=''},
@@ -565,11 +571,26 @@ function loop(t){
   for(let k=poofs.length-1;k>=0;k--){const p=poofs[k];p.userData.l-=dt;p.userData.v.y-=9*dt;p.position.addScaledVector(p.userData.v,dt);p.material.opacity=p.userData.l*1.5;if(p.userData.l<=0){scene.remove(p);poofs.splice(k,1)}}
   updateCars(dt*(speed||0)+(speed?0:0));
   warns.forEach((w,i)=>{if(w)w.position.y+=Math.sin(t/300+i)*.002});
+  stepWalk(dt);
   renderer.render(scene,camera);
   requestAnimationFrame(loop);
 }
+/* ---------- pasear con tu avatar por la ciudad ---------- */
+let walker=null;const wkeys={};addEventListener('keyup',e=>{wkeys[e.key.toLowerCase()]=false});
+function toggleWalk(){const b=document.getElementById('walkbtn');
+  if(walker){scene.remove(walker.a.root);walker=null;cam.dist=52;cam.pitch=.85;placeCamera();b.classList.remove('on');b.textContent='Pasear';return}
+  if(!window.Kit)return;const a=Kit.person(scene,null,null,.42);walker={a,x:cam.tx,z:cam.tz,tx:null,tz:null,face:0,walk:0};a.root.position.set(walker.x,0,walker.z);
+  cam.dist=16;cam.pitch=.6;placeCamera();b.classList.add('on');b.textContent='Construir';setTool('ver');
+  const tp=document.getElementById('tip');if(tp)tp.hidden=true}
+function stepWalk(dt){if(!walker)return;let dx=0,dz=0;const k=wkeys;if(k.w||k.arrowup)dz-=1;if(k.s||k.arrowdown)dz+=1;if(k.a||k.arrowleft)dx-=1;if(k.d||k.arrowright)dx+=1;
+  let mx=0,mz=0;if(dx||dz){walker.tx=null;const c=Math.cos(cam.yaw),sn=Math.sin(cam.yaw);mx=dx*c+dz*sn;mz=-dx*sn+dz*c}else if(walker.tx!=null){const ex=walker.tx-walker.x,ez=walker.tz-walker.z,d=Math.hypot(ex,ez);if(d>.15){mx=ex/d;mz=ez/d}else walker.tx=null}
+  const l=Math.hypot(mx,mz);if(l>0){mx/=l;mz/=l;const sp=4.2*dt;walker.x=clamp(walker.x+mx*sp,-W/2,W/2);walker.z=clamp(walker.z+mz*sp,-W/2,W/2);walker.face=Math.atan2(mx,mz);walker.walk+=dt*9}
+  const a=walker.a;a.root.position.set(walker.x,0,walker.z);let df=walker.face-a.root.rotation.y;df=Math.atan2(Math.sin(df),Math.cos(df));a.root.rotation.y+=df*Math.min(1,dt*12);Kit.walkAnim(a,walker.walk,false);
+  cam.tx+=(walker.x-cam.tx)*Math.min(1,dt*6);cam.tz+=(walker.z-cam.tz)*Math.min(1,dt*6);placeCamera()}
 addEventListener('beforeunload',persist);
 if(window.CubiAudio){CubiAudio.gameMusic('lago');CubiAudio.wrap('place','place');CubiAudio.wrap('poof','remove')}
+Sala.init({game:'bolsillo',board:{label:'Habitantes'},shared:'Cada uno construye su propia ciudad. En el marcador veis quién tiene más habitantes.'});
+setInterval(()=>Sala.score(Math.floor(G.pop||0),Math.floor(G.pop||0)+' hab.'),1000);
 requestAnimationFrame(loop);
 </script>
 

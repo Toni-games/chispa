@@ -113,6 +113,10 @@ body.touch #hint{display:none}
 <script src="../avatar.js"></script>
 <script src="../pases.js"></script>
 <script src="../audio.js"></script>
+<script src="../kit.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 /* ================= CONFIG ================= */
 const STORMS={
@@ -286,6 +290,7 @@ part(.7,.1,1.6,M(0xff5a6a),0,.05,0,board);[-.6,.6].forEach(z=>{const w=new THREE
 board.visible=false;
 const shadow=new THREE.Mesh(new THREE.CircleGeometry(.6,16),new THREE.MeshBasicMaterial({color:0,transparent:true,opacity:.3}));shadow.rotation.x=-Math.PI/2;scene.add(shadow);
 scene.add(player);
+if(window.CubiAvatar){try{CubiAvatar.build(THREE,{root:player,legL,legR,armL,armR,keep:[pack,board]},CubiAvatar.state().eq)}catch(e){console.warn(e)}}
 // mano en primera persona (con el paquete)
 const fpHand=new THREE.Group();camera.add(fpHand);scene.add(camera);
 const fpPack=new THREE.Mesh(new THREE.BoxGeometry(.5,.4,.35),M(0xc58a4a));fpPack.position.set(.42,-.42,-.9);fpHand.add(fpPack);
@@ -559,6 +564,8 @@ function loop(t){
 buildWorld();applyPasses();
 ov.innerHTML=introHTML();
 if(window.CubiAudio)CubiAudio.gameMusic('aventura');
+Sala.init({game:'tormentas',top:170,scene,me:Object.assign(TAV,{root:player}),scale:1,emotes:true,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2),air:!P.ground,w:save.world}),board:{label:'Entregas'},shared:'Si estáis en el mismo mundo, os veis repartiendo. Cada uno hace sus entregas.'});
+setInterval(()=>{Sala.score(save.del,save.del+' entregas');if(Sala.remotes)Object.values(Sala.remotes.map).forEach(r=>{r.a.root.visible=!r.data||r.data.w===save.world})},500);
 hud();requestAnimationFrame(loop);
 </script>
 

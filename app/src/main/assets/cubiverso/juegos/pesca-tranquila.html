@@ -52,6 +52,9 @@ body.k-touch #fish{right:max(16px,env(safe-area-inset-right,0px));left:auto;tran
 <script src="../avatar.js"></script>
 <script src="../kit.js"></script>
 <script src="../audio.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
 <script>
 const K=Kit,{M,box,cyl,sph}=K;
 const W=K.setup({sky:0x9ad7f5,fogNear:90,fogFar:220});const {scene,camera,renderer,sun}=W;
@@ -193,6 +196,8 @@ ov.innerHTML=K.panel('PESCA TRANQUILA','#3fa7ff',`<p>Un lago tranquilo lleno de 
   <li>Mantén pulsado para mover la <b>zona verde</b> y que el pez se quede dentro hasta llenar la barra.</li><li>Vende en la <b>pescadería</b> y compra cañas mejores. El Pez Cubiverso da 20 Cubos.</li></ul>
   <button class="k-btn g k-out" data-act="start">¡A PESCAR!</button>`);
 K.emotes(me);if(window.CubiAudio)CubiAudio.gameMusic('lago');
+Sala.init({game:'pesca',scene,me,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2)}),board:{label:'Dinero'},shared:'Pescáis juntos en el mismo lago; cada uno guarda sus peces y su dinero.'});
+setInterval(()=>Sala.score(S.money,fmt(S.money)),1000);
 setInterval(()=>{if(st==='reel'&&window.CubiAudio)CubiAudio.sfx('reel')},120);
 requestAnimationFrame(loop);
 </script>
