@@ -29,10 +29,12 @@ const PREFABS={
   cartel:{name:'Cartel',desc:'Un letrero con texto',color:'#7c5c46',make:p=>obj('bloque','Cartel',[p[0],3,p[2]],[6,4,.5],'#7c5c46',{mat:'madera',scripts:[st(30,40,bk('ev_start'),bk('lk_say',{s:'¡Bienvenido!'}))]})},
   boton:{name:'Botón',desc:'Al pulsarlo envía un mensaje',color:'#e5484d',make:p=>obj('cilindro','Botón',[p[0],.4,p[2]],[3,.8,3],'#e5484d',{scripts:[st(30,40,bk('ev_click'),bk('sn_play',{s:'pop'}),bk('gm_send',{m:'abrir'}))]})},
   arbol:{name:'Árbol',desc:'Decoración',color:'#4b974b',make:p=>[obj('cilindro','Tronco',[p[0],3,p[2]],[1.4,6,1.4],'#7c5c46',{mat:'madera'}),obj('esfera','Copa',[p[0],7.5,p[2]],[6,5,6],'#4b974b',{mat:'cesped'})]},
+  persona:{name:'Persona',desc:'Un personaje que habla si lo tocas',color:'#21c4b0',make:p=>obj('persona','Persona',[p[0],2.5,p[2]],[3,5,1.5],'#21c4b0',{scripts:[st(30,40,bk('ev_click'),bk('lk_say',{s:'¡Hola! ¿Qué tal?'}),bk('ct_wait',{t:3}),bk('lk_say',{s:''}))]})},
   spawn:{name:'Punto de salida',desc:'Donde aparece el jugador',color:'#a3a2a5',make:p=>obj('spawn','Salida',[p[0],.5,p[2]],[6,1,6],'#a3a2a5')}
 };
 /* plantillas */
-function template(kind){const g=E.blank();
+const JUEGOS=window.CuboPlantillas?CuboPlantillas({obj,bk,st,PF:PREFABS,E}):{};
+function template(kind){if(JUEGOS[kind]){const g=JUEGOS[kind].make();return g}const g=E.blank();
   if(kind==='obby'){g.name='Mi obby';g.desc='Llega hasta la meta sin caer en la lava.';g.vars=['puntos'];
     const o=g.objects;let z=0;
     for(let i=0;i<6;i++){z+=9;o.push(obj('bloque','Plataforma '+(i+1),[(i%2?4:-4),1+i*1.5,z],[5,1,5],['#00a2ff','#f5cd30','#ff6a00','#4b974b','#ff66cc','#21c4b0'][i]))}
@@ -82,8 +84,10 @@ function placeCam(){const cp=Math.cos(cam.pitch);camera.position.set(cam.t.x+Mat
 function resize(){const r=vp.getBoundingClientRect();if(!r.width||!r.height)return;renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix()}
 new ResizeObserver(resize).observe(vp);
 function rebuild(){meshes.forEach(m=>scene.remove(m));meshes.clear();if(worldGrp)scene.remove(worldGrp);
-  worldGrp=E.world(THREE,scene,G).grp;sun.intensity=(E.SKIES[G.sky]||E.SKIES.dia).sun;G.objects.forEach(o=>{const m=E.mesh(THREE,o);scene.add(m);meshes.set(o.id,m)});updSel()}
-function updMesh(o){const m=meshes.get(o.id);if(m)E.refresh(THREE,m,o);updSel()}
+  worldGrp=E.world(THREE,scene,G).grp;sun.intensity=(E.SKIES[G.sky]||E.SKIES.dia).sun;G.objects.forEach(o=>{const m=E.mesh(THREE,o);ghost(m,o);scene.add(m);meshes.set(o.id,m)});updSel()}
+/* en el editor, lo que empieza escondido se ve como un fantasma para poder editarlo */
+function ghost(m,o){if(!m||!o.hidden)return;m.visible=true;if(m.userData&&m.userData.persona)m.userData.mats.forEach(x=>{x.transparent=true;x.opacity=.28});else if(m.material){m.material.transparent=true;m.material.opacity=.28;m.material.depthWrite=false}}
+function updMesh(o){let m=meshes.get(o.id);if(m&&(o.shape==='persona')!==!!(m.userData&&m.userData.persona)){scene.remove(m);m=E.mesh(THREE,o);scene.add(m);meshes.set(o.id,m)}else if(m)E.refresh(THREE,m,o);ghost(m,o);updSel()}
 /* selección y asas */
 const selBox=new THREE.BoxHelper(undefined,0x00a2ff);selBox.material.depthTest=false;selBox.renderOrder=998;selBox.visible=false;scene.add(selBox);
 const giz=new THREE.Group();giz.renderOrder=999;scene.add(giz);
@@ -126,8 +130,8 @@ vp.addEventListener('pointerdown',e=>{vp.setPointerCapture(e.pointerId);ptrs.set
         act={kind:'scale',axis:u.axis,sg:u.dir,dir:d,o,start,t0:axisParam(new THREE.Vector3(...o.pos),d)}}
       if(u.kind==='rot')act={kind:'rot',o,start,x0:e.clientX};
       return}
-    const hits=ray.intersectObjects([...meshes.values()],false);
-    if(hits.length){const id=hits[0].object.userData.id;select(id);const o=byId(id);
+    const hits=ray.intersectObjects([...meshes.values()],true);
+    if(hits.length){let ob=hits[0].object;while(ob&&!(ob.userData&&ob.userData.id))ob=ob.parent;const id=ob&&ob.userData.id;if(!id)return;select(id);const o=byId(id);
       if(tool==='move'||tool==='sel'){const plane=new THREE.Plane(new THREE.Vector3(0,1,0),-hits[0].point.y);const p0=new THREE.Vector3();ray.ray.intersectPlane(plane,p0);
         act={kind:'drag',o,plane,p0,start:{pos:o.pos.slice()},moved:false,x0:e.clientX,y0:e.clientY}}
       return}
@@ -185,7 +189,7 @@ function setTool(t){tool=t;$$('[data-tool]').forEach(b=>b.classList.toggle('on',
 function select(id){sel=id||'juego';updSel();renderExplorer();renderProps();loadCode()}
 function spot(){// delante de la cámara, en el suelo
   return [snapV(cam.t.x),0,snapV(cam.t.z)]}
-function insert(o){const arr=Array.isArray(o)?o:[o];arr.forEach(x=>{G.objects.push(x);const m=E.mesh(THREE,x);scene.add(m);meshes.set(x.id,m)});commit();select(arr[0].id);if(tool==='sel')setTool('move');sfx('place')}
+function insert(o){const arr=Array.isArray(o)?o:[o];arr.forEach(x=>{G.objects.push(x);const m=E.mesh(THREE,x);ghost(m,x);scene.add(m);meshes.set(x.id,m)});commit();select(arr[0].id);if(tool==='sel')setTool('move');sfx('place')}
 function insertShape(shape){const p=spot();const size=shape==='cuna'?[4,4,6]:shape==='esfera'?[4,4,4]:shape==='cilindro'?[4,4,4]:[4,2,4];
   const n={bloque:'Bloque',esfera:'Esfera',cilindro:'Cilindro',cuna:'Rampa'}[shape];
   insert(obj(shape,n,[p[0],size[1]/2,p[2]],size,'#a3a2a5'))}
@@ -253,7 +257,7 @@ function renderProps(){const p=$('#props');const o=cur();
     <div class="pr"><label for="op-color">Color</label><input id="op-color" type="color" data-o="color" value="${esc(o.color)}"></div>
     <div class="pr"><label for="op-mat">Material</label><select id="op-mat" data-o="mat">${Object.entries(E.MATS).map(([k,n])=>`<option value="${k}" ${o.mat===k?'selected':''}>${n}</option>`).join('')}</select></div>
     <div class="pr"><label for="op-tr">Transparencia</label><input id="op-tr" type="range" min="0" max="100" data-o="transp" value="${o.transp||0}"></div>
-    <div class="pr"><label for="op-hid">Visible</label><input id="op-hid" type="checkbox" data-ob="hidden" data-inv="1" ${o.hidden?'':'checked'}></div>
+    <div class="pr"><label for="op-hid">Visible al empezar</label><input id="op-hid" type="checkbox" data-ob="hidden" data-inv="1" ${o.hidden?'':'checked'}></div>
     <div class="pcat">Comportamiento</div>
     <div class="pr"><label for="op-col">Sólido</label><input id="op-col" type="checkbox" data-ob="collide" ${o.collide!==false?'checked':''}></div>
     <div class="pr"><label for="op-anc">Anclado</label><input id="op-anc" type="checkbox" data-ob="anchored" ${o.anchored?'checked':''}></div>
@@ -276,7 +280,7 @@ function fillPos(){const o=cur();if(!o)return;$$('#props [data-v]').forEach(i=>{
 /* ---------- programar ---------- */
 let view='scene';
 function setView(v){view=v;$$('#tabs [data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===v));$('#vp').hidden=v!=='scene';$('#code').hidden=v!=='code';if(v==='scene')resize();if(v==='code')loadCode();A.closeside()}
-const codeEd=CB.mount($('#blocks'),{vars:()=>G?G.vars:['puntos'],onChange:p=>{const t=sel==='juego'?G:cur();if(!t)return;t.scripts=p;clearTimeout(propT);propT=setTimeout(()=>{commit();renderExplorer()},300)},
+const codeEd=CB.mount($('#blocks'),{vars:()=>G?G.vars:['puntos'],objects:()=>G?G.objects.map(o=>o.name):[],onChange:p=>{const t=sel==='juego'?G:cur();if(!t)return;t.scripts=p;clearTimeout(propT);propT=setTimeout(()=>{commit();renderExplorer()},300)},
   onPaletteClick:op=>{codeEd.add(op);toast('Bloque añadido')}});
 function loadCode(){const t=sel==='juego'?G:cur();if(!t)return;$('#codewho').textContent=sel==='juego'?'Programa general del juego':'Programa de: '+t.name;$('#tabcode').textContent=sel==='juego'?'Programar: juego':'Programar: '+t.name;
   t.scripts=t.scripts||[];codeEd.load(t.scripts)}
@@ -294,6 +298,8 @@ function openFiles(){const L=Object.values(ALL.list).sort((a,b)=>(b.updated||0)-
       <button class="pc" data-new="obby"><span class="th">Obby</span><b>Obby</b><small>Saltos, lava, meta</small></button>
       <button class="pc" data-new="monedas"><span class="th">Monedas</span><b>Caza de monedas</b><small>Recoge 10 en 60 s</small></button>
       <button class="pc" data-imp="1"><span class="th">Código</span><b>Importar</b><small>Pega un código de juego</small></button></div>
+    <h3 style="margin:4px 0 0;font-size:14px">Plantillas de los juegos de Cubiverso</h3><p class="note">Empieza con una versión sencilla de cada juego y cámbiala a tu gusto: todo está hecho con piezas y bloques que puedes ver y editar.</p>
+    <div class="cards">${Object.entries(JUEGOS).map(([k,t])=>`<button class="pc" data-new="${k}"><span class="th" style="background:linear-gradient(135deg,${t.color},#16181f);color:#fff;font-weight:800;font-size:13px;text-align:center;padding:6px">${esc(t.name)}</span><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></button>`).join('')}</div>
     ${L.length?`<h3 style="margin:4px 0 0;font-size:14px">Tus juegos</h3><div class="cards">${L.map(g=>`<div class="pc"><button class="th" data-open="${g.id}" ${thumbOf(g)} style="border:0;${g.thumb?`background-image:url(${g.thumb})`:''}" aria-label="Abrir ${esc(g.name)}">${g.thumb?'':'Sin imagen'}</button><b>${esc(g.name)}</b><small>${g.objects.length} objetos${g.id===G.id?' · abierto':''}</small><div class="row"><button class="tb" data-open="${g.id}">Abrir</button><button class="tb" data-delp="${g.id}" aria-label="Borrar ${esc(g.name)}">Borrar</button></div></div>`).join('')}</div>`:''}
     <div class="row"><button class="tb" data-close>Cerrar</button></div>`);
   d.onclick=e=>{const n=e.target.closest('[data-new]'),o=e.target.closest('[data-open]'),x=e.target.closest('[data-delp]'),im=e.target.closest('[data-imp]');

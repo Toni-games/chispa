@@ -50,10 +50,10 @@ const W=E.world(THREE,scene,GAME);sun.intensity=W.sky.sun;
 const GRAV=+GAME.grav||60;let SPEED=+GAME.speed||16,JUMP=+GAME.jump||28;
 const PSCALE=1.9;let pscale=PSCALE;
 const R=[];const byMesh=new Map();
-function addObj(o,fireStart){const m=E.mesh(THREE,o);scene.add(m);
+function addObj(o,fireStart){const m=E.mesh(THREE,o);scene.add(m);m.traverse(c=>{if(c.isMesh)byMesh.set(c,null)});
   const r={o,m,pos:o.pos.slice(),size:o.size.slice(),rot:o.rot||0,home:o.pos.slice(),solid:o.collide!==false,visible:!o.hidden,alive:true,label:null,touching:false,hats:{}};
   if(o.shape==='spawn')r.solid=true;
-  R.push(r);byMesh.set(m,r);if(fireStart)fire(r,'ev_start');return r}
+  R.push(r);m.traverse(c=>byMesh.set(c,r));if(fireStart)fire(r,has(r,'ev_clone')?'ev_clone':'ev_start');return r}
 GAME.objects.forEach(o=>addObj(o,false));
 const GROUND={o:{shape:'bloque'},pos:[0,-.5,0],size:[512,1,512],rot:0,solid:true,alive:true,visible:true,ground:true};
 const spawn=R.find(r=>r.o.shape==='spawn');
@@ -99,7 +99,7 @@ function touches(){const pb=pbox(P.x,P.y-.08,P.z);pb.x0-=.12;pb.x1+=.12;pb.z0-=.
 /* clic en objetos */
 const ray=new THREE.Raycaster();
 function tap(e){const rc=renderer.domElement.getBoundingClientRect();const v=new THREE.Vector2((e.clientX-rc.left)/rc.width*2-1,-(e.clientY-rc.top)/rc.height*2+1);
-  ray.setFromCamera(v,camera);const hits=ray.intersectObjects(R.filter(r=>r.alive&&r.visible).map(r=>r.m),false);if(!hits.length)return false;
+  ray.setFromCamera(v,camera);const hits=ray.intersectObjects(R.filter(r=>r.alive&&r.visible).map(r=>r.m),true);if(!hits.length)return false;
   const r=byMesh.get(hits[0].object);if(r&&has(r,'ev_click')){fire(r,'ev_click');return true}return false}
 /* ---------- programas ---------- */
 const VARS={};(GAME.vars||['puntos']).forEach(v=>VARS[v]=0);const SHOWN=new Set();
@@ -114,20 +114,22 @@ function fire(r,op,arg){if(over||!r.alive)return;stacksOf(r).forEach((s,i)=>{con
   const th={r,gen:runList(s.b.slice(1),r),done:false,wake:0};r.hats[key]=th;threads.push(th)})}
 function broadcast(m){[STAGE].concat(R).forEach(r=>fire(r,'ev_msg',m))}
 function num(v){v=+v;return isFinite(v)?v:0}
+function valOf(name,r){if(name==='@dist')return r&&!r.stage?Math.hypot(P.x-r.pos[0],P.z-r.pos[2],P.y-r.pos[1]):0;return val(name)}
 function val(name){if(name==='@altura')return +P.y.toFixed(2);if(name==='@tiempo')return Math.floor(T);if(name==='@azar')return 1+Math.floor(Math.random()*10);if(name==='@crono')return +crono.toFixed(1);
   if(name==='@dist')return 0;return VARS[name]||0}
-function cond(a,r){let x=a.a==='@dist'?Math.hypot(P.x-r.pos[0],P.z-r.pos[2],P.y-r.pos[1]):val(a.a);const y=num(a.b);
-  switch(a.o){case '>':return x>y;case '<':return x<y;case '=':return Math.abs(x-y)<1e-6;case '≠':return Math.abs(x-y)>=1e-6}return false}
+function cond(a,r){const x=valOf(a.a,r);const y=num(a.b);
+  switch(a.o){case '>':return x>y;case '<':return x<y;case '=':return Math.abs(x-y)<1e-6;case '≠':return Math.abs(x-y)>=1e-6;case '≥':return x>=y-1e-9;case '≤':return x<=y+1e-9}return false}
 function* runList(list,r){for(const b of list){if(!r.alive||over)return 'stop';const res=yield* exec(b,r);if(res==='stop')return 'stop'}}
 function* waitT(t){const end=T+Math.max(0,num(t));while(T<end)yield}
 function setPos(r,p){const old=r.pos.slice();r.pos=p;r.m.position.set(p[0],p[1],p[2]);r.dp=[p[0]-old[0]+(r.dp?r.dp[0]:0),p[1]-old[1]+(r.dp?r.dp[1]:0),p[2]-old[2]+(r.dp?r.dp[2]:0)]}
 function* tween(r,to,t){const from=r.pos.slice(),d=Math.max(.01,num(t)),st=T;while(true){const k=Math.min(1,(T-st)/d);setPos(r,from.map((v,i)=>v+(to[i]-v)*k));if(k>=1)break;yield}}
 function sfx(s){if(window.CubiAudio)CubiAudio.sfx(s)}
-function* exec(b,r){const a=b.a||{};if(r.stage&&/^(mv_|lk_|gm_destroy|gm_clone|ct_iftouch|pl_check)/.test(b.op)){return}
+function* exec(b,r){const a=b.a||{};if(r.stage&&(/^(mv_|lk_)/.test(b.op)||['gm_destroy','gm_clone','ct_iftouch','pl_check'].includes(b.op))){return}
   switch(b.op){
     case 'mv_move':yield* tween(r,[r.pos[0]+num(a.x),r.pos[1]+num(a.y),r.pos[2]+num(a.z)],a.t);break;
     case 'mv_goto':setPos(r,[num(a.x),num(a.y),num(a.z)]);break;
     case 'mv_back':yield* tween(r,r.home.slice(),a.t);break;
+    case 'mv_random':{const d=num(a.r);setPos(r,[r.home[0]+(Math.random()*2-1)*d,r.pos[1],r.home[2]+(Math.random()*2-1)*d]);break}
     case 'mv_turn':r.rot=(r.rot+num(a.g))%360;r.m.rotation.y=r.rot*Math.PI/180;break;
     case 'mv_spin':{const from=r.rot,g=num(a.g),d=Math.max(.01,num(a.t)),st=T;while(true){const k=Math.min(1,(T-st)/d);r.rot=from+g*k;r.m.rotation.y=r.rot*Math.PI/180;if(k>=1)break;yield}r.rot%=360;break}
     case 'mv_chase':{const end=T+num(a.t);let last=T;while(T<end){const dt=T-last;last=T;const dx=P.x-r.pos[0],dz=P.z-r.pos[2],d=Math.hypot(dx,dz);if(d>.3){const s=Math.min(d,num(a.v)*dt);setPos(r,[r.pos[0]+dx/d*s,r.pos[1],r.pos[2]+dz/d*s]);r.rot=Math.atan2(dx,dz)*180/Math.PI;r.m.rotation.y=r.rot*Math.PI/180}yield}break}
@@ -148,6 +150,7 @@ function* exec(b,r){const a=b.a||{};if(r.stage&&/^(mv_|lk_|gm_destroy|gm_clone|c
     case 'pl_size':pscale=PSCALE*Math.max(.2,Math.min(5,num(a.n)/100));me.root.scale.setScalar(pscale);break;
     case 'pl_check':{const np=[r.pos[0],r.pos[1]+r.size[1]/2+.05,r.pos[2]];if(!P.cp||P.cp.join()!==np.join()){P.cp=np;sfx('checkpoint');K.toast('PUNTO DE CONTROL','','#3fd15c')}break}
     case 'ct_wait':yield* waitT(a.t);break;
+    case 'ct_waitrand':{const x=num(a.a),y=num(a.b);yield* waitT(Math.min(x,y)+Math.random()*Math.abs(y-x));break}
     case 'ct_repeat':{const n=Math.min(100000,Math.floor(num(a.n)));for(let i=0;i<n;i++){const x=yield* runList(b.s||[],r);if(x==='stop')return 'stop';yield}break}
     case 'ct_forever':while(true){const x=yield* runList(b.s||[],r);if(x==='stop')return 'stop';yield}
     case 'ct_if':if(cond(a,r)){const x=yield* runList(b.s||[],r);if(x==='stop')return 'stop'}break;
@@ -157,6 +160,7 @@ function* exec(b,r){const a=b.a||{};if(r.stage&&/^(mv_|lk_|gm_destroy|gm_clone|c
     case 'ct_stop':return 'stop';
     case 'vr_set':if(!(a.v in VARS))VARS[a.v]=0;VARS[a.v]=num(a.n);hud();break;
     case 'vr_add':if(!(a.v in VARS))VARS[a.v]=0;VARS[a.v]=+(VARS[a.v]+num(a.n)).toFixed(4);hud();break;
+    case 'vr_addv':{if(!(a.v in VARS))VARS[a.v]=0;let x=valOf(a.a,r);VARS[a.v]=+(VARS[a.v]+x*num(a.n)).toFixed(4);hud();break}
     case 'vr_show':SHOWN.add(a.v);hud();break;
     case 'vr_hide':SHOWN.delete(a.v);hud();break;
     case 'gm_msg':banner(String(a.s||''),num(a.t));break;
@@ -165,10 +169,22 @@ function* exec(b,r){const a=b.a||{};if(r.stage&&/^(mv_|lk_|gm_destroy|gm_clone|c
     case 'gm_lose':end(false);return 'stop';
     case 'gm_destroy':r.alive=false;scene.remove(r.m);return 'stop';
     case 'gm_clone':{if(R.length>400)break;const o=JSON.parse(JSON.stringify(Object.assign({},r.o,{pos:[num(a.x),num(a.y),num(a.z)],size:r.size,rot:r.rot,hidden:false})));o.id=E.newId();o.clone=true;addObj(o,true);break}
+    case 'gm_cloneof':{if(R.length>400)break;const tpl=R.find(x=>x.alive&&!x.o.clone&&x.o.name===a.o);if(!tpl)break;
+      const o=JSON.parse(JSON.stringify(Object.assign({},tpl.o,{pos:[num(a.x),num(a.y),num(a.z)],size:tpl.size,rot:tpl.rot,hidden:false})));o.id=E.newId();o.clone=true;addObj(o,true);break}
+    case 'pl_shoot':shoot(a.c,num(a.v)||30);break;
     case 'gm_timer':cronoOn=a.m==='start';if(cronoOn)crono=0;hud();break;
     case 'sn_play':sfx(a.s);break;
     case 'sn_music':if(window.CubiAudio){if(a.m==='ninguna')CubiAudio.stop();else CubiAudio.play(a.m,true)}break;
   }}
+/* proyectiles */
+const shots=[];
+function shoot(col,v){if(shots.length>40)return;const yaw=ctl.look.yaw,fx=-Math.sin(yaw),fz=-Math.cos(yaw);P.face=Math.atan2(fx,fz);
+  const m=new THREE.Mesh(new THREE.SphereGeometry(.45,12,10),new THREE.MeshLambertMaterial({color:col||'#00a2ff'}));const h=PH*pscale/PSCALE;
+  m.position.set(P.x+fx*1.3,P.y+h*.7,P.z+fz*1.3);scene.add(m);shots.push({m,v:[fx*v,v*.22,fz*v],t:0});sfx('throw');me.armR.rotation.x=-2.6}
+function updShots(dt){for(let i=shots.length-1;i>=0;i--){const s=shots[i];s.t+=dt;s.v[1]-=22*dt;s.m.position.x+=s.v[0]*dt;s.m.position.y+=s.v[1]*dt;s.m.position.z+=s.v[2]*dt;
+  const p=s.m.position;let hitR=null;
+  for(const r of R){if(!r.alive||!r.visible||r.o.shape==='spawn')continue;const b=box(r);if(p.x>b.x0-.3&&p.x<b.x1+.3&&p.y>b.y0-.3&&p.y<b.y1+.3&&p.z>b.z0-.3&&p.z<b.z1+.3){hitR=r;break}}
+  if(hitR||p.y<(GAME.base!==false?0:-60)||s.t>4){scene.remove(s.m);shots.splice(i,1);if(hitR||p.y<1)sfx('splash');if(hitR)fire(hitR,'ev_hit')}}}
 function kill(){if(over||P.inv>0)return;sfx('fall');respawn();K.toast('¡AY!','Vuelves al punto de control','#ff6a6a')}
 let bannerT=null;function banner(t,s){const b=$('#banner');b.textContent=t;b.style.opacity=1;clearTimeout(bannerT);bannerT=setTimeout(()=>b.style.opacity=0,Math.max(.3,s||2)*1000)}
 function hud(){const show=[...SHOWN];if(cronoOn||crono>0)show.push('@crono');
@@ -192,7 +208,7 @@ function step(){const now=performance.now();let dt=Math.min(.05,(now-last)/1000)
   const t0=performance.now();
   threads.forEach(th=>{if(th.done)return;if(!th.r.alive){th.done=true;return}let n=0;try{const x=th.gen.next();if(x.done)th.done=true}catch(err){th.done=true;console.warn('Error en un programa',err)}});
   threads=threads.filter(t=>!t.done);
-  if(!over){physics(dt);touches()}
+  if(!over){physics(dt);touches()}updShots(dt);
   me.root.position.set(P.x,P.y,P.z);me.root.rotation.y+=(((P.face-me.root.rotation.y+Math.PI*3)%(Math.PI*2))-Math.PI)*Math.min(1,dt*12);
   K.walkAnim(me,P.walk,!P.ground);
   ctl.camera(camera,P.x,P.y,P.z,2.6*pscale/PSCALE*1.4);
