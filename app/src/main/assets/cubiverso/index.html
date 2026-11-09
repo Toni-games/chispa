@@ -1042,8 +1042,9 @@ async function refreshFriends(){const F=window.CubiAmigos;if(!F||!F.available()|
   try{await F.start();const ids=Object.keys(F.data().list);await Promise.all(ids.map(fid=>F.info(fid).then(p=>{FST[fid]={p,at:Date.now()}}).catch(()=>{FST[fid]={p:null,at:Date.now()}})));
     F.resend().catch(()=>{})}finally{fBusy=false}renderFriends();if($('#fprofile'))profileModal($('#fprofile').dataset.id,true)}
 function amigoProvider(){if(!curGame)return {where:'menu'};let w=null;try{w=$('#frame').contentWindow}catch(e){}
-  const M=w&&w.CubiMulti,S=w&&w.Sala,custom=/^(c:|studio)/.test(curGame.id||'');
-  return {where:'game',title:curGame.name,url:custom?'':curGame.file,code:M&&M.code||'',players:M&&M.code?Object.keys(M.players()).length:1,host:S&&S.hostNow?(n=>S.hostNow(n)):null}}
+  const M=w&&w.CubiMulti,S=w&&w.Sala,custom=curGame.id==='studio';let extra=null;
+  if(/^c:/.test(curGame.id||'')){try{extra={cubo:localStorage.getItem('cubo-jugar')}}catch(e){}}
+  return {where:'game',title:curGame.name,url:custom?'':curGame.file,code:M&&M.code||'',players:M&&M.code?Object.keys(M.players()).length:1,host:S&&S.hostNow?(n=>S.hostNow(n)):w&&w.__cubiHost?(n=>w.__cubiHost(n)):null,extra}}
 function profileModal(fid,again){const F=window.CubiAmigos;const f=F.data().list[fid];if(!f)return;const x=FST[fid],p=x&&x.p,s=fStatus(fid),u=friendPic(f);
   const since=f.since?new Date(f.since).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}):'';
   const body=`<div id="fprofile" data-id="${fid}" class="fprof"><span class="pic big" style="${u?`background-image:url(${u})`:''}"></span><div style="display:flex;flex-direction:column;gap:6px;min-width:0">
@@ -1055,6 +1056,7 @@ function profileModal(fid,again){const F=window.CubiAmigos;const f=F.data().list
 async function joinFriend(fid){const F=window.CubiAmigos;const f=F.data().list[fid];const msg=$('#fjmsg');const say=t=>{if(msg)msg.textContent=t;else toast(t)};
   say(`Avisando a ${f?f.name:'tu amigo'}…`);
   try{const r=await F.join(fid);const base=r.rel.split('?')[0];const gm=GAMES.find(g=>g.file===base);
+    if(r.extra&&r.extra.cubo){try{localStorage.setItem('cubo-jugar',r.extra.cubo)}catch(e){say('No hay espacio en tu dispositivo para ese juego.');return}}
     closeModal();playGame({id:gm?gm.id:'amigo',name:gm?gm.name:(r.title||'Juego'),file:r.rel});toast(`Entrando en la partida de ${f?f.name:'tu amigo'}`)}
   catch(e){say(F.joinText(e))}}
 Object.assign(ACT,{
