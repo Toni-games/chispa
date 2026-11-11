@@ -39,12 +39,15 @@ jobs:
           name: Cubiverso-apk
           path: Cubiverso.apk
 
+      - name: Leer la versión
+        run: echo "VA=$(sed -n "s/.*versionName '\(.*\)'.*/\1/p" app/build.gradle)" >> $GITHUB_ENV
+
       - name: Publicar la APK para descargar
         uses: softprops/action-gh-release@v2
         with:
           tag_name: cubiverso-v1.0.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: Cubiverso para Android (versión ${{ github.run_number }})
+          name: Cubiverso para Android ${{ env.VA }} (compilación ${{ github.run_number }})
           body: |
             Descarga **Cubiverso.apk** desde el móvil o la tablet y ábrelo para instalarlo.
             Es gratis con anuncios; desde Ajustes puedes pasar a Pro (sin anuncios) y volver cuando quieras.
