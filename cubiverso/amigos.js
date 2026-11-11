@@ -34,7 +34,7 @@ function where(){if(API.provider){try{const r=API.provider();if(r)return r}catch
   rel=rel.replace(/([?&])sala=[^&#]*&?/,'$1').replace(/[?&]$/,'').split('#')[0];
   const M=window.CubiMulti;return {where:'game',title:gameTitle(),url:rel,code:M&&M.code||'',players:M&&M.code?Object.keys(M.players()).length:1,host:window.Sala&&Sala.hostNow?(n=>Sala.hostNow(n)):window.__cubiHost?(n=>window.__cubiHost(n)):null}}
 function profile(){const s=AV()?AV().state():{};const d=load();
-  const w=where();return Object.assign(meBasic(),{items:(s.owned||[]).length,creations:(s.mine||[]).length,friends:Object.keys(d.list).length,since:d.since||0,status:{where:w.where,title:w.title,room:!!w.code,players:w.players}})}
+  const w=where();return Object.assign(meBasic(),{lvl:AV()&&AV().levelOf?AV().levelOf(s.xp).lvl:1,items:(s.owned||[]).length,creations:(s.mine||[]).length,friends:Object.keys(d.list).length,since:d.since||0,status:{where:w.where,title:w.title,room:!!w.code,players:w.players}})}
 
 /* ---------- escuchar ---------- */
 function start(){if(openP)return openP;

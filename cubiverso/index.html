@@ -265,6 +265,13 @@ input[type=color]{width:42px;height:32px;border:1px solid var(--line);border-rad
 .tog{display:flex;gap:8px;align-items:center;font-size:14px;cursor:pointer}.tog input{width:18px;height:18px}
 .acard.on{border-color:#eab308}.adm{display:inline-block;background:#eab308;color:#1a1300;font-size:11px;font-weight:900;letter-spacing:.06em;border-radius:6px;padding:2px 7px;vertical-align:middle;margin-left:6px}
 .aopt{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.aopt>span{font-weight:700}.btn.on{background:var(--sel);color:#fff;border-color:transparent}
+.me{position:relative}.lvb{position:absolute;right:-4px;bottom:-4px;min-width:20px;height:20px;border-radius:10px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;font-size:11px;font-weight:900;display:grid;place-items:center;padding:0 5px;border:2px solid var(--panel);pointer-events:none}
+.mis{display:flex;flex-direction:column}.lvcard{display:flex;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.lvbig{flex:none;width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;font-size:24px;font-weight:900;display:grid;place-items:center}
+.lvcard small,.misrow small{display:block;color:var(--muted);font-size:12.5px;margin-top:4px;line-height:1.35}
+.xpbar{height:10px;border-radius:6px;background:var(--panel2);overflow:hidden;margin-top:6px}.xpbar i{display:block;height:100%;background:linear-gradient(90deg,#a855f7,#22d3ee);border-radius:6px}.xpbar.sm{height:7px}
+.mislist{display:flex;flex-direction:column;gap:8px}.misrow{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.misrow.ok{opacity:.65}.misrow.chest{border-style:dashed;border-color:#eab308}.lvup{display:flex;gap:16px;align-items:center}.lvup .lvbig{width:72px;height:72px;font-size:34px}
 </style>
 
 <header class="top"><div class="in">
@@ -474,8 +481,8 @@ let TR=null,TSc=null,TC=null,webgl=true;
 function thumbSetup(){try{TR=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});TR.__cgSkip=true;TR.setPixelRatio(1);TR.setSize(192,192);TR.setClearColor(0x000000,0);
   TSc=new THREE.Scene();TSc.add(new THREE.HemisphereLight(0xffffff,0x667788,.95));const d=new THREE.DirectionalLight(0xffffff,.55);d.position.set(2,3,4);TSc.add(d);TC=new THREE.PerspectiveCamera(30,1,.1,50)}catch(e){webgl=false}}
 function dispose(o){o.traverse(m=>{if(m.geometry)m.geometry.dispose();if(m.material){(Array.isArray(m.material)?m.material:[m.material]).forEach(mt=>{if(mt.map)mt.map.dispose();mt.dispose()})}})}
-const VIEWS={head:[[.55,2.0,2.1],[0,1.97,0]],hat:[[.6,2.25,2.5],[0,2.12,0]],torso:[[.7,1.25,2.7],[0,1.15,0]],legs:[[.6,.6,2.5],[0,.45,0]],back:[[-1.3,1.45,-2.7],[0,1.15,0]],full:[[1.4,1.6,5],[0,1.05,0]]};
-const CATVIEW={piel:'head',cara:'head',cabeza:'hat',accesorio:'head',camiseta:'torso',pantalon:'legs',espalda:'back',animacion:'full',gesto:'full'};
+const VIEWS={head:[[.55,2.0,2.1],[0,1.97,0]],hat:[[.6,2.25,2.5],[0,2.12,0]],torso:[[.7,1.25,2.7],[0,1.15,0]],legs:[[.6,.6,2.5],[0,.45,0]],back:[[-1.3,1.45,-2.7],[0,1.15,0]],full:[[1.4,1.6,5],[0,1.05,0]],pet:[[2.05,2.6,1.75],[1.05,2.35,-.35]]};
+const CATVIEW={mascota:'pet',piel:'head',cara:'head',cabeza:'hat',accesorio:'head',camiseta:'torso',pantalon:'legs',espalda:'back',animacion:'full',gesto:'full'};
 function renderThumb(eq,view,pose){if(!TR&&webgl)thumbSetup();if(!webgl)return '';const av=A.makeAvatar(THREE,eq);TSc.add(av.root);if(pose)try{pose(av)}catch(e){}
   const[p,l]=VIEWS[view]||VIEWS.full;TC.position.set(...p);TC.lookAt(...l);TR.render(TSc,TC);const url=String(TR.domElement.toDataURL()||'');TSc.remove(av.root);dispose(av.root);return url}
 const thumbs={};
@@ -517,7 +524,7 @@ requestAnimationFrame(tick);
 
 /* ================= VISTAS ================= */
 let view='inicio',avCat='piel',catCat='todo',query='';
-function priceHTML(it){if(st.owned.includes(it.id))return `<span class="pr own">Tuyo</span>`;if(it.custom&&it.limited&&!stockLeft(it))return `<span class="pr" style="color:var(--danger)">Agotado</span>`;if(!it.price)return `<span class="pr free">Gratis</span>`;return `<span class="pr">${CUBE}${fmtC(it.price)}</span>`}
+function priceHTML(it){if(st.owned.includes(it.id))return `<span class="pr own">Tuyo</span>`;if(it.lvl)return `<span class="pr" style="color:#a855f7">Nivel ${it.lvl}</span>`;if(it.custom&&it.limited&&!stockLeft(it))return `<span class="pr" style="color:var(--danger)">Agotado</span>`;if(!it.price)return `<span class="pr free">Gratis</span>`;return `<span class="pr">${CUBE}${fmtC(it.price)}</span>`}
 function itemPic(it){if(it.cat==='piel')return `<span class="sw" style="background:${it.col}"></span>`;const u=itemThumb(it);return `<span class="pic" style="${u?`background-image:url(${u})`:''}"></span>`}
 function itemCard(it,act){const on=st.eq[it.cat]===it.id;return `<button class="item ${on?'on':''}" data-act="${act}" data-id="${it.id}" aria-pressed="${on}">${itemPic(it)}<b>${esc(it.name)}</b>${it.desc?`<span class="desc">${esc(it.desc)}</span>`:''}${it.custom?`<span class="desc">de ${esc(it.author)}</span>${limTag(it)}`:''}${priceHTML(it)}${on?'<span class="eqd">Puesto</span>':''}</button>`}
 const V={
@@ -526,6 +533,7 @@ const V={
       <div style="min-width:0"><h1>Hola, ${esc(st.name)}</h1><p class="sub" style="margin:0">Tienes ${CUBE} <b>${fmtC(st.cubos)}</b> Cubos y ${st.owned.filter(id=>(A.BY[id]||{}).price).length} objetos comprados.</p>
       <div class="row" style="margin-top:10px"><a class="btn" href="#avatar" style="text-decoration:none">Editar avatar</a><a class="btn" href="#catalogo" style="text-decoration:none">Ir al catálogo</a></div></div>
       <div class="daily"><b>Recompensa diaria</b><span class="chip">${canDaily?'¡Disponible!':'Vuelve mañana'}</span><button class="btn brand" data-act="daily" ${canDaily?'':'disabled'}>Recoger ${CUBE} 50</button></div></div>
+    ${misionesHTML()}
     ${recent.length?`<section class="sec"><div class="sec-h"><h2>Seguir jugando</h2></div><div class="games">${recent.map(gameCard).join('')}</div></section>`:''}
     ${studioBanner()}
     ${tallerBanner()}
@@ -673,7 +681,7 @@ function render(){
   document.querySelectorAll('#side a').forEach(a=>a.classList.toggle('on',a.dataset.v===v));
   $('#view').innerHTML=V[v]();
   $('#bal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;
-  const hs=headshot();if(hs&&hs.startsWith('data:'))$('#meimg').src=hs;
+  const hs=headshot();if(hs&&hs.startsWith('data:'))$('#meimg').src=hs;lvBadge();
   if(v!=='taller'&&PV&&PV.eqOver){PV.eqOver=null;rebuildPV()}
   if(v==='avatar'){mountPreview($('#stage'));pvCam('full')}
   if(v==='taller')tallerBind();
@@ -720,10 +728,11 @@ function itemModal(it){const own=st.owned.includes(it.id),on=st.eq[it.cat]===it.
   openModal(it.name,`<div style="display:grid;grid-template-columns:140px minmax(0,1fr);gap:16px;align-items:center">
     ${it.cat==='piel'?`<span style="aspect-ratio:1;border-radius:14px;background:${it.col}"></span>`:`<span style="aspect-ratio:1;border-radius:14px;background:var(--panel2) center/contain no-repeat;${u?`background-image:url(${u})`:''}"></span>`}
     <div style="display:flex;flex-direction:column;gap:8px"><span class="chip" style="align-self:flex-start">${A.CATS.find(c=>c[0]===it.cat)[1]}</span>${it.desc?`<span style="color:var(--muted)">${esc(it.desc)}</span>`:''}${it.custom?`<span style="color:var(--muted)">Creado por <b style="color:var(--fg)">${esc(it.author)}</b>${isMine(it.id)?' (tú)':''}</span>${limTag(it)}`:''}${it.cat==='gesto'?'<span style="color:var(--muted)">Hazlo en los juegos con la tecla G o el botón GESTOS.</span>':''}
-    <div style="font-size:22px;font-weight:800;display:flex;align-items:center;gap:6px">${own?'<span class="pos">Ya es tuyo</span>':it.price?CUBE+fmtC(it.price):'Gratis'}</div>
+    <div style="font-size:22px;font-weight:800;display:flex;align-items:center;gap:6px">${own?'<span class="pos">Ya es tuyo</span>':it.lvl?'Nivel '+it.lvl:it.price?CUBE+fmtC(it.price):'Gratis'}</div>
     ${own?'':`<span style="color:var(--muted);font-size:14px">Tienes ${fmtC(st.cubos)} Cubos.</span>`}</div></div>
   <div class="row">${own?`<button class="btn play" data-act="equip" data-id="${it.id}" ${on?'disabled':''}>${on?'Ya lo llevas puesto':'Ponérmelo'}</button>${isMine(it.id)?`<button class="btn" data-act="tedit" data-id="${it.id}">Editar</button><button class="btn" data-act="tcode" data-id="${it.id}">Código</button>`:''}`:
     it.custom&&it.limited&&!stockLeft(it)?'<span>Agotado: ya no quedan unidades de este objeto limitado.</span>':
+    it.lvl?`<span>Se consigue al llegar al <b>nivel ${it.lvl}</b> (tú estás en el nivel ${A.levelOf(st.xp).lvl}). Sube de nivel jugando y completando misiones.</span>`:
     st.cubos>=it.price?`<button class="btn play" data-act="buyitem" data-id="${it.id}">Comprar por ${fmtC(it.price)} Cubos</button>`:
     `<span>Te faltan <b>${fmtC(it.price-st.cubos)}</b> Cubos.</span><a class="btn brand" href="#cubos" style="text-decoration:none">Conseguir Cubos</a>`}</div>`)}
 let pendingPack=null,method='gift';
@@ -770,7 +779,7 @@ const ACT={
     if(!r.ok){toast(`Te faltan ${fmtC(r.need)} Cubos para ${p.name}`);return}if(Au)Au.sfx('buy');toast(`¡Pase comprado: ${p.name}!`);render();gameModal(GAMES.find(x=>x.id===g))},
   item(id){itemModal(A.BY[id])},
   equip(id){const it=A.BY[id];if(!st.owned.includes(id)){itemModal(it);return}st.eq[it.cat]=id;save();closeModal();rebuildPV();if(Au)Au.sfx('equip');render();previewItem(it);if(view!=='avatar')toast(`Te has puesto: ${it.name}`)},
-  buyitem(id){const it=A.BY[id];if(st.owned.includes(id))return;if(st.cubos<it.price){itemModal(it);return}if(it.custom){buyCustom(it);return}
+  buyitem(id){const it=A.BY[id];if(st.owned.includes(id)||it.lvl)return;if(st.cubos<it.price){itemModal(it);return}if(it.custom){buyCustom(it);return}
     st.cubos-=it.price;st.owned.push(id);st.eq[it.cat]=id;addHist(`Catálogo: ${it.name}`,-it.price);save();rebuildPV();closeModal();if(Au)Au.sfx('buy');render();previewItem(it);toast(`¡Comprado! Ya llevas puesto: ${it.name}`)},
   avcat(id){avCat=id;render()},
   catcat(id){catCat=id;render()},
@@ -960,7 +969,7 @@ async function tallerSave(){const msg=$('#tmsg'),d=TW.d;const name=String(d.name
   let cloud='';if(CC&&CC.cfg&&CC.uid()){msg.textContent='Guardando…';try{if(it.mode==='me'){if(prev&&prev.mode!=='me')await cloudUnpub(it.id)}else await cloudPub(it);cloud=it.mode==='me'?'':'ok'}catch(e){cloud='err'}}
   if(Au)Au.sfx('levelup');TW={...TW,step:'home',d:null,grid:null,editing:null,undo:[]};if(PV)PV.eqOver=null;rebuildPV();
   if(view==='taller')render();doneModal(it,cloud)}
-function doneModal(it,cloud){const u=itemThumb(it);
+function doneModal(it,cloud){misEv('taller');const u=itemThumb(it);
   const txt=it.mode==='me'?'Ya lo llevas puesto. Solo es tuyo: no sale en el catálogo.'
     :(cloud==='ok'?'Ya está en el catálogo para todos. Cada vez que alguien lo compre te llevas el 70%.':cloud==='err'?'Está en tu catálogo, pero no se ha podido subir a internet. Prueba a guardarlo otra vez más tarde.':'Ya lo llevas puesto y sale en tu catálogo. Para que tus amigos lo compren, pásales el código.')
     +(it.limited?` Es limitado: solo hay ${it.stock} unidades a ${fmtC(it.price)} Cubos.`:it.mode==='pub'?` Precio: ${it.price?fmtC(it.price)+' Cubos':'gratis'}.`:'');
@@ -1033,6 +1042,59 @@ Object.assign(ACT,{
     else{catCat='crea';if(view==='catalogo')render();else location.hash='#catalogo';itemModal(it)}}
 });
 
+/* ================= NIVELES Y MISIONES ================= */
+const MIS=[
+  {id:'jugar3',f:'jugar',txt:'Juega a 3 juegos distintos',ev:'play',goal:3,c:60,xp:60},{id:'jugar2',f:'jugar',txt:'Juega a 2 juegos distintos',ev:'play',goal:2,c:40,xp:40},
+  {id:'min20',f:'min',txt:'Juega 20 minutos',ev:'min',goal:20,c:90,xp:80},{id:'min10',f:'min',txt:'Juega 10 minutos',ev:'min',goal:10,c:50,xp:50},
+  {id:'end2',f:'end',txt:'Termina 2 partidas',ev:'end',goal:2,c:50,xp:50},{id:'multi',f:'multi',txt:'Juega en una sala con amigos',ev:'multi',goal:1,c:80,xp:70},
+  {id:'nuevo',f:'nuevo',txt:'Prueba un juego al que nunca hayas jugado',ev:'new',goal:1,c:50,xp:50},{id:'equip',f:'av',txt:'Cambia algo de tu avatar',ev:'equip',goal:1,c:30,xp:30},
+  {id:'buy',f:'av',txt:'Compra un objeto en el catálogo',ev:'buy',goal:1,c:40,xp:40},{id:'ia',f:'crear',txt:'Crea un juego con la IA de CuboStudio',ev:'ia',goal:1,c:70,xp:60},
+  {id:'taller',f:'crear',txt:'Crea un objeto en el Taller',ev:'taller',goal:1,c:70,xp:60},{id:'daily',f:'daily',txt:'Recoge la recompensa diaria',ev:'daily',goal:1,c:20,xp:20}];
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()};
+function misState(){const t=today();if(!st.mis||st.mis.day!==t){let h=0;for(const ch of t)h=Math.imul(h^ch.charCodeAt(0),16777619)>>>0;const r=Sala_rng(h+7);
+    const unplayed=GAMES.some(g=>!(st.played||[]).includes(g.id));const pool=MIS.filter(m=>m.id!=='nuevo'||unplayed);const pick=[],fam=new Set();
+    while(pick.length<3&&pick.length<pool.length){const m=pool[Math.floor(r()*pool.length)];if(fam.has(m.f))continue;fam.add(m.f);pick.push(m.id)}
+    st.mis={day:t,list:pick.map(id=>({id,p:0,claimed:false})),seen:[],bonus:false};save()}return st.mis}
+function Sala_rng(s){s=(s>>>0)||1;return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function misEv(ev,arg){const S=misState();let changed=false;
+  S.list.forEach(x=>{const m=MIS.find(k=>k.id===x.id);if(!m||m.ev!==ev||x.p>=m.goal)return;
+    if(m.id.startsWith('jugar')){S.seen=S.seen||[];if(S.seen.includes(arg))return;S.seen.push(arg)}
+    x.p++;changed=true;if(x.p>=m.goal){toast(`¡Misión completada! ${m.txt}`);if(Au)Au.sfx('levelup')}});
+  if(ev==='play'&&arg){S.seen=S.seen||[];if(!S.seen.includes(arg))S.seen.push(arg)}
+  if(changed){save();if(view==='inicio')render()}}
+function addXP(n,why){const before=A.levelOf(st.xp).lvl;st.xp=(st.xp||0)+n;const L=A.levelOf(st.xp);
+  for(let l=before+1;l<=L.lvl;l++){const prize=50*l;st.cubos+=prize;addHist(`Subes al nivel ${l}`,prize);let extra='';
+    A.ITEMS.filter(i=>i.lvl===l).forEach(i=>{if(!st.owned.includes(i.id)){st.owned.push(i.id);extra=` y la mascota ${i.name}`}});
+    setTimeout(()=>{if(Au)Au.sfx('levelup');levelModal(l,prize,extra)},400)}
+  save();lvBadge()}
+function levelModal(l,prize,extra){openModal('¡Nivel '+l+'!',`<div class="lvup"><span class="lvbig">${l}</span><div><b style="font-size:20px">¡Has subido al nivel ${l}!</b><p style="margin:6px 0 0;color:var(--muted)">Premio: ${CUBE} ${fmtC(prize)} Cubos${esc(extra)}.</p></div></div><div class="row"><button class="btn brand" data-act="close">¡Genial!</button></div>`)}
+function lvBadge(){const a=document.querySelector('.me');if(!a)return;let b=a.querySelector('.lvb');if(!b){b=document.createElement('span');b.className='lvb';a.appendChild(b)}const L=A.levelOf(st.xp);b.textContent=L.lvl;b.title='Nivel '+L.lvl}
+function misionesHTML(){const S=misState(),L=A.levelOf(st.xp);const all=S.list.every(x=>x.claimed);
+  return `<section class="sec mis"><div class="lvcard"><span class="lvbig">${L.lvl}</span><div style="min-width:0;flex:1"><b>Nivel ${L.lvl}</b><div class="xpbar" role="progressbar" aria-valuemin="0" aria-valuemax="${L.need}" aria-valuenow="${L.cur}" aria-label="Experiencia"><i style="width:${Math.round(L.cur/L.need*100)}%"></i></div>
+      <small>${L.cur} / ${L.need} XP · Ganas XP jugando (10 por minuto) y con las misiones. Al subir de nivel te llevas Cubos${L.lvl<10?`; en el nivel ${L.lvl<5?5:10}, una mascota exclusiva`:''}.</small></div></div>
+    <div class="sec-h" style="margin-top:14px"><h2>Misiones de hoy</h2><span class="sub" style="margin:0">Cambian cada día</span></div>
+    <div class="mislist">${S.list.map(x=>{const m=MIS.find(k=>k.id===x.id);if(!m)return '';const done=x.p>=m.goal;
+      return `<div class="misrow ${x.claimed?'ok':''}"><div style="min-width:0;flex:1"><b>${esc(m.txt)}</b><div class="xpbar sm"><i style="width:${Math.round(Math.min(1,x.p/m.goal)*100)}%"></i></div><small>${Math.min(x.p,m.goal)} / ${m.goal} · Premio: ${CUBE}${m.c} y ${m.xp} XP</small></div>
+        ${x.claimed?'<span class="chip">Hecha</span>':done?`<button class="btn brand" data-act="misclaim" data-id="${m.id}">Recoger</button>`:'<span class="chip">En marcha</span>'}</div>`}).join('')}
+      <div class="misrow chest ${S.bonus?'ok':''}"><div style="min-width:0;flex:1"><b>Cofre del día</b><small>Completa y recoge las 3 misiones: ${CUBE}100 y 100 XP extra</small></div>${S.bonus?'<span class="chip">Abierto</span>':all?'<button class="btn brand" data-act="mischest">Abrir cofre</button>':'<span class="chip">Cerrado</span>'}</div></div></section>`}
+Object.assign(ACT,{
+  misclaim(id){const S=misState(),x=S.list.find(k=>k.id===id),m=MIS.find(k=>k.id===id);if(!x||!m||x.claimed||x.p<m.goal)return;x.claimed=true;st.cubos+=m.c;addHist('Misión: '+m.txt,m.c);addXP(m.xp);save();if(Au)Au.sfx('cash');render();toast(`+${m.c} Cubos y ${m.xp} XP`)},
+  mischest(){const S=misState();if(S.bonus||!S.list.every(x=>x.claimed))return;S.bonus=true;st.cubos+=100;addHist('Cofre del día',100);addXP(100);save();if(Au)Au.sfx('daily');render();toast('¡Cofre abierto! +100 Cubos y 100 XP')}
+});
+/* eventos para las misiones */
+{const wrap=(k,f)=>{const o=ACT[k];ACT[k]=function(){const r=o.apply(this,arguments);try{f.apply(this,arguments)}catch(e){}return r}};
+  let ownedN=st.owned.length,dailyT=st.daily;
+  let eqK=JSON.stringify(st.eq);
+  setInterval(()=>{const k=JSON.stringify(st.eq);if(k!==eqK){eqK=k;misEv('equip')}if(st.owned.length>ownedN){const nb=A.ITEMS.some(i=>i.price&&st.owned.slice(ownedN).includes(i.id));if(nb)misEv('buy')}ownedN=st.owned.length;if(st.daily!==dailyT){if(st.daily>(dailyT||0))misEv('daily');dailyT=st.daily}},800);
+  const pg=playGame;playGame=function(gm){const isNew=gm&&GAMES.some(g=>g.id===gm.id)&&!(st.played||[]).includes(gm.id);pg.apply(this,arguments);
+    if(gm&&GAMES.some(g=>g.id===gm.id)){st.played=st.played||[];if(!st.played.includes(gm.id))st.played.push(gm.id);if(isNew)misEv('new');misEv('play',gm.id);save()}multiSeen=false};
+  let multiSeen=false,secs=0;
+  setInterval(()=>{if($('#play').hidden||document.hidden||!curGame)return;secs+=5;
+    try{const w=$('#frame').contentWindow,M=w&&w.CubiMulti;if(!multiSeen&&M&&M.code&&Object.keys(M.players()).length>1){multiSeen=true;misEv('multi')}}catch(e){}
+    if(secs>=60){secs=0;st=A.state();addXP(10);misEv('min')}},5000);
+  addEventListener('message',e=>{const d=e.data;if(!d||!d.cubiEvt)return;if(d.cubiEvt==='end')misEv('end');if(d.cubiEvt==='ia')misEv('ia')});
+  if(window.CubiAmigos)CubiAmigos.on('new',()=>{});
+}
 /* ================= GRÁFICOS Y ADMINISTRADOR ================= */
 const CG=window.CubiGraficos;
 function graficosCard(){if(!CG)return '';const L=CG.level();
@@ -1103,7 +1165,7 @@ function profileModal(fid,again){const F=window.CubiAmigos;const f=F.data().list
   const since=f.since?new Date(f.since).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}):'';
   const body=`<div id="fprofile" data-id="${fid}" class="fprof"><span class="pic big" style="${u?`background-image:url(${u})`:''}"></span><div style="display:flex;flex-direction:column;gap:6px;min-width:0">
     <b style="font-size:22px">${esc(f.name)}</b><span class="fst ${s.cls}"><i></i>${esc(s.txt)}</span><small style="color:var(--muted)">Código de amigo ${F.fmt(fid)}${since?` · amigos desde el ${since}`:''}</small>
-    ${p?`<div class="fstats"><span><b>${p.items||0}</b>objetos</span><span><b>${p.creations||0}</b>creaciones</span><span><b>${p.friends||0}</b>amigos</span></div>`:'<small style="color:var(--muted)">Cuando se conecte verás sus datos y si está jugando.</small>'}</div></div>
+    ${p?`<div class="fstats"><span><b>${p.lvl||1}</b>nivel</span><span><b>${p.items||0}</b>objetos</span><span><b>${p.creations||0}</b>creaciones</span><span><b>${p.friends||0}</b>amigos</span></div>`:'<small style="color:var(--muted)">Cuando se conecte verás sus datos y si está jugando.</small>'}</div></div>
     <p id="fjmsg" class="sub" role="status"></p>
     <div class="row">${s.game?`<button class="btn play" data-act="fjoin" data-id="${fid}">Unirse a su partida</button>`:''}<button class="btn" data-act="frefresh">Actualizar</button><button class="btn" data-act="fdel" data-id="${fid}">Eliminar amigo</button><button class="btn" data-act="close">Cerrar</button></div>`;
   if(again){if($('#fprofile'))openModal(f.name,body);return}openModal(f.name,body)}
