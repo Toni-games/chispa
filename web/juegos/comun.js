@@ -20,7 +20,7 @@ function start(o){inject();const ov=el(K.panel(esc(o.title),o.col||'#ffcc33',`${
   ${o.record!=null?`<p>Tu récord: <b style="color:#ffcc33">${esc(o.record)}</b></p>`:''}${o.extra||''}<div class="k-row"><button class="k-btn g k-out" id="j-go" style="flex:1;font-size:20px">${o.btn||'¡A JUGAR!'}</button></div>`));
   const go=()=>{ov.remove();if(window.CubiAudio)CubiAudio.unlock();o.onStart&&o.onStart()};
   $('#j-go').onclick=go;if(o.bind)o.bind(ov);setTimeout(()=>{try{$('#j-go').focus()}catch(e){}},50);return ov}
-function end(o){inject();const ov=el(K.panel(esc(o.title),o.col||'#ffcc33',`${(o.lines||[]).map(l=>`<p style="text-align:center;font-size:17px;color:#fff">${l}</p>`).join('')}
+function end(o){inject();try{if(parent!==window)parent.postMessage({cubiEvt:'end'},'*')}catch(e){}const ov=el(K.panel(esc(o.title),o.col||'#ffcc33',`${(o.lines||[]).map(l=>`<p style="text-align:center;font-size:17px;color:#fff">${l}</p>`).join('')}
   ${o.record?`<p style="text-align:center;color:#ffcc33;font-size:18px">¡NUEVO RÉCORD!</p>`:''}<div class="k-row"><button class="k-btn g k-out" id="j-again" style="flex:1;font-size:18px">Jugar otra vez</button></div>`));
   $('#j-again').onclick=()=>{ov.remove();if(o.onAgain)o.onAgain();else location.reload()};return ov}
 function hud(items){inject();let h=$('#j-hud');if(!h)h=el('<div id="j-hud" class="k-ui"></div>');h.innerHTML=items.filter(Boolean).map(([n,v])=>`<div class="k-out">${n}<b>${v}</b></div>`).join('')}

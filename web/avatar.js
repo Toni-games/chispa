@@ -1,7 +1,7 @@
 /* Cubiverso · avatar compartido entre la plataforma y los juegos */
 (function(){
 const KEY='cubiverso-v1';
-const CATS=[['piel','Piel'],['cara','Caras'],['camiseta','Camisetas'],['pantalon','Pantalones'],['cabeza','Cabeza'],['accesorio','Accesorios'],['espalda','Espalda'],['animacion','Animaciones'],['gesto','Gestos']];
+const CATS=[['piel','Piel'],['cara','Caras'],['camiseta','Camisetas'],['pantalon','Pantalones'],['cabeza','Cabeza'],['accesorio','Accesorios'],['espalda','Espalda'],['mascota','Mascotas'],['animacion','Animaciones'],['gesto','Gestos']];
 const I=(id,cat,name,price,extra)=>Object.assign({id,cat,name,price},extra||{});
 const ITEMS=[
   I('sk1','piel','Melocotón',0,{col:'#ffd29a'}),I('sk2','piel','Canela',0,{col:'#d9a37b'}),I('sk3','piel','Avellana',0,{col:'#a8714a'}),I('sk4','piel','Chocolate',0,{col:'#7a4b2e'}),
@@ -44,14 +44,20 @@ const ITEMS=[
   I('an6','animacion','Bailarín',200,{desc:'Anda con ritmo y se mueve parado'}),I('an7','animacion','Pato',60,{desc:'Anda como un pato'}),
   I('ge0','gesto','Saludar',0,{dur:2.2}),I('ge1','gesto','Bailar',120,{dur:4}),I('ge2','gesto','Aplaudir',60,{dur:2.4}),
   I('ge3','gesto','Reírse',80,{dur:2.4}),I('ge4','gesto','Celebrar',90,{dur:2.6}),I('ge5','gesto','Hacer el pino',200,{dur:3.4}),
-  I('ge6','gesto','Baile del robot',150,{dur:4})
+  I('ge6','gesto','Baile del robot',150,{dur:4}),
+  I('m0','mascota','Ninguna',0),I('m1','mascota','Cubito',120,{desc:'Un cubo naranja que te sigue dando botes'}),I('m7','mascota','Abejita',200,{desc:'Zumba a tu lado sin parar'}),
+  I('m2','mascota','Gatito con alas',250,{desc:'Un gato volador muy curioso'}),I('m6','mascota','Pingüino',300,{desc:'Flota con su bufanda roja'}),
+  I('m5','mascota','Pulpito',350,{desc:'Mueve sus patitas en el aire'}),I('m4','mascota','Dron robot',400,{desc:'Con hélice y luz que parpadea'}),
+  I('m8','mascota','Fantasmita',450,{desc:'Medio transparente, un poco tímido'}),I('m3','mascota','Dragoncito',600,{desc:'Pequeño, verde y con alas que aletean'}),
+  I('m9','mascota','Estrella fugaz',800,{desc:'Brilla y deja chispas al girar'}),I('m10','mascota','Unicubo',1200,{desc:'Un unicornio de cubos con cuerno arcoíris'}),
+  I('m11','mascota','Fénix de fuego',0,{desc:'Exclusivo: se consigue al llegar al nivel 5',lvl:5}),I('m12','mascota','Mini galaxia',0,{desc:'Exclusivo: se consigue al llegar al nivel 10',lvl:10})
 ];
 const BY={};ITEMS.forEach(i=>BY[i.id]=i);
-const DEF_EQ={piel:'sk1',cara:'f1',camiseta:'sh1',pantalon:'p1',cabeza:'h1',accesorio:'a0',espalda:'b0',animacion:'an0',gesto:'ge0'};
-function defaults(){return {name:'Jugador',cubos:250,owned:ITEMS.filter(i=>!i.price).map(i=>i.id),eq:Object.assign({},DEF_EQ),daily:0,codes:{},passes:{},recent:[],history:[],custom:{},mine:[],claimed:{}}}
+const DEF_EQ={piel:'sk1',cara:'f1',camiseta:'sh1',pantalon:'p1',cabeza:'h1',accesorio:'a0',espalda:'b0',mascota:'m0',animacion:'an0',gesto:'ge0'};
+function defaults(){return {name:'Jugador',cubos:250,owned:ITEMS.filter(i=>!i.price&&!i.lvl).map(i=>i.id),eq:Object.assign({},DEF_EQ),daily:0,codes:{},passes:{},recent:[],history:[],custom:{},mine:[],claimed:{}}}
 function state(){let s=null;try{s=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}const d=defaults();if(!s)return d;s=Object.assign(d,s);s.eq=Object.assign({},DEF_EQ,s.eq||{});
   if(s.custom)Object.values(s.custom).forEach(register);
-  ITEMS.forEach(i=>{if(!i.price&&!i.custom&&!s.owned.includes(i.id))s.owned.push(i.id)});return s}
+  ITEMS.forEach(i=>{if(!i.price&&!i.custom&&!i.lvl&&!s.owned.includes(i.id))s.owned.push(i.id)});return s}
 function save(s){try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){}}
 
 /* ---------- texturas ---------- */
@@ -172,6 +178,34 @@ function customPart(THREE,R,it,M,tex,box,cyl){
       default:B(.6,.62,.26,c1,0,0,-.11);B(.44,.26,.06,c2,0,-.12,-.26);B(.08,.6,.06,c2,-.22,.1,.49);B(.08,.6,.06,c2,.22,.1,.49);decal(.3,.2,0,-.12,-.295,Math.PI)}
   }
 }
+
+/* ---------- mascotas que flotan a tu lado ---------- */
+function petModel(THREE,id,M){const g=new THREE.Group(),fl=[];
+  const B=(w,h,d,c,x,y,z,o,par)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),typeof c==='object'?c:M(c,o));m.position.set(x,y,z);(par||g).add(m);return m};
+  const eyes=(y,z,s,c)=>{B(s||.07,s||.07,.02,c||0x111111,-.09,y,z);B(s||.07,s||.07,.02,c||0x111111,.09,y,z)};
+  const wing=(c,x,y,z,w,h)=>{const piv=new THREE.Group();piv.position.set(x,y,z);g.add(piv);const m=B(w||.32,h||.04,.18,c,(x<0?-1:1)*(w||.32)/2,0,0,null,piv);fl.push(piv);return piv};
+  switch(id){
+    case 'm1':B(.38,.38,.38,0xff7a2f,0,0,0);eyes(.05,.2);B(.14,.03,.02,0x111111,0,-.07,.2);break;
+    case 'm2':B(.36,.3,.44,0xffa94d,0,0,0);B(.3,.28,.26,0xffa94d,0,.12,.25);eyes(.16,.39);[-1,1].forEach(s=>B(.08,.12,.06,0xffa94d,s*.1,.31,.24));B(.06,.06,.3,0xffa94d,0,.05,-.33);wing(0xffffff,-.18,.1,0);wing(0xffffff,.18,.1,0);break;
+    case 'm3':B(.34,.3,.5,0x3fbf6a,0,0,0);B(.28,.26,.3,0x3fbf6a,0,.14,.32);eyes(.2,.48,.06,0xffcc33);[-1,1].forEach(s=>B(.05,.12,.05,0xffffff,s*.08,.31,.28));B(.06,.06,.35,0x2f9a52,0,-.02,-.4);B(.14,.12,.2,0xb7f5c8,0,-.1,.12);wing(0x2f9a52,-.17,.12,-.02,.42,.03);wing(0x2f9a52,.17,.12,-.02,.42,.03);break;
+    case 'm4':{B(.42,.18,.42,0x9aa3ad,0,0,0);B(.24,.1,.24,0x4a4f5a,0,-.13,0);const led=B(.1,.06,.02,M(0x22d3ee,{emissive:0x22d3ee}),0,0,.22);fl.led=led;const h=new THREE.Group();h.position.y=.16;g.add(h);B(.04,.1,.04,0x4a4f5a,0,0,0,null,h);B(.7,.02,.06,0x222222,0,.06,0,null,h);B(.06,.02,.7,0x222222,0,.06,0,null,h);fl.heli=h;break}
+    case 'm5':B(.4,.36,.36,0x9b5de5,0,.08,0);eyes(.12,.19);for(let k=0;k<6;k++){const a=k/6*Math.PI*2;const t=B(.07,.3,.07,0x9b5de5,Math.cos(a)*.15,-.2,Math.sin(a)*.15);fl.push({tent:t,a})}break;
+    case 'm6':B(.34,.42,.3,0x1f2937,0,0,0);B(.24,.3,.04,0xffffff,0,-.03,.15);eyes(.12,.16,.05,0xffffff);B(.1,.05,.1,0xff9f1c,0,.04,.2);B(.36,.07,.32,0xe5484d,0,.15,0);break;
+    case 'm7':B(.3,.24,.38,0xfacc15,0,0,0);B(.31,.25,.08,0x111111,0,0,-.04);B(.31,.25,.08,0x111111,0,0,.1);eyes(.05,.2);wing(M(0xffffff,{transparent:true,opacity:.7}),-.12,.15,0,.26);wing(M(0xffffff,{transparent:true,opacity:.7}),.12,.15,0,.26);break;
+    case 'm8':{const w=M(0xffffff,{transparent:true,opacity:.75});B(.38,.42,.34,w,0,0,0);B(.38,.1,.34,w,0,-.25,0);eyes(.06,.18,.08);B(.1,.08,.02,0x111111,0,-.07,.18);break}
+    case 'm9':{const y=M(0xffd23f,{emissive:0x8a6d00});B(.36,.36,.12,y,0,0,0);const b=B(.36,.36,.12,y,0,0,0);b.rotation.z=Math.PI/4;eyes(.03,.08);for(let k=0;k<3;k++){const sp=B(.06,.06,.06,M(0xfff3b0,{emissive:0xaa8800}),0,0,-.3-k*.15);fl.push({spark:sp,k})}break}
+    case 'm10':B(.32,.3,.48,0xffffff,0,0,0);B(.26,.28,.24,0xffffff,0,.16,.3);eyes(.2,.43);const hc=[0xe5484d,0xf97316,0xfacc15,0x22c55e];hc.forEach((c,i)=>B(.05,.06,.05,c,0,.33+i*.06,.36));B(.06,.26,.2,0xf472b6,0,.2,.14);B(.06,.06,.25,0xc4b5fd,0,.02,-.34);[-1,1].forEach(s=>[-1,1].forEach(t=>B(.08,.14,.08,0xffffff,s*.1,-.2,t*.14)));break;
+    case 'm11':{const o=M(0xf97316,{emissive:0x7a2500});B(.3,.28,.44,o,0,0,0);B(.24,.22,.22,o,0,.14,.28);eyes(.18,.4,.06,0xfde047);B(.08,.06,.12,0xfacc15,0,.12,.44);wing(M(0xef4444,{emissive:0x6b0000}),-.15,.1,0,.46,.03);wing(M(0xef4444,{emissive:0x6b0000}),.15,.1,0,.46,.03);
+      for(let k=0;k<3;k++)B(.08,.04,.3,M(0xfacc15,{emissive:0x8a6d00}),(k-1)*.08,-.02,-.36);break}
+    case 'm12':{const c=B(.26,.26,.26,M(0xffffff,{emissive:0xc4b5fd}),0,0,0);const ring=new THREE.Group();g.add(ring);fl.ring=ring;
+      [0x8b5cf6,0x22d3ee,0xf472b6,0xfacc15,0x60a5fa,0xa3e635].forEach((col,k)=>{const a=k/6*Math.PI*2;B(.09,.09,.09,M(col,{emissive:col}),Math.cos(a)*.34,Math.sin(k)*.05,Math.sin(a)*.34,null,ring)});break}
+    default:return null}
+  g.userData.fl=fl;return g}
+function addPet(THREE,R,id,M){const g=petModel(THREE,id,M);if(!g)return;const base={x:1.05,y:2.35,z:-.35};g.position.set(base.x,base.y,base.z);R.add(g);const fl=g.userData.fl,seed=Math.random()*10;
+  let first=null;g.traverse(o=>{if(o.isMesh&&!first)first=o});if(!first)return;
+  first.onBeforeRender=()=>{const t=performance.now()/1000+seed;g.position.y=base.y+Math.sin(t*2.2)*.12;g.position.x=base.x+Math.sin(t*.7)*.08;g.rotation.y=Math.sin(t*.9)*.45;g.rotation.z=Math.sin(t*1.3)*.06;
+    fl.forEach(f=>{if(f.isObject3D)f.rotation.z=(f.position.x<0?1:-1)*Math.sin(t*14)*.6;else if(f.tent)f.tent.rotation.x=Math.sin(t*4+f.a*2)*.4;else if(f.spark){const k=(t*1.5+f.k/3)%1;f.spark.position.set(Math.sin(t*3+f.k)*.1,-k*.2,-.25-k*.4);f.spark.scale.setScalar(1-k)}});
+    if(fl.heli)fl.heli.rotation.y=t*25;if(fl.led)fl.led.visible=Math.sin(t*6)>0;if(fl.ring){fl.ring.rotation.y=t*1.5;fl.ring.rotation.x=.4}}}
 function build(THREE,p,eq){
   eq=Object.assign({},DEF_EQ,eq||state().eq);p.eq=eq;const R=p.body||p.root;
   const M=(c,o)=>new THREE.MeshLambertMaterial(Object.assign({color:c},o||{}));
@@ -235,6 +269,7 @@ function build(THREE,p,eq){
     case 'a10':{const m=M(0xd32f2f);[-1,1].forEach(s=>{const w=box(.14,.1,.04,m,s*.08,1.6,.25);w.rotation.z=s*.35});box(.05,.06,.05,M(0x8e1b1b),0,1.6,.26);break}
     case 'a4':{const k=M(0x111111);box(.14,.13,.03,k,.13,H+.03,.29);box(.58,.025,.02,k,0,H+.1,.285).rotation.z=-.25;break}
   }
+  if(eq.mascota&&eq.mascota!=='m0')addPet(THREE,p.root||R,eq.mascota,M);
   switch(eq.espalda){
     case 'b1':{const m=M(0x3f6fd8);box(.6,.62,.26,m,0,1.15,-.36);box(.5,.24,.06,M(0x2f55aa),0,1,-.51);box(.08,.6,.06,M(0x2f55aa),-.22,1.25,.24);box(.08,.6,.06,M(0x2f55aa),.22,1.25,.24);break}
     case 'b2':{const m=M(0xd32f2f,{side:THREE.DoubleSide});const c=box(.85,1.25,.03,m,0,.98,-.27);c.rotation.x=.12;box(.9,.08,.12,M(0xffcc33),0,1.58,-.22);break}
@@ -339,5 +374,6 @@ function drive(a,walk,air,o){o=o||{};const now=performance.now(),dt=a._lt?Math.m
   const moving=o.moving!==undefined?o.moving:(a._lw!==undefined&&Math.abs(walk-a._lw)>1e-4);a._lw=walk;
   animate(a,{walk,air,moving,climb:o.climb,dt});
   if(a.isMe&&window.CubiAudio){if(o.climb){if(moving&&Math.floor(now/260)!==a._cs){a._cs=Math.floor(now/260);CubiAudio.sfx('climb')}a._wasAir=false}else CubiAudio.steps(a,walk,air)}}
-window.CubiAvatar={KEY,TPL,DECAL,ART_ABC,register,customDefs,artCanvas,clean,drive,CATS,ITEMS,BY,DEF_EQ,EMOTES,state,save,build,makeAvatar,animate,emote,faceCanvas,shirtCanvas};
+function levelOf(xp){xp=Math.max(0,+xp||0);let l=1,need=150;while(xp>=need){xp-=need;l++;need=100+l*50}return {lvl:l,cur:xp,need}}
+window.CubiAvatar={levelOf,KEY,TPL,DECAL,ART_ABC,register,customDefs,artCanvas,clean,drive,CATS,ITEMS,BY,DEF_EQ,EMOTES,state,save,build,makeAvatar,animate,emote,faceCanvas,shirtCanvas};
 })();
