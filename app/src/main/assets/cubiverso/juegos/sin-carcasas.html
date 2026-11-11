@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sin Carcasas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Nunito:wght@500;700;800&family=Share+Tech+Mono&display=swap">
+<style>
+/* Mesa de taller: alfombrilla antiestática con cuadrícula, placas verdes con serigrafía blanca, ámbar del soldador como acento */
+:root{
+  --mat:#1d3a43;--matline:#25505b;--panel:#11262d;--panel2:#183540;--line:#2b5662;
+  --ink:#eef6f2;--muted:#9bb9b6;--amber:#ffb238;--amber2:#e58a00;--danger:#ff5a4e;--ok:#3ddc84;
+  --f-disp:"Chakra Petch","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"Share Tech Mono",ui-monospace,Consolas,monospace;
+  color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--mat);color:var(--ink);font:15px/1.45 var(--f-body);overflow:hidden;
+  background-image:linear-gradient(var(--matline) 1px,transparent 1px),linear-gradient(90deg,var(--matline) 1px,transparent 1px);background-size:32px 32px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+[hidden]{display:none!important}
+h1,h2,h3{font-family:var(--f-disp);margin:0;text-wrap:balance;letter-spacing:.02em}
+
+/* ---------- menú ---------- */
+#menu{height:100%;overflow:auto;padding-block:28px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
+.logo{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
+.logo h1{font-size:clamp(42px,8vw,84px);line-height:.9;text-transform:uppercase}
+.logo h1 span{color:var(--amber);-webkit-text-stroke:0}
+.logo h1 .cut{display:inline-block;border:3px dashed var(--ink);padding:0 10px;border-radius:12px;opacity:.95}
+.logo p{margin:0;max-width:46ch;color:var(--muted);font-size:16px}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:0;padding:0;list-style:none;counter-reset:p}
+.how li{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;counter-increment:p;display:flex;gap:10px}
+.how li::before{content:counter(p);font:700 22px/1 var(--f-disp);color:var(--amber)}
+.how b{display:block}.how span{color:var(--muted);font-size:13.5px}
+.levels{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.lv{position:relative;text-align:left;background:var(--panel);border:2px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.lv:hover:not(:disabled){border-color:var(--amber);transform:translateY(-2px)}
+.lv:disabled{cursor:not-allowed}
+.lv .pic{height:110px;border-radius:10px;background:#0d2a22;display:grid;place-items:center;border:1px solid #1f5a46}
+.lv .pic svg{height:92px;width:auto}
+.lv h3{font-size:20px}.lv small{color:var(--muted);font-size:13px}
+.lv .st{font-size:20px;letter-spacing:2px;color:#3b5e66}.lv .st i{font-style:normal;color:var(--amber)}
+.lv .lock{position:absolute;inset:0;border-radius:14px;background:rgba(10,24,28,.94);display:grid;place-items:center;text-align:center;padding:16px;font-weight:800;color:var(--muted)}
+.foot{color:var(--muted);font-size:13px}
+
+/* ---------- juego ---------- */
+#game{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:rgba(9,22,26,.86);border-bottom:1px solid var(--line)}
+.ttl{display:flex;flex-direction:column;min-width:0;margin-right:auto}
+.ttl b{font:700 19px/1.1 var(--f-disp)}.ttl small{color:var(--muted);font-size:12.5px}
+.clock{font:20px var(--f-mono);font-variant-numeric:tabular-nums;background:#071418;border:1px solid var(--line);border-radius:8px;padding:3px 10px;color:#9ff0c5}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:8px 12px;font-weight:800;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:#41808f}
+.btn svg{width:18px;height:18px}
+.tools{display:flex;background:#071418;border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px}
+.tools button{border:0;background:none;border-radius:9px;padding:6px 11px;font-weight:800;display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.tools button.on{background:var(--amber);color:#2a1700}
+.tools svg{width:18px;height:18px}
+.power{border:0;border-radius:12px;padding:9px 16px;font:700 17px var(--f-disp);letter-spacing:.08em;color:#2a1000;background:linear-gradient(180deg,#ffc95c,var(--amber));box-shadow:0 4px 0 var(--amber2);display:inline-flex;align-items:center;gap:8px}
+.power:active{transform:translateY(3px);box-shadow:0 1px 0 var(--amber2)}
+.power:disabled{filter:grayscale(.8) brightness(.7);cursor:default}
+.power svg{width:20px;height:20px}
+.bench{position:relative;min-height:0;overflow:hidden}
+#sv{width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+#sv.solder{cursor:crosshair}
+#scrCv{position:absolute;pointer-events:auto;border-radius:6px;touch-action:none}
+.tray{background:rgba(9,22,26,.9);border-top:1px solid var(--line);padding-block:8px calc(8px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;gap:12px;align-items:center;min-height:64px}
+.tray .lbl{font:700 12px var(--f-disp);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);writing-mode:vertical-rl;transform:rotate(180deg)}
+#tray{display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0}
+.pz{width:96px;border:2px solid var(--line);background:#0b1d22;border-radius:12px;padding:6px 4px 5px;display:flex;flex-direction:column;align-items:center;gap:3px;touch-action:none}
+.pz svg{width:64px;height:54px}
+.pz span{font-size:11px;line-height:1.15;text-align:center;font-weight:700;color:var(--muted)}
+.pz:hover{border-color:#41808f}.pz.sel{border-color:var(--amber);background:#2a2110}.pz.ghosted{opacity:.35}
+.empty{color:var(--muted);font-size:14px}
+.result{display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex:1}
+.result h2{font-size:28px;color:var(--ok)}
+.stars{font-size:28px;letter-spacing:3px;color:#3b5e66}.stars i{font-style:normal;color:var(--amber)}
+.result .t{font:18px var(--f-mono);color:var(--muted)}
+.result .go{background:var(--ok);border-color:transparent;color:#032312}
+.result p{margin:0;color:var(--muted);font-size:13px;flex-basis:100%}
+#ghost{position:fixed;left:0;top:0;pointer-events:none;z-index:40;filter:drop-shadow(0 10px 14px rgba(0,0,0,.5))}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:45}
+#flash{position:fixed;inset:0;background:#fff;z-index:46;pointer-events:none;opacity:0}
+#flash.go{animation:flash .9s ease-out}
+@keyframes flash{0%{opacity:1}100%{opacity:0}}
+#warn{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:44;font:700 clamp(26px,5vw,48px) var(--f-disp);color:#ffdd57;text-shadow:0 0 18px #ff4d00,0 3px 0 #7a1d00;animation:blink .25s steps(2) infinite;pointer-events:none;text-align:center;white-space:nowrap}
+@keyframes blink{50%{opacity:.35}}
+#toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:#061115;border:1px solid var(--line);border-radius:12px;padding:10px 16px;font-weight:700;max-width:calc(100vw - 32px);text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.ov{position:fixed;inset:0;z-index:70;background:rgba(3,10,12,.72);display:grid;place-items:center;padding:16px}
+.card{width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:12px;box-shadow:0 30px 80px rgba(0,0,0,.55)}
+.card h2{font-size:26px}.card p{margin:0;color:var(--muted)}
+.card .row{display:flex;gap:10px;flex-wrap:wrap}
+.card.boom h2{font-size:56px;color:#ffdd57;text-shadow:0 0 22px #ff4d00,0 4px 0 #7a1d00}
+.faults{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.faults li{background:#2a1512;border:1px solid #5a2620;border-radius:10px;padding:8px 12px;font-size:14px;display:flex;gap:8px}
+.faults li::before{content:"";flex:none;width:10px;height:10px;margin-top:5px;border-radius:50%;background:var(--danger);box-shadow:0 0 8px var(--danger)}
+.man h3{font-size:16px;color:var(--amber);text-transform:uppercase;letter-spacing:.08em;margin-top:4px}
+.man table{width:100%;border-collapse:collapse;font-size:14px}
+.man td{padding:5px 8px;border-bottom:1px dashed var(--line)}
+.man td:first-child{font-family:var(--f-mono);color:#bff3d9;white-space:nowrap}
+.man .tip{background:#0b1d22;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;color:var(--ink)}
+.go2{background:var(--amber);border-color:transparent;color:#2a1700}
+
+/* svg */
+.silk{font:11px var(--f-mono);fill:#e9f5ee;letter-spacing:.03em}
+.mtxt{font:700 13px var(--f-body);fill:#dfe9e6}
+.msub{font:11px var(--f-mono);fill:#9bb9b6}
+.chiptxt{font-family:var(--f-mono);fill:#c9d2d6}
+.ptag{font:bold 11px var(--f-mono);fill:#fff;paint-order:stroke;stroke:#06110f;stroke-width:3px}
+.port{cursor:pointer}.port:hover .ring{stroke-width:4}
+.port.sel .ring{stroke:#fff;stroke-width:4}
+.port.sel .halo{fill:rgba(255,178,56,.35)}
+.part{cursor:grab}
+.sl.target{stroke:var(--amber);stroke-opacity:1;stroke-width:2.5;animation:pulse .9s ease-in-out infinite alternate}
+.mod,[data-drag=board]{cursor:grab}
+.lv .wip{color:var(--amber);font-weight:800}
+.slab{font-family:var(--f-body);font-weight:800;fill:#fff;paint-order:stroke;stroke:#062a1d;stroke-width:3px;pointer-events:none}
+.plab{font:700 11px var(--f-body);fill:#cfe3df;paint-order:stroke;stroke:#0d2229;stroke-width:3px}
+#status{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1}
+#status .chip{background:#0b1d22;border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px;color:var(--muted)}
+#status .chip b{font-family:var(--f-mono);color:var(--ink)}#status .chip.full{border-color:#2e7d55}#status .chip.full b{color:var(--ok)}
+#status .hint{font-weight:700;color:var(--amber);font-size:14px}
+.slot.target rect.sl{stroke:var(--amber);stroke-opacity:1;stroke-width:2.5;animation:pulse .9s ease-in-out infinite alternate}
+@keyframes pulse{to{stroke-opacity:.35}}
+.wire{cursor:pointer}
+.solder .pad{cursor:crosshair}.solder .pad:hover .cop{stroke:#fff;stroke-width:2}
+.hot{animation:hot .22s ease-in-out infinite alternate}
+@keyframes hot{from{filter:drop-shadow(0 0 2px #ff3b00)}to{filter:drop-shadow(0 0 10px #ff3b00) brightness(1.3)}}
+.burnt{filter:brightness(.42) saturate(.4) sepia(.55)}
+#sv.shake{animation:shake .08s linear infinite}
+@keyframes shake{0%{transform:translate(1px,0)}25%{transform:translate(-2px,1px)}50%{transform:translate(1px,-1px)}75%{transform:translate(-1px,2px)}}
+body.bigshake #game{animation:big .6s ease-out}
+@keyframes big{0%{transform:translate(14px,-10px)}20%{transform:translate(-12px,8px)}40%{transform:translate(9px,6px)}60%{transform:translate(-6px,-5px)}80%{transform:translate(3px,2px)}100%{transform:none}}
+.spin{animation:spin .25s linear infinite;transform-box:fill-box;transform-origin:center}
+@keyframes spin{to{transform:rotate(360deg)}}
+.led-on{filter:drop-shadow(0 0 5px #3dff8a)}
+/* zoom, microscopio */
+.zoom{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:12px;display:flex;flex-direction:column;gap:8px;z-index:5}
+.zoom button{width:50px;height:50px;border-radius:14px;border:1px solid var(--line);background:rgba(9,22,26,.92);display:grid;place-items:center;color:var(--ink)}
+.zoom svg{width:24px;height:24px}
+.scope{width:min(520px,100%);max-height:calc(100vh - 24px);overflow:auto;background:#0b1a1f;border:1px solid var(--line);border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:12px;align-items:center;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.scopeTop{display:flex;align-items:center;gap:10px;width:100%}.scopeTop b{font:700 20px var(--f-disp);margin-right:auto}.mag{font:14px var(--f-mono);color:var(--muted)}
+.lens{position:relative;width:min(82vw,56vh,440px);aspect-ratio:1;max-width:100%;border-radius:50%;overflow:hidden;border:10px solid #2b3238;box-shadow:0 0 0 3px #11171b,0 10px 30px #0008}
+.lens svg{width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+.vig{position:absolute;inset:0;border-radius:50%;pointer-events:none;background:radial-gradient(circle,transparent 60%,rgba(0,0,0,.7) 100%)}
+.mtools{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.mt{padding:11px 14px}.mt svg{width:22px;height:22px}.mt.on{background:var(--amber);color:#2a1700;border-color:transparent}
+@media (max-width:820px){.btn{padding:10px}.btn svg,.tools svg,.power svg{width:22px;height:22px}.tools button{padding:9px 11px}
+  .top{gap:8px}.btn .tx{display:none}.tools button .tx{display:none}
+  .ttl b{font-size:16px}.power{padding:8px 12px;font-size:15px}
+  .tray{min-height:92px}.pz{width:80px}.pz svg{width:54px;height:44px}.pz span{font-size:10px}
+  #toast{bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+}
+@media (max-height:520px){.top{padding-block:5px}.btn .tx,.tools button .tx,.ttl small{display:none}.clock{font-size:16px}.power{padding:6px 12px;font-size:15px}.tray{min-height:76px;padding-block:5px}.pz{width:72px;padding:3px}.pz svg{width:46px;height:34px}.pz span{font-size:9.5px}}
+#rot{display:none}
+@media (orientation:portrait) and (max-width:600px){#game:not([hidden]):not(.on)~#rot{display:grid;position:fixed;inset:auto 0 0 0;bottom:calc(96px + env(safe-area-inset-bottom,0px));place-items:center;z-index:30;pointer-events:none}#rot span{background:#071418;border:1px solid var(--amber);color:var(--amber);border-radius:999px;padding:6px 14px;font-weight:800;font-size:13px}}
+@media (prefers-reduced-motion:reduce){#sv.shake,body.bigshake #game,.hot,#warn,.sl.target{animation:none}.lv:hover:not(:disabled){transform:none}}
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+
+
+<section id="menu">
+  <div class="wrap">
+    <header class="logo">
+      <h1>Sin <span class="cut">carcasas</span></h1>
+      <p style="color:var(--amber);font-weight:800;margin:0">Un juego 2D de Cubiverso</p>
+      <p>Como reparar un móvil de verdad: piezas sueltas, algunas rotas, un microscopio y un soldador. Monta, conecta el monitor y enciende. Si algo está mal, sale humo… y explota.</p>
+    </header>
+    <ol class="how">
+      <li><div><b>Revisa las piezas</b><span>Algunas vienen rotas. Míralas con el microscopio y arréglalas: pinzas, soldador fino o cepillo.</span></div></li>
+      <li><div><b>Monta la placa</b><span>Todo está suelto en la mesa. Arrastra cada chip a su hueco (U1, U2…). El manual dice cuál va en cada uno.</span></div></li>
+      <li><div><b>Cables y monitor</b><span>Arrastra de un conector a otro. Cuidado con el + y el −. El monitor va a la salida de vídeo.</span></div></li>
+      <li><div><b>Suelda y enciende</b><span>Suelda los puntos dorados y pulsa ENCENDER. Si algo está mal, explota.</span></div></li>
+    </ol>
+    <div class="levels" id="levels"></div>
+    <p class="foot">Tu progreso se guarda en este navegador. Cada aparato tiene su manual dentro del juego.</p>
+  </div>
+</section>
+
+<section id="game" hidden>
+  <header class="top">
+    <button class="btn" id="bMenu" aria-label="Volver al menú"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg><span class="tx">Menú</span></button>
+    <div class="ttl"><b id="lvName"></b><small id="lvSub"></small></div>
+    <div class="clock" id="clock" aria-label="Tiempo">0:00</div>
+    <div class="tools" role="group" aria-label="Herramienta">
+      <button data-tool="mano" class="on" aria-pressed="true" aria-label="Mano"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V5.5a1.5 1.5 0 0 1 3 0V10m0-5.5V4a1.5 1.5 0 0 1 3 0v6m0-4.5a1.5 1.5 0 0 1 3 0V11m0-3a1.5 1.5 0 0 1 3 0v6a7 7 0 0 1-7 7h-1a7 7 0 0 1-5.6-2.8L4 15.5a1.6 1.6 0 0 1 2.5-2L8 15"/></svg><span class="tx">Mano</span></button>
+      <button data-tool="microscopio" aria-pressed="false" aria-label="Microscopio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21h12M9 21v-3a6 6 0 0 0 9-5M8 4l4 7M7 6l3-2M11 11l2-1"/><circle cx="10" cy="13" r="1.5"/></svg><span class="tx">Microscopio</span></button>
+      <button data-tool="soldador" aria-pressed="false" aria-label="Soldador"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4l-6 6M14 10l-3-3 2-2 3 3M11 13l-6 6M5 19l-2 2M11 13l2 2-2 2-4-4 2-2z"/></svg><span class="tx">Soldador</span></button>
+    </div>
+    <button class="btn" id="bManual"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6M20 4v14h-6"/></svg><span class="tx">Manual</span></button>
+    <button class="btn" id="bReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12a8 8 0 1 0 2.3-5.7M4 4v4h4"/></svg><span class="tx">Empezar de nuevo</span></button>
+    <button class="power" id="bPower"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 3v9M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>ENCENDER</button>
+  </header>
+  <main class="bench" id="bench">
+    <svg id="sv" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet" aria-label="Mesa de montaje"></svg>
+    <canvas id="scrCv" hidden></canvas>
+    <div class="zoom"><button id="zIn" aria-label="Acercar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button><button id="zOut" aria-label="Alejar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"/></svg></button><button id="zFit" aria-label="Ver toda la mesa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button></div>
+  </main>
+  <footer class="tray" id="trayBar" hidden></footer>
+</section>
+
+<div id="rot" aria-hidden="true"><span>Gira el móvil para verlo más grande</span></div>
+<div id="ghost" hidden></div>
+<canvas id="fx"></canvas>
+<div id="flash" hidden></div>
+<div id="warn" hidden>¡Huele a quemado!</div>
+<div id="toast" hidden role="status"></div>
+<div id="modal"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const sv=$('#sv'),bench=$('#bench');
+const VW=1200,VH=760;
+const rand=(a,b)=>a+Math.random()*(b-a);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function rng(seed){let s=seed>>>0||1;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296}}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- piezas ---------- */
+const KIND={
+  soc:{short:'Procesador móvil',name:'Procesador de móvil (SoC)',chip:'SoC',w:84,h:84,col:'#262a30',lid:'#8f99a4'},
+  lpddr:{short:'RAM LPDDR5',name:'RAM de móvil LPDDR5',chip:'LPDDR5',w:84,h:44,col:'#1b1e22'},
+  pmic:{short:'Energía',name:'Chip de energía (PMIC)',chip:'PMIC',w:54,h:54,col:'#1b1e22'},
+  nand:{short:'Memoria',name:'Memoria NAND 256 GB',chip:'NAND',w:84,h:50,col:'#1b1e22'},
+  codec:{short:'Audio',name:'Chip de audio',chip:'AUD',w:44,h:44,col:'#1b1e22'},
+  chg:{short:'Carga',name:'Chip de carga',chip:'CHG',w:40,h:40,col:'#1b1e22'},
+  wifi:{short:'Wi-Fi',name:'Chip Wi-Fi',chip:'Wi-Fi',w:60,h:48,can:true},
+  apu:{short:'Procesador consola',name:'Procesador de consola (APU)',chip:'APU',w:96,h:96,col:'#262a30',lid:'#c9a46a'},
+  cpu:{short:'Procesador PC',name:'Procesador de PC (CPU)',chip:'CPU',w:120,h:120,col:'#3a4048',lid:'#c7ccd3'},
+  dimm:{short:'RAM DDR5',name:'RAM de PC DDR5',chip:'DDR5',w:26,h:170,stick:true,col:'#17603a'},
+  m2:{short:'Disco SSD',name:'Disco SSD M.2',chip:'SSD',w:36,h:150,stick:true,col:'#123628'},
+  pch:{short:'Chipset',name:'Chipset (PCH)',chip:'PCH',w:64,h:64,col:'#1b1e22'},
+  bios:{short:'BIOS',name:'Chip BIOS',chip:'BIOS',w:44,h:30,col:'#1b1e22'},
+  ddr4:{short:'RAM DDR4',name:'RAM de PC antigua DDR4',chip:'DDR4',w:26,h:170,stick:true,col:'#5b2a7a'}
+};
+
+/* ---------- aparatos (placa y módulos en coordenadas de la mesa; huecos, conectores y soldaduras relativos a su dueño) ---------- */
+const MON=(x,y)=>({id:'mon',type:'monitor',x,y,w:360,h:290,ports:[{id:'HDMI',x:330,y:220,tag:'HDMI',name:'el cable del monitor',kind:'hdmi',lp:'l'}]});
+const BAT=(x,y,w,h,sub,hor)=>({id:'bat',type:hor?'batteryh':'battery',x,y,w,h,sub,ports:[{id:'bat+',x:w,y:hor?45:90,tag:'+',name:'Batería +',kind:'pos',power:1,lp:'l'},{id:'bat-',x:w,y:hor?105:160,tag:'−',name:'Batería −',kind:'neg',power:1,lp:'l'}]});
+const BP2=(y)=>[{id:'BAT+',x:22,y,tag:'BAT+',name:'BAT+ de la placa',kind:'pos',lp:'r'},{id:'BAT-',x:22,y:y+40,tag:'BAT−',name:'BAT− de la placa',kind:'neg',lp:'r'}];
+const LEVELS=[
+ {id:'movil',name:'Móvil',dev:'Nivel 1',screen:'os',stars:[120,220],broken:1,
+  board:{x:420,y:100,w:240,h:440,rx:34,code:'SC-M1'},
+  slots:[{id:'U1',want:'soc',x:30,y:50},{id:'U2',want:'lpddr',x:130,y:50},{id:'U3',want:'nand',x:130,y:112},{id:'U4',want:'pmic',x:40,y:175},{id:'U5',want:'codec',x:130,y:182},{id:'U6',want:'chg',x:186,y:184}],
+  bports:[...BP2(290),{id:'VID',x:218,y:300,tag:'VID',name:'la salida de vídeo',kind:'hdmi',lp:'l'}],
+  pads:[{id:'u1',x:100,y:400,g:'conector USB-C'},{id:'u2',x:140,y:400,g:'conector USB-C'}],
+  mods:[BAT(170,150,170,280,'3,85 V · 4500 mAh'),MON(800,90)],
+  need:[['bat+','BAT+'],['bat-','BAT-'],['HDMI','VID']],parts:['soc','lpddr','nand','pmic','codec','chg']},
+ {id:'tablet',name:'Tablet',dev:'Nivel 2',screen:'os',stars:[170,300],broken:2,
+  board:{x:420,y:80,w:340,h:440,rx:26,code:'SC-T2'},
+  slots:[{id:'U1',want:'soc',x:30,y:50},{id:'U2',want:'lpddr',x:140,y:50},{id:'U3',want:'lpddr',x:140,y:112},{id:'U4',want:'nand',x:240,y:50},{id:'U5',want:'pmic',x:40,y:185},{id:'U6',want:'wifi',x:140,y:185},{id:'U7',want:'codec',x:240,y:187}],
+  bports:[...BP2(300),{id:'J-SPK',x:318,y:340,tag:'SPK',name:'el conector SPK',kind:'sig',lp:'l'},{id:'VID',x:318,y:260,tag:'VID',name:'la salida de vídeo',kind:'hdmi',lp:'l'}],
+  pads:[{id:'u1',x:140,y:405,g:'conector USB-C'},{id:'u2',x:180,y:405,g:'conector USB-C'}],
+  mods:[BAT(190,100,170,260,'3,87 V · 8000 mAh'),{id:'spk',type:'speaker',x:190,y:400,w:150,h:90,sub:'8 Ω',ports:[{id:'SPK',x:150,y:45,tag:'SPK',name:'el cable del altavoz',kind:'sig',lp:'l'}]},MON(810,80)],
+  need:[['bat+','BAT+'],['bat-','BAT-'],['SPK','J-SPK'],['HDMI','VID']],parts:['soc','lpddr','lpddr','nand','pmic','wifi','codec','ddr4'],decoy:true},
+ {id:'consola',name:'Consola',dev:'Nivel 3',screen:'game',stars:[200,340],broken:2,
+  board:{x:410,y:100,w:400,h:320,rx:30,code:'SC-C3'},
+  slots:[{id:'U1',want:'apu',x:30,y:50},{id:'U2',want:'lpddr',x:150,y:50},{id:'U3',want:'lpddr',x:150,y:108},{id:'U4',want:'nand',x:150,y:168},{id:'U5',want:'pmic',x:270,y:50},{id:'U6',want:'wifi',x:268,y:128}],
+  bports:[...BP2(238),{id:'J-BTN',x:200,y:296,tag:'BTN',name:'el conector del mando',kind:'sig',lp:'t'},{id:'J-FAN',x:300,y:296,tag:'FAN',name:'el conector FAN',kind:'sig',lp:'t'},{id:'VID',x:378,y:220,tag:'VID',name:'la salida de vídeo',kind:'hdmi',lp:'l'}],
+  pads:[{id:'j1',x:60,y:190,g:'joystick'},{id:'j2',x:95,y:190,g:'joystick'}],
+  mods:[BAT(130,80,220,140,'7,4 V · 4800 mAh',1),{id:'pad',type:'gamepad',x:110,y:300,w:240,h:120,ports:[{id:'BTN',x:240,y:60,tag:'BTN',name:'el cable del mando',kind:'sig',lp:'l'}]},
+    {id:'fan',type:'fan',x:1010,y:420,w:140,h:140,sub:'5 V',ports:[{id:'FAN',x:0,y:70,tag:'FAN',name:'el cable del ventilador',kind:'sig',lp:'r'}]},MON(830,70)],
+  need:[['bat+','BAT+'],['bat-','BAT-'],['BTN','J-BTN'],['FAN','J-FAN'],['HDMI','VID']],parts:['apu','lpddr','lpddr','nand','pmic','wifi','soc'],decoy:true},
+ {id:'pc',name:'Ordenador',dev:'Nivel 4',screen:'pc',stars:[220,380],broken:3,
+  board:{x:410,y:50,w:380,h:460,rx:10,code:'SC-PC4',col:'#1c2733',trace:'#2d4256'},
+  slots:[{id:'U1',want:'cpu',x:30,y:50},{id:'J1',want:'dimm',x:200,y:40},{id:'J2',want:'dimm',x:245,y:40},{id:'J3',want:'m2',x:50,y:240},{id:'U2',want:'pch',x:200,y:262},{id:'U3',want:'bios',x:300,y:262}],
+  bports:[{id:'J-FAN',x:22,y:24,tag:'CPU_FAN',name:'el conector CPU_FAN',kind:'sig',lp:'r'},{id:'J-EPS',x:22,y:205,tag:'8P',name:'el conector CPU 8 pines',kind:'atx',lp:'r'},
+    {id:'J-ATX',x:358,y:370,tag:'ATX',name:'el conector ATX',kind:'atx',lp:'l'},{id:'VID',x:358,y:130,tag:'HDMI',name:'el HDMI de la placa',kind:'hdmi',lp:'l'}],
+  pads:[{id:'p1',x:250,y:420,g:'botón de encendido'},{id:'p2',x:285,y:420,g:'botón de encendido'}],
+  mods:[{id:'fan',type:'fan',x:180,y:50,w:160,h:160,sub:'12 V · 120 mm',ports:[{id:'FAN',x:160,y:130,tag:'FAN',name:'el cable del ventilador',kind:'sig',lp:'l'}]},
+    {id:'psu',type:'psu',x:140,y:300,w:200,h:190,sub:'650 W',ports:[{id:'ATX',x:200,y:60,tag:'24P',name:'el cable de 24 pines',kind:'atx',power:1,lp:'l'},{id:'CPU8',x:200,y:130,tag:'8P',name:'el cable de 8 pines',kind:'atx',power:1,lp:'l'}]},MON(820,90)],
+  need:[['FAN','J-FAN'],['ATX','J-ATX'],['CPU8','J-EPS'],['HDMI','VID']],parts:['cpu','dimm','dimm','m2','pch','bios','lpddr'],decoy:true}
+];
+LEVELS.forEach(L=>{L.slots.forEach(s=>{s.w=KIND[s.want].w;s.h=KIND[s.want].h;s.label=s.id;s.lab2=KIND[s.want].short});
+  const cnt={};L.pads.forEach(p=>{cnt[p.g]=(cnt[p.g]||0)+1;p.name=`el punto ${cnt[p.g]} del ${p.g}`});
+  L.ports=[...L.bports.map(p=>({...p,owner:'board'})),...L.mods.flatMap(m=>m.ports.map(p=>({...p,owner:m.id})))]});
+
+/* ---------- guardado ---------- */
+let save={stars:{},best:{},manual:{}};
+try{const s=JSON.parse(localStorage.getItem('sin-carcasas-v3'));if(s)save=Object.assign(save,s)}catch(e){}
+function persist(){try{localStorage.setItem('sin-carcasas-v3',JSON.stringify(save))}catch(e){}}
+/* ---------- sonido ---------- */
+let AC=null;
+function ac(){if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){return null}}if(AC.state==='suspended')AC.resume();return AC}
+function tone(f,d=.12,type='square',v=.07,f2){const a=ac();if(!a)return;const o=a.createOscillator(),g=a.createGain(),t=a.currentTime;o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g).connect(a.destination);o.start(t);o.stop(t+d+.03)}
+function noise(d=.3,v=.15,fq=1200,type='lowpass'){const a=ac();if(!a)return null;const n=Math.floor(a.sampleRate*d),b=a.createBuffer(1,n,a.sampleRate),ch=b.getChannelData(0);for(let i=0;i<n;i++)ch[i]=Math.random()*2-1;
+  const s=a.createBufferSource();s.buffer=b;const f=a.createBiquadFilter();f.type=type;f.frequency.value=fq;const g=a.createGain(),t=a.currentTime;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);s.connect(f).connect(g).connect(a.destination);s.start(t);return{s,g}}
+function hush(h){if(!h||!AC)return;try{h.g.gain.cancelScheduledValues(AC.currentTime);h.g.gain.setValueAtTime(.0001,AC.currentTime);h.s.stop(AC.currentTime+.05)}catch(e){}}
+const SFX={click:()=>tone(900,.05,'square',.035),snap:()=>{tone(520,.06,'square',.05);setTimeout(()=>tone(820,.07,'square',.045),50)},
+  wire:()=>tone(300,.12,'triangle',.08,650),unwire:()=>tone(520,.1,'triangle',.06,200),bad:()=>tone(170,.25,'sawtooth',.05,90),
+  sizzle:()=>noise(2.4,.06,3500,'highpass'),good:()=>{tone(1200,.08,'sine',.07);setTimeout(()=>tone(1650,.12,'sine',.06),70)},
+  zap:()=>noise(.12,.18,2800,'bandpass'),boom:()=>{noise(1.8,.7,380);tone(95,1.1,'sawtooth',.22,28)},
+  on:()=>[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.28,'sine',.08),i*140)),
+  win:()=>[784,988,1175,1568].forEach((f,i)=>setTimeout(()=>tone(f,.16,'square',.045),i*110)),
+  song:()=>[659,784,880,784,659,587,659,784,523,587,659].forEach((f,i)=>setTimeout(()=>tone(f,.2,'triangle',.07),i*190)),
+  shutter:()=>{noise(.08,.25,5000,'highpass');setTimeout(()=>noise(.06,.2,3000,'highpass'),90)},jump:()=>tone(420,.12,'square',.04,840)};
+
+/* ---------- estado ---------- */
+let LV=null,st=null,selPort=null,drag=null,dragKey=null,anim=0,scr=null,scrRaf=0,emitting=false,clockT=0;
+const toast=(t,ms=2600)=>{const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,ms)};
+function toSvg(e){const p=sv.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(sv.getScreenCTM().inverse())}
+function toScreen(x,y){const m=sv.getScreenCTM();return{x:m.a*x+m.c*y+m.e,y:m.b*x+m.d*y+m.f}}
+const fmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+const MOD=id=>LV.mods.find(m=>m.id===id);
+const BP=()=>st.pos.board;
+function P(id){const q=LV.ports.find(p=>p.id===id),o=st.pos[q.owner];return{...q,x:o.x+q.x,y:o.y+q.y}}
+const slotW=s=>({x:BP().x+s.x,y:BP().y+s.y,w:s.w,h:s.h});
+const padW=p=>({x:BP().x+p.x,y:BP().y+p.y});
+function monScr(){const m=MOD('mon'),o=st.pos.mon;return{x:o.x+12,y:o.y+12,w:m.w-24,h:m.h-92}}
+
+/* ---------- dibujo ---------- */
+function partG(kind){const k=KIND[kind],w=k.w,h=k.h,x=-w/2,y=-h/2;let g=`<rect x="${x+3}" y="${y+5}" width="${w}" height="${h}" rx="4" fill="#0006"/>`;
+  if(k.stick){g+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${k.col}" stroke="#0008"/>`;
+    const n=kind==='m2'?2:4,ch=(h-46)/n;for(let i=0;i<n;i++)g+=`<rect x="${x+4}" y="${y+14+i*ch}" width="${w-8}" height="${ch-6}" rx="1.5" fill="#15171a"/>`;
+    g+=`<rect x="${x+2}" y="${h/2-16}" width="${w-4}" height="12" fill="url(#gold)"/><text class="chiptxt" transform="rotate(-90)" x="0" y="4" text-anchor="middle" font-size="11">${k.chip}</text>`}
+  else if(k.can){g+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="url(#silver)" stroke="#5f6870"/><rect x="${x+5}" y="${y+5}" width="${w-10}" height="${h-10}" rx="2" fill="none" stroke="#8a939b" stroke-dasharray="3 3"/><text x="0" y="5" text-anchor="middle" font-size="12" style="font-family:var(--f-mono);fill:#3c454d">${k.chip}</text>`}
+  else{g+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${k.col}" stroke="#000a"/>`;
+    for(let i=1;i<Math.floor(w/8);i++)g+=`<rect x="${x+i*8-1}" y="${y-3}" width="2" height="3" fill="#b8a06a"/><rect x="${x+i*8-1}" y="${h/2}" width="2" height="3" fill="#b8a06a"/>`;
+    if(k.lid)g+=`<rect x="${x+w*.16}" y="${y+h*.16}" width="${w*.68}" height="${h*.68}" rx="5" fill="${k.lid}" opacity=".9"/>`;
+    g+=`<text class="chiptxt" x="0" y="4" text-anchor="middle" font-size="${Math.max(9,Math.min(14,w/5.5))}" style="fill:${k.lid?'#23282e':'#c9d2d6'}">${k.chip}</text>`}
+  return g}
+
+const WCOL={pos:'#ff4545',neg:'#2a2d30',sig:'#4da3ff',atx:'#ffd84d',hdmi:'#c3ccd4'};
+const WW={pos:6,neg:6,sig:6,atx:11,hdmi:9};
+function curve(a,b){const dx=b.x-a.x,dy=b.y-a.y;const sag=Math.min(80,Math.hypot(dx,dy)*.2)+12;return `M${a.x} ${a.y} C${a.x+dx*.3} ${a.y+dy*.3+sag} ${a.x+dx*.7} ${a.y+dy*.7+sag} ${b.x} ${b.y}`}
+
+function modSVG(m){const x=0,y=0,w=m.w,h=m.h,o=st.pos[m.id];let g=`<g data-drag="mod:${m.id}" data-mtype="${m.type}" transform="translate(${o.x} ${o.y})" class="mod">`;
+  const lab=(yy)=>m.sub?`<text class="msub" x="${w/2}" y="${yy-2}" text-anchor="middle">${esc(m.sub)}</text>`:'';
+  switch(m.type){
+    case 'battery':case 'batteryh':
+      g+=`<rect x="4" y="7" width="${w}" height="${h}" rx="12" fill="#0005"/><rect width="${w}" height="${h}" rx="12" fill="url(#foil)" stroke="#6d8794" stroke-width="2"/><rect x="12" y="12" width="${w-24}" height="${h-24}" rx="8" fill="none" stroke="#ffffff40"/>
+        <rect x="${w/2-34}" y="${h/2-20}" width="68" height="40" rx="6" fill="#0d1f26" opacity=".85"/><path d="M${w/2-20} ${h/2-8}h36v16h-36zM${w/2+16} ${h/2-4}h4v8h-4z" fill="none" stroke="#9ff0c5" stroke-width="2"/><rect x="${w/2-17}" y="${h/2-5}" width="26" height="10" fill="#3ddc84"/>
+        <rect x="14" y="${h-26}" width="${w-28}" height="12" fill="url(#hazard)" opacity=".8"/>`+lab(h+18);break;
+    case 'monitor':{const s={x:12,y:12,w:w-24,h:h-92};
+      g+=`<path d="M${w/2-24} ${h-80}h48l14 60h-76z" fill="#2b3138"/><rect x="${w/2-80}" y="${h-22}" width="160" height="12" rx="6" fill="#2b3138"/>
+        <rect x="4" y="7" width="${w}" height="${h-70}" rx="12" fill="#0005"/><rect width="${w}" height="${h-70}" rx="12" fill="#14171b" stroke="#3b434c" stroke-width="3"/><rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" rx="4" fill="#050607"/>
+        ${st.on?'':`<text x="${w/2}" y="${s.y+s.h/2-6}" text-anchor="middle" style="font:700 15px var(--f-mono);fill:#4d5a60">SIN SEÑAL</text>`}
+        <rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" rx="4" fill="url(#glass)"/><circle cx="${w-24}" cy="${h-78}" r="3" fill="${st.on?'#3dff8a':'#ffb238'}"/>`+lab(h+12);break}
+    case 'speaker':
+      g+=`<rect x="4" y="7" width="${w}" height="${h}" rx="10" fill="#0005"/><rect width="${w}" height="${h}" rx="10" fill="#22272c" stroke="#4a545e" stroke-width="2"/>`;
+      for(let i=0;i<6;i++)for(let j=0;j<3;j++)g+=`<circle cx="${22+i*16}" cy="${26+j*18}" r="4" fill="#0b0d10"/>`;g+=lab(h+18);break;
+    case 'gamepad':
+      g+=`<rect x="4" y="7" width="${w}" height="${h}" rx="50" fill="#0005"/><rect width="${w}" height="${h}" rx="50" fill="#2a3168" stroke="#4250a0" stroke-width="3"/>
+        <path d="M50 ${h/2-24}h16v16h16v16h-16v16h-16v-16h-16v-16h16z" fill="#11173a"/>`;
+      [[0,-18,'#3ddc84'],[18,0,'#ff5a4e'],[0,18,'#4da3ff'],[-18,0,'#ffd84d']].forEach(([dx,dy,c])=>g+=`<circle cx="${w-62+dx}" cy="${h/2+dy}" r="9" fill="${c}"/>`);g+=lab(h+18);break;
+    case 'fan':{const cx=w/2,cy=h/2,r=Math.min(w,h)/2-10;
+      g+=`<rect x="4" y="7" width="${w}" height="${h}" rx="14" fill="#0005"/><rect width="${w}" height="${h}" rx="14" fill="#1b1f24" stroke="#4a545e" stroke-width="2"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="#0c0e10"/>
+        <g class="${st.on?'spin':''}">${[0,72,144,216,288].map(a=>`<path transform="rotate(${a} ${cx} ${cy})" d="M${cx} ${cy}c${r*.2} -${r*.25} ${r*.75} -${r*.55} ${r*.85} -${r*.15}c-${r*.25} ${r*.12} -${r*.55} ${r*.2} -${r*.85} ${r*.15}z" fill="#3b4652"/>`).join('')}<circle cx="${cx}" cy="${cy}" r="${r*.25}" fill="#2a323b" stroke="#55606b"/></g>`+lab(h+18);break}
+    case 'psu':
+      g+=`<rect x="4" y="7" width="${w}" height="${h}" rx="8" fill="#0005"/><rect width="${w}" height="${h}" rx="8" fill="url(#psu)" stroke="#5c6670" stroke-width="2"/><circle cx="${w/2}" cy="${h/2}" r="${h*.34}" fill="#14171a"/>`;
+      for(let i=-3;i<=3;i++)g+=`<line x1="${w/2-h*.3}" y1="${h/2+i*10}" x2="${w/2+h*.3}" y2="${h/2+i*10}" stroke="#4a535c" stroke-width="2"/>`;
+      g+=lab(h+18);break}
+  return g+'</g>'}
+
+function boardSVG(){const b=LV.board,o=BP(),r=rng(b.code.charCodeAt(3)*977+b.w);let tr='';
+  for(let i=0;i<28;i++){let x=20+r()*(b.w-40),y=20+r()*(b.h-40);let d=`M${x|0} ${y|0}`;
+    for(let k=0;k<3;k++){if(r()<.5)x=clamp(x+(r()-.5)*170,16,b.w-16);else y=clamp(y+(r()-.5)*170,16,b.h-16);d+=` L${x|0} ${y|0}`}
+    tr+=`<path d="${d}"/><circle cx="${x|0}" cy="${y|0}" r="3.2"/>`}
+  const holes=[[16,16],[b.w-16,16],[16,b.h-16],[b.w-16,b.h-16]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="7" fill="#d6b25e"/><circle cx="${x}" cy="${y}" r="3.5" fill="#0b1a14"/>`).join('');
+  const led=st.burnt?'#3a1a10':st.on?'#3dff8a':'#1f3a30';
+  let g=`<g transform="translate(${o.x} ${o.y})"><g data-drag="board"><rect x="5" y="8" width="${b.w}" height="${b.h}" rx="${b.rx}" fill="#00000066"/>
+    <rect width="${b.w}" height="${b.h}" rx="${b.rx}" fill="${b.col||'#0f5a40'}" stroke="#08301f" stroke-width="3"/>
+    <g fill="none" stroke="${b.trace||'#1f7d59'}" stroke-width="2.5" stroke-linejoin="round" opacity=".7">${tr}</g>${holes}
+    <text class="silk" x="28" y="${b.h-10}">${b.code} · PLACA</text>
+    <rect x="${b.w-46}" y="30" width="16" height="9" rx="2" fill="${led}" class="${st.on?'led-on':''}"/>`;
+  LV.slots.forEach(s=>g+=`<rect class="sl ${dragKey&&st.parts[dragKey]?'target':''}" x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" rx="3" fill="url(#bga)" stroke="#e9f5ee" stroke-opacity=".75" stroke-dasharray="5 4" stroke-width="1.5"/><text class="silk" x="${s.x+s.w/2}" y="${s.y-8}" text-anchor="middle">${esc(s.label)}</text>`+(()=>{const ws=s.lab2.split(' '),lines=s.w<s.h||s.w<70?ws:[s.lab2],fs=Math.min(12,Math.min(s.w,s.h)/2.4,(s.w-6)/Math.max(...lines.map(l=>l.length))*1.75);
+    return `<text class="slab" text-anchor="middle" style="font-size:${fs.toFixed(1)}px">${lines.map((l,i)=>`<tspan x="${s.x+s.w/2}" y="${s.y+s.h/2+fs*.35+(i-(lines.length-1)/2)*fs*1.1}">${esc(l)}</tspan>`).join('')}</text>`})());
+  g+='</g>';
+  Object.values(st.parts).forEach(p=>{const s=LV.slots.find(s=>s.id===p.where);if(!s)return;
+    g+=`<g data-drag="part:${p.uid}" class="part ${st.hot.has(s.id)?'hot':''}" transform="translate(${s.x+s.w/2} ${s.y+s.h/2})">${partG(p.kind)}</g>`});
+  LV.pads.forEach(p=>g+=padSVG(p));
+  return g+'</g>'}
+
+function padSVG(p){const s=st.pads[p.id],hot=st.hot.has(p.id)?'hot':'';let g=`<g data-pad="${p.id}" class="pad ${hot}"><circle cx="${p.x}" cy="${p.y}" r="20" fill="transparent"/>
+  <circle class="cop" cx="${p.x}" cy="${p.y}" r="9" fill="url(#copper)" stroke="#a87a22" stroke-width="1"/><circle cx="${p.x}" cy="${p.y}" r="2.6" fill="#08251a"/>`;
+  if(s==='good')g+=`<circle cx="${p.x}" cy="${p.y}" r="9.5" fill="url(#solder)"/><ellipse cx="${p.x-3}" cy="${p.y-3}" rx="3" ry="2" fill="#fff" opacity=".85"/>`;
+  if(s==='cold')g+=`<circle cx="${p.x}" cy="${p.y}" r="9.5" fill="#7f8487"/><circle cx="${p.x}" cy="${p.y}" r="9.5" fill="none" stroke="#4d5255" stroke-width="2" stroke-dasharray="2 3"/>`;
+  if(s==='burnt')g+=`<circle cx="${p.x}" cy="${p.y}" r="13" fill="#4a2a12" opacity=".7"/><circle cx="${p.x}" cy="${p.y}" r="10" fill="#15100c"/>`;
+  if(s==='hot')g+=`<circle cx="${p.x}" cy="${p.y}" r="11" fill="none" stroke="#ffb238" stroke-width="3"/>`;
+  return g+'</g>'}
+
+function portSVG(id){const p=P(id),c=WCOL[p.kind],cc=c==='#2a2d30'?'#8e979e':c,used=st.wires.some(w=>w.a===id||w.b===id),hot=st.hot.has(id)?'hot':'';
+  const lp=p.lp||'t',tx=lp==='l'?p.x-15:lp==='r'?p.x+15:p.x,ty=lp==='t'?p.y-15:lp==='b'?p.y+25:p.y+4,an=lp==='l'?'end':lp==='r'?'start':'middle';
+  return `<g data-port="${id}" class="port ${selPort===id?'sel':''} ${hot}"><circle class="halo" cx="${p.x}" cy="${p.y}" r="24" fill="transparent"/>
+    <circle class="ring" cx="${p.x}" cy="${p.y}" r="8.5" fill="#0a1214" stroke="${cc}" stroke-width="3"/><circle cx="${p.x}" cy="${p.y}" r="${used?4.5:2.5}" fill="${cc}"/>
+    <text class="ptag" x="${tx}" y="${ty}" text-anchor="${an}">${esc(p.tag)}</text></g>`}
+
+function wireSVG(w,i){const a=P(w.a),b=P(w.b),k=a.kind,c=WCOL[k],sw=WW[k],d=curve(a,b),hot=st.hot.has('w'+i)?'hot':'';
+  return `<g data-wire="${i}" class="wire ${hot}"><path d="${d}" stroke="#0007" stroke-width="${sw+3}" fill="none" stroke-linecap="round" transform="translate(2 4)"/>
+    <path d="${d}" stroke="${c}" stroke-width="${sw}" fill="none" stroke-linecap="round"/>${k==='neg'?`<path d="${d}" stroke="#5a6066" stroke-width="1.5" fill="none" stroke-dasharray="1 7"/>`:''}${k==='atx'?`<path d="${d}" stroke="#00000040" stroke-width="${sw-5}" fill="none" stroke-dasharray="2 3"/>`:''}
+    <path d="${d}" stroke="transparent" stroke-width="22" fill="none"/></g>`}
+
+const DEFS=`<defs>
+ <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4d27a"/><stop offset="1" stop-color="#b8892c"/></linearGradient>
+ <radialGradient id="copper" cx=".35" cy=".35"><stop offset="0" stop-color="#ffe2a0"/><stop offset="1" stop-color="#c8902e"/></radialGradient>
+ <radialGradient id="solder" cx=".35" cy=".3"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#cfd6db"/><stop offset="1" stop-color="#7d878f"/></radialGradient>
+ <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e3e8ec"/><stop offset=".5" stop-color="#aab3bb"/><stop offset="1" stop-color="#d2d8dd"/></linearGradient>
+ <linearGradient id="foil" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f6b78"/><stop offset=".5" stop-color="#2f4652"/><stop offset="1" stop-color="#425d69"/></linearGradient>
+ <linearGradient id="psu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a424b"/><stop offset="1" stop-color="#22282e"/></linearGradient>
+ <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".09"/><stop offset=".4" stop-color="#ffffff" stop-opacity="0"/><stop offset=".55" stop-color="#ffffff" stop-opacity=".05"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+ <pattern id="bga" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#0b3e2c"/><circle cx="4" cy="4" r="1.7" fill="#c9a24a"/></pattern>
+ <pattern id="hazard" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="14" height="14" fill="#ffd84d"/><rect width="7" height="14" fill="#1b1b1b"/></pattern>
+ <radialGradient id="char"><stop offset="0" stop-color="#000" stop-opacity=".85"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+</defs>`;
+
+function render(){if(!LV)return;let h=DEFS+`<rect x="-400" y="-400" width="${VW+800}" height="${VH+800}" fill="transparent" data-bg="1"/><rect x="0" y="0" width="${VW}" height="${VH}" rx="18" fill="#ffffff06" stroke="#ffffff14" stroke-width="2" stroke-dasharray="10 8" data-bg="1"/><g class="${st.burnt?'burnt':''}">`;
+  const top=dragKey&&!st.parts[dragKey]?dragKey:null;
+  LV.mods.filter(m=>m.id!==top).forEach(m=>h+=modSVG(m));
+  if(top!=='board')h+=boardSVG();
+  if(top&&top!=='board')h+=modSVG(MOD(top));if(top==='board')h+=boardSVG();
+  Object.values(st.parts).filter(p=>p.where==='loose').sort((a,b)=>(a.uid===dragKey)-(b.uid===dragKey)).forEach(p=>{const k=KIND[p.kind],o=st.pos[p.uid];
+    h+=`<g data-drag="part:${p.uid}" class="part" transform="translate(${o.x+k.w/2} ${o.y+k.h/2})">${partG(p.kind)}<text class="plab" x="0" y="${k.h/2+16}" text-anchor="middle">${esc(k.short)}</text>${p.ok?`<circle cx="${k.w/2-2}" cy="${-k.h/2+2}" r="7" fill="#3ddc84" stroke="#062"/><path d="M${k.w/2-6} ${-k.h/2+2}l3 3l5-6" stroke="#032" stroke-width="2" fill="none"/>`:''}</g>`});
+  st.wires.forEach((w,i)=>h+=wireSVG(w,i));
+  LV.ports.forEach(p=>h+=portSVG(p.id));
+  h+='</g>';
+  if(st.burnt)st.faultPts.forEach(f=>h+=`<circle cx="${f.x}" cy="${f.y}" r="46" fill="url(#char)"/>`);
+  h+='<g id="tmp"></g>';sv.innerHTML=h;status();clearTimeout(saveCur.t);saveCur.t=setTimeout(saveCur,300)}
+function cubiEnd(){try{if(parent!==window)parent.postMessage({cubiEvt:'end'},'*')}catch(e){}}
+function saveCur(){if(!st||!LV||st.done)return;const pads={};Object.entries(st.pads).forEach(([k,v])=>{if(v&&v!=='hot')pads[k]=v});
+  save.cur=save.cur||{};save.cur[LV.id]={pos:st.pos,parts:st.parts,wires:st.wires,pads,t:Math.round(performance.now()-st.t0)};persist()}
+function dropCur(){if(save.cur&&LV){delete save.cur[LV.id];persist()}}
+addEventListener('pagehide',saveCur);document.addEventListener('visibilitychange',()=>{if(document.hidden)saveCur()});
+
+function status(){return;const el=$('#status');if(!el||st.on)return;const placed=LV.slots.filter(s=>Object.values(st.parts).some(p=>p.where===s.id)).length,
+  wires=st.wires.length,pads=LV.pads.filter(p=>st.pads[p.id]&&st.pads[p.id]!=='hot').length;
+  const chip=(n,m,t)=>`<span class="chip ${n>=m?'full':''}"><b>${n}/${m}</b> ${t}</span>`;
+  el.innerHTML=chip(placed,LV.slots.length,'piezas en la placa')+chip(wires,LV.need.length,'cables')+chip(pads,LV.pads.length,'soldaduras')+`<span class="hint">${placed<LV.slots.length?'Arrastra cada pieza suelta a su hueco de la placa.':wires<LV.need.length?'Arrastra de un conector a otro para poner un cable. No olvides el monitor.':pads<LV.pads.length?'Coge el soldador y mantén pulsados los puntos dorados.':'¡Listo! Pulsa ENCENDER.'}</span>`}
+/* ---------- zoom y movimiento de la mesa ---------- */
+let view={x:0,y:0,w:VW,h:VH};const touches=new Map();let pinch=null;
+const ar=()=>Math.max(.3,(sv.clientHeight||VH)/(sv.clientWidth||VW));
+function applyView(){view.h=view.w*ar();sv.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`)}
+function clampView(){view.w=clamp(view.w,200,VW*1.3);view.h=view.w*ar();view.x=clamp(view.x,-view.w*.5,VW-view.w*.5);view.y=clamp(view.y,-view.h*.5,VH-view.h*.5)}
+function fitView(){if(!LV)return;let a=1e9,b=1e9,c=-1e9,d=-1e9;const add=(x,y,w,h)=>{a=Math.min(a,x);b=Math.min(b,y);c=Math.max(c,x+w);d=Math.max(d,y+h)};
+  const B=BP();add(B.x,B.y,LV.board.w,LV.board.h);LV.mods.forEach(m=>{const o=st.pos[m.id];add(o.x-30,o.y,m.w+60,m.h+24)});
+  Object.values(st.parts).forEach(p=>{if(p.where==='loose'){const K=KIND[p.kind],o=st.pos[p.uid];add(o.x,o.y,K.w,K.h)}});
+  a-=16;b-=16;c+=16;d+=16;c+=(c-a)*66/Math.max(200,sv.clientWidth||1000);const r=ar();view.w=Math.max(c-a,(d-b)/r);view.h=view.w*r;view.x=(a+c)/2-view.w/2;view.y=(b+d)/2-view.h/2;applyView()}
+function zoomAt(f,cx,cy){const p=toSvg({clientX:cx,clientY:cy});view.w*=f;view.h=view.w*ar();applyView();const q=toSvg({clientX:cx,clientY:cy});view.x+=p.x-q.x;view.y+=p.y-q.y;clampView();applyView()}
+const benchMid=()=>{const r=sv.getBoundingClientRect();return[r.left+r.width/2,r.top+r.height/2]};
+$('#zIn').onclick=()=>zoomAt(1/1.35,...benchMid());$('#zOut').onclick=()=>zoomAt(1.35,...benchMid());$('#zFit').onclick=fitView;
+sv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(Math.exp(e.deltaY*.0015),e.clientX,e.clientY)},{passive:false});
+addEventListener('resize',()=>{if(LV){const cx=view.x+view.w/2,cy=view.y+view.h/2;view.h=view.w*ar();view.x=cx-view.w/2;view.y=cy-view.h/2;applyView()}});
+function startPan(e){const sx=e.clientX,sy=e.clientY,v0={...view},k=view.w/(sv.clientWidth||1);let moved=false;
+  drag={move(ev){if(Math.hypot(ev.clientX-sx,ev.clientY-sy)>5)moved=true;view.x=v0.x-(ev.clientX-sx)*k;view.y=v0.y-(ev.clientY-sy)*k;clampView();applyView()},
+    up(){if(!moved&&selPort){selPort=null;render()}}}}
+function startPinch(){const pts=[...touches.values()];if(pts.length<2)return;const dist=q=>Math.hypot(q[0].x-q[1].x,q[0].y-q[1].y)||1,mid=q=>({clientX:(q[0].x+q[1].x)/2,clientY:(q[0].y+q[1].y)/2});
+  const d0=dist(pts),w0=view.w,p0=toSvg(mid(pts));
+  pinch={move(){const q=[...touches.values()];if(q.length<2)return;view.w=w0*d0/dist(q);clampView();applyView();const m=toSvg(mid(q));view.x+=p0.x-m.x;view.y+=p0.y-m.y;clampView();applyView()}}}
+
+/* ---------- piezas rotas y microscopio ---------- */
+const DEFMSG={pin:'tenía un pin doblado',traza:'tenía una pista cortada',oxido:'estaba oxidado'};
+const FIX={pin:'pinzas',traza:'fino',oxido:'cepillo'};
+function makeDefects(kind,n){const K=KIND[kind],out=[],types=['pin','traza','oxido'].sort(()=>Math.random()-.5);
+  for(let i=0;i<n;i++){const t=types[i];let x,y;
+    if(t==='pin'){if(K.stick){x=rand(-K.w/2+5,K.w/2-5);y=K.h/2-10}else if(K.can){x=rand(-K.w/2+8,K.w/2-8);y=K.h/2+1.5}else{const n8=Math.max(1,Math.floor(K.w/8)-1);x=-K.w/2+8*(1+Math.floor(Math.random()*n8));y=Math.random()<.5?-K.h/2-1.5:K.h/2+1.5}}
+    else{for(let k=0;k<20;k++){x=rand(-K.w*.34,K.w*.34);y=rand(-K.h*.34,K.h*.34);if(!out.some(o=>Math.hypot(o.x-x,o.y-y)<14))break}}
+    out.push({t,x,y,fixed:false,hp:t==='oxido'?3:1})}
+  return out}
+function defectSVG(p){return p.defects.map(d=>{const {x,y}=d,K=KIND[p.kind];
+  if(d.t==='pin'){if(d.fixed)return '';if(K.stick)return `<rect x="${x-2.5}" y="${y-6}" width="5" height="12" fill="#0c1512"/><rect x="${x-1.2}" y="${y-5}" width="2.4" height="11" rx="1" fill="#e9cf86" transform="rotate(32 ${x} ${y-5})"/>`;
+    return `<rect x="${x-1.8}" y="${y-2}" width="3.6" height="4" fill="#0c1512"/><rect x="${x-1}" y="${y}" width="2" height="7" rx=".8" fill="#e2c87e" transform="rotate(${y<0?145:35} ${x} ${y})"/>`}
+  const crack=`M${x-9} ${y-1} l3 2.5 l3 -4 l3 5 l3 -3 l3 2`;
+  if(d.t==='traza')return d.fixed?`<path d="${crack}" stroke="#e6ebee" stroke-width="2.2" stroke-linecap="round" fill="none"/>`:`<path d="${crack}" stroke="#000" stroke-width="1.5" fill="none"/><path d="${crack}" stroke="#97a1aa" stroke-width=".5" fill="none" transform="translate(.7 .7)"/>`;
+  if(d.t==='oxido'&&d.hp>0){const o=.25+.22*d.hp;return [[0,0,3.6],[4,2,2.4],[-3.4,2.6,2],[2.2,-3.4,1.8],[-2,-2.4,1.4]].map(([a,b,r])=>`<circle cx="${x+a}" cy="${y+b}" r="${r}" fill="#46c7a0" opacity="${o}"/><circle cx="${x+a-.6}" cy="${y+b-.6}" r="${r*.35}" fill="#d9fff1" opacity="${o*.8}"/>`).join('')}
+  return ''}).join('')}
+const MICON={pinzas:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 3l7 15M19 3l-7 15M12 18v3"/></svg>',
+  fino:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 4l-7 7M13 11l-3-3 2-2 3 3M10 14l-6 6"/></svg>',
+  cepillo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20l9-9M13 11l3-6 4 4-6 3zM15 7l2 2"/></svg>'};
+function openScope(uid){const p=st.parts[uid],K=KIND[p.kind],m=Math.max(K.w,K.h)/2+12;let tool='pinzas';
+  openModal(`<div class="scope" role="dialog" aria-modal="true" aria-label="Microscopio"><div class="scopeTop"><b>Microscopio</b><span class="mag">×40 · ${esc(K.chip)}</span><button class="btn" id="scX">Cerrar</button></div>
+    <div class="lens"><svg id="lens" viewBox="${-m} ${-m} ${2*m} ${2*m}"></svg><div class="vig"></div></div>
+    <div class="mtools">${[['pinzas','Pinzas'],['fino','Soldador fino'],['cepillo','Cepillo']].map(([k,n])=>`<button class="btn mt" data-mt="${k}">${MICON[k]}${n}</button>`).join('')}</div></div>`);
+  const lens=$('#lens');const draw=(extra='')=>{lens.innerHTML=DEFS+`<rect x="${-m*2}" y="${-m*2}" width="${m*4}" height="${m*4}" fill="#0c1512"/><g>${partG(p.kind)}${defectSVG(p)}</g>${extra}`};
+  const setT=k=>{tool=k;document.querySelectorAll('[data-mt]').forEach(b=>b.classList.toggle('on',b.dataset.mt===k))};setT('pinzas');draw();
+  document.querySelectorAll('[data-mt]').forEach(b=>b.onclick=()=>{setT(b.dataset.mt);SFX.click()});
+  $('#scX').onclick=()=>{closeModal();render()};
+  const after=()=>{draw();saveCur();if(p.defects.length&&p.defects.every(x=>x.fixed)){p.ok=true;SFX.good();toast('Pieza reparada.')}};
+  lens.addEventListener('pointerdown',e=>{e.preventDefault();ac();const pt=lens.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;const ctm=lens.getScreenCTM(),q=pt.matrixTransform(ctm.inverse()),r=26/ctm.a;
+    const d=p.defects.find(d=>!d.fixed&&Math.hypot(d.x-q.x,d.y-q.y)<r);
+    if(!d){SFX.click();return}
+    if(tool!==FIX[d.t]){SFX.bad();toast('Con esa herramienta no se arregla esto.');return}
+    if(d.t==='pin'){d.fixed=true;SFX.snap();after();return}
+    if(d.t==='oxido'){d.hp--;noise(.12,.08,5000,'highpass');if(d.hp<=0)d.fixed=true;after();return}
+    const t0=performance.now(),snd=SFX.sizzle();let raf=0;
+    const step=()=>{const el=(performance.now()-t0)/1000;draw(`<circle cx="${d.x}" cy="${d.y}" r="9" fill="none" stroke="#ffb238" stroke-width="1.6" stroke-dasharray="${Math.min(1,el/.8)*56.5} 60" transform="rotate(-90 ${d.x} ${d.y})"/>`);
+      if(el>=.8){hush(snd);d.fixed=true;drag=null;after();return}raf=requestAnimationFrame(step)};
+    drag={move(){},up(){cancelAnimationFrame(raf);hush(snd);if(!d.fixed){draw();toast('Mantén pulsado un poco más.')}}};step()})}
+/* ---------- menú ---------- */
+const PIC={
+ movil:`<svg viewBox="0 0 60 100"><rect x="4" y="4" width="52" height="92" rx="10" fill="#0f5a40" stroke="#ffb238" stroke-width="3"/><rect x="18" y="18" width="24" height="24" fill="#262a30"/><rect x="18" y="50" width="24" height="12" fill="#1b1e22"/><circle cx="24" cy="84" r="3" fill="#cfd6db"/><circle cx="36" cy="84" r="3" fill="#cfd6db"/></svg>`,
+ tablet:`<svg viewBox="0 0 110 90"><rect x="4" y="16" width="22" height="50" rx="4" fill="#3d5966"/><rect x="32" y="4" width="74" height="82" rx="8" fill="#0f5a40" stroke="#ffb238" stroke-width="3"/><rect x="42" y="14" width="20" height="20" fill="#262a30"/><rect x="68" y="14" width="24" height="8" fill="#1b1e22"/><rect x="68" y="26" width="24" height="10" fill="#1b1e22"/></svg>`,
+ consola:`<svg viewBox="0 0 120 70"><rect x="30" y="8" width="60" height="54" rx="8" fill="#0f5a40" stroke="#ffb238" stroke-width="3"/><rect x="40" y="20" width="24" height="24" fill="#262a30"/><rect x="68" y="20" width="14" height="10" fill="#1b1e22"/><rect x="2" y="40" width="26" height="20" rx="10" fill="#2a3168"/><circle cx="105" cy="26" r="12" fill="#1b1f24" stroke="#4a545e"/></svg>`,
+ pc:`<svg viewBox="0 0 110 100"><rect x="30" y="4" width="76" height="92" rx="4" fill="#1c2733" stroke="#ffb238" stroke-width="3"/><rect x="40" y="14" width="28" height="28" fill="#3a4048"/><rect x="46" y="20" width="16" height="16" fill="#c7ccd3"/><rect x="76" y="12" width="6" height="40" fill="#17603a"/><rect x="86" y="12" width="6" height="40" fill="#17603a"/><rect x="4" y="60" width="22" height="30" rx="3" fill="#3a424b"/></svg>`};
+function showMenu(){stopAll();LV=null;$('#game').hidden=true;$('#menu').hidden=false;closeModal();
+  $('#levels').innerHTML=LEVELS.map((L,i)=>{const locked=i>0&&!save.stars[LEVELS[i-1].id];const s=save.stars[L.id]||0;
+    return `<button class="lv" data-lv="${i}" ${locked?'disabled':''}><div class="pic">${PIC[L.id]}</div><h3>${esc(L.name)}</h3><small>${esc(L.dev)}</small>
+      <div class="st" aria-label="${s} estrellas"><i>${'★'.repeat(s)}</i>${'★'.repeat(3-s)}</div>${save.best[L.id]?`<small>Mejor tiempo ${fmt(save.best[L.id])}</small>`:''}${save.cur&&save.cur[L.id]?'<small class="wip">Montaje a medias · sigue donde lo dejaste</small>':''}
+      ${locked?`<div class="lock">Monta «${esc(LEVELS[i-1].name)}» para desbloquearlo</div>`:''}</button>`}).join('')}
+$('#levels').addEventListener('click',e=>{const b=e.target.closest('[data-lv]');if(b&&!b.disabled){ac();startLevel(+b.dataset.lv)}});
+
+/* ---------- empezar ---------- */
+function startLevel(i,fresh){stopAll();LV=LEVELS[i];selPort=null;dragKey=null;
+  if(fresh&&save.cur){delete save.cur[LV.id];persist()}
+  const pos={board:{x:LV.board.x,y:LV.board.y}};LV.mods.forEach(m=>pos[m.id]={x:m.x,y:m.y});
+  const kinds=LV.parts.slice().sort(()=>Math.random()-.5),parts={},n=kinds.length,span=Math.min(1080,n*150);
+  kinds.forEach((k,j)=>{const uid='p'+j,K=KIND[k],cx=60+span*(j+.5)/n+rand(-10,10),cy=655+rand(-8,8);
+    parts[uid]={uid,kind:k,where:'loose',defects:[]};pos[uid]={x:clamp(cx-K.w/2,4,VW-K.w-4),y:clamp(cy-K.h/2,4,VH-K.h-22)}});
+  Object.values(parts).filter(p=>LV.slots.some(s=>s.want===p.kind)).sort(()=>Math.random()-.5).slice(0,LV.broken).forEach(p=>p.defects=makeDefects(p.kind,LV.broken>=2&&Math.random()<.4?2:1));
+  st={pos,parts,wires:[],pads:{},tool:'mano',t0:performance.now(),tEnd:null,done:false,on:false,burnt:false,hot:new Set(),faultPts:[]};
+  const sv0=save.cur&&save.cur[LV.id];let resumed=false;
+  if(sv0&&sv0.parts&&Object.keys(sv0.parts).length===LV.parts.length){try{st.pos=sv0.pos;st.parts=sv0.parts;st.wires=sv0.wires||[];st.pads=sv0.pads||{};st.t0=performance.now()-(sv0.t||0);resumed=true}catch(e){}}
+  $('#menu').hidden=true;$('#game').hidden=false;closeModal();
+  $('#lvName').textContent=LV.name;$('#lvSub').textContent=LV.dev;$('#bPower').disabled=false;
+  $('#trayBar').hidden=true;$('#trayBar').innerHTML='';
+  setTool('mano');render();requestAnimationFrame(fitView);
+  clearInterval(clockT);clockT=setInterval(tickClock,250);tickClock();
+  if(resumed)toast('Has vuelto a tu montaje: está tal como lo dejaste.');
+  else if(!save.manual[LV.id]){save.manual[LV.id]=1;persist();openManual()}}
+function tickClock(){if(!st)return;$('#clock').textContent=fmt(((st.tEnd||performance.now())-st.t0)/1000)}
+function setTool(t){if(!st)return;st.tool=t;selPort=null;document.querySelectorAll('[data-tool]').forEach(b=>{b.classList.toggle('on',b.dataset.tool===t);b.setAttribute('aria-pressed',b.dataset.tool===t)});sv.classList.toggle('solder',t==='soldador');if(LV)render()}
+document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>{if(st&&!st.done){setTool(b.dataset.tool);SFX.click();if(b.dataset.tool==='microscopio')toast('Toca un chip para mirarlo de cerca.')}}));
+$('#bMenu').onclick=showMenu;
+$('#bReset').onclick=()=>{if(LV)startLevel(LEVELS.indexOf(LV),true)};
+$('#bManual').onclick=openManual;
+$('#bPower').onclick=powerOn;
+window.addEventListener('keydown',e=>{if(!st||st.done||$('#game').hidden)return;if(e.key==='s'||e.key==='S')setTool(st.tool==='mano'?'soldador':'mano');if(e.key==='Escape'&&selPort){selPort=null;render()}});
+
+/* ---------- mover cosas, poner cables y soldar ---------- */
+window.addEventListener('pointermove',e=>{if(touches.has(e.pointerId))touches.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pinch){pinch.move();return}if(drag)drag.move(e)});
+const endPtr=(e,cancel)=>{touches.delete(e.pointerId);try{if(sv.hasPointerCapture(e.pointerId))sv.releasePointerCapture(e.pointerId)}catch(_){}if(pinch){if(touches.size<2)pinch=null;return}if(!drag)return;const d=drag;drag=null;d.up(e,cancel)};
+window.addEventListener('pointerup',e=>endPtr(e));window.addEventListener('pointercancel',e=>endPtr(e,true));
+
+function slotAt(c){return LV.slots.find(s=>{const r=slotW(s);return c.x>r.x-26&&c.x<r.x+r.w+26&&c.y>r.y-26&&c.y<r.y+r.h+26})}
+function place(uid,sid){const other=Object.values(st.parts).find(q=>q.where===sid&&q.uid!==uid);
+  if(other){const r=slotW(LV.slots.find(s=>s.id===sid)),K=KIND[other.kind];other.where='loose';st.pos[other.uid]={x:clamp(r.x+r.w+30,4,VW-K.w-4),y:clamp(r.y+20,4,VH-K.h-4)}}
+  st.parts[uid].where=sid;SFX.snap()}
+
+function startDrag(id,e){const p0=toSvg(e);let moved=false;const [type,key]=id.includes(':')?id.split(':'):[id,null];let start,w,h;
+  if(type==='board'){start={...st.pos.board};w=LV.board.w;h=LV.board.h}
+  else if(type==='mod'){start={...st.pos[key]};const m=MOD(key);w=m.w;h=m.h+30}
+  else{const p=st.parts[key],K=KIND[p.kind];w=K.w;h=K.h;if(p.where!=='loose'){const r=slotW(LV.slots.find(s=>s.id===p.where));start={x:r.x+r.w/2-w/2,y:r.y+r.h/2-h/2}}else start={...st.pos[key]}}
+  drag={move(ev){const q=toSvg(ev),dx=q.x-p0.x,dy=q.y-p0.y;if(!moved&&Math.hypot(dx,dy)<4)return;
+      if(!moved){moved=true;dragKey=type==='board'?'board':key;if(type==='part')st.parts[key].where='loose'}
+      const n={x:clamp(start.x+dx,0,VW-w),y:clamp(start.y+dy,0,VH-h)};if(type==='board')st.pos.board=n;else st.pos[key]=n;render()},
+    up(ev,cancel){dragKey=null;
+      if(type==='part'&&!cancel){if(moved){const K=KIND[st.parts[key].kind],o=st.pos[key],sl=slotAt({x:o.x+K.w/2,y:o.y+K.h/2});if(sl)place(key,sl.id);else SFX.click()}
+        else toast('Arrástrala hasta su hueco de la placa.',1800)}
+      render()}}}
+
+function connect(a,b){st.wires=st.wires.filter(w=>![a,b].includes(w.a)&&![a,b].includes(w.b));st.wires.push({a,b});selPort=null;SFX.wire();render()}
+function startWire(pid,e){const sx=e.clientX,sy=e.clientY;let moved=false;
+  drag={move(ev){if(!moved&&Math.hypot(ev.clientX-sx,ev.clientY-sy)>7)moved=true;if(!moved)return;const a=P(pid),q=toSvg(ev),k=a.kind;
+      const t=sv.querySelector('#tmp');if(t)t.innerHTML=`<path d="${curve(a,q)}" stroke="${WCOL[k]}" stroke-width="${WW[k]}" fill="none" stroke-linecap="round" opacity=".85"/>`},
+    up(ev,cancel){const t=sv.querySelector('#tmp');if(t)t.innerHTML='';if(cancel)return;
+      if(moved){const el=document.elementFromPoint(ev.clientX,ev.clientY),pe=el&&el.closest&&el.closest('[data-port]'),b=pe&&pe.dataset.port;if(b&&b!==pid)connect(pid,b);return}
+      if(selPort&&selPort!==pid){connect(selPort,pid);return}
+      selPort=selPort===pid?null:pid;SFX.click();render();if(selPort)toast('Ahora toca el conector donde va el otro extremo.')}}}
+
+const SMIN=.5,SMAX=2,STOP=2.8;
+function startSolder(id){const pd=LV.pads.find(p=>p.id===id),t0=performance.now();st.pads[id]='hot';render();const snd=SFX.sizzle();let raf=0,fin=false;
+  const draw=()=>{const el=(performance.now()-t0)/1000,c=padW(pd),x0=c.x-40,y0=c.y-52,W=80,t=sv.querySelector('#tmp');
+    if(t)t.innerHTML=`<rect x="${x0-4}" y="${y0-4}" width="${W+8}" height="18" rx="6" fill="#071418" stroke="#ffffff40"/><rect x="${x0}" y="${y0}" width="${W*SMIN/STOP}" height="10" fill="#66757b"/><rect x="${x0+W*SMIN/STOP}" y="${y0}" width="${W*(SMAX-SMIN)/STOP}" height="10" fill="#3ddc84"/><rect x="${x0+W*SMAX/STOP}" y="${y0}" width="${W*(STOP-SMAX)/STOP}" height="10" fill="#ff5a4e"/>
+      <rect x="${x0+Math.min(el,STOP)/STOP*W-2}" y="${y0-6}" width="4" height="22" rx="1" fill="#fff"/>`;
+    if(Math.random()<.45)puff(c.x+rand(-3,3),c.y,'wisp');
+    if(el>=STOP)finish();else raf=requestAnimationFrame(draw)};
+  const finish=()=>{if(fin)return;fin=true;cancelAnimationFrame(raf);hush(snd);const el=(performance.now()-t0)/1000,t=sv.querySelector('#tmp');if(t)t.innerHTML='';
+    const r=el<SMIN?'cold':el<=SMAX?'good':'burnt';st.pads[id]=r;render();
+    if(r==='good'){SFX.good();toast('¡Soldadura perfecta!',1500)}else if(r==='cold'){SFX.bad();toast('Soldadura fría: has soltado muy pronto. Vuelve a soldarla.')}else{SFX.bad();toast('¡Te has pasado! Está quemada. Vuelve a soldarla.')}};
+  drag={move(){},up:finish};draw()}
+
+sv.addEventListener('pointerdown',e=>{if(!st)return;ac();const t=e.target;if(e.isPrimary){touches.clear();pinch=null}touches.set(e.pointerId,{x:e.clientX,y:e.clientY});try{sv.setPointerCapture(e.pointerId)}catch(_){}
+  if(touches.size>=2){if(drag){const d=drag;drag=null;d.up(e,true)}startPinch();return}
+  const bg=!!t.closest('[data-bg]');
+  if(st.on){const m=t.closest('[data-mtype]');if(m&&m.dataset.mtype==='gamepad')screenTap(null);else if(bg)startPan(e);return}
+  if(st.done){if(bg)startPan(e);return}
+  if(st.tool==='microscopio'){const pd=t.closest('[data-drag^="part:"]');if(pd)openScope(pd.dataset.drag.slice(5));else if(bg)startPan(e);else toast('Toca un chip para mirarlo con el microscopio.');return}
+  const port=t.closest('[data-port]'),pad=t.closest('[data-pad]'),wire=t.closest('[data-wire]'),dr=t.closest('[data-drag]');
+  if(st.tool==='soldador'){if(pad){e.preventDefault();startSolder(pad.dataset.pad)}else if(bg)startPan(e);else if(port||dr||wire)toast('Con el soldador solo se sueldan los puntos dorados. Cambia a la mano para mover cosas.');return}
+  if(port){e.preventDefault();startWire(port.dataset.port,e);return}
+  if(wire){st.wires.splice(+wire.dataset.wire,1);SFX.unwire();render();return}
+  if(pad&&!dr){toast('Para soldar, elige el soldador (arriba).');return}
+  if(dr){e.preventDefault();startDrag(dr.dataset.drag,e);return}
+  if(bg){startPan(e);return}
+  if(selPort){selPort=null;render()}});
+
+/* ---------- encender ---------- */
+function check(){const F=[],key=(a,b)=>[a,b].sort().join('|');
+  LV.slots.forEach(s=>{const p=Object.values(st.parts).find(q=>q.where===s.id),r=slotW(s),c={x:r.x+r.w/2,y:r.y+r.h/2};
+    if(!p)F.push({...c,ids:[s.id],msg:`Falta una pieza en ${s.label}.`});
+    else if(p.kind!==s.want)F.push({...c,ids:[s.id],msg:`Has puesto ${KIND[p.kind].name} en ${s.label}, y no va ahí.`});
+    else{const d=p.defects.find(d=>!d.fixed);if(d)F.push({...c,ids:[s.id],msg:`${KIND[p.kind].name} (${s.label}) venía roto: ${DEFMSG[d.t]}. Había que repararlo con el microscopio.`})}});
+  const need=new Set(LV.need.map(n=>key(...n))),have=new Set(st.wires.map(w=>key(w.a,w.b)));
+  st.wires.forEach((w,i)=>{if(need.has(key(w.a,w.b)))return;const A=P(w.a),B=P(w.b),pol=(A.kind==='pos'&&B.kind==='neg')||(A.kind==='neg'&&B.kind==='pos');
+    F.push({x:(A.x+B.x)/2,y:(A.y+B.y)/2+20,ids:['w'+i,w.a,w.b],msg:pol?`¡Polaridad al revés! Has unido ${A.name} con ${B.name}.`:`Cable mal puesto: ${A.name} con ${B.name}.`})});
+  LV.need.forEach(n=>{if(have.has(key(...n)))return;const A=P(n[0]),B=P(n[1]);F.push({x:B.x,y:B.y,ids:[n[0],n[1]],msg:n[0]==='HDMI'?'El monitor no está conectado a la placa.':`Falta el cable de ${A.name} a ${B.name}.`})});
+  LV.pads.forEach(p=>{const s=st.pads[p.id],c=padW(p);if(s==='good')return;F.push({...c,ids:[p.id],msg:!s||s==='hot'?`Falta soldar ${p.name}.`:s==='cold'?`Soldadura fría en ${p.name}.`:`Soldadura quemada en ${p.name}.`})});
+  return F}
+function powerOn(){if(!st||st.done)return;ac();
+  const pw=LV.ports.filter(p=>p.power).map(p=>p.id);
+  if(!st.wires.some(w=>pw.includes(w.a)||pw.includes(w.b))){SFX.bad();toast(LV.id==='pc'?'No pasa nada: la fuente no está conectada a la placa.':'No pasa nada: la batería no está conectada a la placa.');return}
+  st.tEnd=performance.now();st.done=true;selPort=null;$('#bPower').disabled=true;
+  const F=check();if(F.length)explode(F);else win()}
+/* ---------- humo, chispas y explosión ---------- */
+const fx=$('#fx'),fc=fx.getContext('2d');let FX=[],fxRaf=0;
+function fxSize(){const d=devicePixelRatio||1;fx.width=innerWidth*d;fx.height=innerHeight*d;fc.setTransform(d,0,0,d,0,0)}
+fxSize();addEventListener('resize',()=>{fxSize();placeScr()});
+function puff(x,y,kind){const s=toScreen(x,y),sc=sv.getScreenCTM().a;let p;
+  if(kind==='wisp')p={x:s.x,y:s.y,vx:rand(-.25,.25),vy:-rand(.5,1),r:2.5*sc,gr:.18*sc,life:1,decay:.025,col:[215,215,215],a:.5};
+  else if(kind==='smoke'){const g=rand(40,95)|0;p={x:s.x+rand(-6,6),y:s.y,vx:rand(-.5,.5),vy:-rand(.7,1.6),r:rand(5,9)*sc,gr:.32*sc,life:1,decay:rand(.007,.012),col:[g,g,g],a:.62}}
+  else if(kind==='spark'){p={x:s.x,y:s.y,vx:rand(-4,4),vy:rand(-5,-1),g:.22,r:1.6,life:1,decay:rand(.025,.05),col:[255,rand(170,230)|0,70],a:1,spark:1}}
+  else if(kind==='fire'){const a=rand(0,6.28),v=rand(1,7);p={x:s.x,y:s.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-1,r:rand(8,20)*sc,gr:.5*sc,life:1,decay:rand(.018,.03),col:[255,rand(90,190)|0,30],a:1,fire:1}}
+  else if(kind==='debris'){const a=rand(0,6.28),v=rand(4,11);p={x:s.x,y:s.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-3,g:.3,w:rand(5,14)*sc,h:rand(4,9)*sc,rot:rand(0,6),vr:rand(-.3,.3),life:1,decay:.008,col:[[30,34,38],[15,90,64],[200,160,80],[60,64,70]][Math.random()*4|0],a:1,rect:1}}
+  FX.push(p);if(!fxRaf)fxRaf=requestAnimationFrame(fxLoop)}
+function fxLoop(){fc.clearRect(0,0,innerWidth,innerHeight);FX=FX.filter(p=>p.life>0);
+  for(const p of FX){p.x+=p.vx;p.y+=p.vy;if(p.g)p.vy+=p.g;if(!p.g){p.vx*=.985;p.vy*=.99}p.r+=p.gr||0;p.life-=p.decay;const al=Math.max(0,p.life*p.a);
+    if(p.rect){p.rot+=p.vr;fc.save();fc.translate(p.x,p.y);fc.rotate(p.rot);fc.globalAlpha=al;fc.fillStyle=`rgb(${p.col})`;fc.fillRect(-p.w/2,-p.h/2,p.w,p.h);fc.restore();continue}
+    if(p.spark){fc.globalAlpha=al;fc.strokeStyle=`rgb(${p.col})`;fc.lineWidth=2;fc.beginPath();fc.moveTo(p.x,p.y);fc.lineTo(p.x-p.vx*2.2,p.y-p.vy*2.2);fc.stroke();continue}
+    if(p.fire){const g=Math.max(40,p.col[1]*p.life);fc.globalAlpha=al;fc.fillStyle=p.life>.45?`rgb(255,${g|0},40)`:`rgb(${70+p.life*120|0},${60+p.life*40|0},${55})`}
+    else{fc.globalAlpha=al;fc.fillStyle=`rgb(${p.col})`}
+    fc.beginPath();fc.arc(p.x,p.y,Math.max(.5,p.r),0,6.283);fc.fill()}
+  fc.globalAlpha=1;fxRaf=(FX.length||emitting)?requestAnimationFrame(fxLoop):0}
+
+function explode(F){dropCur();cubiEnd();st.hot=new Set(F.flatMap(f=>f.ids));st.faultPts=F;render();SFX.zap();const t0=performance.now();emitting=true;$('#warn').hidden=false;
+  if(!fxRaf)fxRaf=requestAnimationFrame(fxLoop);
+  const tick=()=>{const t=(performance.now()-t0)/1000;
+    F.forEach(f=>{if(Math.random()<(t<1.2?.22:.55))puff(f.x,f.y,'smoke');if(t>.5&&Math.random()<.28)for(let i=0;i<3;i++)puff(f.x,f.y,'spark')});
+    if(t>1.5&&Math.random()<.35){const b={...LV.board,...BP()};puff(b.x+Math.random()*b.w,b.y+Math.random()*b.h,'smoke')}
+    if(Math.random()<.06)SFX.zap();
+    sv.classList.toggle('shake',t>1.3);
+    if(t<3.3){anim=requestAnimationFrame(tick);return}
+    emitting=false;sv.classList.remove('shake');$('#warn').hidden=true;boom(F)};
+  anim=requestAnimationFrame(tick)}
+function boom(F){SFX.boom();const fl=$('#flash');fl.hidden=false;fl.classList.remove('go');void fl.offsetWidth;fl.classList.add('go');setTimeout(()=>fl.hidden=true,900);
+  const b={...LV.board,...BP()},cx=b.x+b.w/2,cy=b.y+b.h/2;
+  for(let i=0;i<70;i++)puff(cx+rand(-b.w/3,b.w/3),cy+rand(-b.h/3,b.h/3),'fire');
+  for(let i=0;i<40;i++)puff(cx,cy,'spark');for(let i=0;i<30;i++)puff(cx,cy,'debris');for(let i=0;i<34;i++)puff(cx+rand(-b.w/2,b.w/2),cy+rand(-b.h/2,b.h/2),'smoke');
+  document.body.classList.remove('bigshake');void document.body.offsetWidth;document.body.classList.add('bigshake');setTimeout(()=>document.body.classList.remove('bigshake'),700);
+  st.burnt=true;render();setTimeout(()=>loseModal(F),1400)}
+
+function loseModal(F){const more=F.length-6;
+  openModal(`<div class="card boom" role="dialog" aria-modal="true" aria-labelledby="bt"><h2 id="bt">¡BOOM!</h2><p>El ${esc(LV.name.toLowerCase())} ha explotado. Esto es lo que estaba mal:</p>
+    <ul class="faults">${F.slice(0,6).map(f=>`<li>${esc(f.msg)}</li>`).join('')}${more>0?`<li>Y ${more} cosa${more>1?'s':''} más.</li>`:''}</ul>
+    <div class="row"><button class="btn go2" id="mRetry">Volver a montarlo</button><button class="btn" id="mMan">Ver el manual</button><button class="btn" id="mMenu">Menú</button></div></div>`);
+  $('#mRetry').onclick=()=>startLevel(LEVELS.indexOf(LV));$('#mMenu').onclick=showMenu;$('#mMan').onclick=()=>{startLevel(LEVELS.indexOf(LV));openManual()};$('#mRetry').focus()}
+
+function win(){dropCur();cubiEnd();st.on=true;$('#game').classList.add('on');render();SFX.on();startScreen();
+  const secs=Math.round((st.tEnd-st.t0)/1000),[a,b]=LV.stars,stars=secs<=a?3:secs<=b?2:1;
+  save.stars[LV.id]=Math.max(save.stars[LV.id]||0,stars);if(!save.best[LV.id]||secs<save.best[LV.id])save.best[LV.id]=secs;persist();
+  setTimeout(()=>{if(!st||!st.on)return;SFX.win();const i=LEVELS.indexOf(LV),last=i===LEVELS.length-1;
+    $('#trayBar').hidden=false;$('#trayBar').innerHTML=`<div class="result"><h2>¡FUNCIONA!</h2><span class="stars" aria-label="${stars} estrellas"><i>${'★'.repeat(stars)}</i>${'★'.repeat(3-stars)}</span><span class="t">${fmt(secs)}</span>
+      ${last?'':`<button class="btn go" id="rNext">Siguiente: ${esc(LEVELS[i+1].name)}</button>`}<button class="btn" id="rAgain">Montarlo otra vez</button><button class="btn" id="rMenu">Menú</button>
+      <p>${last?'¡Has montado todos los aparatos! ':''}Toca la pantalla del aparato para usarlo. Para 3 estrellas, móntalo en menos de ${fmt(a)}.</p></div>`;
+    if(!last)$('#rNext').onclick=()=>startLevel(i+1);$('#rAgain').onclick=()=>startLevel(i,true);$('#rMenu').onclick=showMenu},2600)}
+
+/* ---------- la pantalla del aparato ---------- */
+const scrCv=$('#scrCv');
+function placeScr(){if(!scr||!LV)return;const r=monScr(),a=toScreen(r.x,r.y),b=toScreen(r.x+r.w,r.y+r.h),br=bench.getBoundingClientRect(),d=devicePixelRatio||1;
+  const w=b.x-a.x,h=b.y-a.y;scrCv.style.left=(a.x-br.left)+'px';scrCv.style.top=(a.y-br.top)+'px';scrCv.style.width=w+'px';scrCv.style.height=h+'px';
+  if(scrCv.width!==Math.round(w*d)){scrCv.width=Math.round(w*d);scrCv.height=Math.round(h*d)}}
+function startScreen(){scr={app:LV.screen==='game'?'juego':LV.screen==='pc'?'escritorio':'inicio',t0:performance.now(),last:performance.now(),hit:[],flash:0,run:newRun(),cam:false};
+  scrCv.hidden=false;placeScr();cancelAnimationFrame(scrRaf);const loop=()=>{if(!scr)return;placeScr();drawScreen();scrRaf=requestAnimationFrame(loop)};loop()}
+function newRun(){return{y:0,vy:0,obs:[],next:1,score:0,best:0,hitT:0}}
+scrCv.addEventListener('pointerdown',e=>{e.preventDefault();ac();const r=scrCv.getBoundingClientRect();screenTap({x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height})});
+function screenTap(pt){if(!scr)return;const t=(performance.now()-scr.t0)/1000;if(t<2.4)return;
+  if(!pt||scr.app==='juego'){if(pt&&scr.app==='juego'&&LV.screen!=='game'&&pt.y>.9){scr.app=back();return}jump();return}
+  if(scr.app==='linterna'){scr.app='inicio';return}
+  if(scr.app!=='inicio'&&scr.app!=='escritorio'&&pt.y>.9){scr.app=back();return}
+  if(scr.app==='camara'&&scr.cam){scr.flash=1;SFX.shutter();return}
+  const h=scr.hit.find(z=>pt.x>=z.x&&pt.x<=z.x+z.w&&pt.y>=z.y&&pt.y<=z.y+z.h);if(h){scr.app=h.app;SFX.click();if(h.app==='musica')SFX.song();if(h.app==='juego')scr.run=newRun()}}
+const back=()=>LV.screen==='pc'?'escritorio':'inicio';
+function jump(){const r=scr.run;if(r.y<=0.001){r.vy=1.15;SFX.jump()}}
+
+function drawScreen(){const c=scrCv,x=c.getContext('2d'),W=c.width,H=c.height,now=performance.now(),t=(now-scr.t0)/1000,dt=Math.min(.05,(now-scr.last)/1000);scr.last=now;
+  const u=Math.min(W,H)/100;x.save();x.clearRect(0,0,W,H);x.fillStyle='#000';x.fillRect(0,0,W,H);scr.hit=[];
+  const txt=(s,px,py,size,col='#fff',al='center',wt='700')=>{x.fillStyle=col;x.font=`${wt} ${size}px Nunito, system-ui, sans-serif`;x.textAlign=al;x.textBaseline='middle';x.fillText(s,px,py)};
+  // arranque
+  if(t<2.4){
+    if(LV.screen==='pc'){const lines=['SIN-BIOS v1.0','CPU ............ OK','RAM 32 GB ...... OK','SSD M.2 1 TB ... OK','Ventilador ..... OK','Arrancando…'];x.font=`${4.2*u}px "Share Tech Mono", monospace`;x.textAlign='left';x.textBaseline='top';x.fillStyle='#bfe8c9';
+      lines.slice(0,Math.floor(t*3)).forEach((l,i)=>x.fillText(l,4*u,4*u+i*6*u))}
+    else{const a=Math.max(0,Math.min(1,(t-.5)/.6))*(t>2?Math.max(0,(2.4-t)/.4):1);x.globalAlpha=a;const cx=W/2,cy=H/2-4*u,s=12*u;
+      x.fillStyle='#ffb238';x.beginPath();x.moveTo(cx,cy-s);x.lineTo(cx+s,cy-s/2);x.lineTo(cx,cy);x.lineTo(cx-s,cy-s/2);x.fill();x.fillStyle='#ff7a2f';x.beginPath();x.moveTo(cx-s,cy-s/2);x.lineTo(cx,cy);x.lineTo(cx,cy+s);x.lineTo(cx-s,cy+s/2);x.fill();
+      x.fillStyle='#d9480f';x.beginPath();x.moveTo(cx+s,cy-s/2);x.lineTo(cx,cy);x.lineTo(cx,cy+s);x.lineTo(cx+s,cy+s/2);x.fill();
+      txt(LV.screen==='game'?'PIXELBOX':'SinOS',cx,cy+s+8*u,8*u)}
+    x.restore();return}
+  const clock=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  const backBar=()=>{x.fillStyle='rgba(0,0,0,.45)';x.fillRect(0,H*.9,W,H*.1);txt('‹ Volver',W/2,H*.95,4.6*u)};
+  if(scr.app==='inicio'){const g=x.createLinearGradient(0,0,W,H);g.addColorStop(0,'#0f766e');g.addColorStop(1,'#3b1d7a');x.fillStyle=g;x.fillRect(0,0,W,H);
+    x.globalAlpha=.25;x.fillStyle='#ffb238';x.beginPath();x.arc(W*.8,H*.25,W*.35,0,7);x.fill();x.globalAlpha=1;
+    txt(clock,W*.08,4*u,3.6*u,'#fff','left');txt('100 %',W*.92,4*u,3.4*u,'#fff','right');
+    txt(clock,W/2,H*.2,16*u,'#fff','center','800');txt(new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'}),W/2,H*.2+11*u,4.2*u,'#ffffffcc');
+    const apps=[['musica','Música','#ff5a7a'],['linterna','Linterna','#ffd84d'],['juego','Juego','#3ddc84']];
+    const cols=W>H?3:2,sz=Math.min(W/(cols+1.6),(H*.42)/(Math.ceil(3/cols)+.8)),gap=(W-cols*sz)/(cols+1);
+    apps.forEach(([id,n,c],i)=>{const cx=gap+(i%cols)*(sz+gap),cy=H*.5+Math.floor(i/cols)*(sz*1.35);x.fillStyle=c;x.beginPath();x.roundRect?x.roundRect(cx,cy,sz,sz,sz*.24):x.rect(cx,cy,sz,sz);x.fill();
+      x.fillStyle='rgba(0,0,0,.35)';x.beginPath();
+      if(id==='musica'){x.arc(cx+sz*.42,cy+sz*.66,sz*.12,0,7);x.fill();x.fillRect(cx+sz*.5,cy+sz*.24,sz*.06,sz*.44)}
+      if(id==='linterna'){x.fillRect(cx+sz*.38,cy+sz*.4,sz*.24,sz*.4);x.beginPath();x.moveTo(cx+sz*.28,cy+sz*.22);x.lineTo(cx+sz*.72,cy+sz*.22);x.lineTo(cx+sz*.62,cy+sz*.4);x.lineTo(cx+sz*.38,cy+sz*.4);x.fill()}
+      if(id==='camara'){x.fillRect(cx+sz*.2,cy+sz*.32,sz*.6,sz*.42);x.fillStyle=c;x.beginPath();x.arc(cx+sz*.5,cy+sz*.53,sz*.13,0,7);x.fill()}
+      if(id==='juego'){x.fillRect(cx+sz*.2,cy+sz*.6,sz*.6,sz*.08);x.fillRect(cx+sz*.32,cy+sz*.36,sz*.16,sz*.2)}
+      txt(n,cx+sz/2,cy+sz+3.6*u,3.4*u);scr.hit.push({x:cx/W,y:cy/H,w:sz/W,h:sz/H,app:id})})}
+  else if(scr.app==='escritorio'){const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#0e4d5c');g.addColorStop(1,'#123029');x.fillStyle=g;x.fillRect(0,0,W,H);
+    const ic=[['juego','Juego','#3ddc84'],['musica','Música','#ff5a7a']];ic.forEach(([id,n,c],i)=>{const s=11*u,px=4*u,py=5*u+i*(s+9*u);x.fillStyle=c;x.fillRect(px,py,s,s);txt(n,px+s/2,py+s+3.5*u,3.2*u);scr.hit.push({x:px/W,y:py/H,w:s/W,h:(s+6*u)/H,app:id})});
+    const wx=W*.32,wy=H*.16,ww=W*.6,wh=H*.56;x.fillStyle='#f3f6f5';x.fillRect(wx,wy,ww,wh);x.fillStyle='#1d3a43';x.fillRect(wx,wy,ww,6*u);txt('Bienvenido',wx+3*u,wy+3*u,3.4*u,'#fff','left');
+    txt('Has montado este ordenador',wx+ww/2,wy+wh*.35,4.2*u,'#11262d');txt('tú solo. ¡Funciona!',wx+ww/2,wy+wh*.35+6*u,4.2*u,'#11262d');txt('CPU OK · 32 GB · 1 TB',wx+ww/2,wy+wh*.75,3.4*u,'#557','center','500');
+    x.fillStyle='#071418';x.fillRect(0,H-8*u,W,8*u);x.fillStyle='#ffb238';x.fillRect(2*u,H-6.5*u,5*u,5*u);txt(clock,W-3*u,H-4*u,3.6*u,'#fff','right')}
+  else if(scr.app==='musica'){x.fillStyle='#2a0f3a';x.fillRect(0,0,W,H);txt('Sonando',W/2,H*.16,4*u,'#ffffffaa');txt('Melodía del taller',W/2,H*.16+7*u,6*u);
+    const n=12,bw=W*.7/n;for(let i=0;i<n;i++){const h=(.25+.75*Math.abs(Math.sin(t*4+i*.7)))*H*.3;x.fillStyle=`hsl(${330+i*6},90%,62%)`;x.fillRect(W*.15+i*bw,H*.72-h,bw*.7,h)}
+    txt('Toca aquí para repetir',W/2,H*.82,3.6*u,'#ffffffaa');scr.hit.push({x:0,y:.76,w:1,h:.1,app:'musica'});backBar()}
+  else if(scr.app==='linterna'){x.fillStyle='#fff';x.fillRect(0,0,W,H);txt('Linterna encendida',W/2,H/2,5*u,'#999');txt('Toca para apagarla',W/2,H/2+7*u,3.6*u,'#bbb','center','500')}
+  else if(scr.app==='camara'){if(!scr.cam){x.fillStyle='#111';x.fillRect(0,0,W,H);txt('Este aparato',W/2,H*.42,5*u,'#ccc');txt('no tiene cámara',W/2,H*.42+7*u,5*u,'#ccc')}
+    else{x.fillStyle='#24323a';x.fillRect(0,0,W,H);for(let i=0;i<7;i++){x.fillStyle=['#0f5a40','#ffb238','#4da3ff','#ff5a4e','#e9f5ee','#3b1d7a','#1d3a43'][i];const px=(Math.sin(t*.6+i*1.7)*.35+.5)*W,py=(Math.cos(t*.5+i*2.3)*.3+.45)*H;x.fillRect(px-8*u,py-6*u,16*u,12*u)}
+      x.strokeStyle='#ffffffaa';x.lineWidth=u*.5;x.strokeRect(W*.15,H*.2,W*.7,H*.5);x.fillStyle='#fff';x.beginPath();x.arc(W/2,H*.82,7*u,0,7);x.fill();x.strokeStyle='#000';x.beginPath();x.arc(W/2,H*.82,5.5*u,0,7);x.stroke()}
+    if(scr.flash>0){x.globalAlpha=scr.flash;x.fillStyle='#fff';x.fillRect(0,0,W,H);x.globalAlpha=1;scr.flash=Math.max(0,scr.flash-dt*3)}
+    backBar()}
+  else if(scr.app==='juego'){const r=scr.run,gy=H*.78,px=W*.18,ps=Math.min(W,H)*.09,sp=W*.45;
+    x.fillStyle='#14102a';x.fillRect(0,0,W,H);x.fillStyle='#ffffff22';for(let i=0;i<20;i++)x.fillRect((i*137+t*-20*u)%W+W*(i*137<0),((i*71)%100)/100*gy*.8,u*.8,u*.8);
+    x.fillStyle='#3ddc84';x.fillRect(0,gy,W,H-gy);x.fillStyle='#0f5a40';for(let i=0;i<W/(8*u)+2;i++)x.fillRect(((i*8*u)-(t*sp)%(8*u)),gy+2*u,4*u,2*u);
+    r.vy-=dt*3.6;r.y=Math.max(0,r.y+r.vy*dt*1.6);if(r.y===0)r.vy=Math.max(0,r.vy);
+    r.next-=dt;if(r.next<=0){r.obs.push(W+10);r.next=rand(.9,1.8)}r.obs=r.obs.map(o=>o-sp*dt).filter(o=>o>-ps);
+    const py=gy-ps-r.y*H*.5;r.score+=dt*10;
+    for(const o of r.obs){x.fillStyle='#ff5a4e';x.fillRect(o,gy-ps*.9,ps*.6,ps*.9);if(o<px+ps*.8&&o+ps*.6>px+ps*.2&&py+ps>gy-ps*.9+4){r.best=Math.max(r.best,r.score|0);r.score=0;r.obs=[];r.hitT=.4;SFX.bad()}}
+    x.fillStyle=r.hitT>0?'#fff':'#ffb238';x.fillRect(px,py,ps,ps);x.fillStyle='#14102a';x.fillRect(px+ps*.6,py+ps*.25,ps*.15,ps*.15);r.hitT=Math.max(0,r.hitT-dt);
+    txt(`Puntos ${r.score|0}   Récord ${r.best}`,W/2,7*u,4*u);txt(LV.screen==='game'?'Toca la pantalla o un mando para saltar':'Toca para saltar',W/2,H*.9,3.4*u,'#ffffffbb','center','500');
+    if(LV.screen!=='game')backBar()}
+  x.restore()}
+
+/* ---------- manual y ventanas ---------- */
+function openModal(html){$('#modal').innerHTML=`<div class="ov">${html}</div>`}
+function closeModal(){$('#modal').innerHTML=''}
+function openManual(){if(!LV)return;const groups={};LV.pads.forEach(p=>groups[p.g]=(groups[p.g]||0)+1);const tag=id=>LV.ports.find(p=>p.id===id).tag,nm=id=>LV.ports.find(p=>p.id===id).name;
+  openModal(`<div class="card man" role="dialog" aria-modal="true" aria-labelledby="mt"><h2 id="mt">Esquema · ${esc(LV.name)}</h2>
+    <h3>Huecos de la placa</h3><table>${LV.slots.map(s=>`<tr><td>${esc(s.label)}</td><td>${esc(KIND[s.want].short)} (${esc(KIND[s.want].name)})</td></tr>`).join('')}</table>
+    ${LV.decoy?'<div class="tip">En la mesa hay una pieza que no es de este aparato.</div>':''}
+    <div class="tip">${LV.broken===1?'Una pieza viene rota':`${LV.broken} piezas vienen rotas`}. No se nota a simple vista: usa el microscopio. Pin doblado → pinzas · pista cortada → soldador fino (mantén pulsado) · óxido → cepillo (varias veces).</div>
+    <h3>Cables</h3><table>${LV.need.map(([a,b])=>`<tr><td>${esc(tag(a))} → ${esc(tag(b))}</td><td>${esc(nm(a))} con ${esc(nm(b))}</td></tr>`).join('')}</table>
+    <h3>Soldaduras</h3><table>${Object.entries(groups).map(([g,n])=>`<tr><td>${n} puntos</td><td>${esc(g)}</td></tr>`).join('')}</table>
+    <div class="tip">Con el soldador, mantén pulsado cada punto dorado hasta la zona verde. Para moverte por la mesa, arrastra el fondo o usa los botones + y −.</div>
+    <div class="row"><button class="btn go2" id="mOk">A montar</button></div></div>`);
+  $('#mOk').onclick=closeModal;$('#mOk').focus()}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#mOk'))closeModal()});
+function stopAll(){$('#game').classList.remove('on');cancelAnimationFrame(anim);cancelAnimationFrame(scrRaf);scr=null;scrCv.hidden=true;emitting=false;FX=[];sv.classList.remove('shake');$('#warn').hidden=true;clearInterval(clockT);drag=null;dragKey=null}
+showMenu();
+</script>
+</body>
+</html>
