@@ -194,7 +194,7 @@ let bannerT=null;function banner(t,s){const b=$('#banner');b.textContent=t;b.sty
 function hud(){const show=[...SHOWN];if(cronoOn||crono>0)show.push('@crono');
   $('#vars').innerHTML=show.map(v=>`<div class="k-out">${v==='@crono'?'Tiempo':esc(v)}<b>${v==='@crono'?crono.toFixed(1)+' s':VARS[v]}</b></div>`).join('')}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function end(win){if(over)return;over=true;sfx(win?'win':'lose');if(window.CubiAvatar)CubiAvatar.emote(me,win?'ge4':'ge3');
+function end(win){if(over)return;over=true;try{if(parent!==window)parent.postMessage({cubiEvt:'end'},'*')}catch(e){}sfx(win?'win':'lose');if(window.CubiAvatar)CubiAvatar.emote(me,win?'ge4':'ge3');
   const extra=[...SHOWN].map(v=>`${esc(v)}: <b>${VARS[v]}</b>`).concat(crono>0?[`Tiempo: <b>${crono.toFixed(1)} s</b>`]:[]).join(' · ');
   setTimeout(()=>{document.body.insertAdjacentHTML('beforeend',`<div id="endov">${K.panel(win?'¡HAS GANADO!':'FIN DE LA PARTIDA',win?'#3fd15c':'#e5484d',`<p style="text-align:center;font-size:16px">${extra||(win?'¡Lo has conseguido!':'Inténtalo otra vez')}</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button class="k-btn g k-out" onclick="location.reload()">Jugar otra vez</button>${MODO==='prueba'?'<button class="k-btn r k-out" onclick="parent.postMessage({cuboStop:1},\'*\')">Volver al editor</button>':''}</div>`)}</div>`)},700)}
 $('#restart').onclick=()=>location.reload();

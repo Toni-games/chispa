@@ -211,7 +211,7 @@ const A={
 const IA=window.CuboIA?CuboIA({obj,bk,st,PF:PREFABS,E}):null;
 const IAEX=['Un obby en el espacio muy difícil con trampolines y plataformas que se mueven','Sobrevivir 60 segundos a 6 zombis de noche','Recoger 20 monedas en la playa','Un laberinto grande de nieve con 10 monedas','Lluvia de meteoritos en un volcán','Una torre de dulces fácil','Guerra de globos en un castillo','Una carrera rápida en la ciudad neón'];
 let iaLast=null;
-function iaMake(res,keep){const g=res.game;g.id='p'+Date.now().toString(36);g.created=Date.now();ALL.list[g.id]=g;ALL.last=g.id;
+function iaMake(res,keep){try{if(parent!==window)parent.postMessage({cubiEvt:'ia'},'*')}catch(e){}const g=res.game;g.id='p'+Date.now().toString(36);g.created=Date.now();ALL.list[g.id]=g;ALL.last=g.id;
   if(keep&&iaLast&&iaLast.id&&ALL.list[iaLast.id]&&iaLast.id!==g.id&&!ALL.list[iaLast.id].touched)delete ALL.list[iaLast.id];
   iaLast={id:g.id,res};open(g.id);persist(true);setTimeout(snapThumb,600)}
 function iaResult(res,from){const g=res.game;sfx('levelup');
