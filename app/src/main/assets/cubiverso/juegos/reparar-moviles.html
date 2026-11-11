@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Reparar Móviles</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Taller de reparaciones: tienda en 3D; al abrir un aparato, mesa de trabajo de cerca con los pasos a la izquierda */
+body{background:#cfe8f0}
+#tip{bottom:calc(env(safe-area-inset-bottom,0px) + 58px);left:50%;transform:translateX(-50%);font-weight:900;font-size:16px;pointer-events:none;white-space:nowrap}
+body.k-touch #tip{bottom:calc(env(safe-area-inset-bottom,0px) + 160px)}
+#carry{bottom:calc(env(safe-area-inset-bottom,0px) + 10px);left:50%;transform:translateX(-50%);background:rgba(20,22,34,.85);border:3px solid #000;border-radius:12px;padding:6px 12px;font-weight:900;font-size:14px;text-align:center}
+#carry b{color:#ffcc33}
+body.k-touch #carry{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 54px)}
+body.rep .k-ui{display:none!important}
+#rep{position:fixed;inset:0;z-index:30;pointer-events:none;font-family:Nunito,system-ui,sans-serif;color:#fff}
+#rep[hidden]{display:none}
+#rep .top{position:absolute;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 10px) max(12px,env(safe-area-inset-right,0px)) 10px max(12px,env(safe-area-inset-left,0px));background:linear-gradient(#0c1220f2,#0c122000);display:flex;gap:10px;align-items:flex-start;pointer-events:auto}
+#rep .top .t{flex:1;min-width:0}
+#rep .top h2{margin:0;font:400 22px "Lilita One","Arial Black",sans-serif;letter-spacing:.02em}
+#rep .diag{margin-top:4px;background:#ffcc33;color:#1c1300;border:3px solid #000;border-radius:10px;padding:4px 10px;font-weight:900;display:inline-block;max-width:100%}
+.rb{border:3px solid #000;border-radius:12px;padding:8px 14px;font:900 15px Nunito,sans-serif;background:#2b3047;color:#fff;cursor:pointer}
+.rb.y{background:#ffcc33;color:#000}.rb.g{background:#3fd15c;color:#000}
+#steps{position:absolute;left:max(12px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 96px);width:min(300px,40vw);background:rgba(12,18,32,.88);border:3px solid #000;border-radius:14px;padding:10px 12px;pointer-events:auto;max-height:calc(100vh - 200px);overflow:auto}
+#steps h3{margin:0 0 6px;font:400 16px "Lilita One",sans-serif;color:#ffcc33}
+#steps ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:800}
+#steps li{color:#8e97b5}#steps li.now{color:#fff}#steps li.ok{color:#5ee08f;text-decoration:line-through}
+#stepNow{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 14px);background:rgba(12,18,32,.92);border:3px solid #000;border-radius:14px;padding:10px 16px;font-weight:900;font-size:17px;text-align:center;pointer-events:auto;max-width:calc(100vw - 24px)}
+#stepNow small{display:block;color:#ffcc33;font-size:12px;letter-spacing:.06em}
+#pick{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+#pick button{border:3px solid #000;border-radius:12px;background:#fff;color:#000;font:900 13px Nunito,sans-serif;padding:8px 10px;max-width:160px;cursor:pointer}
+#hold{position:fixed;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;pointer-events:none;z-index:31;background:conic-gradient(#ffcc33 var(--p,0%),rgba(0,0,0,.35) 0);-webkit-mask:radial-gradient(circle,transparent 22px,#000 23px);mask:radial-gradient(circle,transparent 22px,#000 23px)}
+@media (max-width:700px){#steps{width:min(220px,46vw);font-size:12px;top:calc(env(safe-area-inset-top,0px) + 110px)}#steps ol{font-size:12px}#rep .top h2{font-size:18px}#stepNow{font-size:15px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="tip" class="k-ui k-out"></div>
+<div id="carry" class="k-ui" hidden></div>
+<div id="rep" hidden>
+  <div class="top"><div class="t"><h2 id="rTitle"></h2><div class="diag" id="rDiag"></div></div><button class="rb y" id="rHint">Pista (−2 $)</button><button class="rb" id="rLeave">Dejarlo</button></div>
+  <div id="steps"><h3>Pasos</h3><ol id="rSteps"></ol></div>
+  <div id="stepNow"></div>
+</div>
+<div id="hold" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../graficos.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script src="comun.js"></script>
+<script>
+const K=Kit,J=Juego,$=s=>document.querySelector(s);
+const {renderer,scene,camera,sun}=K.setup({sky:0xcfe8f0,fog:false});
+const floor=new THREE.Mesh(new THREE.BoxGeometry(80,1,80),K.M(0xffffff,{map:K.studs([40,40])}));floor.material.color.set(0xb0bec5);floor.position.y=-.5;floor.receiveShadow=true;scene.add(floor);
+const boxes=[];
+function solid(w,h,d,col,x,z,y){y=y||0;const m=K.box(w,h,d,K.M(col),x,y+h/2,z,scene);m.castShadow=m.receiveShadow=true;boxes.push({x0:x-w/2,x1:x+w/2,z0:z-d/2,z1:z+d/2,top:y+h});return m}
+const label=(txt,x,y,z,w,col)=>{const s=K.sprite(K.textTex([[txt,38,col||'#ffffff',32]],420,64),w||3.4,(w||3.4)*64/420);s.position.set(x,y,z);scene.add(s);return s};
+/* ---------- la tienda ---------- */
+solid(32,6,1,0xeceff1,0,-11);solid(1,6,22,0xeceff1,-16,0);solid(1,6,22,0xeceff1,16,0);
+K.box(31,.05,15,K.M(0xdfe6ea),0,.03,-3.5,scene).receiveShadow=true;
+solid(18,1.6,1.4,0x26a69a,0,4);K.box(18.4,.2,1.8,K.M(0xb2dfdb),0,1.7,4,scene);
+label('TALLER DE REPARACIONES',0,5.2,-10.4,12,'#00695c');
+// estanterías con aparatos de adorno
+for(const x of [-14,14]){solid(1.6,3,5,0x8d6e63,x,0);for(let i=0;i<3;i++)for(let j=0;j<2;j++)K.box(.4,.6,.9,K.M([0x263238,0x37474f,0x455a64][i]),x+(x<0?.5:-.5),.8+i*.9,-1.6+j*2.2+i*.4,scene)}
+// caja registradora
+K.box(1.4,.8,1,K.M(0x37474f),6.5,2.2,4,scene);
+const BENCH=[-8,0,8].map((x,i)=>{solid(5,1.6,2.6,0x6d4c41,x,-7.6);const mat=K.box(4.6,.06,2.2,K.M(0x1e6b52),x,1.64,-7.6,scene);mat.receiveShadow=true;
+  K.box(.15,2.4,.15,K.M(0x90a4ae),x+2,2.8,-8.6,scene);const lamp=K.box(1.2,.25,.5,K.M(0xffffff,{emissive:0xfff3c4}),x+1.5,4,-8.2,scene);
+  K.box(.5,.5,.5,K.M(0x455a64),x-1.8,1.9,-8.4,scene);// microscopio
+  label('MESA '+(i+1),x,5,-7.6,2.6,'#ffcc33');return{x,z:-7.6,job:null,mesh:null}});
+/* ---------- aparatos y averías ---------- */
+const DEV={movil:{n:'Móvil',w:3.2,d:6.4,col:0x283593,pay:20,faults:['pantalla','bateria','puerto','altavoz','camara']},
+  tablet:{n:'Tablet',w:6.4,d:8.8,col:0x6a1b9a,pay:30,faults:['pantalla','bateria','puerto','altavoz','camara']},
+  consola:{n:'Consola',w:10,d:4.4,col:0xc62828,pay:35,faults:['pantalla','bateria','puerto','ventilador']},
+  portatil:{n:'Ordenador portátil',w:10,d:7,col:0x455a64,pay:45,faults:['bateria','ventilador','ram','disco']}};
+const FAULT={pantalla:{s:'Se me cayó y la pantalla está rota',d:'La pantalla está rota: hay que cambiarla'},
+  bateria:{s:'Se apaga enseguida y está como hinchado',d:'La batería está hinchada: hay que cambiarla'},
+  puerto:{s:'No carga cuando lo enchufo',d:'El puerto de carga está lleno de pelusa: hay que limpiarlo'},
+  altavoz:{s:'No se oye nada',d:'El altavoz está roto: hay que cambiarlo'},
+  camara:{s:'Las fotos salen borrosas',d:'La lente de la cámara está rota: hay que cambiar la cámara'},
+  ventilador:{s:'Se calienta mucho y se apaga solo',d:'El ventilador está lleno de polvo: hay que limpiarlo'},
+  ram:{s:'Pita al encenderlo y no arranca',d:'Un módulo de RAM está estropeado: hay que cambiarlo'},
+  disco:{s:'Sale un aviso de que no encuentra el disco',d:'El disco SSD está roto: hay que cambiarlo'}};
+const FEM=['pantalla','bateria','camara'];
+const PART_N={pantalla:'Pantalla',bateria:'Batería',altavoz:'Altavoz',camara:'Cámara',ram:'Módulo RAM',disco:'Disco SSD'};
+
+/* ---------- clientes ---------- */
+const SLOTS=[-6,0,6].map(x=>({x,c:null}));let customers=[];
+function randEq(){const A=window.CubiAvatar;if(!A)return null;const eq=Object.assign({},A.DEF_EQ);A.CATS.forEach(([c])=>{if(c==='animacion'||c==='gesto')return;const its=A.ITEMS.filter(i=>i.cat===c&&!i.lvl);eq[c]=its[Math.floor(Math.random()*its.length)].id});return eq}
+function bubble(c,lines){if(c.bub)scene.remove(c.bub);c.bub=K.sprite(K.textTex(lines,560,110,'rgba(20,22,34,.9)'),7.6,1.5);c.bub.position.set(c.slot.x,5.6,7.6);scene.add(c.bub)}
+function newCustomer(){const slot=SLOTS.find(s=>!s.c);if(!slot)return;const keys=Object.keys(DEV).filter(k=>served>=2||k!=='portatil');const dev=keys[Math.floor(Math.random()*keys.length)];
+  const fl=DEV[dev].faults,f=fl[Math.floor(Math.random()*fl.length)];
+  const a=K.person(scene,randEq()||{},null,.85);a.root.position.set(slot.x,0,13);a.root.rotation.y=Math.PI;
+  const pat=Math.max(110,170-served*6);const c={slot,a,dev,f,state:'llega',pat,left:pat,walk:0,arrive:false,bench:null,mistakes:0};slot.c=c;customers.push(c);
+  bubble(c,[[DEV[dev].n.toUpperCase(),32,'#ffcc33',30],['«'+FAULT[f].s+'»',24,'#ffffff',76]]);
+  c.bar=new THREE.Mesh(new THREE.PlaneGeometry(3,.25),new THREE.MeshBasicMaterial({color:0x3fd15c,depthTest:false}));c.bar.renderOrder=7;c.bar.position.set(slot.x,4.6,7.6);scene.add(c.bar);J.sfx('notify')}
+function removeCustomer(c,happy){if(c.bub)scene.remove(c.bub);scene.remove(c.bar);c.slot.c=null;c.leaving=1;c.a.root.rotation.y=0;if(window.CubiAvatar)CubiAvatar.emote(c.a,happy?'ge2':'ge3');
+  if(c.bench){c.bench.job=null;if(c.bench.mesh){scene.remove(c.bench.mesh);c.bench.mesh=null}}if(carry===c)setCarry(null)}
+/* ---------- aparato pequeño en la mesa ---------- */
+function placeOnBench(c,b){c.bench=b;b.job=c;b.mesh=miniDev(c);b.mesh.position.set(b.x-.4,1.7,b.z+.2);scene.add(b.mesh)}
+/* ---------- jugador ---------- */
+const ctl=K.controls(renderer.domElement,{dist:18,pitch:.85,yaw:Math.PI,min:10,max:26});
+const P=J.player(scene,ctl,{x:0,z:0,speed:9,jump:0,boxes,bound:15});P.r=.5;
+let money=0,hearts=3,served=0,running=false,spawnT=1.5,carry=null,carryMesh=null;
+function setCarry(c){carry=c;if(carryMesh){scene.remove(carryMesh);carryMesh=null}if(c){carryMesh=miniDev(c);scene.add(carryMesh)}
+  const e=$('#carry');e.hidden=!c;if(c)e.innerHTML=`Llevas: <b>${DEV[c.dev].n} reparado</b> · dáselo a su dueño en el mostrador`}
+function hud(){J.hud([['Dinero',money+' $'],['Vidas','❤'.repeat(hearts)||'0'],['Reparados',served]])}
+function nearest(){if(P.z>1.5){let best=null;SLOTS.forEach(sl=>{if(sl.c&&sl.c.arrive&&!sl.c.leaving&&Math.abs(P.x-sl.x)<2.4)best={type:'cust',c:sl.c}});return best}
+  let best=null;BENCH.forEach(b=>{if(Math.abs(P.x-b.x)<2.8&&P.z<-4.6)best={type:'bench',b}});return best}
+function act(){if(!running||repairing)return;const n=nearest();if(!n)return;
+  if(n.type==='cust'){const c=n.c;
+    if(c.state==='espera'){if(carry){K.toast('YA LLEVAS UN APARATO','Primero entrégaselo a su dueño','#ff6a6a');J.sfx('error');return}
+      const b=BENCH.find(b=>!b.job);if(!b){K.toast('NO HAY MESA LIBRE','Termina una reparación primero','#ff6a6a');J.sfx('error');return}
+      placeOnBench(c,b);c.state='mesa';J.sfx('place');bubble(c,[['Esperando…',30,'#ffffff',36],[DEV[c.dev].n+' en la MESA '+(BENCH.indexOf(b)+1),24,'#ffcc33',80]]);K.toast('LO DEJAS EN LA MESA '+(BENCH.indexOf(b)+1),'Ve a la mesa y pulsa E para abrirlo','#3fd15c');return}
+    if(carry===c){const D=DEV[c.dev];const tip=Math.round(D.pay*.5*(c.left/c.pat));const pay=Math.max(5,D.pay-c.mistakes*5)+tip;money+=pay;served++;J.sfx('cash');
+      K.toast('+'+pay+' $',(c.mistakes?`${c.mistakes} fallo${c.mistakes>1?'s':''} (−${c.mistakes*5} $) · `:'')+(tip?'Propina: '+tip+' $':''),'#3fd15c');setCarry(null);removeCustomer(c,true);hud();if(served>=10)gameOver(true);return}
+    if(carry){K.toast('ESTE NO ES SU APARATO','Busca a su dueño','#ff6a6a');J.sfx('error');return}
+    K.toast('TODAVÍA NO ESTÁ ARREGLADO','','#ffcc33');return}
+  const b=n.b;if(!b.job){K.toast('MESA VACÍA','Coge un aparato en el mostrador','#ffcc33');return}
+  const c=b.job;if(c.state==='hecho'){if(carry){K.toast('YA LLEVAS UN APARATO','','#ff6a6a');return}setCarry(c);c.state='llevar';scene.remove(b.mesh);b.mesh=null;b.job=null;c.bench=null;J.sfx('pop');return}
+  openRepair(c)}
+J.action('USAR','e',act,{col:'#3fd15c'});
+
+/* ---------- reparar de cerca ---------- */
+const rs=new THREE.Scene();rs.background=new THREE.Color(0x1b2430);
+rs.add(new THREE.HemisphereLight(0xffffff,0x445566,.85));const rl=new THREE.DirectionalLight(0xffffff,.75);rl.position.set(3,10,6);rs.add(rl);
+const rmat=new THREE.Mesh(new THREE.BoxGeometry(40,.4,30),new THREE.MeshLambertMaterial({color:0x1e6b52}));rmat.position.y=-.2;rs.add(rmat);
+const rcam=new THREE.PerspectiveCamera(40,1,.1,200);
+let repairing=null,R=null;
+/* ---------- modelos realistas ---------- */
+function rshape(w,d,r){const s=new THREE.Shape(),x=-w/2,y=-d/2;r=Math.min(r,w/2,d/2);s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+d-r);s.quadraticCurveTo(x+w,y+d,x+w-r,y+d);s.lineTo(x+r,y+d);s.quadraticCurveTo(x,y+d,x,y+d-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s}
+function rgeo(w,h,d,r){const bv=Math.min(.05,h*.3);const g=new THREE.ExtrudeGeometry(rshape(w-bv*2,d-bv*2,Math.max(.01,r-bv)),{depth:h-bv*2,bevelEnabled:true,bevelThickness:bv,bevelSize:bv,bevelSegments:2,curveSegments:10});g.rotateX(-Math.PI/2);g.translate(0,bv,0);g.parameters={width:w,height:h,depth:d};return g}
+const PM=(c,o)=>new THREE.MeshLambertMaterial(Object.assign({color:c},o||{}));
+const PS=(c,sh)=>new THREE.MeshPhongMaterial({color:c,shininess:sh||60,specular:0x444444});
+function lens(r){const g=new THREE.Group();const ring=new THREE.Mesh(new THREE.CylinderGeometry(r,r,.1,24),PS(0x2a2d31,90));g.add(ring);const gl=new THREE.Mesh(new THREE.CylinderGeometry(r*.68,r*.68,.12,24),PS(0x0a0c1a,120));gl.position.y=.01;g.add(gl);
+  const dot=new THREE.Mesh(new THREE.CylinderGeometry(r*.22,r*.22,.13,12),PS(0x3949ab,120));dot.position.set(-r*.2,.015,-r*.2);g.add(dot);return g}
+function stick(col){const g=new THREE.Group();const b=new THREE.Mesh(new THREE.CylinderGeometry(.34,.38,.12,20),PM(0x1a1c20));g.add(b);const t=new THREE.Mesh(new THREE.CylinderGeometry(.3,.3,.14,20),PM(col||0x2b2e33));t.position.y=.12;g.add(t);return g}
+function btn(col,r){const m=new THREE.Mesh(new THREE.CylinderGeometry(r||.15,r||.15,.1,16),PM(col));return m}
+/* modelo pequeño (en la mesa de la tienda y en las manos) */
+function miniDev(c){const D=DEV[c.dev],s=.3,g=new THREE.Group();const w=D.w*s,d=D.d*s;
+  if(c.dev==='portatil'){const a=new THREE.Mesh(rgeo(w,.12,d,.12),PS(0xb8c0c6,40));g.add(a);const b=new THREE.Mesh(rgeo(w,.1,d,.12),PS(0xa7b0b8,40));b.position.y=.12;g.add(b)}
+  else if(c.dev==='consola'){const b=new THREE.Mesh(rgeo(w,.16,d,.15),PM(0x22252a));g.add(b);const sc=new THREE.Mesh(new THREE.BoxGeometry(w*.86,.02,d*.8),PS(0x05070a,100));sc.position.y=.16;g.add(sc);
+    [[-1,0x26c6da],[1,0xff8f00]].forEach(([sx,col])=>{const j=new THREE.Mesh(rgeo(.55,.18,d,.25),PM(col));j.position.x=sx*(w/2+.28);g.add(j)})}
+  else{const b=new THREE.Mesh(rgeo(w,.12,d,c.dev==='movil'?.16:.12),PS(D.col,80));g.add(b);const bump=new THREE.Mesh(rgeo(w*.4,.05,w*.4,.08),PS(0x1c1f24,90));bump.position.set(-w*.22,.12,-d/2+w*.27);g.add(bump)}
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true});return g}
+/* modelo grande para reparar: boca abajo, se abre por detrás */
+function buildDev(c){const D=DEV[c.dev],w=D.w,d=D.d,g=new THREE.Group(),parts={},dev=c.dev,f=c.f,phone=dev==='movil'||dev==='tablet';
+  const add=(id,mesh,x,y,z)=>{mesh.position.set(x,y,z);mesh.userData.pid=id;g.add(mesh);parts[id]=mesh;return mesh};
+  const sticker=(txt,ww,col,bg)=>{const t=K.textTex([[txt,30,col||'#20242a',34]],256,64,bg||'rgba(0,0,0,0)');const m=new THREE.Mesh(new THREE.PlaneGeometry(ww,ww/4),new THREE.MeshBasicMaterial({map:t,transparent:true}));m.rotation.x=-Math.PI/2;return m};
+  const R0=dev==='movil'?.48:dev==='tablet'?.5:dev==='consola'?.55:.35;
+  // chasis
+  add('marco',new THREE.Mesh(rgeo(w,.34,d,R0),dev==='portatil'?PS(0xa7b0b8,40):dev==='consola'?PM(0x2a2d33):PS(0x9aa4ad,70)),0,0,0);
+  add('pantalla',new THREE.Mesh(rgeo(w-.14,.05,d-.14,R0-.05),PS(f==='pantalla'?0x55657a:0x0a0f1a,90)),0,.34,0);
+  if(f==='pantalla'){const cr=new THREE.Mesh(new THREE.PlaneGeometry(w*.7,d*.7),new THREE.MeshBasicMaterial({map:crackTex(),transparent:true}));cr.rotation.x=-Math.PI/2;cr.position.y=.06;parts.pantalla.add(cr)}
+  const top=.39;
+  // placa base con blindajes
+  const pw=dev==='portatil'?w*.6:w*.82,pd=dev==='movil'?d*.34:dev==='tablet'?d*.24:dev==='consola'?d*.6:d*.42,pz=dev==='consola'?0:-d/2+pd/2+.35,px=dev==='consola'?w*.12:dev==='portatil'?w*.15:0;
+  const board=add('placa',new THREE.Mesh(new THREE.BoxGeometry(pw,.08,pd),PM(0x0f5132)),px,top+.04,pz);
+  const shield=new THREE.Mesh(new THREE.BoxGeometry(pw*.42,.1,pd*.55),PS(0xc9d0d6,80));shield.position.set(-pw*.18,.09,0);board.add(shield);
+  const sh2=new THREE.Mesh(new THREE.BoxGeometry(pw*.25,.1,pd*.4),PS(0xc9d0d6,80));sh2.position.set(pw*.22,.09,-pd*.12);board.add(sh2);
+  // batería
+  let bw,bd,bx,bz;if(dev==='movil'){bw=w*.78;bd=d*.44;bx=0;bz=d*.12}else if(dev==='tablet'){bw=w*.84;bd=d*.48;bx=0;bz=d*.12}else if(dev==='consola'){bw=w*.36;bd=d*.62;bx=-w*.25;bz=0}else{bw=w*.86;bd=d*.3;bx=0;bz=d/2-bd/2-.35}
+  const sw=f==='bateria',bat=add('bateria',new THREE.Mesh(rgeo(bw,sw?.5:.24,bd,.12),PM(sw?0x6d737b:0x24272c)),bx,top,bz);
+  if(sw)bat.scale.set(1.02,1,1.04);
+  const st=sticker('Li-ion '+(dev==='portatil'?'11,4 V':dev==='consola'?'3,7 V':'3,85 V'),Math.min(bw*.7,3),'#ffffff');st.position.y=(sw?.5:.24)+.01;bat.add(st);
+  if(dev==='tablet'){const sep=new THREE.Mesh(new THREE.BoxGeometry(.04,.02,bd*.9),PM(0x111111));sep.position.y=.25;bat.add(sep)}
+  if(dev==='portatil')[-1,0,1].forEach(i=>{const l=new THREE.Mesh(new THREE.BoxGeometry(.03,.02,bd*.85),PM(0x111111));l.position.set(i*bw/3+bw/6*(i===1?-1:i===-1?1:0),.25,0);if(i!==0)bat.add(l)});
+  const tab=new THREE.Mesh(new THREE.BoxGeometry(.5,.02,.5),PM(0xf2c230));tab.position.set(bw*.35,(sw?.5:.24)+.01,bd/2+.12);if(phone)bat.add(tab);
+  // conector de la batería y su chapa
+  const cx=dev==='consola'?-w*.06:dev==='portatil'?0:bw*.25,cz=dev==='consola'?-d*.12:dev==='portatil'?bz-bd/2-.25:pz+pd/2-.2;
+  add('conector',new THREE.Mesh(new THREE.BoxGeometry(.6,.16,.36),PM(0x1b1d21)),cx,top+.16,cz);
+  if(phone){add('chapa',new THREE.Mesh(new THREE.BoxGeometry(1.5,.05,.9),PS(0xd7dde2,90)),cx,top+.27,cz)}
+  // chip principal
+  add('chip',new THREE.Mesh(new THREE.BoxGeometry(Math.min(1.2,pw*.3),.1,Math.min(1.2,pd*.4)),PS(0x2d3136,40)),px+pw*.22,top+.13,pz+pd*.18);
+  // puerto de carga (USB-C)
+  const port=add('puerto',new THREE.Mesh(rgeo(.95,.32,.42,.15),PS(0xb0b8bf,90)),dev==='portatil'?-w/2+.4:0,top-.02,dev==='portatil'?-d*.1:d/2-.3);
+  if(f==='puerto'){const pel=new THREE.Mesh(new THREE.BoxGeometry(.7,.16,.16),PM(0xa1887f));pel.position.set(0,.33,0);port.add(pel);parts.pelusa=pel}
+  // botón de encendido en el lateral
+  add('boton',new THREE.Mesh(rgeo(.24,.22,dev==='portatil'?.5:.8,.08),PS(0xb8c0c6,80)),dev==='portatil'?w/2-.9:w/2+.06,dev==='portatil'?top:.08,dev==='portatil'?-d/2+.5:-d*.22);
+  // altavoz
+  if(D.faults.includes('altavoz')){const sp=add('altavoz',new THREE.Mesh(new THREE.BoxGeometry(w*.3,.22,.55),PM(0x1c1e22)),-w*.25,top,d/2-.45);
+    for(let i=0;i<5;i++){const h=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.02,8),PM(0x555b62));h.position.set(-w*.1+i*w*.05,.12,0);sp.add(h)}
+    if(f==='altavoz')sp.material=PM(0x5a3b2e)}
+  // cámara
+  if(D.faults.includes('camara')){const cm=add('camara',new THREE.Mesh(new THREE.BoxGeometry(dev==='movil'?1.1:.9,.18,dev==='movil'?1.1:.7),PM(0x16181c)),-w*.27,top+.02,-d/2+.85);
+    const l1=lens(.28);l1.position.set(-.2,.12,-.2);cm.add(l1);if(dev==='movil'){const l2=lens(.24);l2.position.set(.22,.12,.22);cm.add(l2)}
+    if(f==='camara'){const cr=new THREE.Mesh(new THREE.PlaneGeometry(.6,.6),new THREE.MeshBasicMaterial({map:crackTex(),transparent:true}));cr.rotation.x=-Math.PI/2;cr.position.set(-.2,.2,-.2);cm.add(cr)}}
+  // ventilador con tubo de cobre
+  if(D.faults.includes('ventilador')){const fr=dev==='consola'?Math.min(1.25,d*.3):1.3,fx=dev==='consola'?w*.33:-w*.28,fz=dev==='consola'?d*.05:-d*.18;
+    const fan=add('ventilador',new THREE.Mesh(new THREE.CylinderGeometry(fr,fr,.26,28),PM(f==='ventilador'?0x8d7f6e:0x1f2328)),fx,top+.13,fz);
+    for(let i=0;i<9;i++){const bl=new THREE.Mesh(new THREE.BoxGeometry(.08,.04,fr*.8),PM(0x3b444e));bl.rotation.y=i*.698;bl.position.y=.14;bl.translateZ(fr*.38);fan.add(bl)}
+    const hub=new THREE.Mesh(new THREE.CylinderGeometry(fr*.3,fr*.3,.05,20),PM(0x2a2f36));hub.position.y=.16;fan.add(hub);parts.fanRot=fan;
+    const pipe=new THREE.Mesh(new THREE.BoxGeometry(Math.abs(fx-(px+pw*.22))+.2,.08,.32),PS(0xc87533,90));pipe.position.set((fx+px+pw*.22)/2,top+.22,fz+(pz+pd*.18-fz)*.5);g.add(pipe)}
+  // RAM (SO-DIMM) y disco M.2
+  if(D.faults.includes('ram')){const rm=add('ram',new THREE.Mesh(new THREE.BoxGeometry(2.7,.08,1),PM(f==='ram'?0x6b5a2a:0x17603a)),px-pw*.02,top+.16,pz-pd*.18);
+    for(let i=0;i<4;i++){const ch=new THREE.Mesh(new THREE.BoxGeometry(.5,.06,.55),PM(0x111316));ch.position.set(-.95+i*.63,.07,0);rm.add(ch)}const gd=new THREE.Mesh(new THREE.BoxGeometry(2.7,.03,.14),PS(0xe8c26a,90));gd.position.set(0,.04,.48);rm.add(gd)}
+  if(D.faults.includes('disco')){const ds=add('disco',new THREE.Mesh(new THREE.BoxGeometry(2.4,.06,.62),PM(f==='disco'?0x5a2a2a:0x101317)),w*.3,top+.04,d*.02);const lb=sticker('NVMe 1 TB',1.6,'#20242a','#e7ebee');lb.position.y=.04;ds.add(lb)}
+  // mandos de la consola (no se tocan)
+  if(dev==='consola'){[[-1,0x26c6da],[1,0xff8f00]].forEach(([sx,col])=>{const j=new THREE.Mesh(rgeo(1.7,.5,d,.8),PM(col));j.position.set(sx*(w/2+.9),0,0);j.userData.pid='mando';g.add(j);
+      const s1=stick();s1.position.set(0,.5,sx<0?-d*.22:d*.12);j.add(s1);
+      if(sx>0)[[0,-.32],[.32,0],[0,.32],[-.32,0]].forEach(([a,b])=>{const bb=btn(0x1a1c20,.16);bb.position.set(a,.52,-d*.22+b);j.add(bb)});
+      else[[0,-.32],[.32,0],[0,.32],[-.32,0]].forEach(([a,b])=>{const bb=btn(0x1a1c20,.14);bb.position.set(a,.52,d*.18+b);j.add(bb)})})}
+  // tapa trasera
+  let cover;
+  if(phone){cover=new THREE.Mesh(rgeo(w,.1,d,R0),PS(D.col,90));const bump=new THREE.Mesh(rgeo(dev==='movil'?1.5:1.1,.14,dev==='movil'?1.5:1.1,.32),PS(0x1c1f24,100));bump.position.set(-w*.27,.1,-d/2+.85);cover.add(bump);
+    const l1=lens(.3);l1.position.set(-.3,.15,-.3);bump.add(l1);if(dev==='movil'){const l2=lens(.3);l2.position.set(.3,.15,.3);bump.add(l2);const l3=lens(.22);l3.position.set(-.3,.15,.32);bump.add(l3)}
+    const fl=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.16,12),PM(0xfff4c2));fl.position.set(.32,.15,-.3);bump.add(fl)}
+  else if(dev==='consola'){cover=new THREE.Mesh(rgeo(w,.12,d,R0),PM(0x26292e));for(let i=0;i<14;i++){const v=new THREE.Mesh(new THREE.BoxGeometry(.08,.02,.7),PM(0x0d0f12));v.position.set(-w*.3+i*.22,.12,-d/2+.6);cover.add(v)}
+    const ks=new THREE.Mesh(new THREE.BoxGeometry(w*.5,.03,1),PM(0x30343a));ks.position.set(0,.12,d*.22);cover.add(ks)}
+  else{cover=new THREE.Mesh(rgeo(w,.12,d,R0),PS(0x8e979e,40));[[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b])=>{const ft=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.08,14),PM(0x1b1d20));ft.position.set(a*(w/2-.6),.12,b*(d/2-.6));cover.add(ft)});
+    for(let i=0;i<10;i++){const v=new THREE.Mesh(new THREE.BoxGeometry(.1,.02,1.4),PM(0x30353b));v.position.set(-w*.35+i*.22,.12,-d*.18);cover.add(v)}}
+  add('tapa',cover,0,phone?.62:.66,0);parts.tapa.userData.home=.62+(phone?0:.04);
+  // tornillos: en la chapa (móvil y tablet) o por fuera de la tapa (consola y portátil)
+  const screws=[],SP=phone?[[-.6,-.36],[.6,-.36],[.6,.36],[-.6,.36]].map(([a,b])=>[cx+a,top+.27,cz+b]):(dev==='consola'?[[-1,-1],[1,-1],[1,1],[-1,1]]:[[-1,-1],[0,-1],[1,-1],[1,1],[0,1],[-1,1]]).map(([a,b])=>[a*(w/2-.35),.8,b*(d/2-.3)]);
+  SP.forEach(([x,y,z],i)=>{const s=new THREE.Mesh(new THREE.CylinderGeometry(phone?.11:.16,phone?.11:.16,.1,12),PS(0xd7dde2,100));s.position.set(x,y,z);s.userData={pid:'screw',si:i,home:[x,y,z],out:[w/2+1.5+(dev==='consola'?2:0)+(i%2)*.45,.05,-1+Math.floor(i/2)*.45]};
+    const slot=new THREE.Mesh(new THREE.BoxGeometry(phone?.16:.22,.02,.04),PM(0x444a50));slot.position.y=.06;s.add(slot);g.add(s);screws.push(s)});
+  // bandeja magnética para los tornillos
+  const tray=new THREE.Mesh(new THREE.BoxGeometry(1.3,.06,1.8),PM(0x101418));tray.position.set(w/2+1.72+(dev==='consola'?2:0),0,-.55);g.add(tray);
+  g.traverse(o=>{if(o.isMesh)o.castShadow=true});
+  return{g,parts,screws,w,d,phone}}
+function stepsFor(dev,f){const phone=dev==='movil'||dev==='tablet',N=phone?4:dev==='consola'?4:6;
+  const S=phone?[{t:'hold',p:'tapa',txt:'Calienta la tapa trasera y despégala (mantén pulsado sobre la tapa)'},{t:'screw',out:true,txt:`Quita los ${N} tornillos de la chapa metálica`},{t:'click',p:'chapa',txt:'Quita la chapa que tapa los conectores'},{t:'click',p:'conector',txt:'Desconecta la batería: suelta su conector de la placa'}]
+    :[{t:'screw',out:true,txt:`Quita los ${N} tornillos de la tapa trasera`},{t:'hold',p:'tapa',txt:'Haz palanca para abrir la tapa (mantén pulsado sobre la tapa)'},{t:'click',p:'conector',txt:'Desconecta la batería: suelta su conector de la placa'}];
+  if(f==='puerto')S.push({t:'clean',p:'puerto',n:4,txt:'Limpia la pelusa del puerto de carga (tócalo varias veces)'});
+  else if(f==='ventilador')S.push({t:'clean',p:'ventilador',n:5,txt:'Limpia el polvo del ventilador (tócalo varias veces)'});
+  else S.push({t:'click',p:f,txt:'Quita '+{pantalla:'la pantalla rota',bateria:'la batería hinchada',ram:'el módulo de RAM malo',disco:'el disco roto',camara:'la cámara rota',altavoz:'el altavoz roto'}[f]},{t:'pick',p:f,txt:`Pon ${FEM.includes(f)?'una':'un'} ${PART_N[f].toLowerCase()} ${FEM.includes(f)?'nueva':'nuevo'} para ${devName(dev)}`});
+  S.push({t:'click',p:'conector',txt:'Vuelve a conectar la batería'});
+  if(phone)S.push({t:'click',p:'chapa',txt:'Pon la chapa'},{t:'screw',out:false,txt:`Pon los ${N} tornillos`},{t:'click',p:'tapa',txt:'Pega la tapa trasera'});
+  else S.push({t:'click',p:'tapa',txt:'Pon la tapa'},{t:'screw',out:false,txt:`Pon los ${N} tornillos`});
+  S.push({t:'click',p:'boton',txt:'Enciéndelo para probarlo (botón de encendido)'});return S}
+function crackTex(){const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');x.strokeStyle='rgba(255,255,255,.85)';x.lineWidth=2;
+  for(let i=0;i<9;i++){x.beginPath();x.moveTo(128,128);let px=128,py=128;const a=i/9*6.28+Math.random()*.4;for(let k=0;k<5;k++){px+=Math.cos(a+(Math.random()-.5))*22;py+=Math.sin(a+(Math.random()-.5))*22;x.lineTo(px,py)}x.stroke()}
+  const t=new THREE.CanvasTexture(c);return t}
+function openRepair(c){repairing=c;if(!c.rep){const m=buildDev(c);c.rep={m,steps:stepsFor(c.dev,c.f),i:0,screwsOut:0,clean:0,N:m.screws.length}}
+  R=c.rep;{const ch=R.m.parts.chapa;if(ch&&ch.userData.hx==null){ch.userData.hx=ch.position.x;ch.userData.hy=ch.position.y;ch.userData.hz=ch.position.z}}while(rs.children.length>3)rs.remove(rs.children[3]);rs.add(R.m.g);
+  const ph=R.m.phone,W=ph?R.m.w*2+4:R.m.w+(c.dev==='consola'?4:0)+3.6,Dd=ph?R.m.d:R.m.d*2+1.2,cx=ph?-R.m.w*.55+.6:.6,cz=ph?0:-(R.m.d+1.2)/2;const ext=Math.max(W*.62,Dd*.85)+1.5;rcam.position.set(cx,ext*1.5,cz+ext*.8);rcam.lookAt(cx,0,cz+.2);
+  document.body.classList.add('rep');$('#rep').hidden=false;$('#rTitle').textContent=DEV[c.dev].n.toUpperCase()+' · MESA '+(BENCH.indexOf(c.bench)+1);
+  $('#rDiag').textContent='Diagnóstico: '+FAULT[c.f].d;drawSteps();J.sfx('open')}
+function closeRepair(){repairing=null;document.body.classList.remove('rep');$('#rep').hidden=true;$('#hold').hidden=true}
+function drawSteps(){const S=R.steps;$('#rSteps').innerHTML=S.map((s,i)=>`<li class="${i<R.i?'ok':i===R.i?'now':''}">${s.txt}</li>`).join('');
+  const s=S[R.i];if(!s){$('#stepNow').innerHTML='¡Reparado!';return}
+  let extra='';if(s.t==='pick'){const opts=pickOpts(repairing.dev,s.p);extra=`<div id="pick">${opts.map((o,i)=>`<button data-pk="${i}">${o.n}</button>`).join('')}</div>`;R.opts=opts}
+  $('#stepNow').innerHTML=`<small>PASO ${R.i+1} DE ${S.length}</small>${s.txt}${s.t==='screw'?` (${s.out?R.screwsOut:R.N-R.screwsOut}/${R.N})`:''}${s.t==='clean'?` (${R.clean}/${s.n})`:''}${extra}`;
+  document.querySelectorAll('[data-pk]').forEach(b=>b.onclick=()=>pickPart(+b.dataset.pk))}
+const devName=d=>d==='portatil'?'portátil':DEV[d].n.toLowerCase();
+function pickOpts(dev,p){const others=Object.keys(DEV).filter(k=>k!==dev),o2=others[Math.floor(Math.random()*others.length)];
+  const otherPart=Object.keys(PART_N).filter(k=>k!==p&&DEV[dev].faults.includes(k));const op=otherPart.length?otherPart[Math.floor(Math.random()*otherPart.length)]:'bateria';
+  return [{n:`${PART_N[p]} de ${devName(dev)}`,ok:true},{n:`${PART_N[p]} de ${devName(o2)}`},{n:`${PART_N[op]} de ${devName(dev)}`}].sort(()=>Math.random()-.5)}
+function mistake(why){repairing.mistakes++;J.sfx('error');K.toast('¡ASÍ NO!',why+' (−5 $)','#ff6a6a');spark()}
+function spark(){const e=$('#hold');}
+function nextStep(){R.i++;J.sfx('pop');if(R.i>=R.steps.length){finishRepair();return}drawSteps()}
+function finishRepair(){const c=repairing;drawSteps();c.state='hecho';J.sfx('cash');
+  const scr=R.m.parts.pantalla;scr.material=PM(0x29b6f6,{emissive:0x0d47a1});if(R.m.parts.fanRot)R.m.parts.fanRot.userData.spin=true;
+  K.toast('¡REPARADO!','Coge el aparato de la mesa y llévaselo a su dueño','#3fd15c');
+  if(c.bench&&c.bench.mesh){const ok=K.sprite(K.textTex([['LISTO',40,'#3fd15c',34]],200,64),1.4,.45);ok.position.set(0,.8,0);c.bench.mesh.add(ok)}
+  bubble(c,[['¿Ya está?',30,'#ffffff',36],[DEV[c.dev].n+' en la MESA '+(BENCH.indexOf(c.bench)+1),24,'#3fd15c',80]]);
+  setTimeout(()=>{if(repairing===c)closeRepair()},1600)}
+function pickPart(i){const s=R.steps[R.i];if(!s||s.t!=='pick')return;const o=R.opts[i];if(!o.ok){mistake('Esa pieza no es la buena');return}
+  const m=R.m.parts[s.p];m.visible=true;m.userData.gone=false;
+  const fresh={pantalla:0x0a0f1a,bateria:0x24272c,altavoz:0x1c1e22,camara:0x16181c,ram:0x17603a,disco:0x101317}[s.p];m.material=PM(fresh);
+  if(s.p==='bateria'){m.scale.set(1,.48,1)}if(s.p==='camara')m.children.forEach(ch=>{if(ch.material&&ch.material.map)ch.visible=false});if(s.p==='pantalla')m.children.forEach(ch=>ch.visible=false);nextStep()}
+const ray=new THREE.Raycaster(),mv=new THREE.Vector2();
+function pickAt(e){const r=renderer.domElement.getBoundingClientRect();mv.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(mv,rcam);
+  const objs=[];R.m.g.traverse(o=>{if(o.isMesh&&o.visible)objs.push(o)});const hits=ray.intersectObjects(objs,false);
+  const st=R.steps[R.i],want=st&&(st.t==='screw'?'screw':st.p);const vis=o=>{let p=o;while(p){if(!p.visible)return false;p=p.parent}return true};
+  // si la pieza del paso está debajo del dedo (aunque la tape otra), cuenta: las piezas de abajo se ven poco
+  if(want)for(const h of hits){let o=h.object;while(o&&!o.userData.pid)o=o.parent;if(o&&o.userData.pid===want&&vis(o))return o}
+  for(const h of hits){let o=h.object;while(o&&!o.userData.pid)o=o.parent;if(!o||!o.visible)continue;let p=o;let vis=true;while(p){if(!p.visible)vis=false;p=p.parent}if(vis)return o}return null}
+let holdT=null,downAt=null;
+renderer.domElement.addEventListener('pointerdown',e=>{if(!repairing)return;downAt={x:e.clientX,y:e.clientY};const s=R.steps[R.i];if(!s)return;const o=pickAt(e);
+  if(s.t==='hold'&&o&&o.userData.pid===s.p){const h=$('#hold');h.hidden=false;h.style.left=e.clientX+'px';h.style.top=e.clientY+'px';const t0=performance.now();J.sfx('tick');
+    holdT=setInterval(()=>{const k=(performance.now()-t0)/1300;h.style.setProperty('--p',Math.min(100,k*100)+'%');if(k>=1){clearInterval(holdT);holdT=null;h.hidden=true;downAt=null;openCover();nextStep()}},30)}});
+addEventListener('pointerup',e=>{if(!repairing)return;if(holdT){clearInterval(holdT);holdT=null;$('#hold').hidden=true;K.toast('MANTÉN UN POCO MÁS','','#ffcc33');return}
+  if(!downAt||Math.hypot(e.clientX-downAt.x,e.clientY-downAt.y)>8||e.target!==renderer.domElement){downAt=null;return}downAt=null;
+  const s=R.steps[R.i];if(!s)return;const o=pickAt(e);if(!o)return;const pid=o.userData.pid;
+  if(s.t==='hold'){mistake('Primero hay que abrir la tapa');return}
+  if(s.t==='pick'){K.toast('ELIGE LA PIEZA NUEVA','Abajo tienes tres para elegir','#ffcc33');return}
+  if(s.t==='screw'){if(pid!=='screw'){mistake('Ahora tocan los tornillos');return}const out=s.out;
+    if(out&&o.userData.isOut||!out&&!o.userData.isOut){return}o.userData.isOut=out;o.position.set(...(out?o.userData.out:o.userData.home));
+    R.screwsOut+=out?1:-1;J.sfx('tick');if(out&&R.screwsOut>=R.N||!out&&R.screwsOut<=0)nextStep();else drawSteps();return}
+  if(pid!==s.p){mistake(s.t==='clean'?'Eso no es lo que hay que limpiar':'Ese no es el paso que toca');return}
+  if(s.t==='clean'){R.clean++;J.sfx('pop');const pl=R.m.parts.pelusa;if(pl&&s.p==='puerto')pl.scale.set(Math.max(.05,1-R.clean/s.n),1,1);
+    if(s.p==='ventilador'){const f=R.m.parts.ventilador;const k=R.clean/s.n;f.material.color.setRGB(.55-.39*k,.5-.32*k,.43-.22*k)}
+    if(R.clean>=s.n){if(pl)pl.visible=false;R.clean=0;nextStep()}else drawSteps();return}
+  // clic
+  if(s.p==='tapa'){closeCover();nextStep();return}
+  if(s.p==='chapa'){const ch=R.m.parts.chapa;ch.userData.off=!ch.userData.off;if(ch.userData.off)ch.position.set(R.m.w/2+1.7,.08,1.2);else ch.position.set(ch.userData.hx,ch.userData.hy,ch.userData.hz);J.sfx('place');nextStep();return}
+  if(s.p==='conector'){const cn=R.m.parts.conector;cn.userData.off=!cn.userData.off;cn.position.y+=cn.userData.off?.3:-.3;cn.rotation.x=cn.userData.off?-.6:0;nextStep();return}
+  if(s.p==='boton'){const scr=R.m.parts.pantalla;J.sfx('pop');nextStep();return}
+  // quitar pieza rota
+  const m=R.m.parts[s.p];m.visible=false;m.userData.gone=true;nextStep()});
+function openCover(){const t=R.m.parts.tapa;t.userData.open=true;if(R.m.phone)t.position.set(-(R.m.w+1.4),.02,0);else t.position.set(0,.02,-(R.m.d+1.2));J.sfx('remove')}
+function closeCover(){const t=R.m.parts.tapa;t.position.set(0,t.userData.home,0);J.sfx('place')}
+$('#rLeave').onclick=()=>{closeRepair();J.sfx('remove')};
+$('#rHint').onclick=()=>{if(!repairing)return;const s=R.steps[R.i];if(!s)return;money=Math.max(0,money-2);hud();let target=s.t==='screw'?R.m.screws:s.t==='pick'?null:[R.m.parts[s.p]];
+  if(!target){K.toast('PISTA','La pieza nueva tiene que ser para '+devName(repairing.dev),'#ffcc33');return}
+  target.forEach(o=>{if(!o)return;const mats=[];o.traverse(x=>{if(x.material&&x.material.emissive){mats.push(x.material)}});mats.forEach(mt=>mt.emissive.setHex(0xffcc33));setTimeout(()=>mats.forEach(mt=>mt.emissive.setHex(0)),1200)})};
+/* ---------- bucle ---------- */
+let last=performance.now();
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
+  P.frozen=!running||!!repairing;P.update(dt,camera,1.4);
+  if(carryMesh){carryMesh.position.set(P.x+Math.sin(P.face)*.6,P.y+1.6,P.z+Math.cos(P.face)*.6);carryMesh.rotation.y=P.face;P.a.armL.rotation.x=P.a.armR.rotation.x=-1.3}
+  if(running){spawnT-=dt;if(spawnT<=0){newCustomer();spawnT=Math.max(16,30-served*1.2)+Math.random()*6}}
+  customers.forEach(c=>{if(c.leaving){c.a.root.position.z+=dt*6;c.walk+=dt*10;K.walkAnim(c.a,c.walk,false);if(c.a.root.position.z>30){scene.remove(c.a.root);c.gone=true}return}
+    if(!c.arrive){c.a.root.position.z-=dt*5;c.walk+=dt*10;if(c.a.root.position.z<=7.6){c.a.root.position.z=7.6;c.arrive=true;c.state='espera'}K.walkAnim(c.a,c.walk,false);return}
+    K.walkAnim(c.a,0,false,{moving:false});
+    if(running&&c.state!=='hecho'&&c.state!=='llevar'){c.left-=dt;const k=Math.max(0,c.left/c.pat);c.bar.scale.x=Math.max(.01,k);c.bar.material.color.setHSL(k*.33,.8,.5);
+      if(c.left<=0){hearts--;J.sfx('lose');K.toast('¡SE HA IDO ENFADADO!','Se ha llevado su '+DEV[c.dev].n.toLowerCase()+' sin arreglar','#ff6a6a');if(repairing===c)closeRepair();removeCustomer(c,false);hud();if(hearts<=0)gameOver(false)}}
+    else c.bar.visible=false});
+  customers=customers.filter(c=>!c.gone);
+  let tip='';const n=running&&!repairing&&nearest();
+  if(n){if(n.type==='cust')tip=n.c.state==='espera'?'E: coger su '+DEV[n.c.dev].n.toLowerCase():carry===n.c?'E: devolvérselo y cobrar':'';
+    else tip=!n.b.job?'':n.b.job.state==='hecho'?'E: coger el aparato reparado':'E: abrirlo y repararlo'}
+  const te=$('#tip');if(te.textContent!==tip)te.textContent=tip;
+  if(repairing){rcam.aspect=renderer.domElement.clientWidth/Math.max(1,renderer.domElement.clientHeight);rcam.updateProjectionMatrix();const f=R.m.parts.fanRot;if(f&&f.userData.spin)f.rotation.y+=dt*20;renderer.render(rs,rcam)}
+  else renderer.render(scene,camera);
+  requestAnimationFrame(loop)}
+function gameOver(win){if(!running)return;running=false;closeRepair();const rec=J.saveBest('reparar',money,true);
+  setTimeout(()=>J.end({title:win?'¡DÍA TERMINADO!':'¡CERRAMOS!',col:'#26a69a',lines:[`Has reparado <b style="color:#ffcc33">${served}</b> aparatos y ganado <b style="color:#ffcc33">${money} $</b>`,`Récord: ${J.best('reparar')} $`],record:rec}),900)}
+hud();J.music('fiesta');
+J.start({title:'REPARAR MÓVILES',col:'#26a69a',sub:'Tienes un taller. Vienen clientes con móviles, tablets, consolas y portátiles estropeados. Repáralos siguiendo los pasos y devuélveselos.',
+  howto:['Ve al mostrador y pulsa <b>E</b> (o USAR) delante de un cliente para coger su aparato: se queda en una mesa libre','En la mesa pulsa E: verás qué le pasa y los pasos para repararlo. Toca cada pieza en el orden de los pasos','Cuando esté arreglado, cógelo de la mesa y llévaselo a su dueño para cobrar','Cada fallo te quita 5 $. Si un cliente se cansa de esperar, se va y pierdes una vida. Repara 10 para terminar el día'],
+  record:J.best('reparar')!=null?J.best('reparar')+' $':null,onStart(){running=true}});
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
