@@ -10,8 +10,8 @@ android {
         applicationId 'com.cubiverso.app'
         minSdk 21
         targetSdk 34
-        versionCode 16
-        versionName '2.5'
+        versionCode 17
+        versionName '2.6'
     }
 
     signingConfigs {
@@ -24,21 +24,6 @@ android {
             enableV1Signing true
             enableV2Signing true
             enableV3Signing true
-        }
-    }
-
-    // Dos versiones: «gratis» (con anuncios) y «pro» (de pago, sin anuncios)
-    flavorDimensions 'version'
-    productFlavors {
-        gratis {
-            dimension 'version'
-            applicationId 'com.cubiverso.app'
-            resValue 'string', 'app_name', 'Cubiverso'
-        }
-        pro {
-            dimension 'version'
-            applicationId 'com.cubiverso.app.pro'
-            resValue 'string', 'app_name', 'Cubiverso Pro'
         }
     }
 
@@ -63,6 +48,6 @@ android {
 }
 
 dependencies {
-    // Anuncios de Google (AdMob), solo en la versión gratis
-    gratisImplementation 'com.google.android.gms:play-services-ads:23.3.0'
+    // Anuncios de Google (AdMob). Se quitan desde dentro de la app al pasar a Pro
+    implementation 'com.google.android.gms:play-services-ads:23.3.0'
 }

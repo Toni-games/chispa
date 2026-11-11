@@ -24,7 +24,7 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
 import java.util.Collections;
 
 /**
- * Versión GRATIS: anuncios de Google AdMob.
+ * Anuncios de Google AdMob. Si el jugador pasa a Pro (desde Ajustes), la web deja de pedirlos.
  * - Un banner abajo en los menús (se esconde mientras juegas).
  * - Un anuncio a pantalla completa de vez en cuando al salir de un juego.
  * - Anuncios con premio: si el jugador quiere, ve un anuncio y gana Cubos.
@@ -44,7 +44,7 @@ public final class Anuncios {
     private static InterstitialAd intersticial;
     private static RewardedAd premio;
     private static boolean listo = false;
-    private static boolean quiereBanner = true;
+    private static boolean quiereBanner = false; // la web lo enciende si no eres Pro
 
     private Anuncios() {}
 
@@ -112,7 +112,7 @@ public final class Anuncios {
 
     /** Lo que la web de Cubiverso puede pedir */
     static final class Puente {
-        @JavascriptInterface public boolean esPro() { return false; }
+        @JavascriptInterface public boolean esPro() { return false; } // el modo Pro lo guarda la web
         @JavascriptInterface public boolean premioListo() { return premio != null; }
 
         @JavascriptInterface public void banner(boolean ver) {

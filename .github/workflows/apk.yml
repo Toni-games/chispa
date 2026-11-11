@@ -28,20 +28,16 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Compilar las dos APK (gratis y Pro)
-        run: gradle assembleGratisRelease assembleProRelease --no-daemon --stacktrace
+      - name: Compilar la APK
+        run: gradle assembleRelease --no-daemon --stacktrace
 
-      - name: Preparar los archivos
-        run: |
-          cp app/build/outputs/apk/gratis/release/app-gratis-release.apk Cubiverso.apk
-          cp app/build/outputs/apk/pro/release/app-pro-release.apk Cubiverso-Pro.apk
+      - name: Preparar el archivo
+        run: cp app/build/outputs/apk/release/app-release.apk Cubiverso.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: Cubiverso-apk
-          path: |
-            Cubiverso.apk
-            Cubiverso-Pro.apk
+          path: Cubiverso.apk
 
       - name: Publicar la APK para descargar
         uses: softprops/action-gh-release@v2
@@ -50,12 +46,9 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: Cubiverso para Android (versión ${{ github.run_number }})
           body: |
-            **Cubiverso.apk**: versión gratis, con anuncios.
-            **Cubiverso-Pro.apk**: versión Pro, sin anuncios.
-            Descarga la que quieras desde el móvil o la tablet y ábrela para instalarla.
+            Descarga **Cubiverso.apk** desde el móvil o la tablet y ábrelo para instalarlo.
+            Es gratis con anuncios; desde Ajustes puedes pasar a Pro (sin anuncios) y volver cuando quieras.
             Si Android lo pide, permite «Instalar aplicaciones de origen desconocido» para tu navegador.
             La app necesita internet para cargar los gráficos 3D y para jugar con amigos.
-          files: |
-            Cubiverso.apk
-            Cubiverso-Pro.apk
+          files: Cubiverso.apk
           make_latest: false

@@ -273,6 +273,7 @@ input[type=color]{width:42px;height:32px;border:1px solid var(--line);border-rad
 .mislist{display:flex;flex-direction:column;gap:8px}.misrow{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .misrow.ok{opacity:.65}.misrow.chest{border-style:dashed;border-color:#eab308}.lvup{display:flex;gap:16px;align-items:center}.lvup .lvbig{width:72px;height:72px;font-size:34px}
 .adcard{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}.adcard small{display:block;color:var(--muted);font-size:12.5px;margin-top:3px}
+.vergrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media (max-width:560px){.vergrid{grid-template-columns:1fr}}.ver{display:flex;flex-direction:column;gap:4px;background:var(--panel2);border:2px solid var(--line);border-radius:12px;padding:10px}.ver.on{border-color:#eab308}.ver small{color:var(--muted);font-size:12.5px;line-height:1.35}.ver .chip{align-self:flex-start}
 .pro{display:inline-block;margin-left:8px;background:linear-gradient(135deg,#facc15,#f59e0b);color:#1a1300;font-size:11px;font-weight:900;letter-spacing:.08em;border-radius:6px;padding:2px 7px;vertical-align:middle}
 </style>
 
@@ -1098,27 +1099,45 @@ Object.assign(ACT,{
   addEventListener('message',e=>{const d=e.data;if(!d||!d.cubiEvt)return;if(d.cubiEvt==='end')misEv('end');if(d.cubiEvt==='ia')misEv('ia')});
   if(window.CubiAmigos)CubiAmigos.on('new',()=>{});
 }
-/* ================= VERSIÓN GRATIS (CON ANUNCIOS) Y PRO ================= */
+/* ================= VERSIÓN GRATIS (CON ANUNCIOS) Y PRO, EN LA MISMA APP ================= */
 const ADS=(()=>{try{return window.CubiAnuncios||null}catch(e){return null}})();
-const IS_PRO=!!(ADS&&ADS.esPro()),HAS_ADS=!!(ADS&&!IS_PRO);
+const PROKEY='cubiverso-pro';
+const isPro=()=>{try{return localStorage.getItem(PROKEY)==='1'}catch(e){return false}};
+const hasAds=()=>!!ADS&&!isPro();
 const ADSTART=Date.now();let adGames=0,adLast=Date.now();
-const PREMIO=25,PREMIO_MAX=5;
+const PREMIO=25,PREMIO_MAX=5,PRO_PRECIO='2,99 €';
 function adToday(){const t=today();if(!st.adr||st.adr.day!==t)st.adr={day:t,n:0};return st.adr}
-if(HAS_ADS){
-  const pg2=playGame;playGame=function(){try{ADS.banner(false)}catch(e){}return pg2.apply(this,arguments)};
-  const eg=exitGame;exitGame=function(){const r=eg.apply(this,arguments);try{ADS.banner(true);adGames++;
-      /* como mucho uno a pantalla completa cada 3 partidas y cada 3 minutos, y nunca nada más abrir */
-      if(adGames>=3&&Date.now()-adLast>180e3&&Date.now()-ADSTART>120e3){adGames=0;adLast=Date.now();ADS.intersticial()}}catch(e){}return r};
+function adBanner(v){try{if(ADS)ADS.banner(!!v&&hasAds())}catch(e){}}
+function proBadge(){const l=document.querySelector('.logo');if(!l)return;let b=l.querySelector('.pro');if(isPro()&&!b){b=document.createElement('span');b.className='pro';b.textContent='PRO';l.appendChild(b)}if(!isPro()&&b)b.remove()}
+function setPro(on){try{localStorage.setItem(PROKEY,on?'1':'0')}catch(e){}adBanner($('#play').hidden);proBadge();render()}
+if(ADS){
+  const pg2=playGame;playGame=function(){adBanner(false);return pg2.apply(this,arguments)};
+  const eg=exitGame;exitGame=function(){const r=eg.apply(this,arguments);adBanner(true);
+    try{if(hasAds()){adGames++;/* como mucho uno a pantalla completa cada 3 partidas y cada 3 minutos, y nunca nada más abrir */
+      if(adGames>=3&&Date.now()-adLast>180e3&&Date.now()-ADSTART>120e3){adGames=0;adLast=Date.now();ADS.intersticial()}}}catch(e){}return r};
   window.cubiAnuncioPremio=(ok,why)=>{st=A.state();if(ok){const R=adToday();R.n++;st.cubos+=PREMIO;addHist('Anuncio con premio',PREMIO);save();if(Au)Au.sfx('cash');toast(`+${PREMIO} Cubos. ¡Gracias por ver el anuncio!`)}
     else toast(why==='cargando'?'El anuncio aún se está cargando. Prueba en unos segundos.':'Tienes que ver el anuncio hasta el final para ganar los Cubos.');adLast=Date.now();headKey='';render()};
+  addEventListener('storage',e=>{if(e.key===PROKEY){adBanner($('#play').hidden);proBadge()}});
+  setTimeout(()=>adBanner($('#play').hidden),300);
 }
-function adCardHTML(){if(!HAS_ADS)return '';const R=adToday(),left=PREMIO_MAX-R.n;
+proBadge();
+function adCardHTML(){if(!hasAds())return '';const R=adToday(),left=PREMIO_MAX-R.n;
   return `<section class="sec"><div class="adcard"><div style="min-width:0;flex:1"><b>Mira un anuncio y gana ${CUBE}${PREMIO} Cubos</b><small>${left>0?`Te quedan ${left} hoy. Solo si tú quieres.`:'Ya has visto todos los de hoy. Vuelve mañana.'}</small></div>
     <button class="btn brand" data-act="adver" ${left>0?'':'disabled'}>Ver anuncio</button></div></section>`}
-function versionCardHTML(){if(!ADS)return '';
-  return `<section class="card sec gcard"><h2>Versión ${IS_PRO?'<span class="pro">PRO</span>':'gratis'}</h2><p class="gnote">${IS_PRO?'Tienes Cubiverso Pro: sin anuncios. ¡Gracias por apoyar el juego!':'Estás usando Cubiverso gratis, con anuncios. Cubiverso Pro es la versión de pago sin ningún anuncio, con todo lo demás igual.'}</p></section>`}
-Object.assign(ACT,{adver(){if(!HAS_ADS)return;if(adToday().n>=PREMIO_MAX){toast('Ya has visto todos los anuncios de hoy');return}try{ADS.verPremio()}catch(e){toast('No se ha podido abrir el anuncio')}}});
-if(IS_PRO){const l=document.querySelector('.logo');if(l&&!l.querySelector('.pro')){const b=document.createElement('span');b.className='pro';b.textContent='PRO';l.appendChild(b)}}
+function versionCardHTML(){if(!ADS)return '';const pro=isPro();
+  return `<section class="card sec gcard"><h2>Versión ${pro?'<span class="pro" style="margin-left:0">PRO</span>':'gratis'}</h2>
+    <div class="vergrid"><div class="ver ${pro?'':'on'}"><b>Gratis</b><small>Con anuncios: un banner en los menús y, de vez en cuando, uno al salir de un juego. Puedes ver anuncios para ganar Cubos.</small>${pro?'':'<span class="chip">La que tienes</span>'}</div>
+      <div class="ver ${pro?'on':''}"><b>Pro · ${PRO_PRECIO}</b><small>Sin ningún anuncio e insignia PRO dorada. Todo lo demás es igual.</small>${pro?'<span class="chip">La que tienes</span>':''}</div></div>
+    ${pro?'<button class="btn" data-act="profree" style="align-self:flex-start">Volver a la versión gratis</button>':`<button class="btn play" data-act="probuy" style="align-self:flex-start">Pasar a Pro · ${PRO_PRECIO}</button>`}
+    <p class="gnote">Puedes cambiar de una a otra cuando quieras, sin perder nada.</p></section>`}
+Object.assign(ACT,{
+  adver(){if(!hasAds())return;if(adToday().n>=PREMIO_MAX){toast('Ya has visto todos los anuncios de hoy');return}try{ADS.verPremio()}catch(e){toast('No se ha podido abrir el anuncio')}},
+  probuy(){openModal('Pasar a Cubiverso Pro',`<div class="lvup"><span class="lvbig" style="background:linear-gradient(135deg,#facc15,#f59e0b);color:#1a1300;font-size:16px">PRO</span><div><b style="font-size:18px">Cubiverso Pro · ${PRO_PRECIO}</b><p style="margin:6px 0 0;color:var(--muted)">Quita todos los anuncios y añade la insignia PRO. Puedes volver a la versión gratis cuando quieras.</p></div></div>
+    <div class="test"><b>Compra de prueba.</b><span>Todavía no se cobra dinero de verdad: el pago real se activará cuando Cubiverso esté en Google Play.</span></div>
+    <div class="row"><button class="btn play" data-act="progo">Comprar Pro</button><button class="btn" data-act="close">Ahora no</button></div>`)},
+  progo(){closeModal();setPro(true);if(Au)Au.sfx('levelup');toast('¡Ya tienes Cubiverso Pro! Adiós a los anuncios')},
+  profree(){setPro(false);toast('Has vuelto a la versión gratis')}
+});
 /* ================= GRÁFICOS Y ADMINISTRADOR ================= */
 const CG=window.CubiGraficos;
 function graficosCard(){if(!CG)return '';const L=CG.level();
