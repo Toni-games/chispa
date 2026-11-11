@@ -1,0 +1,201 @@
+{
+ "latest": "2.8",
+ "launcher": "1.0.0",
+ "launcherUrl": "",
+ "versions": [
+  {
+   "id": "2.8",
+   "date": "2026-11-11",
+   "title": "Aviso de versión nueva",
+   "notes": [
+    "Al abrir la app te avisa si hay una versión nueva y te lleva a descargarla",
+    "Botón para buscar actualizaciones en Ajustes"
+   ],
+   "size": 889156,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-2.8.zip"
+  },
+  {
+   "id": "2.7",
+   "date": "2026-11-11",
+   "title": "Logros y anuncios en Windows",
+   "notes": [
+    "16 logros con premios en Cubos",
+    "Versión gratis con anuncios y Pro también en Windows"
+   ],
+   "size": 887857,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-2.7.zip"
+  },
+  {
+   "id": "2.6",
+   "date": "2026-11-11",
+   "title": "Pro dentro de la app",
+   "notes": [
+    "La versión Pro sin anuncios se activa y desactiva desde Ajustes"
+   ],
+   "size": 884282,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-2.6.zip"
+  },
+  {
+   "id": "2.5",
+   "date": "2026-11-11",
+   "title": "Versión gratis y Pro",
+   "notes": [
+    "Anuncios en la versión gratis de Android",
+    "Versión Pro sin anuncios"
+   ],
+   "size": 883628,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-2.5.zip"
+  },
+  {
+   "id": "2.4",
+   "date": "2026-11-11",
+   "title": "Mascotas, niveles y misiones",
+   "notes": [
+    "12 mascotas que vuelan a tu lado",
+    "Niveles con premios",
+    "3 misiones nuevas cada día y cofre del día"
+   ],
+   "size": 882676,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-2.4.zip"
+  },
+  {
+   "id": "2.3",
+   "date": "2026-11-11",
+   "title": "Icono nuevo",
+   "notes": [
+    "Nuevo icono: el cubo planeta"
+   ],
+   "size": 877498,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-2.3.zip"
+  },
+  {
+   "id": "2.2",
+   "date": "2026-11-09",
+   "title": "Gráficos, administrador e IA",
+   "notes": [
+    "Ajuste de gráficos bajo, medio y alto",
+    "Funciones de administrador",
+    "IA que crea juegos en CuboStudio y modo Crear fácil"
+   ],
+   "size": 379882,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-2.2.zip"
+  },
+  {
+   "id": "2.1",
+   "date": "2026-11-09",
+   "title": "Unirse a amigos en todos los juegos",
+   "notes": [
+    "Unirse a la partida de un amigo funciona en los 20 juegos y en los de CuboStudio"
+   ],
+   "size": 361036,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-2.1.zip"
+  },
+  {
+   "id": "2.0",
+   "date": "2026-11-09",
+   "title": "Amigos",
+   "notes": [
+    "Código de amigo, perfil y estado",
+    "Unirse a su partida sin código de sala"
+   ],
+   "size": 360393,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-2.0.zip"
+  },
+  {
+   "id": "1.9",
+   "date": "2026-11-09",
+   "title": "Taller de objetos",
+   "notes": [
+    "Crea tu propia ropa y accesorios",
+    "Véndelos en el catálogo o como objetos limitados"
+   ],
+   "size": 352544,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-1.9.zip"
+  },
+  {
+   "id": "1.8",
+   "date": "2026-11-09",
+   "title": "Multijugador en todos los juegos",
+   "notes": [
+    "Todos los juegos se pueden jugar con amigos",
+    "Tu avatar aparece en todos los juegos"
+   ],
+   "size": 339679,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-1.8.zip"
+  },
+  {
+   "id": "1.7",
+   "date": "2026-11-09",
+   "title": "10 juegos nuevos",
+   "notes": [
+    "5 juegos tranquilos y 5 de acción"
+   ],
+   "size": 324931,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-1.7.zip"
+  },
+  {
+   "id": "1.6",
+   "date": "2026-11-09",
+   "title": "Plantillas de CuboStudio",
+   "notes": [
+    "Plantillas de los juegos para cambiarlos a tu gusto",
+    "Bloques nuevos"
+   ],
+   "size": 276597,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-1.6.zip"
+  },
+  {
+   "id": "1.5",
+   "date": "2026-11-09",
+   "title": "CuboStudio",
+   "notes": [
+    "Crea tus propios juegos en 3D con bloques de programación"
+   ],
+   "size": 268472,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-1.5.zip"
+  },
+  {
+   "id": "1.4",
+   "date": "2026-11-08",
+   "title": "Cuentas",
+   "notes": [
+    "Cuenta con nombre y contraseña",
+    "Código de transferencia"
+   ],
+   "size": 228848,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-1.4.zip"
+  },
+  {
+   "id": "1.3",
+   "date": "2026-11-08",
+   "title": "Sonido y animaciones",
+   "notes": [
+    "Sonido y música",
+    "Pon tu propia música",
+    "Animaciones y gestos"
+   ],
+   "size": 220138,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-1.3.zip"
+  },
+  {
+   "id": "1.2",
+   "date": "2026-11-08",
+   "title": "Icono de mando y cubo",
+   "notes": [
+    "Nuevo icono"
+   ],
+   "size": 203638,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-1.2.zip"
+  },
+  {
+   "id": "1.0",
+   "date": "2026-11-08",
+   "title": "Primera versión",
+   "notes": [
+    "Plataforma Cubiverso con tus juegos, avatar y catálogo"
+   ],
+   "size": 212442,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-1.0.zip"
+  }
+ ]
+}
