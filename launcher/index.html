@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cubiverso Launcher</title>
+<style>
+:root{--bg:#0d0f1a;--rail:#080a12;--panel:#151827;--panel2:#1d2134;--line:#2a2f47;--fg:#eef0f8;--muted:#9aa1bd;--play:#21c063;--play2:#16a34a;--brand:#ffb020;--brand2:#ff7a2f;--danger:#ff5a5f;--sel:#3fa7ff;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:14px/1.45 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+[hidden]{display:none!important}
+.app{display:grid;grid-template-columns:84px minmax(0,1fr);height:100vh}
+/* barra lateral */
+.rail{background:var(--rail);border-right:1px solid #161a2b;display:flex;flex-direction:column;align-items:center;padding:14px 0 12px;gap:6px}
+.rail .logo{width:46px;height:46px;margin-bottom:14px}
+.nav{width:70px;border:0;background:none;border-radius:12px;padding:9px 0 7px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:11.5px;font-weight:600}
+.nav svg{width:24px;height:24px}.nav:hover{background:#131729;color:var(--fg)}.nav.on{background:#1a1f36;color:#fff}.nav.on svg{color:var(--brand)}
+.rail .sp{flex:1}
+.me{width:52px;height:52px;border-radius:14px;border:2px solid var(--line);background:var(--panel2) center/cover no-repeat;padding:0}
+.me:hover{border-color:var(--brand)}
+/* zona principal */
+.main{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0}
+.view{flex:1;min-height:0;overflow:auto}
+.top{display:flex;align-items:center;gap:14px;padding:22px 34px 0}
+.top h1{margin:0;font-size:24px;letter-spacing:.01em}.top .sub{color:var(--muted)}
+/* jugar */
+.hero{position:relative;flex:1;min-height:0;overflow:hidden;background:radial-gradient(120% 90% at 70% 30%,#3b1d7a 0%,#1a1040 45%,#0b0d1a 100%)}
+.hero canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero .txt{position:absolute;left:44px;top:40px;max-width:430px;pointer-events:none}
+.hero .wm{font:900 54px/1 "Segoe UI Black","Arial Black",system-ui,sans-serif;letter-spacing:.04em;color:#fff;text-shadow:0 4px 0 #7a2e00,0 10px 30px rgba(0,0,0,.45)}
+.hero .wm span{color:var(--brand)}
+.hero .tag{margin-top:10px;color:#d6d9ee;font-size:15px}
+.news{position:absolute;left:44px;bottom:28px;max-width:420px;background:rgba(13,15,26,.72);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px 16px;cursor:pointer}
+.news:hover{border-color:rgba(255,176,32,.6)}.news small{color:var(--brand);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:11px}.news b{display:block;font-size:17px;margin:2px 0}.news p{margin:0;color:var(--muted)}
+.bar{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:18px;padding:14px 26px;background:#0a0c16;border-top:1px solid #1a1e33}
+.pick{position:relative;justify-self:start;min-width:0}
+.pickbtn{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 12px;min-width:250px;max-width:100%;text-align:left}
+.pickbtn:hover{border-color:#3a4166}.pickbtn .ic{width:34px;height:34px;flex:none;border-radius:8px;background:url(icon.png) center/cover}
+.pickbtn b{display:block;font-size:14px}.pickbtn small{display:block;color:var(--muted);font-size:12px}
+.pickbtn .car{margin-left:auto;color:var(--muted)}
+.menu{position:absolute;bottom:calc(100% + 8px);left:0;width:340px;max-height:380px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:0 18px 50px rgba(0,0,0,.5);z-index:20}
+.opt{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;border-radius:10px;padding:8px 10px;text-align:left}
+.opt:hover,.opt.on{background:var(--panel2)}.opt b{font-size:14px}.opt small{color:var(--muted);font-size:12px;display:block}.opt .chip{margin-left:auto}
+.play{justify-self:center;border:0;border-radius:14px;min-width:280px;padding:16px 40px;font-size:22px;font-weight:900;letter-spacing:.08em;color:#04210f;background:linear-gradient(180deg,#3fe07c,var(--play));box-shadow:0 5px 0 var(--play2),0 12px 30px rgba(33,192,99,.35);position:relative;overflow:hidden}
+.play:hover{filter:brightness(1.06)}.play:active{transform:translateY(3px);box-shadow:0 2px 0 var(--play2)}
+.play:disabled{cursor:default;filter:saturate(.6) brightness(.9)}.play .pb{position:absolute;left:0;top:0;bottom:0;background:rgba(255,255,255,.35);width:0;transition:width .15s}
+.play span{position:relative}.play small{display:block;font-size:12px;font-weight:700;letter-spacing:.02em;opacity:.8;position:relative}
+.acct{justify-self:end;display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:6px 12px 6px 6px;min-width:0;max-width:100%}
+.acct:hover{border-color:#3a4166}.acct .hd{width:38px;height:38px;border-radius:9px;background:var(--panel2) center/cover;flex:none}
+.acct b{display:block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.acct small{color:var(--muted);font-size:12px}
+/* listas */
+.list{padding:18px 34px 34px;display:flex;flex-direction:column;gap:10px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ver{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.ver .ic{width:52px;height:52px;border-radius:12px;background:url(icon.png) center/cover}
+.ver b{font-size:16px}.ver small{color:var(--muted)}
+.chip{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.04em;border-radius:6px;padding:2px 7px;background:var(--panel2);color:var(--muted);vertical-align:middle}
+.chip.g{background:rgba(33,192,99,.18);color:#5ee08f}.chip.y{background:rgba(255,176,32,.18);color:var(--brand)}.chip.b{background:rgba(63,167,255,.18);color:#7cc4ff}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:8px 14px;font-weight:700}
+.btn:hover{border-color:#41496f}.btn.go{background:var(--play);border-color:transparent;color:#04210f}.btn.dl{background:var(--sel);border-color:transparent;color:#04121f}.btn.bad{color:var(--danger)}
+.btn:disabled{opacity:.5;cursor:default}
+.mini{height:6px;border-radius:4px;background:var(--panel2);overflow:hidden;margin-top:6px}.mini i{display:block;height:100%;background:var(--sel);width:0}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.note h3{margin:0 0 2px;font-size:18px}.note ul{margin:8px 0 0;padding-left:20px;color:#cfd3e6}.note small{color:var(--muted)}
+.set{display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.set small{display:block;color:var(--muted)}
+.sw{position:relative;width:46px;height:26px;flex:none}.sw input{opacity:0;width:100%;height:100%;margin:0;cursor:pointer;position:absolute;z-index:1}
+.sw i{position:absolute;inset:0;border-radius:13px;background:#2b3150;transition:.15s}.sw i::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.15s}
+.sw input:checked+i{background:var(--play)}.sw input:checked+i::after{left:23px}.sw input:focus-visible+i{outline:2px solid var(--sel);outline-offset:2px}
+/* ventanas */
+.ov{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:rgba(4,5,12,.72);padding:20px}
+.card{width:min(440px,100%);background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:12px;max-height:92vh;overflow:auto}
+.card h2{margin:0;font-size:22px}.card p{margin:0;color:var(--muted)}
+.tabs{display:flex;gap:4px;background:var(--panel2);border-radius:10px;padding:4px}.tabs button{flex:1;border:0;background:none;border-radius:8px;padding:7px;font-weight:700;color:var(--muted)}.tabs button.on{background:var(--panel);color:#fff}
+label.f{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:13px}
+.in{width:100%;background:#0f1220;border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--fg);font:inherit;font-size:15px}
+.in:focus{outline:2px solid var(--sel);outline-offset:0;border-color:transparent}
+textarea.in{min-height:80px;font:12px ui-monospace,Consolas,monospace}
+.err{color:var(--danger);min-height:1.2em;font-size:13px}
+.accs{display:flex;flex-wrap:wrap;gap:6px}.accs button{border:1px solid var(--line);background:var(--panel2);border-radius:999px;padding:5px 12px;font-weight:600}
+.big{width:100%;padding:12px;font-size:16px}
+.pop{position:absolute;right:26px;bottom:82px;width:300px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.55);z-index:30;display:flex;flex-direction:column;gap:10px}
+.pop .hd{width:64px;height:64px;border-radius:14px;background:var(--panel2) center/cover}
+.stats{display:flex;gap:16px}.stats span{display:flex;flex-direction:column;font-size:12px;color:var(--muted)}.stats b{font-size:18px;color:var(--fg)}
+#toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#000c;border:1px solid var(--line);color:#fff;padding:10px 16px;border-radius:12px;z-index:80;font-weight:600;max-width:80vw}
+.off{background:rgba(255,90,95,.12);border:1px solid rgba(255,90,95,.35);color:#ffb4b6;border-radius:12px;padding:10px 14px}
+@media (max-width:1040px){.bar{grid-template-columns:1fr auto;}.acct{display:none}.hero .wm{font-size:42px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail" aria-label="Menú del launcher">
+    <svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><defs><radialGradient id="lg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#4c1d95"/><stop offset="1" stop-color="#0f0726"/></radialGradient></defs><rect width="512" height="512" rx="112" fill="url(#lg)"/><polygon points="256,120 380,190 256,260 132,190" fill="#ffb020"/><polygon points="132,190 256,260 256,400 132,330" fill="#ff7a2f"/><polygon points="380,190 256,260 256,400 380,330" fill="#d9480f"/><path d="M76,330 C150,370 360,330 444,232" fill="none" stroke="#67e8f9" stroke-width="18" stroke-linecap="round"/></svg>
+    <button class="nav on" data-v="jugar"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Jugar</button>
+    <button class="nav" data-v="versiones"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></svg>Versiones</button>
+    <button class="nav" data-v="novedades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Novedades</button>
+    <button class="nav" data-v="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ajustes</button>
+    <div class="sp"></div>
+    <button class="me" id="mebtn" aria-label="Tu cuenta"></button>
+  </nav>
+  <main class="main" id="main"></main>
+</div>
+<div id="toast" hidden role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="avatar.js"></script>
+<script src="firebase-config.js"></script>
+<script src="cuenta.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const L=window.Launcher;const A=window.CubiAvatar,C=window.CubiCuenta;
+let M=null,offline=false,S={installed:[],conf:{},app:'',playing:null},view='jugar',busy=null,prog={},menuOpen=false,popOpen=false;
+const fmtSize=b=>b>1e6?(b/1e6).toFixed(1)+' MB':Math.round(b/1e3)+' KB';
+const fmtDate=d=>{try{return new Date(d+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}catch(e){return d}};
+function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,3200)}
+const vers=()=>M&&M.versions||[];
+const latest=()=>M&&M.latest||(S.installed.slice().sort(vcmp).pop())||null;
+function vcmp(a,b){a=String(a).split('.').map(Number);b=String(b).split('.').map(Number);for(let i=0;i<Math.max(a.length,b.length);i++){const d=(a[i]||0)-(b[i]||0);if(d)return d}return 0}
+const selId=()=>{const s=S.conf.sel||'latest';return s==='latest'?latest():s};
+const isInst=id=>S.installed.includes(id);
+const vinfo=id=>vers().find(v=>v.id===id)||{id,title:'',notes:[],date:''};
+
+/* ---------- cuenta ---------- */
+const st=()=>A?A.state():{name:'',eq:null,cubos:0,xp:0};
+const acct=()=>C&&C.actual();
+let headUrl='',headKey='';
+function headshot(){const s=st();const k=JSON.stringify(s.eq);if(k===headKey)return headUrl;headKey=k;
+  try{const r=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});r.setSize(128,128);r.setPixelRatio(1);
+    const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight(0xffffff,0x667788,.95));const d=new THREE.DirectionalLight(0xffffff,.55);d.position.set(2,3,4);sc.add(d);
+    const cam=new THREE.PerspectiveCamera(30,1,.1,50);cam.position.set(.55,2.0,2.1);cam.lookAt(0,1.97,0);const av=A.makeAvatar(THREE,s.eq);sc.add(av.root);r.render(sc,cam);headUrl=r.domElement.toDataURL();r.dispose();r.forceContextLoss&&r.forceContextLoss()}catch(e){headUrl=''}
+  return headUrl}
+function paintMe(){const u=headshot();$('#mebtn').style.backgroundImage=u?`url(${u})`:'';document.querySelectorAll('.hd').forEach(e=>e.style.backgroundImage=u?`url(${u})`:'')}
+
+/* ---------- vistas ---------- */
+function render(){document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('on',b.dataset.v===view));
+  const m=$('#main');m.innerHTML=({jugar:vJugar,versiones:vVersiones,novedades:vNovedades,ajustes:vAjustes}[view])();
+  if(view==='jugar')mountHero();else stopHero();paintMe()}
+function playLabel(){const id=selId();
+  if(S.playing)return {t:'JUGANDO',s:'Cubiverso '+S.playing+' está abierto',dis:false};
+  if(busy){const p=prog[busy]||{};const pc=p.total?Math.round(p.got/p.total*100):0;return {t:'DESCARGANDO',s:pc+'%',dis:true,pc}}
+  if(!id)return {t:'JUGAR',s:offline?'Sin internet y sin versiones':'Cargando…',dis:true};
+  if(!isInst(id))return {t:'INSTALAR',s:'Cubiverso '+id+(vinfo(id).size?' · '+fmtSize(vinfo(id).size):''),dis:offline};
+  return {t:'JUGAR',s:'Cubiverso '+id,dis:false}}
+function vJugar(){const id=selId(),v=vinfo(latest()),a=acct(),s=st(),lv=A&&A.levelOf?A.levelOf(s.xp).lvl:1,pl=playLabel();
+  return `<section class="hero" id="hero"><canvas id="hc" aria-hidden="true"></canvas>
+    <div class="txt"><div class="wm">CUBI<span>VERSO</span></div><div class="tag">Elige la versión, entra con tu cuenta y juega. Tu progreso es el mismo en todas las versiones.</div></div>
+    ${v&&v.title?`<div class="news" data-a="news"><small>Novedad · versión ${esc(v.id)}</small><b>${esc(v.title)}</b><p>${esc((v.notes||[])[0]||'')}</p></div>`:''}
+    ${offline?'<div class="off" style="position:absolute;right:26px;top:22px">Sin conexión: solo puedes jugar a las versiones que ya tienes instaladas.</div>':''}</section>
+  <div class="bar">
+    <div class="pick"><button class="pickbtn" data-a="menu" aria-haspopup="listbox" aria-expanded="${menuOpen}"><span class="ic"></span><span style="min-width:0"><b>${(S.conf.sel||'latest')==='latest'?'Última versión':'Cubiverso '+esc(id||'')}</b><small>${id?esc(id)+(isInst(id)?' · instalada':' · sin instalar'):'—'}</small></span><span class="car">▾</span></button>
+      ${menuOpen?`<div class="menu" role="listbox">${pickOpts()}</div>`:''}</div>
+    <button class="play" data-a="play" ${pl.dis?'disabled':''}><i class="pb" style="width:${pl.pc||0}%"></i><span>${pl.t}</span><small>${esc(pl.s)}</small></button>
+    <button class="acct" data-a="acct"><span class="hd"></span><span style="min-width:0;text-align:left"><b>${a?esc(a.name):'Sin cuenta'}</b><small>${a?`Nivel ${lv} · ${(s.cubos||0).toLocaleString('es-ES')} Cubos`:'Haz clic para entrar'}</small></span></button>
+    ${popOpen?accPop():''}
+  </div>`}
+function pickOpts(){const sel=S.conf.sel||'latest';const L0=latest();
+  const list=[`<button class="opt ${sel==='latest'?'on':''}" data-sel="latest" role="option"><span><b>Última versión</b><small>Siempre la más nueva${L0?' ('+esc(L0)+')':''}</small></span><span class="chip y">RECOMENDADA</span></button>`];
+  const ids=[...new Set(vers().map(v=>v.id).concat(S.installed))].sort(vcmp).reverse();
+  ids.forEach(id=>{const v=vinfo(id);list.push(`<button class="opt ${sel===id?'on':''}" data-sel="${esc(id)}" role="option"><span><b>Cubiverso ${esc(id)}</b><small>${esc(v.title||'')}</small></span>${isInst(id)?'<span class="chip g">INSTALADA</span>':''}</button>`)});
+  return list.join('')}
+function accPop(){const a=acct(),s=st();const lv=A&&A.levelOf?A.levelOf(s.xp).lvl:1;
+  if(!a)return '';
+  return `<div class="pop" role="dialog" aria-label="Tu cuenta"><div class="row"><span class="hd"></span><div style="min-width:0"><b style="font-size:18px">${esc(a.name)}</b><br><small style="color:var(--muted)">${a.cloud?'Cuenta en internet':'Cuenta en este ordenador'}</small></div></div>
+    <div class="stats"><span><b>${lv}</b>nivel</span><span><b>${(s.cubos||0).toLocaleString('es-ES')}</b>Cubos</span><span><b>${(s.owned||[]).length}</b>objetos</span></div>
+    <button class="btn" data-a="code">Código de transferencia</button><button class="btn" data-a="switch">Cambiar de cuenta</button></div>`}
+function vVersiones(){const ids=[...new Set(vers().map(v=>v.id).concat(S.installed))].sort(vcmp).reverse();
+  return `<div class="top"><h1>Versiones</h1><span class="sub">${S.installed.length} instalada${S.installed.length===1?'':'s'} de ${ids.length}</span></div>
+  <div class="list">${offline?'<div class="off">Sin conexión: se muestran las versiones que ya tienes.</div>':''}
+  ${ids.map(id=>{const v=vinfo(id),inst=isInst(id),p=prog[id],dl=busy===id;
+    return `<div class="ver"><span class="ic"></span><div style="min-width:0"><b>Cubiverso ${esc(id)}</b> ${id===latest()?'<span class="chip y">ÚLTIMA</span>':''} ${inst?'<span class="chip g">INSTALADA</span>':''} ${S.playing===id?'<span class="chip b">JUGANDO</span>':''}
+      <br><small>${esc(v.title||'')}${v.date?' · '+fmtDate(v.date):''}${v.size?' · '+fmtSize(v.size):''}</small>${dl?`<div class="mini"><i style="width:${p&&p.total?Math.round(p.got/p.total*100):0}%"></i></div>`:''}</div>
+      <div class="row">${inst?`<button class="btn go" data-a="playid" data-id="${esc(id)}">Jugar</button><button class="btn bad" data-a="del" data-id="${esc(id)}" ${S.playing===id?'disabled':''}>Borrar</button>`
+        :`<button class="btn dl" data-a="get" data-id="${esc(id)}" ${busy||offline||!v.url?'disabled':''}>${dl?'Descargando…':'Descargar'}</button>`}</div></div>`}).join('')||'<div class="note">Todavía no hay versiones. Conéctate a internet para verlas.</div>'}
+  </div>`}
+function vNovedades(){return `<div class="top"><h1>Novedades</h1><span class="sub">Lo que trae cada versión</span></div>
+  <div class="list">${vers().map(v=>`<article class="note"><small>Versión ${esc(v.id)}${v.date?' · '+fmtDate(v.date):''}</small><h3>${esc(v.title)}</h3><ul>${(v.notes||[]).map(n=>`<li>${esc(n)}</li>`).join('')}</ul></article>`).join('')||'<div class="note">Conéctate a internet para ver las novedades.</div>'}</div>`}
+function vAjustes(){const c=S.conf;const upd=M&&M.launcher&&vcmp(M.launcher,S.app)>0;
+  return `<div class="top"><h1>Ajustes</h1></div><div class="list">
+    <div class="set"><div><b>Dejar el launcher abierto mientras juegas</b><small>Si está apagado, el launcher se esconde al empezar y vuelve al cerrar el juego.</small></div><label class="sw"><input type="checkbox" data-c="keepOpen" ${c.keepOpen?'checked':''} aria-label="Dejar el launcher abierto"><i></i></label></div>
+    <div class="set"><div><b>Abrir el juego en pantalla completa</b><small>También puedes pulsar F11 dentro del juego.</small></div><label class="sw"><input type="checkbox" data-c="full" ${c.full?'checked':''} aria-label="Pantalla completa"><i></i></label></div>
+    <div class="set"><div><b>Carpeta de las versiones</b><small>${esc(S.folder||'')}</small></div><button class="btn" data-a="folder">Abrir carpeta</button></div>
+    <div class="set"><div><b>Cubiverso Launcher ${esc(S.app)}</b><small>${upd?`Hay un launcher nuevo: ${esc(M.launcher)}`:'Tienes el launcher al día.'}</small></div>${upd&&M.launcherUrl?`<button class="btn go" data-a="lupd">Descargar launcher nuevo</button>`:''}</div>
+  </div>`}
+
+/* ---------- escena del inicio: tu avatar flotando en un cubo ---------- */
+let H=null;
+function mountHero(){const cv=$('#hc');if(!cv||!window.THREE||!A)return;stopHero();
+  try{const r=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});r.setPixelRatio(Math.min(devicePixelRatio,1.5));
+    const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight(0xc7b8ff,0x1a1040,.9));const sun=new THREE.DirectionalLight(0xffffff,.8);sun.position.set(4,8,6);sc.add(sun);
+    const cam=new THREE.PerspectiveCamera(35,1,.1,200);
+    const isl=new THREE.Group();sc.add(isl);
+    const top=new THREE.Mesh(new THREE.BoxGeometry(3.4,.6,3.4),new THREE.MeshLambertMaterial({color:0x4b974b}));top.position.y=-.3;isl.add(top);
+    const dirt=new THREE.Mesh(new THREE.BoxGeometry(3.2,1.4,3.2),new THREE.MeshLambertMaterial({color:0x7c5c46}));dirt.position.y=-1.3;isl.add(dirt);
+    const rock=new THREE.Mesh(new THREE.ConeGeometry(1.5,2,4),new THREE.MeshLambertMaterial({color:0x57534e}));rock.position.y=-3;rock.rotation.y=Math.PI/4;rock.rotation.x=Math.PI;isl.add(rock);
+    const cube=new THREE.Group();[[0xffb020,0,.0],[0xff7a2f,0,0]].forEach(()=>{});const cb=new THREE.Mesh(new THREE.BoxGeometry(.8,.8,.8),[0xff7a2f,0xd9480f,0xffb020,0xd9480f,0xff7a2f,0xd9480f].map(c=>new THREE.MeshLambertMaterial({color:c})));cube.add(cb);cube.position.set(-1.8,1.9,-.6);sc.add(cube);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(1,.04,8,48),new THREE.MeshBasicMaterial({color:0x67e8f9}));ring.rotation.x=1.2;cube.add(ring);
+    const stars=new THREE.BufferGeometry(),N=400,pos=new Float32Array(N*3);for(let i=0;i<N;i++){pos[i*3]=(Math.random()-.5)*80;pos[i*3+1]=(Math.random()-.2)*40;pos[i*3+2]=-20-Math.random()*40}
+    stars.setAttribute('position',new THREE.BufferAttribute(pos,3));sc.add(new THREE.Points(stars,new THREE.PointsMaterial({color:0xffffff,size:.15})));
+    const av=A.makeAvatar(THREE,st().eq);isl.add(av.root);av.root.rotation.y=-.35;
+    let t0=performance.now(),raf=0;
+    const size=()=>{const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;r.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();
+      const wide=w/h;cam.position.set(wide>1.6?-2.2:-.8,2.3,8.5);cam.lookAt(wide>1.6?-3.2:-1.2,1.1,0)};
+    size();const ro=new ResizeObserver(size);ro.observe(cv);
+    const loop=t=>{const T=(t-t0)/1000;isl.position.y=Math.sin(T*.9)*.12;isl.rotation.y=Math.sin(T*.25)*.25;cube.rotation.y=T*.8;cube.rotation.x=Math.sin(T)*.2;cube.position.y=1.9+Math.sin(T*1.3)*.15;
+      try{A.animate(av,{dt:1/60,moving:0})}catch(e){}r.render(sc,cam);raf=requestAnimationFrame(loop)};raf=requestAnimationFrame(loop);
+    H={stop(){cancelAnimationFrame(raf);ro.disconnect();r.dispose()}}}catch(e){H=null}}
+function stopHero(){if(H){H.stop();H=null}}
+
+/* ---------- acciones ---------- */
+async function refresh(){if(!L)return;S=await L.state();}
+async function install(id){const v=vinfo(id);if(!v.url){toast('Esa versión no se puede descargar');return false}busy=id;prog[id]={got:0,total:v.size||0};render();
+  try{S.installed=await L.install(id,v.url);toast('Cubiverso '+id+' instalado');return true}catch(e){toast(String(e.message||e).replace(/^Error invoking remote method '[^']+': (Error: )?/,''));return false}finally{busy=null;render()}}
+async function play(id){if(!acct()){openLogin(true);return}
+  if(S.playing){await L.play(S.playing);return}if(!isInst(id)){if(!await install(id))return}
+  try{await L.play(id);S.playing=id;render()}catch(e){toast(String(e.message||e).replace(/^Error invoking remote method '[^']+': (Error: )?/,''))}}
+document.addEventListener('click',async e=>{const nav=e.target.closest('.nav');if(nav){view=nav.dataset.v;menuOpen=popOpen=false;render();return}
+  if(e.target.closest('#mebtn')){if(acct()){view='jugar';popOpen=true;menuOpen=false;render()}else openLogin();return}
+  const o=e.target.closest('[data-sel]');if(o){S.conf=await L.setConf({sel:o.dataset.sel});menuOpen=false;render();return}
+  const b=e.target.closest('[data-a]');
+  if(!b){if(menuOpen||popOpen){if(!e.target.closest('.menu,.pop')){menuOpen=popOpen=false;render()}}return}
+  const a=b.dataset.a,id=b.dataset.id;
+  if(a==='menu'){menuOpen=!menuOpen;popOpen=false;render()}
+  if(a==='acct'){if(acct()){popOpen=!popOpen;menuOpen=false;render()}else openLogin()}
+  if(a==='play'){const s=selId();if(s)play(s)}
+  if(a==='playid'){play(id)}
+  if(a==='get'){install(id)}
+  if(a==='del'){try{S.installed=await L.uninstall(id);toast('Versión '+id+' borrada');render()}catch(err){toast(String(err.message||err).replace(/^Error invoking remote method '[^']+': (Error: )?/,''))}}
+  if(a==='news'){view='novedades';render()}
+  if(a==='folder')L.openFolder();
+  if(a==='lupd')L.open(M.launcherUrl);
+  if(a==='code'){popOpen=false;render();showCode()}
+  if(a==='switch'){popOpen=false;try{await C.salir()}catch(err){}headKey='';render();openLogin()}});
+document.addEventListener('change',async e=>{const k=e.target.dataset&&e.target.dataset.c;if(k){S.conf=await L.setConf({[k]:e.target.checked})}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(menuOpen||popOpen)){menuOpen=popOpen=false;render()}});
+
+/* ---------- entrar con tu cuenta ---------- */
+function openLogin(fromPlay){closeOv();const locs=C?C.locales():[];let tab=locs.length?'entrar':'crear';
+  const ov=document.createElement('div');ov.className='ov';ov.id='login';ov.innerHTML='<div class="card" role="dialog" aria-modal="true" aria-labelledby="lgt"></div>';document.body.appendChild(ov);
+  const draw=()=>{const c=ov.firstChild;c.innerHTML=`<h2 id="lgt">${fromPlay?'Entra para jugar':'Tu cuenta de Cubiverso'}</h2><p>La misma cuenta y el mismo progreso en todas las versiones.</p>
+    <div class="tabs" role="tablist">${[['entrar','Entrar'],['crear','Crear cuenta'],['codigo','Tengo un código']].map(([k,n])=>`<button role="tab" aria-selected="${tab===k}" class="${tab===k?'on':''}" data-t="${k}">${n}</button>`).join('')}</div>
+    ${tab==='entrar'&&locs.length?`<div><small style="color:var(--muted)">Cuentas en este ordenador:</small><div class="accs">${locs.map(n=>`<button data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>`:''}
+    ${tab!=='codigo'?`<label class="f">Nombre<input class="in" id="ln" maxlength="16" autocomplete="username"></label>`:`<label class="f">Código de transferencia<textarea class="in" id="lc" placeholder="CUBI1…"></textarea></label>`}
+    <label class="f">Contraseña<input class="in" id="lp" type="password" autocomplete="${tab==='crear'?'new-password':'current-password'}"></label>
+    ${tab==='crear'?'<label class="f">Repite la contraseña<input class="in" id="lp2" type="password" autocomplete="new-password"></label>':''}
+    <div class="err" id="le" role="alert"></div>
+    <button class="btn go big" id="lgo">${tab==='entrar'?'Entrar':tab==='crear'?'Crear cuenta':'Traer mi cuenta'}</button>
+    <button class="btn" id="lx">Ahora no</button>`;
+    const f=c.querySelector('#ln,#lc');if(f)f.focus()};
+  draw();
+  ov.addEventListener('click',async e=>{const t=e.target.closest('[data-t]');if(t){tab=t.dataset.t;draw();return}
+    const n=e.target.closest('[data-n]');if(n){const i=ov.querySelector('#ln');i.value=n.dataset.n;ov.querySelector('#lp').focus();return}
+    if(e.target.id==='lx'){closeOv();return}
+    if(e.target.id==='lgo'){const er=ov.querySelector('#le'),btn=ov.querySelector('#lgo');er.textContent='';btn.disabled=true;
+      try{const p=ov.querySelector('#lp').value;
+        if(tab==='crear'){if(p!==ov.querySelector('#lp2').value)throw new Error('Las contraseñas no son iguales.');await C.crear(ov.querySelector('#ln').value,p)}
+        else if(tab==='entrar')await C.entrar(ov.querySelector('#ln').value,p);
+        else await C.usarCodigo(ov.querySelector('#lc').value,p);
+        closeOv();headKey='';render();toast('¡Hola, '+acct().name+'!')}
+      catch(err){er.textContent=C.nice?C.nice(err):String(err.message||err);btn.disabled=false}}});
+  ov.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.tagName==='INPUT')ov.querySelector('#lgo').click();if(e.key==='Escape')closeOv()})}
+async function showCode(){closeOv();let code='';try{code=await C.codigo()}catch(e){toast(String(e.message||e));return}
+  const ov=document.createElement('div');ov.className='ov';ov.innerHTML=`<div class="card" role="dialog" aria-modal="true" aria-labelledby="cdt"><h2 id="cdt">Código de transferencia</h2><p>Pégalo en Cubiverso de otro dispositivo («Tengo un código») junto con tu contraseña para llevarte la cuenta y todo tu progreso.</p>
+    <textarea class="in" readonly id="cd">${esc(code)}</textarea><div class="row"><button class="btn go" id="cc">Copiar</button><button class="btn" id="cx">Cerrar</button></div></div>`;document.body.appendChild(ov);
+  ov.querySelector('#cc').onclick=()=>{const t=ov.querySelector('#cd');t.select();navigator.clipboard.writeText(code).then(()=>toast('Código copiado'),()=>{try{document.execCommand('copy');toast('Código copiado')}catch(e){}})};ov.querySelector('#cx').onclick=closeOv}
+function closeOv(){document.querySelectorAll('.ov').forEach(o=>o.remove())}
+
+/* ---------- arranque ---------- */
+(async()=>{
+  if(!L){document.body.innerHTML='<p style="padding:30px">Abre el Cubiverso Launcher para usar esta pantalla.</p>';return}
+  await refresh();render();
+  const r=await L.manifest();M=r.data;offline=r.offline;
+  if(!S.conf.sel)S.conf=await L.setConf({sel:'latest'});
+  render();if(!acct())openLogin();
+  L.on('progress',p=>{prog[p.id]=p;const pl=document.querySelector('.play');if(pl&&view==='jugar'){const pc=p.total?Math.round(p.got/p.total*100):0;pl.querySelector('.pb').style.width=pc+'%';pl.querySelector('small').textContent=pc+'%'}
+    const mi=document.querySelector('.mini i');if(mi&&p.total)mi.style.width=Math.round(p.got/p.total*100)+'%'});
+  L.on('game-started',id=>{S.playing=id;render()});
+  L.on('game-closed',async()=>{S.playing=null;await refresh();headKey='';render()});
+})();
+</script>
+</body>
+</html>
