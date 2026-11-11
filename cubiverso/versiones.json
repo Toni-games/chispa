@@ -1,7 +1,7 @@
 {
  "latest": "2.8",
  "launcher": "1.0.0",
- "launcherUrl": "",
+ "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.1/Cubiverso-Launcher-Instalador.exe",
  "versions": [
   {
    "id": "2.8",
