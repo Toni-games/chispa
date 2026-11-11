@@ -363,6 +363,15 @@ function rr(g,x,y,w,h,col){g.fillStyle=col;g.fillRect(x,y,w,h)}
 function windows(g,x,y,w,h,col){g.fillStyle=col;for(let yy=y+8;yy<y+h-10;yy+=16)for(let xx=x+6;xx<x+w-10;xx+=14)g.fillRect(xx,yy,7,8)}
 function person(g,x,y,s,shirt){rr(g,x-6*s,y-14*s,12*s,10*s,'#ffd29a');rr(g,x-8*s,y-4*s,16*s,14*s,shirt);rr(g,x-8*s,y+10*s,7*s,12*s,'#2d3a5a');rr(g,x+1*s,y+10*s,7*s,12*s,'#2d3a5a');g.fillStyle='#111';g.fillRect(x-3*s,y-11*s,2*s,3*s);g.fillRect(x+1*s,y-11*s,2*s,3*s)}
 const GAMES=[
+ {id:'carcasas',name:'Sin Carcasas',file:'juegos/sin-carcasas.html',tag:'2D · Reparar',avatar:false,multi:false,nuevo:true,
+  desc:'Juego 2D: monta móviles, tablets, consolas y ordenadores con las piezas sueltas en la mesa. Revisa las piezas rotas con el microscopio, conecta los cables y el monitor, suelda y enciende. Si algo está mal… ¡explota!',
+  draw(g,w,h){rr(g,0,0,w,h,'#1d3a43');g.strokeStyle='#25505b';g.lineWidth=1;for(let x=0;x<w;x+=24){g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke()}for(let y=0;y<h;y+=24){g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke()}
+    rr(g,180,40,120,200,'#0f5a40');g.strokeStyle='#ffb238';g.lineWidth=3;g.strokeRect(180,40,120,200);rr(g,200,62,46,46,'#262a30');rr(g,210,72,26,26,'#8f99a4');rr(g,256,62,34,20,'#1b1e22');rr(g,256,90,34,22,'#1b1e22');
+    g.fillStyle='#c9a24a';g.beginPath();g.arc(225,215,6,0,7);g.arc(255,215,6,0,7);g.fill();rr(g,40,70,90,140,'#3d5966');rr(g,70,125,30,18,'#3ddc84');
+    g.strokeStyle='#ff4545';g.lineWidth=5;g.beginPath();g.moveTo(130,110);g.bezierCurveTo(150,150,165,160,190,170);g.stroke();
+    rr(g,340,60,120,80,'#14171b');rr(g,348,68,104,62,'#0f766e');rr(g,390,140,20,24,'#2b3138');g.strokeStyle='#c3ccd4';g.lineWidth=5;g.beginPath();g.moveTo(300,150);g.bezierCurveTo(330,190,380,190,400,140);g.stroke();
+    g.fillStyle='rgba(120,120,120,.75)';for(let i=0;i<5;i++){g.beginPath();g.arc(230+i*9,30-i*6,10+i*3,0,7);g.fill()}
+    g.fillStyle='#ffb238';g.font='900 26px sans-serif';g.fillText('SIN CARCASAS',150,262)}},
  {id:'obby',name:'Carrera Imposible',file:'juegos/carrera-imposible.html',tag:'Obby · Multijugador',avatar:true,multi:true,
   desc:'Una carrera de obstáculos con 6 fases: saltos, plataformas móviles, baldosas que desaparecen, barras giratorias, trampolines y una torre final. Juega solo o crea una sala para competir con tus amigos.',
   draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#5fb8f5');sk.addColorStop(1,'#d8f1ff');g.fillStyle=sk;g.fillRect(0,0,w,h);
