@@ -39,8 +39,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 .pickbtn:hover{border-color:#3a4166}.pickbtn .ic{width:34px;height:34px;flex:none;border-radius:8px;background:url(icon.png) center/cover}
 .pickbtn b{display:block;font-size:14px}.pickbtn small{display:block;color:var(--muted);font-size:12px}
 .pickbtn .car{margin-left:auto;color:var(--muted)}
-.menu{position:absolute;bottom:calc(100% + 8px);left:0;width:340px;max-height:380px;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:0 18px 50px rgba(0,0,0,.5);z-index:20}
-.opt{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;border-radius:10px;padding:8px 10px;text-align:left}
+.menu{position:absolute;bottom:calc(100% + 8px);left:0;width:min(600px,calc(100vw - 140px));max-height:calc(100vh - 120px);overflow-y:auto;overscroll-behavior:contain;display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:0 18px 50px rgba(0,0,0,.5);z-index:20}
+.opt{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;border-radius:10px;padding:6px 10px;text-align:left;min-width:0}.opt>span:first-child{min-width:0}.opt small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.opt.first{grid-column:1/-1}
+.menu::-webkit-scrollbar,.view::-webkit-scrollbar{width:10px}.menu::-webkit-scrollbar-thumb,.view::-webkit-scrollbar-thumb{background:#3a4166;border-radius:6px;border:2px solid var(--panel)}.menu::-webkit-scrollbar-track{background:transparent}
 .opt:hover,.opt.on{background:var(--panel2)}.opt b{font-size:14px}.opt small{color:var(--muted);font-size:12px;display:block}.opt .chip{margin-left:auto}
 .play{justify-self:center;border:0;border-radius:14px;min-width:280px;padding:16px 40px;font-size:22px;font-weight:900;letter-spacing:.08em;color:#04210f;background:linear-gradient(180deg,#3fe07c,var(--play));box-shadow:0 5px 0 var(--play2),0 12px 30px rgba(33,192,99,.35);position:relative;overflow:hidden}
 .play:hover{filter:brightness(1.06)}.play:active{transform:translateY(3px);box-shadow:0 2px 0 var(--play2)}
@@ -136,7 +137,7 @@ function paintMe(){const u=headshot();$('#mebtn').style.backgroundImage=u?`url($
 
 /* ---------- vistas ---------- */
 function render(){document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('on',b.dataset.v===view));
-  const m=$('#main');m.innerHTML=({jugar:vJugar,versiones:vVersiones,novedades:vNovedades,ajustes:vAjustes}[view])();
+  const m=$('#main');const h=({jugar:vJugar,versiones:vVersiones,novedades:vNovedades,ajustes:vAjustes}[view])();m.innerHTML=view==='jugar'?h:`<div class="view">${h}</div>`;
   if(view==='jugar')mountHero();else stopHero();paintMe()}
 function playLabel(){const id=selId();
   if(S.playing)return {t:'JUGANDO',s:'Cubiverso '+S.playing+' está abierto',dis:false};
@@ -157,7 +158,7 @@ function vJugar(){const id=selId(),v=vinfo(latest()),a=acct(),s=st(),lv=A&&A.lev
     ${popOpen?accPop():''}
   </div>`}
 function pickOpts(){const sel=S.conf.sel||'latest';const L0=latest();
-  const list=[`<button class="opt ${sel==='latest'?'on':''}" data-sel="latest" role="option"><span><b>Última versión</b><small>Siempre la más nueva${L0?' ('+esc(L0)+')':''}</small></span><span class="chip y">RECOMENDADA</span></button>`];
+  const list=[`<button class="opt first ${sel==='latest'?'on':''}" data-sel="latest" role="option"><span><b>Última versión</b><small>Siempre la más nueva${L0?' ('+esc(L0)+')':''}</small></span><span class="chip y">RECOMENDADA</span></button>`];
   const ids=[...new Set(vers().map(v=>v.id).concat(S.installed))].sort(vcmp).reverse();
   ids.forEach(id=>{const v=vinfo(id);list.push(`<button class="opt ${sel===id?'on':''}" data-sel="${esc(id)}" role="option"><span><b>Cubiverso ${esc(id)}</b><small>${esc(v.title||'')}</small></span>${isInst(id)?'<span class="chip g">INSTALADA</span>':''}</button>`)});
   return list.join('')}
@@ -182,7 +183,7 @@ function vAjustes(){const c=S.conf;const upd=M&&M.launcher&&vcmp(M.launcher,S.ap
     <div class="set"><div><b>Dejar el launcher abierto mientras juegas</b><small>Si está apagado, el launcher se esconde al empezar y vuelve al cerrar el juego.</small></div><label class="sw"><input type="checkbox" data-c="keepOpen" ${c.keepOpen?'checked':''} aria-label="Dejar el launcher abierto"><i></i></label></div>
     <div class="set"><div><b>Abrir el juego en pantalla completa</b><small>También puedes pulsar F11 dentro del juego.</small></div><label class="sw"><input type="checkbox" data-c="full" ${c.full?'checked':''} aria-label="Pantalla completa"><i></i></label></div>
     <div class="set"><div><b>Carpeta de las versiones</b><small>${esc(S.folder||'')}</small></div><button class="btn" data-a="folder">Abrir carpeta</button></div>
-    <div class="set"><div><b>Cubiverso Launcher ${esc(S.app)}</b><small>${upd?`Hay un launcher nuevo: ${esc(M.launcher)}`:'Tienes el launcher al día.'}</small></div>${upd&&M.launcherUrl?`<button class="btn go" data-a="lupd">Descargar launcher nuevo</button>`:''}</div>
+    <div class="set"><div><b>Cubiverso Launcher ${esc(S.app)}</b><small>${upd?`Hay un launcher nuevo: ${esc(M.launcher)}`:'Tienes el launcher al día.'}</small></div>${upd&&M.launcherUrl?`<button class="btn go" data-a="lupd">Descargar launcher nuevo</button>`:`<button class="btn" data-a="lcheck">Buscar actualizaciones</button>`}</div>
   </div>`}
 
 /* ---------- escena del inicio: tu avatar flotando en un cubo ---------- */
@@ -231,10 +232,12 @@ document.addEventListener('click',async e=>{const nav=e.target.closest('.nav');i
   if(a==='news'){view='novedades';render()}
   if(a==='folder')L.openFolder();
   if(a==='lupd')L.open(M.launcherUrl);
+  if(a==='lcheck'){const r=await L.manifest();if(r.data){M=r.data;offline=r.offline}render();if(M&&M.launcher&&M.launcherUrl&&vcmp(M.launcher,S.app)>0)launcherUpdate();else toast(r.offline?'No hay conexión a internet':'Tienes el launcher al día')}
   if(a==='code'){popOpen=false;render();showCode()}
   if(a==='switch'){popOpen=false;try{await C.salir()}catch(err){}headKey='';render();openLogin()}});
 document.addEventListener('change',async e=>{const k=e.target.dataset&&e.target.dataset.c;if(k){S.conf=await L.setConf({[k]:e.target.checked})}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(menuOpen||popOpen)){menuOpen=popOpen=false;render()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(menuOpen||popOpen)){menuOpen=popOpen=false;render();return}
+  if(menuOpen&&(e.key==='ArrowDown'||e.key==='ArrowUp')){const os=[...document.querySelectorAll('.menu .opt')];if(!os.length)return;e.preventDefault();let i=os.indexOf(document.activeElement);i=i<0?0:(i+(e.key==='ArrowDown'?1:-1)+os.length)%os.length;os[i].focus();os[i].scrollIntoView({block:'nearest'})}});
 
 /* ---------- entrar con tu cuenta ---------- */
 function openLogin(fromPlay){closeOv();const locs=C?C.locales():[];let tab=locs.length?'entrar':'crear';
@@ -266,6 +269,12 @@ async function showCode(){closeOv();let code='';try{code=await C.codigo()}catch(
     <textarea class="in" readonly id="cd">${esc(code)}</textarea><div class="row"><button class="btn go" id="cc">Copiar</button><button class="btn" id="cx">Cerrar</button></div></div>`;document.body.appendChild(ov);
   ov.querySelector('#cc').onclick=()=>{const t=ov.querySelector('#cd');t.select();navigator.clipboard.writeText(code).then(()=>toast('Código copiado'),()=>{try{document.execCommand('copy');toast('Código copiado')}catch(e){}})};ov.querySelector('#cx').onclick=closeOv}
 function closeOv(){document.querySelectorAll('.ov').forEach(o=>o.remove())}
+function launcherUpdate(){closeOv();const ov=document.createElement('div');ov.className='ov';
+  ov.innerHTML=`<div class="card" role="dialog" aria-modal="true" aria-labelledby="lut"><div class="row" style="flex-wrap:nowrap"><span style="width:58px;height:58px;flex:none;border-radius:14px;background:url(icon.png) center/cover"></span><div><h2 id="lut">¡Hay un launcher nuevo!</h2><p>Cubiverso Launcher ${esc(M.launcher)} ya está aquí. Tienes la ${esc(S.app)}.</p></div></div>
+    <p>Se descargará el instalador nuevo: ábrelo y se instalará encima. No pierdes tus versiones ni tu cuenta.</p>
+    <button class="btn go big" id="lu1">Actualizar ahora</button><button class="btn" id="lu2">Más tarde</button></div>`;document.body.appendChild(ov);
+  ov.querySelector('#lu1').onclick=()=>{L.open(M.launcherUrl);toast('Descargando el launcher nuevo…')};
+  ov.querySelector('#lu2').onclick=()=>{closeOv();if(!acct())openLogin()};ov.querySelector('#lu1').focus()}
 
 /* ---------- arranque ---------- */
 (async()=>{
@@ -273,7 +282,8 @@ function closeOv(){document.querySelectorAll('.ov').forEach(o=>o.remove())}
   await refresh();render();
   const r=await L.manifest();M=r.data;offline=r.offline;
   if(!S.conf.sel)S.conf=await L.setConf({sel:'latest'});
-  render();if(!acct())openLogin();
+  render();
+  if(M&&M.launcher&&M.launcherUrl&&vcmp(M.launcher,S.app)>0&&S.conf.skipL!==M.launcher)launcherUpdate();else if(!acct())openLogin();
   L.on('progress',p=>{prog[p.id]=p;const pl=document.querySelector('.play');if(pl&&view==='jugar'){const pc=p.total?Math.round(p.got/p.total*100):0;pl.querySelector('.pb').style.width=pc+'%';pl.querySelector('small').textContent=pc+'%'}
     const mi=document.querySelector('.mini i');if(mi&&p.total)mi.style.width=Math.round(p.got/p.total*100)+'%'});
   L.on('game-started',id=>{S.playing=id;render()});
