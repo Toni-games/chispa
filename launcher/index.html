@@ -84,6 +84,12 @@ textarea.in{min-height:80px;font:12px ui-monospace,Consolas,monospace}
 .pop{position:absolute;right:26px;bottom:82px;width:300px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.55);z-index:30;display:flex;flex-direction:column;gap:10px}
 .pop .hd{width:64px;height:64px;border-radius:14px;background:var(--panel2) center/cover}
 .stats{display:flex;gap:16px}.stats span{display:flex;flex-direction:column;font-size:12px;color:var(--muted)}.stats b{font-size:18px;color:var(--fg)}
+
+.lv{font-size:10.5px;color:var(--muted);margin-top:4px;font-weight:700}
+.tip{position:absolute;right:26px;bottom:28px;width:min(330px,40%);background:rgba(13,15,26,.72);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start}
+.tip i{flex:none;width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#facc15,#f59e0b);color:#1a1300;font:900 16px/28px system-ui;text-align:center;font-style:normal}
+.tip b{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#facc15}.tip span{color:#d6d9ee;font-size:13px}
+.tip button{border:0;background:none;color:var(--muted);font-size:12px;padding:2px 0;text-decoration:underline}
 #toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#000c;border:1px solid var(--line);color:#fff;padding:10px 16px;border-radius:12px;z-index:80;font-weight:600;max-width:80vw}
 .off{background:rgba(255,90,95,.12);border:1px solid rgba(255,90,95,.35);color:#ffb4b6;border-radius:12px;padding:10px 14px}
 @media (max-width:1040px){.bar{grid-template-columns:1fr auto;}.acct{display:none}.hero .wm{font-size:42px}}
@@ -100,6 +106,7 @@ textarea.in{min-height:80px;font:12px ui-monospace,Consolas,monospace}
     <button class="nav" data-v="ajustes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ajustes</button>
     <div class="sp"></div>
     <button class="me" id="mebtn" aria-label="Tu cuenta"></button>
+    <span class="lv" id="lver" title="Versión del launcher"></span>
   </nav>
   <main class="main" id="main"></main>
 </div>
@@ -114,6 +121,8 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const L=window.Launcher;const A=window.CubiAvatar,C=window.CubiCuenta;
 let M=null,offline=false,S={installed:[],conf:{},app:'',playing:null},view='jugar',busy=null,prog={},menuOpen=false,popOpen=false;
+const TIPS=['Pulsa Intro para jugar sin tocar el ratón.','En el juego, F11 pone la pantalla completa.','Elige «Última versión» y siempre tendrás lo más nuevo sin hacer nada.','Tu cuenta y tu progreso son los mismos en todas las versiones.','¿Echas de menos algo de antes? Elige una versión antigua en la lista.','Desde tu avatar (abajo a la derecha) puedes sacar tu código de transferencia.','En la versión 2.4 o superior, las misiones cambian cada día: ¡no te olvides del cofre!','Con la IA de CuboStudio (versión 2.2 o superior) puedes crear un juego escribiendo una frase.'];
+let tipI=Math.floor(Math.random()*TIPS.length);
 const fmtSize=b=>b>1e6?(b/1e6).toFixed(1)+' MB':Math.round(b/1e3)+' KB';
 const fmtDate=d=>{try{return new Date(d+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}catch(e){return d}};
 function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,3200)}
@@ -133,7 +142,7 @@ function headshot(){const s=st();const k=JSON.stringify(s.eq);if(k===headKey)ret
     const sc=new THREE.Scene();sc.add(new THREE.HemisphereLight(0xffffff,0x667788,.95));const d=new THREE.DirectionalLight(0xffffff,.55);d.position.set(2,3,4);sc.add(d);
     const cam=new THREE.PerspectiveCamera(30,1,.1,50);cam.position.set(.55,2.0,2.1);cam.lookAt(0,1.97,0);const av=A.makeAvatar(THREE,s.eq);sc.add(av.root);r.render(sc,cam);headUrl=r.domElement.toDataURL();r.dispose();r.forceContextLoss&&r.forceContextLoss()}catch(e){headUrl=''}
   return headUrl}
-function paintMe(){const u=headshot();$('#mebtn').style.backgroundImage=u?`url(${u})`:'';document.querySelectorAll('.hd').forEach(e=>e.style.backgroundImage=u?`url(${u})`:'')}
+function paintMe(){const lv=$('#lver');if(lv&&S.app)lv.textContent='v'+S.app;const u=headshot();$('#mebtn').style.backgroundImage=u?`url(${u})`:'';document.querySelectorAll('.hd').forEach(e=>e.style.backgroundImage=u?`url(${u})`:'')}
 
 /* ---------- vistas ---------- */
 function render(){document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('on',b.dataset.v===view));
@@ -149,6 +158,7 @@ function vJugar(){const id=selId(),v=vinfo(latest()),a=acct(),s=st(),lv=A&&A.lev
   return `<section class="hero" id="hero"><canvas id="hc" aria-hidden="true"></canvas>
     <div class="txt"><div class="wm">CUBI<span>VERSO</span></div><div class="tag">Elige la versión, entra con tu cuenta y juega. Tu progreso es el mismo en todas las versiones.</div></div>
     ${v&&v.title?`<div class="news" data-a="news"><small>Novedad · versión ${esc(v.id)}</small><b>${esc(v.title)}</b><p>${esc((v.notes||[])[0]||'')}</p></div>`:''}
+    <div class="tip" aria-live="polite"><i aria-hidden="true">!</i><div><b>Consejo</b><span>${esc(TIPS[tipI%TIPS.length])}</span><br><button data-a="tip">Otro consejo</button></div></div>
     ${offline?'<div class="off" style="position:absolute;right:26px;top:22px">Sin conexión: solo puedes jugar a las versiones que ya tienes instaladas.</div>':''}</section>
   <div class="bar">
     <div class="pick"><button class="pickbtn" data-a="menu" aria-haspopup="listbox" aria-expanded="${menuOpen}"><span class="ic"></span><span style="min-width:0"><b>${(S.conf.sel||'latest')==='latest'?'Última versión':'Cubiverso '+esc(id||'')}</b><small>${id?esc(id)+(isInst(id)?' · instalada':' · sin instalar'):'—'}</small></span><span class="car">▾</span></button>
@@ -230,6 +240,7 @@ document.addEventListener('click',async e=>{const nav=e.target.closest('.nav');i
   if(a==='get'){install(id)}
   if(a==='del'){try{S.installed=await L.uninstall(id);toast('Versión '+id+' borrada');render()}catch(err){toast(String(err.message||err).replace(/^Error invoking remote method '[^']+': (Error: )?/,''))}}
   if(a==='news'){view='novedades';render()}
+  if(a==='tip'){tipI++;const t=document.querySelector('.tip span');if(t)t.textContent=TIPS[tipI%TIPS.length]}
   if(a==='folder')L.openFolder();
   if(a==='lupd')L.open(M.launcherUrl);
   if(a==='lcheck'){const r=await L.manifest();if(r.data){M=r.data;offline=r.offline}render();if(M&&M.launcher&&M.launcherUrl&&vcmp(M.launcher,S.app)>0)launcherUpdate();else toast(r.offline?'No hay conexión a internet':'Tienes el launcher al día')}
@@ -237,6 +248,7 @@ document.addEventListener('click',async e=>{const nav=e.target.closest('.nav');i
   if(a==='switch'){popOpen=false;try{await C.salir()}catch(err){}headKey='';render();openLogin()}});
 document.addEventListener('change',async e=>{const k=e.target.dataset&&e.target.dataset.c;if(k){S.conf=await L.setConf({[k]:e.target.checked})}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(menuOpen||popOpen)){menuOpen=popOpen=false;render();return}
+  if(e.key==='Enter'&&view==='jugar'&&!menuOpen&&!popOpen&&!document.querySelector('.ov')&&!/^(INPUT|TEXTAREA|BUTTON)$/.test(document.activeElement.tagName)){const b=document.querySelector('.play');if(b&&!b.disabled){e.preventDefault();b.click()}return}
   if(menuOpen&&(e.key==='ArrowDown'||e.key==='ArrowUp')){const os=[...document.querySelectorAll('.menu .opt')];if(!os.length)return;e.preventDefault();let i=os.indexOf(document.activeElement);i=i<0?0:(i+(e.key==='ArrowDown'?1:-1)+os.length)%os.length;os[i].focus();os[i].scrollIntoView({block:'nearest'})}});
 
 /* ---------- entrar con tu cuenta ---------- */

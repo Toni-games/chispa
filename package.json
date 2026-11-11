@@ -1,7 +1,7 @@
 {
   "name": "cubiverso-launcher",
   "productName": "Cubiverso Launcher",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Launcher de Cubiverso: elige la versión y juega con tu cuenta",
   "author": "Toni-games",
   "main": "main.js",
