@@ -1,8 +1,20 @@
 {
- "latest": "2.8",
+ "latest": "2.9",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "2.9",
+   "date": "2026-11-11",
+   "title": "Nuevo juego 2D: Sin Carcasas",
+   "notes": [
+    "Monta móviles, tablets, consolas y ordenadores con piezas sueltas",
+    "Repara piezas rotas con el microscopio, conecta el monitor y enciende… o explota",
+    "Tu montaje se guarda aunque salgas del juego"
+   ],
+   "size": 918969,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-2.9.zip"
+  },
   {
    "id": "2.8",
    "date": "2026-11-11",
