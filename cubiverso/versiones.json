@@ -197,5 +197,7 @@
    "size": 212442,
    "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-1.0.zip"
   }
- ]
+ ],
+ "launcherAndroid": "1.0.0",
+ "launcherAndroidUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-android-v1.0.1/Cubiverso-Launcher.apk"
 }
