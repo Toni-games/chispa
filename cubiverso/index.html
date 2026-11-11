@@ -363,6 +363,14 @@ function rr(g,x,y,w,h,col){g.fillStyle=col;g.fillRect(x,y,w,h)}
 function windows(g,x,y,w,h,col){g.fillStyle=col;for(let yy=y+8;yy<y+h-10;yy+=16)for(let xx=x+6;xx<x+w-10;xx+=14)g.fillRect(xx,yy,7,8)}
 function person(g,x,y,s,shirt){rr(g,x-6*s,y-14*s,12*s,10*s,'#ffd29a');rr(g,x-8*s,y-4*s,16*s,14*s,shirt);rr(g,x-8*s,y+10*s,7*s,12*s,'#2d3a5a');rr(g,x+1*s,y+10*s,7*s,12*s,'#2d3a5a');g.fillStyle='#111';g.fillRect(x-3*s,y-11*s,2*s,3*s);g.fillRect(x+1*s,y-11*s,2*s,3*s)}
 const GAMES=[
+ {id:'reparar',name:'Reparar Móviles',file:'juegos/reparar-moviles.html',tag:'Simulación · Reparar',avatar:true,multi:false,nuevo:true,
+  desc:'Tienes un taller. Vienen clientes con móviles, tablets, consolas y portátiles estropeados. Llévalos a la mesa, mira qué les pasa y repáralos paso a paso: tornillos, tapa, batería y la pieza rota. Luego devuélveselos y cobra.',
+  draw(g,w,h){rr(g,0,0,w,h,'#cfe8f0');rr(g,0,170,w,100,'#b0bec5');rr(g,60,150,360,40,'#26a69a');rr(g,60,146,360,8,'#b2dfdb');
+    person(g,120,120,1.8,'#ff7043');person(g,360,120,1.8,'#7e57c2');
+    g.fillStyle='#283593';g.beginPath();g.roundRect?g.roundRect(200,92,44,80,8):g.rect(200,92,44,80);g.fill();rr(g,206,98,18,18,'#1c1f24');g.fillStyle='#0a0c1a';g.beginPath();g.arc(212,104,4,0,7);g.arc(219,111,4,0,7);g.fill();
+    rr(g,262,120,80,36,'#2a2d33');rr(g,248,120,16,36,'#26c6da');rr(g,340,120,16,36,'#ff8f00');rr(g,270,126,64,24,'#0f766e');
+    g.fillStyle='#fff';g.fillRect(160,40,170,38);g.fillStyle='#000';g.font='900 16px sans-serif';g.fillText('«No carga…»',190,65);
+    g.fillStyle='#00695c';g.font='900 26px sans-serif';g.fillText('REPARAR MÓVILES',120,250)}},
  {id:'carcasas',name:'Sin Carcasas',file:'juegos/sin-carcasas.html',tag:'2D · Reparar',avatar:false,multi:false,nuevo:true,
   desc:'Juego 2D: monta móviles, tablets, consolas y ordenadores con las piezas sueltas en la mesa. Revisa las piezas rotas con el microscopio, conecta los cables y el monitor, suelda y enciende. Si algo está mal… ¡explota!',
   draw(g,w,h){rr(g,0,0,w,h,'#1d3a43');g.strokeStyle='#25505b';g.lineWidth=1;for(let x=0;x<w;x+=24){g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke()}for(let y=0;y<h;y+=24){g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke()}
