@@ -272,6 +272,8 @@ input[type=color]{width:42px;height:32px;border:1px solid var(--line);border-rad
 .xpbar{height:10px;border-radius:6px;background:var(--panel2);overflow:hidden;margin-top:6px}.xpbar i{display:block;height:100%;background:linear-gradient(90deg,#a855f7,#22d3ee);border-radius:6px}.xpbar.sm{height:7px}
 .mislist{display:flex;flex-direction:column;gap:8px}.misrow{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .misrow.ok{opacity:.65}.misrow.chest{border-style:dashed;border-color:#eab308}.lvup{display:flex;gap:16px;align-items:center}.lvup .lvbig{width:72px;height:72px;font-size:34px}
+.adcard{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}.adcard small{display:block;color:var(--muted);font-size:12.5px;margin-top:3px}
+.pro{display:inline-block;margin-left:8px;background:linear-gradient(135deg,#facc15,#f59e0b);color:#1a1300;font-size:11px;font-weight:900;letter-spacing:.08em;border-radius:6px;padding:2px 7px;vertical-align:middle}
 </style>
 
 <header class="top"><div class="in">
@@ -534,6 +536,7 @@ const V={
       <div class="row" style="margin-top:10px"><a class="btn" href="#avatar" style="text-decoration:none">Editar avatar</a><a class="btn" href="#catalogo" style="text-decoration:none">Ir al catálogo</a></div></div>
       <div class="daily"><b>Recompensa diaria</b><span class="chip">${canDaily?'¡Disponible!':'Vuelve mañana'}</span><button class="btn brand" data-act="daily" ${canDaily?'':'disabled'}>Recoger ${CUBE} 50</button></div></div>
     ${misionesHTML()}
+    ${adCardHTML()}
     ${recent.length?`<section class="sec"><div class="sec-h"><h2>Seguir jugando</h2></div><div class="games">${recent.map(gameCard).join('')}</div></section>`:''}
     ${studioBanner()}
     ${tallerBanner()}
@@ -614,7 +617,7 @@ const V={
       <div id="codewrap" style="margin-top:8px"><button class="btn" data-act="mkcode">Generar código</button></div></div></div>`:''}
     <div class="two"><form class="card sec" style="margin:0" id="nameform"><h2>Nombre</h2><div class="row"><input class="field nocase" id="nameinput" maxlength="20" value="${esc(st.name)}" aria-label="Tu nombre"><button class="btn brand" type="submit">Guardar</button></div></form>
     <div class="card sec" style="margin:0"><h2>Empezar de cero</h2><p style="margin:0;color:var(--muted)">Borra tu avatar, tus Cubos y tus compras. Las partidas de cada juego se guardan aparte.</p><div id="resetbox"><button class="btn danger" data-act="resetask">Borrar mi cuenta</button></div></div></div>
-    ${graficosCard()}${adminCard()}`}
+    ${versionCardHTML()}${graficosCard()}${adminCard()}`}
 };
 const PACKS=[{c:400,e:4.99},{c:800,e:9.99},{c:1700,e:19.99,tag:'+6% extra'},{c:4500,e:49.99,tag:'Popular'},{c:10000,e:99.99,tag:'Mejor precio'}];
 const GIFTS={'REGALO-10':{eur:10},'REGALO-25':{eur:25},'BIENVENIDA':{cubos:250}};
@@ -1095,6 +1098,27 @@ Object.assign(ACT,{
   addEventListener('message',e=>{const d=e.data;if(!d||!d.cubiEvt)return;if(d.cubiEvt==='end')misEv('end');if(d.cubiEvt==='ia')misEv('ia')});
   if(window.CubiAmigos)CubiAmigos.on('new',()=>{});
 }
+/* ================= VERSIÓN GRATIS (CON ANUNCIOS) Y PRO ================= */
+const ADS=(()=>{try{return window.CubiAnuncios||null}catch(e){return null}})();
+const IS_PRO=!!(ADS&&ADS.esPro()),HAS_ADS=!!(ADS&&!IS_PRO);
+const ADSTART=Date.now();let adGames=0,adLast=Date.now();
+const PREMIO=25,PREMIO_MAX=5;
+function adToday(){const t=today();if(!st.adr||st.adr.day!==t)st.adr={day:t,n:0};return st.adr}
+if(HAS_ADS){
+  const pg2=playGame;playGame=function(){try{ADS.banner(false)}catch(e){}return pg2.apply(this,arguments)};
+  const eg=exitGame;exitGame=function(){const r=eg.apply(this,arguments);try{ADS.banner(true);adGames++;
+      /* como mucho uno a pantalla completa cada 3 partidas y cada 3 minutos, y nunca nada más abrir */
+      if(adGames>=3&&Date.now()-adLast>180e3&&Date.now()-ADSTART>120e3){adGames=0;adLast=Date.now();ADS.intersticial()}}catch(e){}return r};
+  window.cubiAnuncioPremio=(ok,why)=>{st=A.state();if(ok){const R=adToday();R.n++;st.cubos+=PREMIO;addHist('Anuncio con premio',PREMIO);save();if(Au)Au.sfx('cash');toast(`+${PREMIO} Cubos. ¡Gracias por ver el anuncio!`)}
+    else toast(why==='cargando'?'El anuncio aún se está cargando. Prueba en unos segundos.':'Tienes que ver el anuncio hasta el final para ganar los Cubos.');adLast=Date.now();headKey='';render()};
+}
+function adCardHTML(){if(!HAS_ADS)return '';const R=adToday(),left=PREMIO_MAX-R.n;
+  return `<section class="sec"><div class="adcard"><div style="min-width:0;flex:1"><b>Mira un anuncio y gana ${CUBE}${PREMIO} Cubos</b><small>${left>0?`Te quedan ${left} hoy. Solo si tú quieres.`:'Ya has visto todos los de hoy. Vuelve mañana.'}</small></div>
+    <button class="btn brand" data-act="adver" ${left>0?'':'disabled'}>Ver anuncio</button></div></section>`}
+function versionCardHTML(){if(!ADS)return '';
+  return `<section class="card sec gcard"><h2>Versión ${IS_PRO?'<span class="pro">PRO</span>':'gratis'}</h2><p class="gnote">${IS_PRO?'Tienes Cubiverso Pro: sin anuncios. ¡Gracias por apoyar el juego!':'Estás usando Cubiverso gratis, con anuncios. Cubiverso Pro es la versión de pago sin ningún anuncio, con todo lo demás igual.'}</p></section>`}
+Object.assign(ACT,{adver(){if(!HAS_ADS)return;if(adToday().n>=PREMIO_MAX){toast('Ya has visto todos los anuncios de hoy');return}try{ADS.verPremio()}catch(e){toast('No se ha podido abrir el anuncio')}}});
+if(IS_PRO){const l=document.querySelector('.logo');if(l&&!l.querySelector('.pro')){const b=document.createElement('span');b.className='pro';b.textContent='PRO';l.appendChild(b)}}
 /* ================= GRÁFICOS Y ADMINISTRADOR ================= */
 const CG=window.CubiGraficos;
 function graficosCard(){if(!CG)return '';const L=CG.level();

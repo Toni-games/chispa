@@ -181,6 +181,7 @@ public class MainActivity extends Activity {
         };
         web.setWebChromeClient(cliente);
 
+        Anuncios.iniciar(this, raiz, web);
         if (estado != null) web.restoreState(estado);
         else web.loadUrl(INICIO);
     }
