@@ -1,8 +1,20 @@
 {
- "latest": "3.0",
+ "latest": "3.1",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "3.1",
+   "date": "2026-11-11",
+   "title": "Sin Carcasas en 3D",
+   "notes": [
+    "La mesa de montaje ahora es 3D: placa, chips, batería y monitor de pie",
+    "Los cables se curvan por encima de la mesa y las soldaduras tienen volumen",
+    "Al encender, el aparato se ve funcionando en el monitor 3D"
+   ],
+   "size": 940825,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-3.1.zip"
+  },
   {
    "id": "3.0",
    "date": "2026-11-11",
