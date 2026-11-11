@@ -633,7 +633,7 @@ const V={
       <div id="codewrap" style="margin-top:8px"><button class="btn" data-act="mkcode">Generar código</button></div></div></div>`:''}
     <div class="two"><form class="card sec" style="margin:0" id="nameform"><h2>Nombre</h2><div class="row"><input class="field nocase" id="nameinput" maxlength="20" value="${esc(st.name)}" aria-label="Tu nombre"><button class="btn brand" type="submit">Guardar</button></div></form>
     <div class="card sec" style="margin:0"><h2>Empezar de cero</h2><p style="margin:0;color:var(--muted)">Borra tu avatar, tus Cubos y tus compras. Las partidas de cada juego se guardan aparte.</p><div id="resetbox"><button class="btn danger" data-act="resetask">Borrar mi cuenta</button></div></div></div>
-    ${versionCardHTML()}${graficosCard()}${adminCard()}`}
+    ${versionCardHTML()}${APP_KIND?`<section class="card sec gcard"><h2>Actualizaciones</h2><p class="gnote">Al abrir Cubiverso se comprueba solo si hay una versión nueva.</p><button class="btn" data-act="checkupd" style="align-self:flex-start">Buscar actualizaciones ahora</button></section>`:''}${graficosCard()}${adminCard()}`}
 };
 const PACKS=[{c:400,e:4.99},{c:800,e:9.99},{c:1700,e:19.99,tag:'+6% extra'},{c:4500,e:49.99,tag:'Popular'},{c:10000,e:99.99,tag:'Mejor precio'}];
 const GIFTS={'REGALO-10':{eur:10},'REGALO-25':{eur:25},'BIENVENIDA':{cubos:250}};
@@ -1217,6 +1217,30 @@ Object.assign(ACT,{
   progo(){closeModal();setPro(true);if(Au)Au.sfx('levelup');toast('¡Ya tienes Cubiverso Pro! Adiós a los anuncios')},
   profree(){setPro(false);toast('Has vuelto a la versión gratis')}
 });
+/* ================= AVISO DE VERSIÓN NUEVA (app de Android y de Windows) ================= */
+const WEB_URL='https://toni-games.github.io/chispa/cubiverso/';
+const REL_API='https://api.github.com/repos/Toni-games/chispa/releases?per_page=30';
+const APP_KIND=IS_WIN?'windows':(window.CubiAnuncios||/CubiversoApp/.test(navigator.userAgent))?'android':null;
+function vcmp(a,b){a=String(a).split('.').map(Number);b=String(b).split('.').map(Number);for(let i=0;i<Math.max(a.length,b.length);i++){const d=(a[i]||0)-(b[i]||0);if(d)return d}return 0}
+async function checkUpdate(manual){if(!APP_KIND){if(manual)toast('En la web siempre tienes la última versión');return}
+  try{const [loc,rem]=await Promise.all([fetch('version.json',{cache:'no-store'}).then(r=>r.json()),fetch(WEB_URL+'version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.json())]);
+    const newer=APP_KIND==='android'?rem.android.code>loc.android.code:vcmp(rem.windows,loc.windows)>0;
+    const have=APP_KIND==='android'?loc.android.name:loc.windows,want=APP_KIND==='android'?rem.android.name:rem.windows;
+    if(!newer){if(manual)toast(`Tienes la última versión (${have})`);return}
+    /* buscar la descarga de esa versión; si aún se está preparando, avisar más tarde */
+    const rels=await fetch(REL_API,{headers:{Accept:'application/vnd.github+json'}}).then(r=>r.json());
+    const pre=APP_KIND==='android'?'Cubiverso para Android ':'Cubiverso para Windows ';
+    const rel=(rels||[]).find(r=>r&&typeof r.name==='string'&&r.name.startsWith(pre+want+' '));
+    const asset=rel&&(rel.assets||[]).find(a=>APP_KIND==='android'?a.name==='Cubiverso.apk':a.name==='Cubiverso-Instalador.exe');
+    if(!asset){if(manual)toast(`Está saliendo la versión ${want}. Vuelve a mirarlo en unos minutos.`);return}
+    try{if(!manual&&sessionStorage.getItem('cubi-upd')===want)return;sessionStorage.setItem('cubi-upd',want)}catch(e){}
+    updateModal(have,want,asset.browser_download_url)}catch(e){if(manual)toast('No se ha podido comprobar. ¿Tienes internet?')}}
+function updateModal(have,want,url){if(Au)Au.sfx('notify');
+  openModal('¡Hay una versión nueva!',`<div class="lvup"><span class="lvbig" style="font-size:18px">${esc(want)}</span><div><b style="font-size:18px">Cubiverso ${esc(want)} ya está aquí</b><p style="margin:6px 0 0;color:var(--muted)">Tienes la ${esc(have)}. Actualiza para tener lo último y poder jugar con amigos que ya la tienen.</p></div></div>
+    <p class="sub" style="margin:0">${APP_KIND==='android'?'Se descargará la APK nueva: ábrela y pulsa «Actualizar». No pierdes tu progreso.':'Se descargará el instalador nuevo: ábrelo y se instalará encima. No pierdes tu progreso.'}</p>
+    <div class="row"><a class="btn play" href="${esc(url)}" target="_blank" rel="noopener" style="text-decoration:none">Actualizar ahora</a><button class="btn" data-act="close">Más tarde</button></div>`)}
+Object.assign(ACT,{checkupd(){checkUpdate(true)}});
+setTimeout(()=>checkUpdate(false),2500);
 /* ================= GRÁFICOS Y ADMINISTRADOR ================= */
 const CG=window.CubiGraficos;
 function graficosCard(){if(!CG)return '';const L=CG.level();

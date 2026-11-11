@@ -25,12 +25,15 @@ jobs:
         run: npx electron-builder --win --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Leer la versión
+        shell: bash
+        run: echo "VW=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
       - name: Publicar para descargar
         uses: softprops/action-gh-release@v2
         with:
           tag_name: cubiverso-win-v1.0.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: Cubiverso para Windows (versión ${{ github.run_number }})
+          name: Cubiverso para Windows ${{ env.VW }} (compilación ${{ github.run_number }})
           body: |
             **Cubiverso-Instalador.exe**: lo instala con acceso directo en el escritorio y en el menú Inicio.
             **Cubiverso-Portable.exe**: se abre sin instalar nada.
