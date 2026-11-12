@@ -1,8 +1,21 @@
 {
- "latest": "4.2",
+ "latest": "4.3",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "4.3",
+   "date": "2026-11-12",
+   "title": "Mundo Bloque",
+   "notes": [
+    "Mundo Bloque está en Cubiverso: un mundo infinito de bloques con biomas, aldeas, pirámides y torres",
+    "Inventario con mochila (tecla E), mesa de trabajo, recetas y herramientas: picos, hacha, pala y espada",
+    "Antorchas que alejan a los monstruos y cama para dormir y saltar la noche",
+    "Animales de día y monstruos de noche (diseños propios)"
+   ],
+   "size": 1061217,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-4.3.zip"
+  },
   {
    "id": "4.2",
    "date": "2026-11-12",
