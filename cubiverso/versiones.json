@@ -1,8 +1,18 @@
 {
- "latest": "4.1",
+ "latest": "4.2",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "4.2",
+   "date": "2026-11-12",
+   "title": "Mundo Bloque pasa a ser aparte",
+   "notes": [
+    "Mundo Bloque ya no está dentro de Cubiverso: ahora es un juego independiente"
+   ],
+   "size": 1033814,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-4.2.zip"
+  },
   {
    "id": "4.1",
    "date": "2026-11-12",
