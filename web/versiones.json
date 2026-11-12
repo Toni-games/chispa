@@ -1,8 +1,22 @@
 {
- "latest": "3.3",
+ "latest": "3.4",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "3.4",
+   "date": "2026-11-12",
+   "title": "Coge las partes del muñeco y CuboStudio más listo",
+   "notes": [
+    "Creador de animaciones: coge brazos, piernas, cabeza o cuerpo con el ratón o el dedo y muévelos; en los gestos también puedes separarlos",
+    "Tus gestos propios ya salen en el menú de gestos de los juegos",
+    "CuboStudio: la IA entiende más cosas (números con letras, «sin lava», «contrarreloj», música, nombre) y puedes pedirle cambios después",
+    "Tres tipos de juego nuevos en la IA: jefe final, tycoon y rescate",
+    "Seis plantillas completas nuevas: Obby de 12 fases, Color Loco, Taller sin carcasas, Reparar móviles, La isla del tesoro y Salto espacial"
+   ],
+   "size": 988762,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-3.4.zip"
+  },
   {
    "id": "3.3",
    "date": "2026-11-12",
