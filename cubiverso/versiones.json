@@ -1,8 +1,23 @@
 {
- "latest": "3.6",
+ "latest": "3.7",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "3.7",
+   "date": "2026-11-12",
+   "title": "Favoritos, rachas y color de pelo",
+   "notes": [
+    "Marca tus juegos favoritos con ♡: salen en Inicio y en la pestaña Favoritos",
+    "Racha diaria: cada día seguido la recompensa sube, y el 7.º día hay premio extra",
+    "Elige el color del pelo para cualquier peinado (gratis)",
+    "Botón «Juego al azar» para cuando no sabes a qué jugar, y cuántas veces has jugado a cada juego",
+    "Las novedades de cada versión salen en Inicio",
+    "El botón AVATAR también sale en más juegos"
+   ],
+   "size": 996225,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-3.7.zip"
+  },
   {
    "id": "3.6",
    "date": "2026-11-12",
