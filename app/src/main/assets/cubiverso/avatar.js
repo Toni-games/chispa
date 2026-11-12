@@ -125,7 +125,7 @@ const TPL={
 const DECAL={gorra:1,copa:1,casco:1,gorro:1,mochila:1,capa:1,escudo:1,bufanda:1};
 const ART_ABC='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 function safeCol(c,d){return /^#[0-9a-f]{3,8}$/i.test(String(c||''))?c:d}
-function clean(d){if(!d||typeof d!=='object')return null;const cats=['camiseta','pantalon','cara','cabeza','accesorio','espalda'];
+function clean(d){if(!d||typeof d!=='object')return null;const cats=['camiseta','pantalon','cara','cabeza','accesorio','espalda','animacion'];
   if(!/^u[a-z0-9]{4,24}$/i.test(String(d.id||''))||!cats.includes(d.cat))return null;
   const o={id:d.id,cat:d.cat,name:String(d.name||'Mi objeto').slice(0,28),price:Math.max(0,Math.min(5000,Math.round(+d.price||0))),custom:true,
     author:String(d.author||'Jugador').slice(0,20),col:safeCol(d.col,'#ffffff'),c1:safeCol(d.c1,'#ff7a2f'),c2:safeCol(d.c2,'#ffffff'),
@@ -133,7 +133,19 @@ function clean(d){if(!d||typeof d!=='object')return null;const cats=['camiseta',
   if(d.cat in TPL&&!TPL[d.cat].some(t=>t[0]===o.tpl))o.tpl=TPL[d.cat][0][0];
   if(o.mode==='lim'){o.limited=true;o.stock=Math.max(1,Math.min(100,Math.round(+d.stock||10)))}
   if(d.art&&Array.isArray(d.art.pal)&&typeof d.art.px==='string'&&d.art.px.length===1024)o.art={pal:d.art.pal.slice(0,62).map(c=>safeCol(c,'#000000')),px:d.art.px.replace(/[^0-9a-zA-Z.]/g,'.')};
+  if(o.cat==='animacion'){const an=cleanAnim(d.anim);if(!an)return null;o.anim=an;o.desc='Animación creada por '+o.author}
   return o}
+/* animaciones creadas por el jugador: cada estado (quieto, andar, saltar) es una lista de poses
+   pose = [brazoIzq adelante, brazoIzq abrir, brazoDer adelante, brazoDer abrir, piernaIzq adelante, piernaIzq abrir, piernaDer adelante, piernaDer abrir, cuerpo inclinar, cuerpo ladear, cuerpo altura] */
+const ANIM_STATES=['idle','walk','jump'];
+function cleanAnim(an){if(!an||typeof an!=='object')return null;const out={};
+  for(const k of ANIM_STATES){const s=an[k];if(!s||!Array.isArray(s.f)||!s.f.length)return null;
+    out[k]={sp:Math.max(.2,Math.min(8,+s.sp||2)),f:s.f.slice(0,10).map(p=>{const q=[];for(let i=0;i<11;i++){const v=+(Array.isArray(p)?p[i]:0)||0;q.push(Math.round(Math.max(i===10?-.6:-3.3,Math.min(i===10?1.2:3.3,v))*100)/100)}return q})}}
+  return out}
+function playAnim(a,an,st,ph){const S=an[st]||an.walk,F=S.f,n=F.length;let x=((ph%n)+n)%n;const i=Math.floor(x),j=(i+1)%n;let t=x-i;t=t*t*(3-2*t);
+  const p=F[i].map((v,k)=>v+(F[j][k]-v)*(n>1?t:0));
+  a.armL.rotation.x=p[0];a.armL.rotation.z=-p[1];a.armR.rotation.x=p[2];a.armR.rotation.z=p[3];a.legL.rotation.x=p[4];a.legL.rotation.z=-p[5];a.legR.rotation.x=p[6];a.legR.rotation.z=p[7];
+  if(a.body){a.body.rotation.x=p[8];a.body.rotation.z=p[9];a.body.position.y=p[10]}}
 function register(d){const o=clean(d);if(!o)return null;const old=BY[o.id];if(old&&old.custom){Object.assign(old,o);return old}if(old)return null;
   ITEMS.push(o);BY[o.id]=o;return o}
 function customDefs(eq){eq=eq||{};const out=[];Object.values(eq).forEach(id=>{const it=BY[id];if(it&&it.custom)out.push(clean(it))});return out}
@@ -332,6 +344,8 @@ function animate(a,o){o=o||{};const dt=Math.min(.1,o.dt||1/60);a._t=(a._t||0)+dt
     return}}
   if(climb){const q=Math.sin(T*9)*(mv>.1?1:.15);AL.rotation.x=-2.7+q*.45;AR.rotation.x=-2.7-q*.45;L.rotation.x=-.6-q*.5;Rr.rotation.x=-.6+q*.5;return}
   const idle=!air&&mv<=.1,br=Math.sin(T*2.2);
+  const cu=BY[pack];if(cu&&cu.custom&&cu.anim){const an=cu.anim;
+    if(air)playAnim(a,an,'jump',a._airT*an.jump.sp);else if(idle)playAnim(a,an,'idle',T*an.idle.sp);else playAnim(a,an,'walk',w/(Math.PI*2)*an.walk.f.length*(an.walk.sp/2));return}
   switch(pack){
     case 'an1':{ // robot
       const q=Math.sign(s)*(Math.abs(s)>.3?1:0);
@@ -375,5 +389,5 @@ function drive(a,walk,air,o){o=o||{};const now=performance.now(),dt=a._lt?Math.m
   animate(a,{walk,air,moving,climb:o.climb,dt});
   if(a.isMe&&window.CubiAudio){if(o.climb){if(moving&&Math.floor(now/260)!==a._cs){a._cs=Math.floor(now/260);CubiAudio.sfx('climb')}a._wasAir=false}else CubiAudio.steps(a,walk,air)}}
 function levelOf(xp){xp=Math.max(0,+xp||0);let l=1,need=150;while(xp>=need){xp-=need;l++;need=100+l*50}return {lvl:l,cur:xp,need}}
-window.CubiAvatar={levelOf,KEY,TPL,DECAL,ART_ABC,register,customDefs,artCanvas,clean,drive,CATS,ITEMS,BY,DEF_EQ,EMOTES,state,save,build,makeAvatar,animate,emote,faceCanvas,shirtCanvas};
+window.CubiAvatar={cleanAnim,playAnim,ANIM_STATES,levelOf,KEY,TPL,DECAL,ART_ABC,register,customDefs,artCanvas,clean,drive,CATS,ITEMS,BY,DEF_EQ,EMOTES,state,save,build,makeAvatar,animate,emote,faceCanvas,shirtCanvas};
 })();

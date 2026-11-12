@@ -1,8 +1,20 @@
 {
- "latest": "3.1",
+ "latest": "3.2",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "3.2",
+   "date": "2026-11-12",
+   "title": "Crea tus animaciones e Intros Molonas",
+   "notes": [
+    "Creador de animaciones: inventa cómo anda, salta y se queda quieto tu avatar, fotograma a fotograma",
+    "Tus animaciones se ven en todos los juegos y también las ven tus amigos",
+    "Nuevo juego Intros Molonas: anima el logo de una empresa con efectos, fondo, música y eslogan"
+   ],
+   "size": 959919,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-3.2.zip"
+  },
   {
    "id": "3.1",
    "date": "2026-11-11",
