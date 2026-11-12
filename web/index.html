@@ -363,6 +363,12 @@ function rr(g,x,y,w,h,col){g.fillStyle=col;g.fillRect(x,y,w,h)}
 function windows(g,x,y,w,h,col){g.fillStyle=col;for(let yy=y+8;yy<y+h-10;yy+=16)for(let xx=x+6;xx<x+w-10;xx+=14)g.fillRect(xx,yy,7,8)}
 function person(g,x,y,s,shirt){rr(g,x-6*s,y-14*s,12*s,10*s,'#ffd29a');rr(g,x-8*s,y-4*s,16*s,14*s,shirt);rr(g,x-8*s,y+10*s,7*s,12*s,'#2d3a5a');rr(g,x+1*s,y+10*s,7*s,12*s,'#2d3a5a');g.fillStyle='#111';g.fillRect(x-3*s,y-11*s,2*s,3*s);g.fillRect(x+1*s,y-11*s,2*s,3*s)}
 const GAMES=[
+ {id:'creador2d',name:'Creador de videojuegos 2D',file:'juegos/creador-2d.html',tag:'Crear · 2D',avatar:false,multi:false,nuevo:true,
+  desc:'Dibuja tus propios niveles de plataformas con tierra, ladrillos, monedas, enemigos, muelles, lava y meta, y juégalos. Pon al principio una intro hecha en Intros Molonas y comparte tu juego con un código.',
+  draw(g,w,h){const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#6fc3ff');gr.addColorStop(1,'#d6f1ff');g.fillStyle=gr;g.fillRect(0,0,w,h);
+    g.fillStyle='#43c463';g.fillRect(0,h-70,w,12);g.fillStyle='#8b5a2b';g.fillRect(0,h-58,w,58);g.fillStyle='#c4563a';for(let i=0;i<4;i++)g.fillRect(150+i*34,110,32,32);g.fillStyle='#f4b400';g.fillRect(300,90,32,32);g.fillStyle='#5a3a00';g.font='900 22px sans-serif';g.fillText('?',309,114);
+    g.fillStyle='#ffd23f';for(let i=0;i<4;i++){g.beginPath();g.arc(166+i*34,90,9,0,7);g.fill()}g.fillStyle='#ff7a2f';g.fillRect(70,h-102,22,20);g.fillStyle='#ffd9b0';g.fillRect(72,h-116,18,14);g.fillStyle='#7c4dff';g.fillRect(380,h-96,26,26);
+    g.strokeStyle='rgba(0,0,0,.15)';for(let x=0;x<w;x+=32){g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke()}g.fillStyle='#1b1300';g.font='900 26px sans-serif';g.fillText('CREADOR 2D',w/2-80,40)}},
  {id:'intros',name:'Intros Molonas',file:'juegos/intros-molonas.html',tag:'Creativo · 3D',avatar:false,multi:false,nuevo:true,
   desc:'Tienes un estudio de intros. Las empresas te encargan una intro para su logo: elige cómo entra el logo, los efectos, el fondo, la música y el eslogan, y entrégasela. También puedes subir tu propia imagen en el modo libre.',
   draw(g,w,h){rr(g,0,0,w,h,'#0d0b16');g.save();g.translate(w/2,h/2-10);for(let i=0;i<16;i++){g.rotate(Math.PI/8);g.fillStyle=i%2?'rgba(255,61,139,.35)':'rgba(255,61,139,.15)';g.beginPath();g.moveTo(0,0);g.lineTo(260,-30);g.lineTo(260,30);g.fill()}g.restore();
@@ -593,6 +599,7 @@ const V={
     <div class="av"><div style="min-width:0"><div class="stage" id="stage"><span class="hint">${webgl?'Arrastra para girar':'Tu navegador no puede mostrar 3D'}</span></div>
     ${webgl?`<div class="demo" role="group" aria-label="Probar animaciones">${[['idle','Quieto'],['walk','Andar'],['jump','Saltar'],['climb','Trepar']].map(([k,n])=>`<button class="btn ${PV&&PV.mode===k?'on':''}" data-act="demo" data-id="${k}">${n}</button>`).join('')}<button class="btn" data-act="demoemote">Gesto: ${esc((A.BY[st.eq.gesto]||A.BY.ge0).name)}</button></div>`:''}</div>
     <div style="min-width:0"><div class="tabs" role="tablist">${A.CATS.map(([id,n])=>`<button class="tab ${avCat===id?'on':''}" role="tab" aria-selected="${avCat===id}" data-act="avcat" data-id="${id}">${n}</button>`).join('')}</div>
+    ${avCat==='gesto'?`<div class="card row" style="margin-bottom:12px;justify-content:space-between;gap:12px"><span><b>¡Crea tu propio gesto!</b><br><small style="color:var(--muted)">Mueve y separa las partes del muñeco: brazos, piernas y hasta la cabeza.</small></span><button class="btn brand" data-act="animgesto">Crear gesto</button></div>`:''}
     ${avCat==='animacion'?`<div class="card row" style="margin-bottom:12px;justify-content:space-between;gap:12px"><span><b>¡Crea tu propia animación!</b><br><small style="color:var(--muted)">Decide cómo andas, saltas y te quedas quieto.</small></span><button class="btn brand" data-act="animador">Crear animación</button></div>`:''}
     <div class="items">${its.map(i=>itemCard(i,'equip')).join('')}</div>
     ${more?`<div class="card row" style="margin-top:14px;justify-content:space-between"><span>Hay ${more} ${more===1?'objeto':'objetos'} más de esta categoría en el catálogo.</span><button class="btn" data-act="tocat" data-id="${avCat}">Ver en el catálogo</button></div>`:''}
@@ -773,7 +780,7 @@ function itemModal(it){const own=st.owned.includes(it.id),on=st.eq[it.cat]===it.
     <div style="display:flex;flex-direction:column;gap:8px"><span class="chip" style="align-self:flex-start">${A.CATS.find(c=>c[0]===it.cat)[1]}</span>${it.desc?`<span style="color:var(--muted)">${esc(it.desc)}</span>`:''}${it.custom?`<span style="color:var(--muted)">Creado por <b style="color:var(--fg)">${esc(it.author)}</b>${isMine(it.id)?' (tú)':''}</span>${limTag(it)}`:''}${it.cat==='gesto'?'<span style="color:var(--muted)">Hazlo en los juegos con la tecla G o el botón GESTOS.</span>':''}
     <div style="font-size:22px;font-weight:800;display:flex;align-items:center;gap:6px">${own?'<span class="pos">Ya es tuyo</span>':it.lvl?'Nivel '+it.lvl:it.price?CUBE+fmtC(it.price):'Gratis'}</div>
     ${own?'':`<span style="color:var(--muted);font-size:14px">Tienes ${fmtC(st.cubos)} Cubos.</span>`}</div></div>
-  <div class="row">${own?`<button class="btn play" data-act="equip" data-id="${it.id}" ${on?'disabled':''}>${on?'Ya lo llevas puesto':'Ponérmelo'}</button>${isMine(it.id)?`<button class="btn" data-act="${it.cat==='animacion'?'animador':'tedit'}" data-id="${it.id}">Editar</button><button class="btn" data-act="tcode" data-id="${it.id}">Código</button>`:''}`:
+  <div class="row">${own?`<button class="btn play" data-act="equip" data-id="${it.id}" ${on?'disabled':''}>${on?'Ya lo llevas puesto':'Ponérmelo'}</button>${isMine(it.id)?`<button class="btn" data-act="${it.cat==='animacion'?'animador':it.cat==='gesto'?'animgesto':'tedit'}" data-id="${it.id}">Editar</button><button class="btn" data-act="tcode" data-id="${it.id}">Código</button>`:''}`:
     it.custom&&it.limited&&!stockLeft(it)?'<span>Agotado: ya no quedan unidades de este objeto limitado.</span>':
     it.lvl?`<span>Se consigue al llegar al <b>nivel ${it.lvl}</b> (tú estás en el nivel ${A.levelOf(st.xp).lvl}). Sube de nivel jugando y completando misiones.</span>`:
     st.cubos>=it.price?`<button class="btn play" data-act="buyitem" data-id="${it.id}">Comprar por ${fmtC(it.price)} Cubos</button>`:
@@ -841,6 +848,7 @@ const ACT={
   gfilt(k){gFilt=k;render()},
   studio(){playGame({id:'studio',name:'CuboStudio',file:'estudio/index.html'})},
   animador(){playGame({id:'animador',name:'Creador de animaciones',file:'animador.html'})},
+  animgesto(){playGame({id:'animador',name:'Creador de gestos',file:'animador.html?gesto=1'})},
   studioia(){playGame({id:'studio',name:'CuboStudio',file:'estudio/index.html?ia=1'})},
   playc(id){let c=creados().find(x=>x.id===id),g=c&&c.game;if(!c){c=(COMUNIDAD||[]).find(x=>x.id===id);try{g=c&&JSON.parse(c.gameStr)}catch(e){g=null}}
     if(!g){toast('No se ha podido abrir ese juego');return}g.author=g.author||c.author;try{localStorage.setItem('cubo-jugar',JSON.stringify(g))}catch(e){toast('No hay espacio en el dispositivo');return}
@@ -920,7 +928,7 @@ V.taller=function(){
   ${mine.length?`<div class="mylist">${mine.map(it=>{const e=earn(it);return `<div class="myrow"><span class="pic" style="${itemThumb(it)?`background-image:url(${itemThumb(it)})`:''}"></span>
     <div style="min-width:0"><b>${esc(it.name)}</b><small>${A.CATS.find(c=>c[0]===it.cat)[1]} · ${MODES[it.mode]}${it.mode!=='me'?` · ${it.price?CUBE+fmtC(it.price):'Gratis'}`:''}${it.limited?` · ${it.stock} unidades`:''}</small>
     ${MERC&&MERC[it.id]?`<small>Vendido ${e.sold} ${e.sold===1?'vez':'veces'}${e.due?` · tienes ${CUBE}${fmtC(e.due)} por cobrar`:''}</small>`:''}</div>
-    <div class="row">${e.due?`<button class="btn brand" data-act="tclaim" data-id="${it.id}">Cobrar</button>`:''}<button class="btn" data-act="tcode" data-id="${it.id}">Código</button><button class="btn" data-act="${it.cat==='animacion'?'animador':'tedit'}" data-id="${it.id}">Editar</button><button class="btn" data-act="tdel" data-id="${it.id}">Borrar</button></div></div>`}).join('')}</div>`
+    <div class="row">${e.due?`<button class="btn brand" data-act="tclaim" data-id="${it.id}">Cobrar</button>`:''}<button class="btn" data-act="tcode" data-id="${it.id}">Código</button><button class="btn" data-act="${it.cat==='animacion'?'animador':it.cat==='gesto'?'animgesto':'tedit'}" data-id="${it.id}">Editar</button><button class="btn" data-act="tdel" data-id="${it.id}">Borrar</button></div></div>`}).join('')}</div>`
   :`<div class="card">Todavía no has creado nada. Elige arriba qué quieres hacer.</div>`}</section>
   <div class="card tnote"><b>¿Cómo se venden?</b><span>${CC&&CC.cfg?'Lo que publiques sale en el catálogo de todos los que tengan cuenta en internet. Cuando alguien lo compra, te llevas el 70% de los Cubos.':'Para que otros vean tus objetos, pásales el código del objeto (botón «Código»): lo pegan en el catálogo y lo pueden comprar. Cuando la app tenga las cuentas en internet activadas, saldrán solos en el catálogo de todos y cobrarás el 70% de cada venta.'}</span></div>`};
 const kthumbs={};
