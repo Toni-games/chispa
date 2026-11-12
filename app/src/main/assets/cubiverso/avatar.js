@@ -54,7 +54,7 @@ const ITEMS=[
 ];
 const BY={};ITEMS.forEach(i=>BY[i.id]=i);
 const DEF_EQ={piel:'sk1',cara:'f1',camiseta:'sh1',pantalon:'p1',cabeza:'h1',accesorio:'a0',espalda:'b0',mascota:'m0',animacion:'an0',gesto:'ge0'};
-function defaults(){return {name:'Jugador',cubos:250,owned:ITEMS.filter(i=>!i.price&&!i.lvl).map(i=>i.id),eq:Object.assign({},DEF_EQ),daily:0,codes:{},passes:{},recent:[],history:[],custom:{},mine:[],claimed:{}}}
+function defaults(){return {name:'Jugador',cubos:250,owned:ITEMS.filter(i=>!i.price&&!i.lvl&&!i.custom).map(i=>i.id),eq:Object.assign({},DEF_EQ),daily:0,codes:{},passes:{},recent:[],history:[],custom:{},mine:[],claimed:{}}}
 function state(){let s=null;try{s=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}const d=defaults();if(!s)return d;s=Object.assign(d,s);s.eq=Object.assign({},DEF_EQ,s.eq||{});
   if(s.custom)Object.values(s.custom).forEach(register);
   ITEMS.forEach(i=>{if(!i.price&&!i.custom&&!i.lvl&&!s.owned.includes(i.id))s.owned.push(i.id)});return s}
@@ -127,7 +127,7 @@ const ART_ABC='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 function safeCol(c,d){return /^#[0-9a-f]{3,8}$/i.test(String(c||''))?c:d}
 function clean(d){if(!d||typeof d!=='object')return null;const cats=['camiseta','pantalon','cara','cabeza','accesorio','espalda','animacion','gesto'];
   if(!/^u[a-z0-9]{4,24}$/i.test(String(d.id||''))||!cats.includes(d.cat))return null;
-  const o={id:d.id,cat:d.cat,name:String(d.name||'Mi objeto').slice(0,28),price:Math.max(0,Math.min(5000,Math.round(+d.price||0))),custom:true,
+  const o={id:d.id,cat:d.cat,name:String(d.name||'Mi objeto').replace(/[<>&"]/g,'').slice(0,28),price:Math.max(0,Math.min(5000,Math.round(+d.price||0))),custom:true,
     author:String(d.author||'Jugador').slice(0,20),col:safeCol(d.col,'#ffffff'),c1:safeCol(d.c1,'#ff7a2f'),c2:safeCol(d.c2,'#ffffff'),
     size:Math.max(.6,Math.min(1.5,+d.size||1)),tpl:String(d.tpl||''),mode:['me','pub','lim'].includes(d.mode)?d.mode:'me',created:+d.created||0};
   if(d.cat in TPL&&!TPL[d.cat].some(t=>t[0]===o.tpl))o.tpl=TPL[d.cat][0][0];
@@ -408,5 +408,7 @@ function drive(a,walk,air,o){o=o||{};const now=performance.now(),dt=a._lt?Math.m
   animate(a,{walk,air,moving,climb:o.climb,dt});
   if(a.isMe&&window.CubiAudio){if(o.climb){if(moving&&Math.floor(now/260)!==a._cs){a._cs=Math.floor(now/260);CubiAudio.sfx('climb')}a._wasAir=false}else CubiAudio.steps(a,walk,air)}}
 function levelOf(xp){xp=Math.max(0,+xp||0);let l=1,need=150;while(xp>=need){xp-=need;l++;need=100+l*50}return {lvl:l,cur:xp,need}}
-window.CubiAvatar={cleanGest,playGest,GLEN,cleanAnim,playAnim,ANIM_STATES,levelOf,KEY,TPL,DECAL,ART_ABC,register,customDefs,artCanvas,clean,drive,CATS,ITEMS,BY,DEF_EQ,EMOTES,state,save,build,makeAvatar,animate,emote,faceCanvas,shirtCanvas};
+window.CubiAvatar={cleanGest,playGest,GLEN,cleanAnim,playAnim,ANIM_STATES,levelOf,KEY,TPL,DECAL,ART_ABC,register,customDefs,artCanvas,clean,drive,CATS,ITEMS,BY,DEF_EQ,state,save,build,makeAvatar,animate,emote,faceCanvas,shirtCanvas};
+/* la lista de gestos se calcula al pedirla: así salen también los que el jugador crea o compra después */
+Object.defineProperty(window.CubiAvatar,'EMOTES',{enumerable:true,get(){let own=null;try{own=state().owned}catch(e){}return ITEMS.filter(i=>i.cat==='gesto'&&(!i.custom||(own&&own.includes(i.id))))}});
 })();
