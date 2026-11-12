@@ -60,17 +60,24 @@ body.touch #hearts{bottom:calc(env(safe-area-inset-bottom,0px) + 66px)}
 #cursor{position:fixed;z-index:50;width:44px;height:44px;margin:-22px 0 0 -22px;pointer-events:none}#cursor img{width:44px;height:44px;image-rendering:pixelated}#cursor b{position:absolute;right:0;bottom:0;font:900 13px system-ui;color:#fff;text-shadow:1px 1px 0 #000}
 #cursor[hidden]{display:none}body.touch #cursor{display:none!important}
 
+#cfg{position:fixed;inset:0;z-index:42;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px}#cfg[hidden]{display:none}
+#cfg .box{background:#1d2433;border:3px solid #0d111a;border-radius:14px;padding:14px;max-width:420px;width:100%;color:#e8edf7;font-family:"Nunito",system-ui;display:flex;flex-direction:column;gap:10px}
+#cfg .ih{display:flex;justify-content:space-between;align-items:center}#cfg h2{margin:0;font:400 24px "Lilita One",sans-serif;color:#ffd23a}#cfg .x{border:2px solid #0d111a;background:#e5484d;color:#fff;font:900 16px system-ui;border-radius:8px;padding:2px 10px;cursor:pointer}
+.opt{display:flex;gap:10px;align-items:center;background:#2c3650;border-radius:10px;padding:10px;cursor:pointer}.opt.col{flex-direction:column;align-items:stretch}.opt b{display:block}.opt small{display:block;color:#9fb0cf;font-size:12px}.opt i{font-style:normal;color:#ffd23a}
+.opt input[type=checkbox]{width:22px;height:22px;accent-color:#3fd15c;flex:none}.opt input[type=range]{width:100%;accent-color:#ffd23a}
+#bSet{left:max(134px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 60px);width:52px!important;height:52px!important;font-size:18px!important;background:#c6c6c6;border-radius:10px!important}
+
 </style>
 <script src="../cursor.js"></script>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="ui" hidden><div id="cross" aria-hidden="true"></div><div id="hot" role="toolbar" aria-label="Bloques"></div><div id="bname"></div>
-<div id="tbtns"><button id="bJump" aria-label="Saltar">▲</button><button id="bDown" aria-label="Bajar">▼</button><button id="bBreak" aria-label="Picar">⛏</button><button id="bPlace" aria-label="Poner bloque">■</button><button id="bInv" aria-label="Inventario">E</button><button id="bCam" aria-label="Cambiar cámara">👁</button></div>
+<div id="tbtns"><button id="bJump" aria-label="Saltar">▲</button><button id="bDown" aria-label="Bajar">▼</button><button id="bBreak" aria-label="Picar">⛏</button><button id="bPlace" aria-label="Poner bloque">■</button><button id="bInv" aria-label="Inventario">E</button><button id="bCam" aria-label="Cambiar cámara">👁</button><button id="bSet" aria-label="Ajustes">⚙</button></div>
 <div id="joy"><div id="joyk"></div></div></div>
 <div id="under" hidden></div><div id="hurt"></div><div id="hearts" hidden aria-label="Vida"></div><div id="toast" role="status"></div>
-<div id="pause" hidden><span>Haz clic para jugar</span><small>Esc para soltar el ratón · E inventario</small><button data-menu="1">Guardar y volver al menú</button></div>
-<div id="inv" hidden><div class="box" role="dialog" aria-label="Inventario"><div class="ih"><h2>Inventario</h2><button class="x" data-x="1" aria-label="Cerrar">✕</button></div><div class="inv-craft"></div><div class="bagwrap"><h3>Mochila</h3><div class="bag"></div></div><h3>Barra</h3><div class="bar"></div><p class="tip">Toca una casilla para cogerla y otra para dejarla. Con el botón derecho coges la mitad o dejas de una en una.</p></div></div><div id="cursor" hidden></div>
+<div id="pause" hidden><span>Haz clic para jugar</span><small>Esc para soltar el ratón · E inventario</small><button data-cfg="1">Ajustes</button><button data-menu="1">Guardar y volver al menú</button></div>
+<div id="inv" hidden><div class="box" role="dialog" aria-label="Inventario"><div class="ih"><h2>Inventario</h2><button class="x" data-x="1" aria-label="Cerrar">✕</button></div><div class="inv-craft"></div><div class="bagwrap"><h3>Mochila</h3><div class="bag"></div></div><h3>Barra</h3><div class="bar"></div><p class="tip">Toca una casilla para cogerla y otra para dejarla. Con el botón derecho coges la mitad o dejas de una en una.</p></div></div><div id="cursor" hidden></div><div id="cfg" hidden><div class="box" role="dialog" aria-label="Ajustes"><div class="ih"><h2>Ajustes</h2><button class="x" data-cx="1" aria-label="Cerrar">✕</button></div><label class="opt"><input type="checkbox" id="cfg-aj"><span><b>Salto automático</b><small>Sube solo los escalones de 1 bloque al andar contra ellos</small></span></label><label class="opt col"><span><b>Sensibilidad de la cámara: <i id="cfg-sv"></i></b></span><input type="range" id="cfg-sens" min="1" max="10" step="1"></label><label class="opt col"><span><b>Distancia de vista: <i id="cfg-vv"></i></b><small>Menos distancia = el juego va más fluido</small></span><input type="range" id="cfg-vista" min="2" max="6" step="1"></label></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="../graficos.js"></script>
 <script src="../avatar.js"></script>
@@ -87,7 +94,11 @@ addEventListener('touchstart',()=>document.body.classList.add('k-touch'),{once:t
 const {renderer,scene,camera}=K.setup({sky:0x8fd0ff,fogNear:30,fogFar:70,shadows:false});
 camera.fov=72;camera.near=.05;camera.updateProjectionMatrix();scene.children.filter(o=>o.isLight).forEach(l=>scene.remove(l));
 const avLight=new THREE.HemisphereLight(0xffffff,0x667755,1.1);scene.add(avLight);
-const CH=16,H=64,SEA=26,RD=4;
+const CH=16,H=64,SEA=26;
+/* ajustes del jugador */
+const CFG=(()=>{let c={};try{c=JSON.parse(localStorage.getItem('mundo-bloque-ajustes')||'{}')}catch(e){}return Object.assign({autojump:true,sens:5,vista:4},c)})();
+const saveCfg=()=>{try{localStorage.setItem('mundo-bloque-ajustes',JSON.stringify(CFG))}catch(e){}};
+let RD=CFG.vista;
 /* ---------- bloques ---------- */
 // [nombre, tile arriba, tile lado, tile abajo, transparente(0 no,1 recorte,2 cristal/agua), dureza]
 const B=[null,
@@ -297,7 +308,7 @@ function streamChunks(budgetGen,budgetMesh,ms){const T0=performance.now(),over=(
   for(let r=0;r<=RD&&g<budgetGen;r++)for(let dx=-r;dx<=r&&g<budgetGen;dx++)for(let dz=-r;dz<=r&&g<budgetGen;dz++){if(Math.max(Math.abs(dx),Math.abs(dz))!==r)continue;const k=ck(pcx+dx,pcz+dz);
     if(!chunks.has(k)){chunks.set(k,genChunk(pcx+dx,pcz+dz));markNb(pcx+dx,pcz+dz);g++;if(over())g=budgetGen}}
   const todo=[];chunks.forEach(c=>{const dd=Math.max(Math.abs(c.cx-pcx),Math.abs(c.cz-pcz));if(dd>RD+2){c.meshes.forEach(m=>{scene.remove(m);m.geometry.dispose()});chunks.delete(ck(c.cx,c.cz));return}
-    if(c.dirty&&dd<=RD)todo.push([dd,c])});todo.sort((a,b)=>a[0]-b[0]);for(let i=0;i<Math.min(budgetMesh,todo.length);i++){meshChunk(todo[i][1]);if(over()&&i>=0)break}return todo.length}
+    if(c.dirty&&dd<=RD)todo.push([dd,c])});todo.sort((a,b)=>a[0]-b[0]);if(todo.length&&todo[0][0]===0){meshChunk(todo.shift()[1])}for(let i=0;i<Math.min(budgetMesh,todo.length);i++){meshChunk(todo[i][1]);if(over()&&i>=0)break}return todo.length}
 function resetWorld(){torches.clear();chunks.forEach(c=>c.meshes.forEach(m=>{scene.remove(m);m.geometry.dispose()}));chunks.clear();tcache.clear();scache.clear();mobs.forEach(m=>scene.remove(m.g));mobs.length=0}
 /* ---------- jugador ---------- */
 const P={x:.5,y:40,z:.5,vx:0,vy:0,vz:0,yaw:0,pitch:0,ground:false,fly:false,inWater:false,walk:0};
@@ -379,14 +390,14 @@ function attack(m){if(atkCd>0)return;atkCd=.35;J.sfx('pop');m.hitT=.25;const dx=
 /* ---------- entrada ---------- */
 const keys={};let locked=false,started=false;
 addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(e.target.tagName==='INPUT')return;keys[k]=true;
-  if(k===' '){e.preventDefault();const now=performance.now();if(mode==='creativo'&&now-(P.lastSp||0)<300){P.fly=!P.fly;P.vy=0;toast(P.fly?'Volando':'Andando')}P.lastSp=now}
+  if(k===' '){e.preventDefault();if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();const now=performance.now();if(mode==='creativo'&&now-(P.lastSp||0)<300){P.fly=!P.fly;P.vy=0;toast(P.fly?'Volando':'Andando')}P.lastSp=now}
   if(/^[1-9]$/.test(k))selSlot(+k-1);if(k==='e'||(k==='escape'&&invOpen)){e.preventDefault();toggleInv()}if(k==='c'||k==='f5'){e.preventDefault();third=!third}});
 addEventListener('keydown',e=>{if(e.repeat)return;const k=e.key.toLowerCase();if(k==='w'||k==='arrowup'){const n=performance.now();if(n-(P.lastW||0)<280)P.run=true;P.lastW=n}});
 addEventListener('keyup',e=>{const k=e.key.toLowerCase();keys[k]=false;if(k==='w'||k==='arrowup')P.run=false});
 const cv=renderer.domElement;
 cv.addEventListener('click',()=>{if(!started||invOpen)return;if(!locked&&!isTouch&&cv.requestPointerLock){try{const r=cv.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}});
 document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===cv;$('#pause').hidden=locked||!started||isTouch||invOpen});
-addEventListener('mousemove',e=>{if(locked){P.yaw-=e.movementX*.0025;P.pitch=Math.max(-1.55,Math.min(1.55,P.pitch-e.movementY*.0025))}});
+addEventListener('mousemove',e=>{if(locked){const k=.0005*CFG.sens;P.yaw-=e.movementX*k;P.pitch=Math.max(-1.55,Math.min(1.55,P.pitch-e.movementY*k))}});
 let mouseDown=-1;cv.addEventListener('mousedown',e=>{if(!locked)return;mouseDown=e.button;if(e.button===0){const mm=pickMob();if(mm){attack(mm.m);mouseDown=-1}}if(e.button===2)place();if(e.button===1){const h=pick();if(h&&B[h.id])selectId(h.id)}});
 addEventListener('mouseup',()=>{mouseDown=-1;brk.t=0});cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('wheel',e=>{selSlot((sel+(e.deltaY>0?1:8))%9)},{passive:true});
@@ -395,13 +406,18 @@ addEventListener('touchstart',()=>{isTouch=true;document.body.classList.add('tou
 cv.addEventListener('touchstart',e=>{for(const t of e.changedTouches){if(t.clientX<innerWidth*.4&&!joy){joy={id:t.identifier,x:t.clientX,y:t.clientY,dx:0,dy:0};$('#joy').style.cssText=`display:block;left:${t.clientX-50}px;top:${t.clientY-50}px`}
   else if(!look){look={id:t.identifier,x:t.clientX,y:t.clientY,t0:performance.now(),moved:0}}}e.preventDefault()},{passive:false});
 cv.addEventListener('touchmove',e=>{for(const t of e.changedTouches){if(joy&&t.identifier===joy.id){joy.dx=Math.max(-50,Math.min(50,t.clientX-joy.x));joy.dy=Math.max(-50,Math.min(50,t.clientY-joy.y));$('#joyk').style.transform=`translate(${joy.dx}px,${joy.dy}px)`}
-  if(look&&t.identifier===look.id){const dx=t.clientX-look.x,dy=t.clientY-look.y;look.moved+=Math.abs(dx)+Math.abs(dy);P.yaw-=dx*.006;P.pitch=Math.max(-1.55,Math.min(1.55,P.pitch-dy*.006));look.x=t.clientX;look.y=t.clientY}}e.preventDefault()},{passive:false});
+  if(look&&t.identifier===look.id){const dx=t.clientX-look.x,dy=t.clientY-look.y;look.moved+=Math.abs(dx)+Math.abs(dy);P.yaw-=dx*.0012*CFG.sens;P.pitch=Math.max(-1.55,Math.min(1.55,P.pitch-dy*.0012*CFG.sens));look.x=t.clientX;look.y=t.clientY}}e.preventDefault()},{passive:false});
 const tEnd=e=>{for(const t of e.changedTouches){if(joy&&t.identifier===joy.id){joy=null;$('#joy').style.display='none';$('#joyk').style.transform=''}
   if(look&&t.identifier===look.id){if(look.moved<12&&performance.now()-look.t0<300){const mm=pickMob();if(mm)attack(mm.m);else place()}look=null}}};
 cv.addEventListener('touchend',tEnd);cv.addEventListener('touchcancel',tEnd);
 const hold=(sel,on,off)=>{const b=$(sel);b.addEventListener('pointerdown',e=>{e.preventDefault();on()});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>off&&off()))};
 hold('#bJump',()=>{keys[' ']=true;if(mode==='creativo'){const now=performance.now();if(now-(P.lastSp||0)<300){P.fly=!P.fly;P.vy=0;toast(P.fly?'Volando':'Andando')}P.lastSp=now}},()=>keys[' ']=false);
 hold('#bDown',()=>keys.shift=true,()=>keys.shift=false);hold('#bBreak',()=>{const mm=pickMob();if(mm){attack(mm.m);return}tBreak=true},()=>{tBreak=false;brk.t=0});hold('#bPlace',()=>place());
+function drawCfg(){$('#cfg-aj').checked=CFG.autojump;$('#cfg-sens').value=CFG.sens;$('#cfg-sv').textContent=CFG.sens;$('#cfg-vista').value=CFG.vista;$('#cfg-vv').textContent=CFG.vista*16+' bloques'}
+function openCfg(){if(locked)document.exitPointerLock();$('#cfg').hidden=false;drawCfg()}
+$('#cfg').addEventListener('input',e=>{const t=e.target;if(t.id==='cfg-aj')CFG.autojump=t.checked;if(t.id==='cfg-sens')CFG.sens=+t.value;if(t.id==='cfg-vista'){CFG.vista=+t.value;RD=CFG.vista;setFog()}saveCfg();drawCfg()});
+$('#cfg').addEventListener('click',e=>{if(e.target.closest('[data-cx]')||e.target.id==='cfg')$('#cfg').hidden=true});
+$('#bSet').onclick=openCfg;$('#pause').addEventListener('click',e=>{if(e.target.closest('[data-cfg]')){e.stopPropagation();openCfg()}},true);
 $('#bInv').onclick=()=>toggleInv();$('#bCam').onclick=()=>third=!third;
 /* ---------- inventario: 9 casillas de barra + 27 de mochila, fabricar en cuadrícula ---------- */
 const ALL=[1,2,3,4,19,5,7,6,27,8,9,25,26,11,21,22,16,18,20,12,13,14,15,23,24,28,29,30,100,101,102,103,104,105,106];
@@ -526,7 +542,7 @@ $('#pause').addEventListener('click',e=>{if(e.target.closest('[data-menu]')){sav
 const SKY_D=new THREE.Color(0x8fd0ff),SKY_N=new THREE.Color(0x070b20),SKY_S=new THREE.Color(0xff9a5a),tmpC=new THREE.Color();
 const sunM=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.MeshBasicMaterial({color:0xfff3a0,fog:false}));const moonM=new THREE.Mesh(new THREE.PlaneGeometry(6,6),new THREE.MeshBasicMaterial({color:0xe8ecff,fog:false}));scene.add(sunM,moonM);
 const stars=new THREE.Points(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(Array.from({length:900},()=>(Math.random()-.5)*300),3)),new THREE.PointsMaterial({color:0xffffff,size:1.2,fog:false,transparent:true}));scene.add(stars);
-scene.fog.near=RD*CH*.45;scene.fog.far=RD*CH-4;
+function setFog(){scene.fog.near=RD*CH*.45;scene.fog.far=RD*CH-4}setFog();
 let last=performance.now(),hudT=0;
 /* calidad automática: si va a tirones baja la resolución, si va sobrado la sube */
 const PR0=Math.min(devicePixelRatio||1,1.5);let pr=PR0,fpsAcc=0,fpsN=0;renderer.setPixelRatio(pr);
@@ -540,17 +556,17 @@ function loop(t){const dt=Math.min(.1,(t-last)/1000);last=t;perf(dt);
     let fx=0,fz=0;if(keys.w||keys.arrowup)fz-=1;if(keys.s||keys.arrowdown)fz+=1;if(keys.a||keys.arrowleft)fx-=1;if(keys.d||keys.arrowright)fx+=1;if(joy){fx+=joy.dx/50;fz+=joy.dy/50;P.run=Math.hypot(joy.dx,joy.dy)>46}
     const len=Math.hypot(fx,fz);if(len>1){fx/=len;fz/=len}
     const cy=Math.cos(P.yaw),sy=Math.sin(P.yaw);const sp=P.fly?13:(keys.control||P.run)?8:5.6,wx=(fx*cy+fz*sy)*sp,wz=(-fx*sy+fz*cy)*sp;
-    const loaded=chunks.has(ck(Math.floor(P.x/CH),Math.floor(P.z/CH)))&&!chunks.get(ck(Math.floor(P.x/CH),Math.floor(P.z/CH))).dirty;
+    const loaded=chunks.has(ck(Math.floor(P.x/CH),Math.floor(P.z/CH)));
     P.inWater=get(Math.floor(P.x),Math.floor(P.y+.4),Math.floor(P.z))===WATER;
     const k=P.ground||P.fly?30:10;P.vx+=(wx*(P.inWater?.6:1)-P.vx)*Math.min(1,dt*k);P.vz+=(wz*(P.inWater?.6:1)-P.vz)*Math.min(1,dt*k);
     if(!loaded){P.vy=0}else if(P.fly){P.vy=(keys[' ']?7:0)-(keys.shift?7:0)}
     else if(P.inWater){P.vy=Math.max(-3,P.vy-10*dt);if(keys[' '])P.vy=3.2}
-    else{P.vy-=30*dt;if(keys[' ']&&(P.ground||P.coyote>0)){P.vy=9.3;P.ground=false;P.coyote=0}}
+    else{P.vy-=30*dt;if(keys[' ']&&(P.ground||P.coyote>0)){P.vy=8.9;P.ground=false;P.coyote=0}}
     const steps=Math.ceil(dt/.012);for(let s=0;s<steps;s++){const d=dt/steps;
-      let nx=P.x+P.vx*d;if(!hits(nx,P.y,P.z))P.x=nx;else{if((P.ground||P.inWater)&&!hits(nx,P.y+1.05,P.z)&&!hits(P.x,P.y+1.05,P.z)&&(isTouch||joy)){P.vy=9.3;P.ground=false}P.vx=0}
-      let nz=P.z+P.vz*d;if(!hits(P.x,P.y,nz))P.z=nz;else{if((P.ground||P.inWater)&&!hits(P.x,P.y+1.05,nz)&&!hits(P.x,P.y+1.05,P.z)&&(isTouch||joy)){P.vy=9.3;P.ground=false}P.vz=0}
+      let nx=P.x+P.vx*d;if(!hits(nx,P.y,P.z))P.x=nx;else{if((P.ground||P.inWater)&&!hits(nx,P.y+1.05,P.z)&&!hits(P.x,P.y+1.05,P.z)&&CFG.autojump&&Math.hypot(P.vx,P.vz)>.5){P.vy=9.6;P.ground=false}P.vx=0}
+      let nz=P.z+P.vz*d;if(!hits(P.x,P.y,nz))P.z=nz;else{if((P.ground||P.inWater)&&!hits(P.x,P.y+1.05,nz)&&!hits(P.x,P.y+1.05,P.z)&&CFG.autojump&&Math.hypot(P.vx,P.vz)>.5){P.vy=9.6;P.ground=false}P.vz=0}
       let ny=P.y+P.vy*d;if(!hits(P.x,ny,P.z)){P.y=ny;P.ground=false}else{if(P.vy<0){P.ground=true;P.y=Math.floor(ny)+1}P.vy=0}}
-    P.coyote=P.ground?.12:Math.max(0,(P.coyote||0)-dt);if(P.y<-10){[P.x,P.y,P.z]=spawnPt;P.vy=0}
+    if(!P.fly)P.ground=P.vy<=0&&hits(P.x,P.y-.06,P.z);P.coyote=P.ground?.12:Math.max(0,(P.coyote||0)-dt);if(P.y<-10){[P.x,P.y,P.z]=spawnPt;P.vy=0}
     if(Math.hypot(P.vx,P.vz)>.5&&P.ground)P.walk+=dt*Math.hypot(P.vx,P.vz)*1.6;
     const h=pick(),mm=pickMob();
     if(h&&!(mm&&mm.t<h.t)){sel3.visible=true;sel3.position.set(h.x+.5,h.y+.5,h.z+.5)}else sel3.visible=false;
