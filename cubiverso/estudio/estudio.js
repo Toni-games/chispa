@@ -209,30 +209,38 @@ const A={
 
 /* ---------- IA y creación fácil ---------- */
 const IA=window.CuboIA?CuboIA({obj,bk,st,PF:PREFABS,E}):null;
-const IAEX=['Un obby en el espacio muy difícil con trampolines y plataformas que se mueven','Sobrevivir 60 segundos a 6 zombis de noche','Recoger 20 monedas en la playa','Un laberinto grande de nieve con 10 monedas','Lluvia de meteoritos en un volcán','Una torre de dulces fácil','Guerra de globos en un castillo','Una carrera rápida en la ciudad neón'];
+const IAEX=['Un jefe final dragón en el volcán','Rescata cinco gatitos perdidos en el bosque','Un tycoon de granja con ladrones','Un obby de noche sin lava con zombis y veinte monedas','Un obby en el espacio muy difícil con trampolines y plataformas que se mueven','Sobrevivir 60 segundos a 6 zombis de noche','Recoger 20 monedas en la playa','Un laberinto grande de nieve con 10 monedas','Lluvia de meteoritos en un volcán','Una torre de dulces fácil','Guerra de globos en un castillo','Una carrera rápida en la ciudad neón'];
 let iaLast=null;
 function iaMake(res,keep){try{if(parent!==window)parent.postMessage({cubiEvt:'ia'},'*')}catch(e){}const g=res.game;g.id='p'+Date.now().toString(36);g.created=Date.now();ALL.list[g.id]=g;ALL.last=g.id;
   if(keep&&iaLast&&iaLast.id&&ALL.list[iaLast.id]&&iaLast.id!==g.id&&!ALL.list[iaLast.id].touched)delete ALL.list[iaLast.id];
   iaLast={id:g.id,res};open(g.id);persist(true);setTimeout(snapThumb,600)}
+const IAQUICK=['Más difícil','Más fácil','Más largo','Otro mundo','Añade monedas','Añade enemigos','Quita los enemigos','Sin lava','Gravedad baja','Otra versión'];
 function iaResult(res,from){const g=res.game;sfx('levelup');
-  const d=dialog(`<h2>¡Juego creado!</h2><p style="margin:0"><b style="font-size:17px">${esc(g.name)}</b></p><p class="note" style="margin:0">${esc(g.desc||'')}</p>
+  const d=dialog(`<h2>${res.changes?'¡Juego cambiado!':'¡Juego creado!'}</h2><p style="margin:0"><b style="font-size:17px">${esc(g.name)}</b></p><p class="note" style="margin:0">${esc(g.desc||'')}</p>
+    ${res.changes?`<p class="note" style="margin:0"><b>He cambiado:</b> ${esc(res.changes.join(' · '))}</p>`:''}
     <ul class="iasum">${res.summary.map(s=>`<li>${esc(s)}</li>`).join('')}</ul>
+    ${IA&&IA.refine?`<div class="iaref"><input id="iaref" maxlength="120" placeholder="Dile qué cambiar: más difícil, en la nieve, añade 10 monedas…" aria-label="Qué quieres cambiar"><button class="tb iab" id="iarefgo">Cambiar</button></div>
+    <div class="iaex">${IAQUICK.map(t=>`<button class="chip" data-q="${esc(t)}">${esc(t)}</button>`).join('')}</div><p class="note" id="iarefmsg" role="status" style="margin:0"></p>`:''}
     <p class="note">Detrás de esta ventana ya ves tu juego en el editor. Pruébalo, cámbialo o publícalo.</p>
     <div class="row"><button class="tb play big" data-k="play">▶ Jugar ahora</button><button class="tb" data-k="again">Otra versión</button><button class="tb" data-k="change">Cambiar algo</button></div>
     <div class="row"><button class="tb pub" data-k="pub">Publicar</button><button class="tb" data-k="edit">Abrir en el editor</button></div>`);
-  d.onclick=e=>{if(e.target.id==='dlg'){closeDlg();return}const b=e.target.closest('[data-k]');if(!b)return;const k=b.dataset.k;
+  const refine=txt=>{const opts=res.opts||(g.ia&&g.ia.opts);if(!opts)return;const out=IA.refine(opts,txt,g.ia&&g.ia.seed);
+    if(!out){$('#iarefmsg').textContent='No he entendido qué cambiar. Prueba con «más difícil», «en la playa», «añade 5 enemigos» o «sin lava».';sfx('error');return}
+    out.opts.name=out.opts.name||'';iaMake(out,true);iaResult(out,from)};
+  const ri=$('#iaref');if(ri){ri.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();refine(ri.value)}});ri.addEventListener('keyup',e=>e.stopPropagation());$('#iarefgo').onclick=()=>refine(ri.value)}
+  d.onclick=e=>{if(e.target.id==='dlg'){closeDlg();return}const q=e.target.closest('[data-q]');if(q){refine(q.dataset.q);return}const b=e.target.closest('[data-k]');if(!b)return;const k=b.dataset.k;
     if(k==='play'){closeDlg();A.test()}
     if(k==='edit'){closeDlg();toast('Puedes mover, añadir y programar todo lo que ha hecho la IA')}
     if(k==='pub'){closeDlg();openPublish()}
     if(k==='again'){const r2=IA.build(res.opts||g.ia.opts);r2.opts=res.opts||g.ia.opts;iaMake(r2,true);iaResult(r2,from)}
     if(k==='change'){if(from==='easy')openEasy(res.opts);else openIA(res.opts&&res.opts.text)}}}
 function openIA(text){if(!IA){toast('La IA no está disponible');return}
-  const d=dialog(`<h2>Crear con IA</h2><p>Escribe qué juego quieres y la IA lo construye con piezas y bloques. Di el <b>tipo</b> (obby, monedas, zombis, laberinto, torre, carrera, esquivar, batalla), el <b>mundo</b> (espacio, playa, nieve, noche, volcán, dulces…), si es <b>fácil o difícil</b> y lo que quieras que tenga.</p>
+  const d=dialog(`<h2>Crear con IA</h2><p>Escribe qué juego quieres y la IA lo construye con piezas y bloques. Di el <b>tipo</b> (obby, monedas, zombis, laberinto, torre, carrera, esquivar, batalla, jefe final, tycoon, rescate), el <b>mundo</b> (espacio, playa, nieve, noche, volcán, dulces…), si es <b>fácil o difícil</b> y lo que quieras que tenga.</p>
     <textarea id="iatxt" class="iatxt" maxlength="300" placeholder="Por ejemplo: un obby en el espacio muy difícil con trampolines">${esc(text||'')}</textarea>
     <div class="iaex">${IAEX.map(t=>`<button class="chip" data-ex="${esc(t)}">${esc(t)}</button>`).join('')}</div>
     <p class="note" id="iamsg" role="status"></p>
     <div class="row"><button class="tb play big" id="iago">✦ Crear mi juego</button><button class="tb" data-k="easy">Prefiero elegir yo</button><button class="tb" data-close>Cerrar</button></div>
-    <p class="note">La IA de CuboStudio funciona sin internet: entiende palabras clave en español y cada vez inventa un nivel distinto.</p>`);
+    <p class="note">También entiende números («veinte monedas»), lo que no quieres («sin lava», «sin enemigos»), el tiempo («contrarreloj», «90 segundos»), la música («con música de fiesta») y el nombre («que se llame…»). Funciona sin internet y cada vez inventa un nivel distinto; después puedes pedirle cambios.</p>`);
   const ta=$('#iatxt');setTimeout(()=>ta.focus(),50);ta.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();go()}});ta.addEventListener('keyup',e=>e.stopPropagation());
   const go=()=>{const t=ta.value.trim();if(t.length<3){$('#iamsg').textContent='Escribe qué juego quieres, aunque sean dos palabras.';return}
     $('#iamsg').textContent='Creando tu juego…';$('#iago').disabled=true;setTimeout(()=>{try{const res=IA.crear(t);iaMake(res);iaResult(res,'ia')}catch(err){console.error(err);$('#iamsg').textContent='Algo ha fallado. Prueba a escribirlo de otra forma.';$('#iago').disabled=false}},350)};
@@ -347,8 +355,10 @@ function openFiles(){const L=Object.values(ALL.list).sort((a,b)=>(b.updated||0)-
       <button class="pc" data-new="obby"><span class="th">Obby</span><b>Obby</b><small>Saltos, lava, meta</small></button>
       <button class="pc" data-new="monedas"><span class="th">Monedas</span><b>Caza de monedas</b><small>Recoge 10 en 60 s</small></button>
       <button class="pc" data-imp="1"><span class="th">Código</span><b>Importar</b><small>Pega un código de juego</small></button></div>
+    <h3 style="margin:4px 0 0;font-size:14px">Plantillas completas</h3><p class="note">Juegos ya terminados para jugar al momento. Ábrelos en el editor para ver cómo están programados y cambiarlos.</p>
+    <div class="cards">${Object.entries(JUEGOS).filter(([k,t])=>t.group==='clasico').map(([k,t])=>`<button class="pc" data-new="${k}"><span class="th" style="background:linear-gradient(135deg,${t.color},#16181f);color:#fff;font-weight:800;font-size:13px;text-align:center;padding:6px">${esc(t.name)}</span><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></button>`).join('')}</div>
     <h3 style="margin:4px 0 0;font-size:14px">Plantillas de los juegos de Cubiverso</h3><p class="note">Empieza con una versión sencilla de cada juego y cámbiala a tu gusto: todo está hecho con piezas y bloques que puedes ver y editar.</p>
-    <div class="cards">${Object.entries(JUEGOS).map(([k,t])=>`<button class="pc" data-new="${k}"><span class="th" style="background:linear-gradient(135deg,${t.color},#16181f);color:#fff;font-weight:800;font-size:13px;text-align:center;padding:6px">${esc(t.name)}</span><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></button>`).join('')}</div>
+    <div class="cards">${Object.entries(JUEGOS).filter(([k,t])=>t.group!=='clasico').map(([k,t])=>`<button class="pc" data-new="${k}"><span class="th" style="background:linear-gradient(135deg,${t.color},#16181f);color:#fff;font-weight:800;font-size:13px;text-align:center;padding:6px">${esc(t.name)}</span><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></button>`).join('')}</div>
     ${L.length?`<h3 style="margin:4px 0 0;font-size:14px">Tus juegos</h3><div class="cards">${L.map(g=>`<div class="pc"><button class="th" data-open="${g.id}" ${thumbOf(g)} style="border:0;${g.thumb?`background-image:url(${g.thumb})`:''}" aria-label="Abrir ${esc(g.name)}">${g.thumb?'':'Sin imagen'}</button><b>${esc(g.name)}</b><small>${g.objects.length} objetos${g.id===G.id?' · abierto':''}</small><div class="row"><button class="tb" data-open="${g.id}">Abrir</button><button class="tb" data-delp="${g.id}" aria-label="Borrar ${esc(g.name)}">Borrar</button></div></div>`).join('')}</div>`:''}
     <div class="row"><button class="tb" data-close>Cerrar</button></div>`);
   d.onclick=e=>{const n=e.target.closest('[data-new]'),o=e.target.closest('[data-open]'),x=e.target.closest('[data-delp]'),im=e.target.closest('[data-imp]');

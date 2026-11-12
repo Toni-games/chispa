@@ -18,7 +18,8 @@ button,input{font:inherit;color:inherit}button{cursor:pointer}
 .b{border:3px solid #000;border-radius:12px;background:var(--panel2);padding:8px 12px;font-weight:900;white-space:nowrap}
 .b.y{background:var(--y);color:#1a1200}.b.g{background:var(--g);color:#032312}.b.on{background:#fff;color:#000}.b.r{background:var(--r);color:#fff}
 .b:focus-visible{outline:3px solid var(--y);outline-offset:2px}
-.hint{position:absolute;left:12px;top:12px;background:rgba(0,0,0,.45);border-radius:10px;padding:6px 10px;font-size:13px;color:#d7dcf5;max-width:calc(100% - 24px)}
+.grab{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}.grab .b{padding:6px 10px;font-size:13px}
+#cv.grabbing{cursor:grabbing}.hint{position:absolute;left:12px;top:12px;max-width:calc(100% - 170px)!important;background:rgba(0,0,0,.45);border-radius:10px;padding:6px 10px;font-size:13px;color:#d7dcf5;max-width:calc(100% - 24px)}
 .side{background:var(--panel);border-left:3px solid #000;display:flex;flex-direction:column;min-height:0}
 .head{padding:12px 14px;border-bottom:2px solid var(--line);display:flex;flex-direction:column;gap:8px}
 .head h1{margin:0;font:400 22px "Lilita One","Arial Black",sans-serif;letter-spacing:.02em}
@@ -43,7 +44,8 @@ button,input{font:inherit;color:inherit}button{cursor:pointer}
 </head>
 <body>
 <div class="app">
-  <div class="stage"><canvas id="cv" aria-label="Vista de tu avatar"></canvas><div class="hint" id="hint">Arrastra para girar el muñeco</div>
+  <div class="stage"><canvas id="cv" aria-label="Vista de tu avatar"></canvas><div class="hint" id="hint">Coge un brazo, una pierna, la cabeza o el cuerpo y arrástralo</div>
+    <div class="grab" role="group" aria-label="Qué hace el dedo"><button class="b on" data-grab="rot">Girar partes</button><button class="b" data-grab="sep">Separar partes</button><button class="b" data-grab="view">Girar vista</button></div>
     <div class="play"><button class="b g" id="bPlay">▶ Reproducir</button><button class="b" id="bWalk">Probar andando</button></div></div>
   <aside class="side">
     <div class="head"><h1>Creador de animaciones</h1>
@@ -89,8 +91,37 @@ const grid=new THREE.GridHelper(6,12,0x5b68a8,0x47518a);grid.position.y=.01;S.ad
 let av=null,yaw=-.5;
 function rebuild(){if(av)S.remove(av.root);av=A.makeAvatar(THREE,st.eq);av.root.traverse(o=>{if(o.isMesh)o.castShadow=true});S.add(av.root)}
 rebuild();
-let drag=null;cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y0:yaw};cv.setPointerCapture(e.pointerId)});
-cv.addEventListener('pointermove',e=>{if(drag)yaw=drag.y0+(e.clientX-drag.x)*.01});cv.addEventListener('pointerup',()=>drag=null);
+/* ---------- coger partes del muñeco con el ratón o el dedo ---------- */
+let drag=null,grab='rot';const ray=new THREE.Raycaster();
+const PN={armL:'Brazo izquierdo',armR:'Brazo derecho',legL:'Pierna izquierda',legR:'Pierna derecha',head:'Cabeza',body:'Cuerpo'};
+function partOf(o){while(o&&o!==av.root){if(o===av.armL)return 'armL';if(o===av.armR)return 'armR';if(o===av.legL)return 'legL';if(o===av.legR)return 'legR';if(av.head&&o===av.head)return 'head';
+    if(o.parent===av.body&&o.position.y>1.62&&!(o.isGroup))return 'head';if(o===av.body)return 'body';o=o.parent}return null}
+function scr(o){const v=new THREE.Vector3();o.getWorldPosition(v);v.project(C);return v.x}
+const lim=(k,v)=>{const L=k===10?[-.5,1]:k>=11&&k<=18?[-1.5,1.5]:k===19?[-.4,2]:k===0||k===2?[-3.14,1.05]:k===1||k===3?[-.35,2.1]:k===4||k===6?[-1.57,1.57]:k===5||k===7?[-.17,1.05]:k===8?[-.79,1.05]:k===9?[-.52,.52]:[-3.14,3.14];return Math.max(L[0],Math.min(L[1],v))};
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);const r=cv.getBoundingClientRect();
+  const m=new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(m,C);
+  const hit=grab==='view'?null:ray.intersectObject(av.root,true)[0];let part=hit&&partOf(hit.object);
+  if(part==='head'&&kind!=='gesto'&&grab==='rot')part='body';
+  if(part&&grab==='sep'&&kind!=='gesto'&&part!=='body'){toast('Separar partes solo funciona en los gestos');part=null}
+  if(!part){drag={view:1,x:e.clientX,y0:yaw};return}
+  playing=walkPrev=false;syncPlay();const side=Math.sign(scr(av[part]||av.body)-scr(av.body))||1;
+  drag={part,x:e.clientX,y:e.clientY,side,base:data().f[fi].slice()};cv.classList.add('grabbing');$('#hint').textContent=(grab==='sep'?'Separando: ':'Moviendo: ')+PN[part]});
+cv.addEventListener('pointermove',e=>{if(!drag)return;if(drag.view){yaw=drag.y0+(e.clientX-drag.x)*.01;return}
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y,F=data().f[fi],B=drag.base,sd=drag.side,set=(k,v)=>{if(kind!=='gesto'&&k>10)return;F[k]=Math.round(lim(k,v)*100)/100};
+  const sep=grab==='sep',k=.006;
+  switch(drag.part){
+    case 'armL':if(sep){set(11,B[11]+dx*k*sd);set(12,B[12]-dy*k)}else{set(0,B[0]+dy*.012);set(1,B[1]+dx*.012*sd)}break;
+    case 'armR':if(sep){set(13,B[13]+dx*k*sd);set(14,B[14]-dy*k)}else{set(2,B[2]+dy*.012);set(3,B[3]+dx*.012*sd)}break;
+    case 'legL':if(sep){set(15,B[15]+dx*k*sd);set(16,B[16]-dy*k)}else{set(4,B[4]+dy*.01);set(5,B[5]+dx*.01*sd)}break;
+    case 'legR':if(sep){set(17,B[17]+dx*k*sd);set(18,B[18]-dy*k)}else{set(6,B[6]+dy*.01);set(7,B[7]+dx*.01*sd)}break;
+    case 'head':if(sep)set(19,B[19]-dy*k);else{set(21,B[21]+dy*.01);set(20,B[20]+dx*.012)}break;
+    case 'body':if(sep)set(10,B[10]-dy*k);else{set(8,B[8]+dy*.006);set(9,B[9]-dx*.006)}break}
+  syncSliders()});
+const endDrag=()=>{if(drag&&drag.part){cv.classList.remove('grabbing');syncPlay()}drag=null};cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
+function syncSliders(){const F=data().f[fi];document.querySelectorAll('#sc input[data-k]').forEach(i=>{const k=+i.dataset.k,sg=i.dataset.sg;let v;
+    if(sg==='m'||k===10)v=Math.round(F[k]*100);else v=Math.round(F[k]*180/Math.PI*(+sg));i.value=v;const o=$('#o'+k);if(o)o.textContent=v+(sg==='m'||k===10?'':'°')})}
+document.querySelectorAll('[data-grab]').forEach(b=>b.onclick=()=>{grab=b.dataset.grab;document.querySelectorAll('[data-grab]').forEach(x=>x.classList.toggle('on',x===b));
+  $('#hint').textContent=grab==='view'?'Arrastra para girar el muñeco':grab==='sep'?'Coge una parte y arrástrala para separarla del cuerpo':'Coge un brazo, una pierna, la cabeza o el cuerpo y arrástralo'});
 let t0=performance.now(),lt=t0,walkX=0;
 function frame(now){const dt=Math.min(.05,(now-lt)/1000);lt=now;const w=cv.clientWidth,h=cv.clientHeight;if(cv.width!==Math.round(w*R.getPixelRatio())){R.setSize(w,h,false);C.aspect=w/h;C.updateProjectionMatrix()}
   C.position.set(0,2.6,8.6);C.lookAt(0,1.55,0);
@@ -134,7 +165,7 @@ $('#sc').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
   sfx('pop');draw()});
 document.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{tab=b.dataset.st;fi=0;document.querySelectorAll('[data-st]').forEach(x=>x.classList.toggle('on',x===b));playing=walkPrev=false;syncPlay();draw()});
 function syncPlay(){$('#bPlay').textContent=playing?'■ Parar':'▶ Reproducir';$('#bWalk').textContent=walkPrev?'■ Parar':'Probar andando';grid.position.z=0;
-  $('#hint').textContent=playing||walkPrev?'Así se verá en los juegos':'Fotograma '+(fi+1)+' · mueve los deslizadores para colocarlo'}
+  $('#hint').textContent=playing||walkPrev?'Así se verá en los juegos':'Fotograma '+(fi+1)+' · coge las partes del muñeco o usa los deslizadores'}
 $('#bPlay').onclick=()=>{playing=!playing;walkPrev=false;t0=performance.now();syncPlay();sfx('tick')};
 $('#bWalk').onclick=()=>{walkPrev=!walkPrev;playing=false;walkX=0;if(walkPrev){tab='walk';document.querySelectorAll('[data-st]').forEach(x=>x.classList.toggle('on',x.dataset.st==='walk'));draw()}syncPlay();sfx('tick')};
 $('#bSave').onclick=()=>{if(kind==='gesto'){saveGest();return}st=A.state();const name=($('#nm').value||'').trim()||'Mi animación';
@@ -144,12 +175,12 @@ $('#bSave').onclick=()=>{if(kind==='gesto'){saveGest();return}st=A.state();const
   try{window.CubiCuenta&&CubiCuenta.guardar&&CubiCuenta.guardar()}catch(e){}
   editId=id;sfx('levelup');toast('¡Guardada! Ya la llevas puesta en todos los juegos');draw()};
 document.querySelectorAll('[data-kind]').forEach(b=>b.onclick=()=>{kind=b.dataset.kind;fi=0;playing=walkPrev=false;document.querySelectorAll('[data-kind]').forEach(x=>x.classList.toggle('on',x===b));
-  $('#stTabs').hidden=kind==='gesto';$('#bWalk').hidden=kind==='gesto';$('#nm').value=kind==='gesto'?'Mi gesto':'Mi animación';$('#bSave').textContent=kind==='gesto'?'Guardar gesto':'Guardar y ponérmela';syncPlay();draw();sfx('tick')});
+  $('#stTabs').hidden=kind==='gesto';document.querySelector('[data-grab="sep"]').hidden=kind!=='gesto';if(kind!=='gesto'&&grab==='sep')document.querySelector('[data-grab="rot"]').click();$('#bWalk').hidden=kind==='gesto';$('#nm').value=kind==='gesto'?'Mi gesto':'Mi animación';$('#bSave').textContent=kind==='gesto'?'Guardar gesto':'Guardar y ponérmela';syncPlay();draw();sfx('tick')});
 function saveGest(){st=A.state();const name=($('#nm').value||'').trim()||'Mi gesto';const id=gEditId||('uge'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
   const it=A.register({id,cat:'gesto',name,price:0,author:st.name||'Jugador',mode:'me',created:Date.now(),gest:gcur});if(!it){toast('No se ha podido guardar');return}
   st.custom=st.custom||{};st.custom[id]=A.clean(it);st.mine=st.mine||[];if(!st.mine.includes(id))st.mine.unshift(id);if(!st.owned.includes(id))st.owned.push(id);st.eq.gesto=id;A.save(st);
   try{window.CubiCuenta&&CubiCuenta.guardar&&CubiCuenta.guardar()}catch(e){}gEditId=id;sfx('levelup');toast('¡Gesto guardado! Úsalo en los juegos con la tecla G o el botón GESTOS');draw()}
-syncPlay();draw();
+syncPlay();draw();document.querySelector('[data-grab="sep"]').hidden=true;
 if(/gesto/.test(location.search))document.querySelector('[data-kind="gesto"]').click();
 </script>
 </body>
