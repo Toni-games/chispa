@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Creador de animaciones</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+/* Estudio de animación: escenario 3D a la izquierda, fotogramas y deslizadores a la derecha */
+:root{--bg:#141826;--panel:#1d2236;--panel2:#262c45;--line:#34406a;--ink:#f3f5ff;--muted:#9aa3c7;--y:#ffcc33;--g:#3fd15c;--r:#ff5a6a;color-scheme:dark}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.4 Nunito,system-ui,sans-serif;overflow:hidden;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+button,input{font:inherit;color:inherit}button{cursor:pointer}
+.app{height:100%;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(300px,420px)}
+.stage{position:relative;min-height:0;background:radial-gradient(circle at 50% 35%,#2b3460,#141826 70%)}
+#cv{width:100%;height:100%;display:block;touch-action:none}
+.play{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:8px;flex-wrap:wrap;justify-content:center;width:calc(100% - 24px)}
+.b{border:3px solid #000;border-radius:12px;background:var(--panel2);padding:8px 12px;font-weight:900;white-space:nowrap}
+.b.y{background:var(--y);color:#1a1200}.b.g{background:var(--g);color:#032312}.b.on{background:#fff;color:#000}.b.r{background:var(--r);color:#fff}
+.b:focus-visible{outline:3px solid var(--y);outline-offset:2px}
+.hint{position:absolute;left:12px;top:12px;background:rgba(0,0,0,.45);border-radius:10px;padding:6px 10px;font-size:13px;color:#d7dcf5;max-width:calc(100% - 24px)}
+.side{background:var(--panel);border-left:3px solid #000;display:flex;flex-direction:column;min-height:0}
+.head{padding:12px 14px;border-bottom:2px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.head h1{margin:0;font:400 22px "Lilita One","Arial Black",sans-serif;letter-spacing:.02em}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.name{flex:1;min-width:120px;border:3px solid #000;border-radius:10px;background:#0f1322;padding:7px 10px;font-weight:800}
+.tabs{display:flex;gap:6px}.tabs button{flex:1;border:3px solid #000;border-radius:10px;background:var(--panel2);padding:7px 4px;font-weight:900}.tabs button.on{background:var(--y);color:#1a1200}
+.scroll{flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:12px}
+.frames{display:flex;gap:6px;flex-wrap:wrap}
+.frames .fr{width:44px;height:44px;border:3px solid #000;border-radius:10px;background:var(--panel2);font:400 18px "Lilita One",sans-serif}
+.frames .fr.on{background:var(--y);color:#000}
+.sec h3{margin:0 0 6px;font:400 15px "Lilita One",sans-serif;color:var(--y);letter-spacing:.04em;text-transform:uppercase}
+.sl{display:grid;grid-template-columns:minmax(0,1fr) 54px;gap:2px 8px;align-items:center;margin-bottom:6px}
+.sl label{font-size:13px;color:var(--muted);grid-column:1/-1}
+.sl input{width:100%;accent-color:var(--y);height:26px}
+.sl output{font:800 13px ui-monospace,monospace;text-align:right;color:#fff}
+.tpl{display:flex;gap:6px;flex-wrap:wrap}
+.mine{display:flex;gap:6px;flex-wrap:wrap}
+#toast{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#0b0e18;border:3px solid #000;border-radius:12px;padding:8px 14px;font-weight:900;z-index:9;pointer-events:none}
+@media (max-width:760px){.app{grid-template-columns:1fr;grid-template-rows:minmax(220px,42%) minmax(0,1fr)}.side{border-left:0;border-top:3px solid #000}}
+@media (max-height:520px) and (min-width:761px){.head h1{font-size:18px}.head{padding:8px 12px}.scroll{padding:8px 12px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage"><canvas id="cv" aria-label="Vista de tu avatar"></canvas><div class="hint" id="hint">Arrastra para girar el muñeco</div>
+    <div class="play"><button class="b g" id="bPlay">▶ Reproducir</button><button class="b" id="bWalk">Probar andando</button></div></div>
+  <aside class="side">
+    <div class="head"><h1>Creador de animaciones</h1>
+      <div class="row"><input class="name" id="nm" maxlength="28" value="Mi animación" aria-label="Nombre de la animación"><button class="b y" id="bSave">Guardar y ponérmela</button></div>
+      <div class="tabs" role="tablist"><button data-st="idle" class="on">Quieto</button><button data-st="walk">Andar</button><button data-st="jump">Saltar</button></div></div>
+    <div class="scroll" id="sc"></div>
+  </aside>
+</div>
+<div id="toast" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="avatar.js"></script>
+<script src="audio.js"></script>
+<script>
+const $=s=>document.querySelector(s),A=window.CubiAvatar,Au=window.CubiAudio;
+const sfx=n=>{try{Au&&Au.sfx&&Au.sfx(n)}catch(e){}};
+const toast=t=>{const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2200)};
+const Z=()=>[0,0,0,0,0,0,0,0,0,0,0];
+/* poses: [brazoIzq levantar, brazoIzq abrir, brazoDer levantar, brazoDer abrir, piernaIzq, abrir, piernaDer, abrir, inclinar, ladear, altura] (en el motor, levantar es negativo) */
+const TPL={
+  normal:{n:'Normal',idle:{sp:1.2,f:[[0,.06,0,.06,0,0,0,0,0,0,0],[.06,.1,-.06,.1,0,0,0,0,.02,0,.02]]},walk:{sp:2,f:[[-.8,.05,.8,.05,.8,0,-.8,0,.04,0,0],[.8,.05,-.8,.05,-.8,0,.8,0,.04,0,0]]},jump:{sp:2,f:[[-2.8,.2,-2.8,.2,-.4,0,.3,0,0,0,0]]}},
+  robot:{n:'Robot',idle:{sp:1,f:[[-1.57,0,-1.57,0,0,0,0,0,0,0,0],[-1.57,0,-1.57,0,0,0,0,0,0,0,0]]},walk:{sp:2,f:[[-1.3,0,-.9,0,.55,0,-.55,0,0,0,0],[-1.3,0,-.9,0,.55,0,-.55,0,0,0,0],[-.9,0,-1.3,0,-.55,0,.55,0,0,0,0],[-.9,0,-1.3,0,-.55,0,.55,0,0,0,0]]},jump:{sp:2,f:[[-3.1,0,-3.1,0,0,0,0,0,0,0,.1]]}},
+  bailon:{n:'Bailón',idle:{sp:3,f:[[-.5,.8,-.5,.3,0,.1,0,.1,0,.12,.04],[-.5,.3,-.5,.8,0,.1,0,.1,0,-.12,.04]]},walk:{sp:2,f:[[-.9,.6,.3,.6,.8,0,-.8,0,0,.08,.05],[.3,.6,-.9,.6,-.8,0,.8,0,0,-.08,.05]]},jump:{sp:3,f:[[-2.2,.8,-2.2,.8,-.8,0,.3,0,0,0,0],[-2.6,.4,-2.6,.4,.3,0,-.8,0,0,0,0]]}},
+  heroe:{n:'Superhéroe',idle:{sp:1,f:[[0,.4,0,.4,0,.12,0,.12,-.06,0,0],[0,.45,0,.45,0,.12,0,.12,-.06,0,.02]]},walk:{sp:2,f:[[-.9,.1,.9,.1,.9,0,-.9,0,.12,0,0],[.9,.1,-.9,.1,-.9,0,.9,0,.12,0,0]]},jump:{sp:2,f:[[.4,.1,-3.1,0,.1,0,.5,0,-.15,0,0]]}},
+  cero:{n:'Desde cero',idle:{sp:1,f:[Z()]},walk:{sp:2,f:[Z(),Z()]},jump:{sp:2,f:[Z()]}}};
+const clone=o=>JSON.parse(JSON.stringify(o));
+let st=A.state(),cur=clone({idle:TPL.normal.idle,walk:TPL.normal.walk,jump:TPL.normal.jump}),tab='idle',fi=0,playing=false,walkPrev=false,editId=null;
+/* ---------- escena ---------- */
+const cv=$('#cv'),R=new THREE.WebGLRenderer({canvas:cv,antialias:true});R.setPixelRatio(Math.min(devicePixelRatio||1,2));R.shadowMap.enabled=true;
+const S=new THREE.Scene(),C=new THREE.PerspectiveCamera(36,1,.1,100);
+S.add(new THREE.HemisphereLight(0xffffff,0x334466,.85));const L=new THREE.DirectionalLight(0xffffff,.7);L.position.set(4,8,6);L.castShadow=true;S.add(L);
+const fl=new THREE.Mesh(new THREE.CylinderGeometry(3,3,.2,40),new THREE.MeshLambertMaterial({color:0x3a4470}));fl.position.y=-.1;fl.receiveShadow=true;S.add(fl);
+const grid=new THREE.GridHelper(6,12,0x5b68a8,0x47518a);grid.position.y=.01;S.add(grid);
+let av=null,yaw=-.5;
+function rebuild(){if(av)S.remove(av.root);av=A.makeAvatar(THREE,st.eq);av.root.traverse(o=>{if(o.isMesh)o.castShadow=true});S.add(av.root)}
+rebuild();
+let drag=null;cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y0:yaw};cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{if(drag)yaw=drag.y0+(e.clientX-drag.x)*.01});cv.addEventListener('pointerup',()=>drag=null);
+let t0=performance.now(),lt=t0,walkX=0;
+function frame(now){const dt=Math.min(.05,(now-lt)/1000);lt=now;const w=cv.clientWidth,h=cv.clientHeight;if(cv.width!==Math.round(w*R.getPixelRatio())){R.setSize(w,h,false);C.aspect=w/h;C.updateProjectionMatrix()}
+  C.position.set(0,2.2,7.2);C.lookAt(0,1.25,0);
+  av.root.rotation.y=yaw;av.root.position.set(0,0,0);
+  if(walkPrev){walkX+=dt;const ph=walkX*cur.walk.sp*cur.walk.f.length/2;A.playAnim(av,cur,'walk',ph);grid.position.z=(walkX*2.4)%0.5;}
+  else if(playing){const S2=cur[tab];A.playAnim(av,cur,tab,(now-t0)/1000*S2.sp*(tab==='walk'?S2.f.length/2:1));if(tab==='jump'){const k=((now-t0)/1000*S2.sp)%S2.f.length/S2.f.length;av.root.position.y=Math.sin(k*Math.PI)*.9}}
+  else{const F=cur[tab].f;A.playAnim(av,cur,tab,Math.min(fi,F.length-1))}
+  R.render(S,C);requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+/* ---------- panel ---------- */
+const J=[['Brazo izquierdo',[[0,'Levantar',-60,180,-1],[1,'Abrir',-20,120,1]]],['Brazo derecho',[[2,'Levantar',-60,180,-1],[3,'Abrir',-20,120,1]]],
+  ['Pierna izquierda',[[4,'Adelante',-90,90,-1],[5,'Abrir',-10,60,1]]],['Pierna derecha',[[6,'Adelante',-90,90,-1],[7,'Abrir',-10,60,1]]],
+  ['Cuerpo',[[8,'Inclinar',-45,60,1],[9,'Ladear',-30,30,1]]]];
+const deg=r=>Math.round(r*180/Math.PI);
+function draw(){const F=cur[tab].f;fi=Math.min(fi,F.length-1);const mine=(st.mine||[]).map(id=>A.BY[id]).filter(i=>i&&i.cat==='animacion');
+  $('#sc').innerHTML=`<div class="sec"><h3>Fotogramas · ${{idle:'Quieto',walk:'Andar',jump:'Saltar'}[tab]}</h3>
+    <div class="frames">${F.map((_,i)=>`<button class="fr ${i===fi?'on':''}" data-fr="${i}" aria-label="Fotograma ${i+1}">${i+1}</button>`).join('')}</div>
+    <div class="row" style="margin-top:8px"><button class="b" data-a="add" ${F.length>=10?'disabled':''}>+ Nuevo</button><button class="b" data-a="dup" ${F.length>=10?'disabled':''}>Duplicar</button><button class="b r" data-a="del" ${F.length<=1?'disabled':''}>Borrar</button></div></div>
+    ${J.map(([n,sl])=>`<div class="sec"><h3>${n}</h3>${sl.map(([k,l,mn,mx,sg])=>{const v=deg(F[fi][k]*sg);return `<div class="sl"><label for="s${k}">${l}</label><input type="range" id="s${k}" data-k="${k}" data-sg="${sg}" min="${mn}" max="${mx}" value="${v}"><output id="o${k}">${v}°</output></div>`}).join('')}</div>`).join('')}
+    <div class="sec"><h3>Cuerpo · altura</h3><div class="sl"><label for="s10">Subir o agacharse</label><input type="range" id="s10" data-k="10" data-sg="0" min="-50" max="100" value="${Math.round(F[fi][10]*100)}"><output id="o10">${Math.round(F[fi][10]*100)}</output></div></div>
+    <div class="sec"><h3>Velocidad</h3><div class="sl"><label for="sp">Más lento ← → más rápido</label><input type="range" id="sp" min="2" max="80" value="${Math.round(cur[tab].sp*10)}"><output id="osp">${cur[tab].sp.toFixed(1)}</output></div></div>
+    <div class="sec"><h3>Empezar desde una plantilla</h3><div class="tpl">${Object.entries(TPL).map(([k,t])=>`<button class="b" data-tpl="${k}">${t.n}</button>`).join('')}</div><p style="margin:6px 0 0;color:var(--muted);font-size:12px">Cambia las tres partes (quieto, andar y saltar).</p></div>
+    ${mine.length?`<div class="sec"><h3>Mis animaciones</h3><div class="mine">${mine.map(i=>`<button class="b ${editId===i.id?'on':''}" data-mine="${i.id}">${i.name.replace(/[<&>"]/g,'')}</button>`).join('')}<button class="b" data-a="newanim">+ Nueva</button></div></div>`:''}`}
+$('#sc').addEventListener('input',e=>{const i=e.target;if(i.id==='sp'){cur[tab].sp=+i.value/10;$('#osp').textContent=cur[tab].sp.toFixed(1);return}
+  const k=+i.dataset.k;if(isNaN(k))return;const sg=+i.dataset.sg,F=cur[tab].f[fi];if(k===10){F[10]=+i.value/100;$('#o10').textContent=i.value}else{F[k]=+i.value*Math.PI/180*sg;$('#o'+k).textContent=i.value+'°'}playing=walkPrev=false;syncPlay()});
+$('#sc').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const F=cur[tab].f;
+  if(b.dataset.fr!=null){fi=+b.dataset.fr;playing=walkPrev=false;syncPlay();sfx('tick');draw();return}
+  if(b.dataset.tpl){const t=TPL[b.dataset.tpl];cur=clone({idle:t.idle,walk:t.walk,jump:t.jump});fi=0;sfx('pop');draw();toast('Plantilla: '+t.n);return}
+  if(b.dataset.mine){const it=A.BY[b.dataset.mine];editId=it.id;cur=clone(it.anim);$('#nm').value=it.name;fi=0;draw();toast('Editando «'+it.name+'»');return}
+  const a=b.dataset.a;if(a==='add'){F.splice(fi+1,0,Z());fi++}if(a==='dup'){F.splice(fi+1,0,F[fi].slice());fi++}if(a==='del'&&F.length>1){F.splice(fi,1);fi=Math.max(0,fi-1)}
+  if(a==='newanim'){editId=null;cur=clone({idle:TPL.normal.idle,walk:TPL.normal.walk,jump:TPL.normal.jump});$('#nm').value='Mi animación'}
+  sfx('pop');draw()});
+document.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{tab=b.dataset.st;fi=0;document.querySelectorAll('[data-st]').forEach(x=>x.classList.toggle('on',x===b));playing=walkPrev=false;syncPlay();draw()});
+function syncPlay(){$('#bPlay').textContent=playing?'■ Parar':'▶ Reproducir';$('#bWalk').textContent=walkPrev?'■ Parar':'Probar andando';grid.position.z=0;
+  $('#hint').textContent=playing||walkPrev?'Así se verá en los juegos':'Fotograma '+(fi+1)+' · mueve los deslizadores para colocarlo'}
+$('#bPlay').onclick=()=>{playing=!playing;walkPrev=false;t0=performance.now();syncPlay();sfx('tick')};
+$('#bWalk').onclick=()=>{walkPrev=!walkPrev;playing=false;walkX=0;if(walkPrev){tab='walk';document.querySelectorAll('[data-st]').forEach(x=>x.classList.toggle('on',x.dataset.st==='walk'));draw()}syncPlay();sfx('tick')};
+$('#bSave').onclick=()=>{st=A.state();const name=($('#nm').value||'').trim()||'Mi animación';
+  const id=editId||('uan'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+  const it=A.register({id,cat:'animacion',name,price:0,author:st.name||'Jugador',mode:'me',created:Date.now(),anim:cur});if(!it){toast('No se ha podido guardar');return}
+  st.custom=st.custom||{};st.custom[id]=A.clean(it);st.mine=st.mine||[];if(!st.mine.includes(id))st.mine.unshift(id);if(!st.owned.includes(id))st.owned.push(id);st.eq.animacion=id;A.save(st);
+  try{window.CubiCuenta&&CubiCuenta.guardar&&CubiCuenta.guardar()}catch(e){}
+  editId=id;sfx('levelup');toast('¡Guardada! Ya la llevas puesta en todos los juegos');draw()};
+syncPlay();draw();
+</script>
+</body>
+</html>
