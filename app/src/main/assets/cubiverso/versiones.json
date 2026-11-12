@@ -1,8 +1,21 @@
 {
- "latest": "3.4",
+ "latest": "3.5",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "3.5",
+   "date": "2026-11-12",
+   "title": "Ropa y peinados nuevos para el avatar",
+   "notes": [
+    "12 peinados nuevos: melena, coletas, coleta alta, moño, trenzas, rizos, con lazo, con flores y tiara de princesa",
+    "Vestidos (rosa, de flores, rojo y de princesa) y faldas (rosa, vaquera, de tul y escocesa) que se ven en 3D",
+    "Caras con pestañas, coloretes y labios, y pendientes, collar de perlas y gafas de corazón",
+    "Melena larga, coletas, vestido rosa, falda rosa y la cara con pestañas son gratis"
+   ],
+   "size": 991501,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-3.5.zip"
+  },
   {
    "id": "3.4",
    "date": "2026-11-12",
