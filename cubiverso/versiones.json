@@ -1,8 +1,20 @@
 {
- "latest": "3.5",
+ "latest": "3.6",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "3.6",
+   "date": "2026-11-12",
+   "title": "Varios avatares",
+   "notes": [
+    "Nuevo en Avatar: «Mis avatares». Crea un avatar nuevo, ponle nombre y lo que te pongas se guarda en él",
+    "Cámbiate de avatar cuando quieras con un toque, hasta 20 avatares",
+    "En los juegos, el botón AVATAR (o la tecla Y) te cambia de avatar en mitad de la partida; tus amigos de la sala también lo ven"
+   ],
+   "size": 994390,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-3.6.zip"
+  },
   {
    "id": "3.5",
    "date": "2026-11-12",
