@@ -1,8 +1,24 @@
 {
- "latest": "3.7",
+ "latest": "3.8",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "3.8",
+   "date": "2026-11-12",
+   "title": "7 juegos de acción nuevos",
+   "notes": [
+    "Corre Cubo Corre: corredor sin fin con 3 carriles, escudos e imanes",
+    "Empujones: echa a los demás de una plataforma que encoge",
+    "Puntería Total: dianas de feria en 60 segundos",
+    "Caída Libre: cae por un pozo pasando por los huecos",
+    "Láseres Locos: salta los láseres y pasa por los muros",
+    "Jetpack Loco: vuela esquivando láseres y misiles",
+    "Asalto de Slimes: oleadas de slimes con mejoras entre oleadas"
+   ],
+   "size": 1027151,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-3.8.zip"
+  },
   {
    "id": "3.7",
    "date": "2026-11-12",

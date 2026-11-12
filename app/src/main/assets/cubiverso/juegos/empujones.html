@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Empujones</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+body{background:#7cc8ff}
+.pad{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:20;display:none;gap:12px}
+body.k-touch .pad{display:flex}
+.pad button{width:74px;height:74px;border-radius:50%;border:3px solid #000;font:900 26px system-ui;color:#000;touch-action:none;box-shadow:inset 0 -5px 0 rgba(0,0,0,.25)}
+
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../graficos.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
+<script>
+const K=Kit,J=Juego,$=s=>document.querySelector(s);
+addEventListener('touchstart',()=>document.body.classList.add('k-touch'),{once:true,passive:true});
+
+/* Empujones: todos en una plataforma redonda que encoge. Empuja (E) a los demás fuera del borde. El último que quede gana la ronda. */
+const {renderer,scene,camera,sun,hemi}=K.setup({sky:0x7cc8ff,fogNear:60,fogFar:170});
+const water=new THREE.Mesh(new THREE.PlaneGeometry(400,400),K.M(0x2f8fd8));water.rotation.x=-Math.PI/2;water.position.y=-8;scene.add(water);
+const plat=new THREE.Group();scene.add(plat);
+const ptop=K.cyl(1,1,1,K.M(0xffd166),0,-.5,0,plat,48);ptop.receiveShadow=true;const ring=K.cyl(1,1,1,K.M(0xe5484d),0,-.56,0,plat,48);
+const inner=K.cyl(1,1,1,K.M(0xffe08a),0,-.49,0,plat,48);
+let RAD=15;function setRad(r){RAD=r;ptop.scale.set(r-.6,1,r-.6);ring.scale.set(r,1,r);inner.scale.set(r*.35,1,r*.35)}setRad(15);
+const ctl=K.controls(renderer.domElement,{dist:15,pitch:.7,yaw:0,jumpLabel:'SALTAR'});
+const P=J.player(scene,ctl,{speed:8,jump:9,grav:28,noFloor:true,bound:999,floorFn:(x,z)=>Math.hypot(x,z)<RAD?0:null});K.emotes(P.a);
+P.kx=0;P.kz=0;P.alive=true;
+const NAMES=['Bloki','Cubón','Pixelina','Turbo','Nube','Rayo','Gominola','Zas'];
+const rndEq=()=>{const A=window.CubiAvatar;if(!A)return null;const eq={};A.CATS.forEach(([c])=>{if(['animacion','gesto','mascota'].includes(c))return;const L=A.ITEMS.filter(i=>i.cat===c&&!i.custom&&!i.lvl);eq[c]=L[Math.floor(Math.random()*L.length)].id});eq.mascota='m0';return eq};
+let bots=[],round=1,running=false,wins=0,shrinkT=0,cool=0,R=Math.random;
+function mkBot(i,n){const ang=i/n*Math.PI*2+.3,d=RAD*.65;const a=K.person(scene,rndEq(),NAMES[i%NAMES.length],.75);
+  return {a,x:Math.cos(ang)*d,z:Math.sin(ang)*d,y:0,vx:0,vz:0,vy:0,kx:0,kz:0,face:0,walk:0,alive:true,cool:1+R()*1.5,skill:.6+round*.06+R()*.2,target:null}}
+function reset(sd){R=sd?Sala.rng(sd):Math.random;bots.forEach(b=>scene.remove(b.a.root));setRad(15);const n=Math.min(7,2+round);bots=[];for(let i=0;i<n;i++)bots.push(mkBot(i,n));
+  P.x=0;P.z=0;P.y=0;P.vx=P.vz=P.vy=0;P.kx=P.kz=0;P.alive=true;shrinkT=0;cool=0}
+function push(from,fx,fz,face,list){let hit=false;list.forEach(t=>{if(t===from||!t.alive)return;const dx=t.x-fx,dz=t.z-fz,d=Math.hypot(dx,dz);if(d>2.8||d<.01)return;
+    const dir=Math.atan2(dx,dz);let df=Math.abs(((dir-face+Math.PI*3)%(Math.PI*2))-Math.PI);if(df>1.3)return;
+    const f=(from===P?17:12+round*.6)*(1.2-d/2.8*.5);t.kx+=dx/d*f;t.kz+=dz/d*f;t.vy=Math.max(t.vy||0,4);hit=true;
+    if(t===P||from===P)J.sfx('hit')});
+  return hit}
+function doPush(){if(!running||!P.alive||cool>0)return;cool=.55;J.sfx('whoosh');const arm=P.a.armR;arm.rotation.x=-1.6;setTimeout(()=>arm.rotation.x=0,180);push(P,P.x,P.z,P.face,bots)}
+J.action('EMPUJAR','e',doPush,{col:'#ff9f1c',bottom:220});
+renderer.domElement.addEventListener('dblclick',doPush);
+function fall(o){o.alive=false;if(o===P){J.sfx('splash');lose()}else{J.sfx('splash');K.toast('¡FUERA!',(o.a.tag?'':'')+'Uno menos','#3fa7ff')}}
+function lose(){running=false;J.sfx('lose');const rec=J.saveBest('sumo',wins,true);if(window.Sala)Sala.score(wins,wins+' rondas');
+  setTimeout(()=>J.end({title:'¡AL AGUA!',col:'#3fa7ff',lines:[`Rondas ganadas: <b style="color:#ffcc33">${wins}</b>`,`Récord: ${J.best('sumo')} rondas`],record:rec,onAgain(){round=1;wins=0;reset();running=true}}),900)}
+function winRound(){running=false;wins++;J.sfx('win');if(window.CubiAvatar)CubiAvatar.emote(P.a,'ge4');if(window.Sala)Sala.score(wins,wins+' rondas');
+  K.toast('¡RONDA '+round+' GANADA!','Prepárate para la siguiente','#3fd15c');setTimeout(()=>{round++;reset();running=true;K.toast('RONDA '+round,(bots.length)+' rivales','#ff9f1c')},2200)}
+function stepBody(o,dt){// empujones y caída
+  o.x+=o.kx*dt;o.z+=o.kz*dt;const fr=Math.pow(.04,dt);o.kx*=fr;o.kz*=fr;
+  if(Math.hypot(o.x,o.z)>RAD+.3&&o.y<=0.05&&o.alive){o.out=true}
+  if(o.out){o.vy=(o.vy||0)-30*dt;o.y+=o.vy*dt;if(o.y<-7&&o.alive)fall(o)}}
+let last=performance.now();
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
+  if(running){shrinkT+=dt;cool=Math.max(0,cool-dt);if(shrinkT>6)setRad(Math.max(5,15-(shrinkT-6)*.18))}
+  // jugador
+  P.frozen=!running||!P.alive;P.update(dt,camera,1.2);P.x+=P.kx*dt;P.z+=P.kz*dt;const fr=Math.pow(.04,dt);P.kx*=fr;P.kz*=fr;
+  if(P.alive&&P.y<-6)fall(P);
+  // bots
+  const all=[P].concat(bots);
+  bots.forEach(b=>{if(running&&b.alive&&!b.out){b.cool-=dt;
+      if(!b.target||!b.target.alive||R()<dt*.4){const c=all.filter(o=>o!==b&&o.alive);b.target=c.sort((u,v)=>Math.hypot(u.x-b.x,u.z-b.z)-Math.hypot(v.x-b.x,v.z-b.z))[R()<.7?0:Math.min(1,c.length-1)]}
+      let tx=0,tz=0;if(b.target){tx=b.target.x-b.x;tz=b.target.z-b.z}const dc=Math.hypot(b.x,b.z);
+      if(dc>RAD-2.2){tx-=b.x/dc*3;tz-=b.z/dc*3}// no acercarse al borde
+      const d=Math.hypot(tx,tz)||1,sp=5.2*b.skill+round*.2;b.vx+=(tx/d*sp-b.vx)*Math.min(1,dt*6);b.vz+=(tz/d*sp-b.vz)*Math.min(1,dt*6);
+      b.x+=b.vx*dt;b.z+=b.vz*dt;b.face=Math.atan2(b.vx,b.vz);b.walk+=dt*sp*1.5;
+      if(b.target&&b.cool<=0&&Math.hypot(b.target.x-b.x,b.target.z-b.z)<2.4){b.cool=1.1+R()*1.4/b.skill;b.a.armR.rotation.x=-1.6;setTimeout(()=>b.a.armR.rotation.x=0,180);push(b,b.x,b.z,b.face,all)}}
+    if(b.alive||b.y>-8){b.vy=(b.vy||0);if(!b.out&&b.y>0){b.vy-=30*dt;b.y=Math.max(0,b.y+b.vy*dt)}else if(!b.out&&b.vy>0){b.y+=b.vy*dt}stepBody(b,dt);
+      b.a.root.position.set(b.x,b.y,b.z);b.a.root.rotation.y=b.face;K.walkAnim(b.a,b.walk,b.y>.05)}});
+  // separación entre cuerpos
+  for(let i=0;i<all.length;i++)for(let j=i+1;j<all.length;j++){const u=all[i],v=all[j];if(!u.alive||!v.alive)continue;const dx=v.x-u.x,dz=v.z-u.z,d=Math.hypot(dx,dz);if(d<1.1&&d>0){const k=(1.1-d)/2;u.x-=dx/d*k;u.z-=dz/d*k;v.x+=dx/d*k;v.z+=dz/d*k}}
+  bots.forEach(b=>{if(!b.alive&&b.y<-9&&b.a.root.parent)scene.remove(b.a.root)});
+  if(running&&P.alive&&bots.every(b=>!b.alive))winRound();
+  if(running)J.hud([['Ronda',round],['Quedan',bots.filter(b=>b.alive).length],['Ganadas',wins]]);
+  water.position.y=-8+Math.sin(t/700)*.15;
+  renderer.render(scene,camera);requestAnimationFrame(loop)}
+Sala.init({game:'sumo',scene,me:P.a,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2),air:P.y>.05}),board:{label:'Rondas'},
+  shared:'Cada uno juega contra sus propios rivales; en el marcador veréis quién gana más rondas.',onStart(sd){J.closePanels();round=1;wins=0;reset(sd);running=true}});
+reset();J.music('batalla');
+J.start({title:'EMPUJONES',col:'#ff9f1c',sub:'Todos en una plataforma que va encogiendo. Empuja a los demás al agua y que no te tiren a ti. El último en pie gana la ronda.',
+  howto:['<b>WASD</b> o joystick para moverte, <b>ESPACIO</b> para saltar','<b>E</b> o el botón naranja para empujar al que tengas delante','Cada ronda hay más rivales y empujan más fuerte'],
+  record:J.best('sumo')!=null?J.best('sumo')+' rondas':null,onStart(){running=true}});
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
