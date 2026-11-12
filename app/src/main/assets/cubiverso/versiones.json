@@ -1,8 +1,20 @@
 {
- "latest": "3.8",
+ "latest": "3.9",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "3.9",
+   "date": "2026-11-12",
+   "title": "Flecha del ratón propia",
+   "notes": [
+    "Nueva flecha de Cubiverso para el ratón, en la plataforma y en todos los juegos",
+    "8 estilos para elegir en Ajustes → Flecha del ratón: Cubiverso, Bloque, Neón, Dorada, Rosa, Noche, Espada y Mira",
+    "También puedes volver a la flecha normal del ordenador"
+   ],
+   "size": 1030058,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-3.9.zip"
+  },
   {
    "id": "3.8",
    "date": "2026-11-12",
