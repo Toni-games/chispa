@@ -29,6 +29,11 @@ body.k-touch #k-joy,body.k-touch #k-jump{display:block}
 body:not(.k-touch) #k-emo{bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}
 #k-emop{right:max(10px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 274px);background:rgba(20,22,34,.95);border:3px solid #000;border-radius:14px;padding:8px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;width:min(300px,80vw)}
 body:not(.k-touch) #k-emop{bottom:calc(env(safe-area-inset-bottom,0px) + 56px)}
+#k-av{right:max(10px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 232px);margin-right:96px;border:3px solid #000;border-radius:12px;background:#ff6fae;padding:6px 10px;font-weight:900;font-size:13px}
+body:not(.k-touch) #k-av{bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}
+#k-avp{right:max(10px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 274px);background:rgba(20,22,34,.95);border:3px solid #000;border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;width:min(260px,80vw);max-height:60vh;overflow:auto}
+body:not(.k-touch) #k-avp{bottom:calc(env(safe-area-inset-bottom,0px) + 56px)}
+#k-avp button{display:flex;align-items:center;gap:8px;border:2px solid #000;border-radius:10px;background:#2b3047;padding:7px 8px;font-weight:800;font-size:13px;text-align:left}#k-avp button.on{background:#ff6fae;color:#1a0010}#k-avp p{margin:2px;font-size:12px;line-height:1.35;opacity:.85}
 #k-emop button{border:2px solid #000;border-radius:10px;background:#2b3047;padding:7px 6px;font-weight:800;font-size:13px;text-align:left}
 #k-emop button small{display:block;color:#ffcc33;font-size:11px}#k-emop button[aria-disabled=true]{opacity:.55}
 #k-room b{font-family:"Lilita One",sans-serif;font-weight:400;letter-spacing:.08em;color:#ffcc33}
@@ -78,7 +83,20 @@ function emotes(me){injectCSS();if(!window.CubiAvatar||!CubiAvatar.EMOTES||$('#k
   b.addEventListener('click',()=>pn?close():open());
   addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;if(e.key==='g'||e.key==='G'){if(pn)close();else open()}
     if(pn&&/^[1-9]$/.test(e.key)){const x=pn.querySelectorAll('[data-e]')[+e.key-1];if(x)x.click()}});
+  avatarMenu();
   return {play:doEmote,close}}
+/* ---------- cambiar de avatar en mitad de la partida ---------- */
+function avatarMenu(){if(!window.CubiAvatar||!CubiAvatar.wear||$('#k-av'))return;
+  const b=el('<button id="k-av" class="k-ui k-out" aria-expanded="false" title="Cambiar de avatar (tecla Y)">AVATAR</button>');let pn=null;
+  const close=()=>{if(pn){pn.remove();pn=null;b.setAttribute('aria-expanded','false')}};
+  const open=()=>{const L=CubiAvatar.outfits(),cur=CubiAvatar.state().outfit;pn=el('<div id="k-avp" class="k-ui" role="menu"></div>');
+    pn.innerHTML=L.length?L.map(o=>`<button role="menuitem" data-o="${o.id}" class="${o.id===cur?'on':''}">${o.id===cur?'✓ ':''}${String(o.name).replace(/[<>&"]/g,'')}</button>`).join('')
+      :'<p>Aún no tienes avatares guardados. Créalos en Cubiverso, en Avatar → Mis avatares → Nuevo avatar.</p>';
+    pn.addEventListener('click',ev=>{const x=ev.target.closest('[data-o]');if(!x)return;CubiAvatar.wear(x.dataset.o);if(window.CubiAudio)CubiAudio.sfx('equip');const o=L.find(k=>k.id===x.dataset.o);toast('AVATAR',o?o.name:'','#ff6fae');close()});
+    b.setAttribute('aria-expanded','true')};
+  b.addEventListener('click',()=>pn?close():open());
+  addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;if(e.key==='y'||e.key==='Y'){if(pn)close();else open()}
+    if(pn&&/^[1-9]$/.test(e.key)){const x=pn.querySelectorAll('[data-o]')[+e.key-1];if(x){x.click();e.stopImmediatePropagation()}}})}
 function controls(canvas,o){o=o||{};injectCSS();
   const st={keys:{},joy:{x:0,y:0,jump:false},look:{yaw:o.yaw||0,pitch:o.pitch||.4,dist:o.dist||9,min:o.min||3,max:o.max||30},dragging:false};
   addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;const k=e.key.toLowerCase();st.keys[k]=true;if([' ','arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault()});
@@ -138,7 +156,8 @@ function roomBadge(){const M=window.CubiMulti;if(!M||!M.online)return;let b=$('#
   const n=Object.keys(M.players()).length;b.innerHTML=`Sala <b>${M.code}</b> · ${n} ${n===1?'jugador':'jugadores'}`}
 /* ---------- jugadores remotos ---------- */
 function remotes(scene,scale){const R={};const M=window.CubiMulti;
-  if(M)M.on('msg',(d,from)=>{if(d&&d.t==='emote'&&R[from]&&window.CubiAvatar)CubiAvatar.emote(R[from].a,d.e)});
+  if(M)M.on('msg',(d,from)=>{if(d&&d.t==='emote'&&R[from]&&window.CubiAvatar)CubiAvatar.emote(R[from].a,d.e);
+    if(d&&d.t==='eq'&&d.eq&&R[from]&&window.CubiAvatar){try{(d.defs||[]).forEach(x=>CubiAvatar.register(x));CubiAvatar.build(THREE,R[from].a,d.eq)}catch(e){}}});
   const api={map:R,
     update(id,s){let r=R[id];const ps=M?M.players():{};const info=ps[id]||{name:'Amigo',eq:null};
       if(r&&r.noinfo&&ps[id]){scene.remove(r.a.root);delete R[id];r=null}
@@ -149,5 +168,5 @@ function remotes(scene,scale){const R={};const M=window.CubiMulti;
       r.a.root.position.set(r.x,r.y,r.z);let df=r.ry-r.a.root.rotation.y;df=Math.atan2(Math.sin(df),Math.cos(df));r.a.root.rotation.y+=df*k;walkAnim(r.a,r.walk,r.data&&r.data.air,{moving:sp>.5,climb:r.data&&r.data.cl})})},
     clear(){Object.keys(R).forEach(id=>{scene.remove(R[id].a.root);delete R[id]})}};
   return api}
-window.Kit={setup,M,box,cyl,sph,shadows,textTex,sprite,studs,person,walkAnim,emotes,controls,toast,panel,roomMenu,roomBadge,remotes,clamp,injectCSS};
+window.Kit={avatarMenu,setup,M,box,cyl,sph,shadows,textTex,sprite,studs,person,walkAnim,emotes,controls,toast,panel,roomMenu,roomBadge,remotes,clamp,injectCSS};
 })();
