@@ -516,6 +516,39 @@ const GAMES=[
   draw(g,w,h){rr(g,0,0,w,h,'#8fd0ff');rr(g,0,120,w,150,'#5aa845');g.fillStyle='#3a3f4a';g.beginPath();g.moveTo(140,270);g.lineTo(220,120);g.lineTo(260,120);g.lineTo(340,270);g.fill();
     for(let i=0;i<6;i++){g.fillStyle=i%2?'#fff':'#ff4f4f';g.fillRect(132+i*-1,250-i*22,10,20);g.fillRect(338-i*-1,250-i*22,10,20)}
     [[200,200,'#3fa7ff'],[260,160,'#ff4f4f'],[230,135,'#ffcc33']].forEach(([x,y,c],i)=>{const s=1-i*.25;rr(g,x,y,60*s,30*s,c);g.fillStyle='#111';g.fillRect(x-4*s,y+20*s,12*s,12*s);g.fillRect(x+52*s,y+20*s,12*s,12*s);rr(g,x+20*s,y-16*s,20*s,18*s,'#ffd29a')})}},
+ {id:'runner',name:'Corre Cubo Corre',file:'juegos/corre-cubo.html',tag:'Correr · Acción',avatar:true,multi:true,nuevo:true,
+  desc:'Corre sin parar por la calle: cambia de carril, salta las vallas, esquiva muros y autobuses y coge monedas. Hay escudos e imanes. Cada vez más rápido.',
+  draw(g,w,h){g.fillStyle='#8fd6ff';g.fillRect(0,0,w,h);g.fillStyle='#6fcf5a';g.fillRect(0,150,w,120);g.fillStyle='#5b6475';g.beginPath();g.moveTo(200,150);g.lineTo(280,150);g.lineTo(420,h);g.lineTo(60,h);g.fill();
+    g.fillStyle='#fff';[[236,170,4,14],[244,200,5,18],[226,230,6,22]].forEach(([x,y,ww,hh])=>{g.fillRect(x,y,ww,hh);g.fillRect(480-x-ww,y,ww,hh)});
+    rr(g,215,160,22,14,'#e5484d');rr(g,252,175,30,10,'#ffcc33');[[300,120,'#ff7a7a'],[350,90,'#7ab8ff'],[20,100,'#ffd166'],[90,120,'#b48cff']].forEach(([x,y,c])=>rr(g,x,y,40,150-y+10,c));
+    g.fillStyle='#ffcc33';[0,1,2].forEach(k=>{g.beginPath();g.arc(170+k*14,200-k*12,6,0,7);g.fill()});person(g,240,230,1.7,'#ff7a2f')}},
+ {id:'sumo',name:'Empujones',file:'juegos/empujones.html',tag:'Lucha · Acción',avatar:true,multi:true,nuevo:true,
+  desc:'Todos en una plataforma redonda que encoge sobre el agua. Empuja a los demás fuera del borde y que no te tiren a ti. Cada ronda hay más rivales.',
+  draw(g,w,h){g.fillStyle='#7cc8ff';g.fillRect(0,0,w,h);g.fillStyle='#2f8fd8';g.fillRect(0,170,w,100);g.fillStyle='#e5484d';g.beginPath();g.ellipse(240,185,190,55,0,0,7);g.fill();g.fillStyle='#ffd166';g.beginPath();g.ellipse(240,180,180,50,0,0,7);g.fill();
+    person(g,200,160,1.6,'#ff7a2f');person(g,265,150,1.6,'#3fa7ff');person(g,330,165,1.5,'#3fd15c');person(g,120,140,1.3,'#b48cff');g.fillStyle='#fff';g.font='900 34px system-ui';g.fillText('¡PUM!',300,90)}},
+ {id:'punteria',name:'Puntería Total',file:'juegos/punteria-total.html',tag:'Puntería · Acción',avatar:false,multi:true,nuevo:true,
+  desc:'Una caseta de feria llena de dianas que se mueven. Dales a todas las que puedas en 60 segundos: las doradas dan tiempo extra y las bombas te lo quitan.',
+  draw(g,w,h){g.fillStyle='#2a1f4a';g.fillRect(0,0,w,h);for(let i=0;i<8;i++)rr(g,i*60,0,60,40,i%2?'#ffffff':'#e5484d');rr(g,0,220,w,50,'#e5484d');rr(g,0,212,w,10,'#ffd166');
+    const t=(x,y,r,c1,c2)=>{for(let k=4;k>0;k--){g.fillStyle=k%2?c1:c2;g.beginPath();g.arc(x,y,r*k/4,0,7);g.fill()}};t(110,110,34,'#e5484d','#fff');t(250,150,26,'#7ab8ff','#fff');t(370,100,36,'#ffd54a','#fff');
+    g.strokeStyle='#fff';g.lineWidth=5;g.beginPath();g.arc(370,100,22,0,7);g.stroke();g.beginPath();g.moveTo(370,70);g.lineTo(370,130);g.moveTo(340,100);g.lineTo(400,100);g.stroke()}},
+ {id:'caida',name:'Caída Libre',file:'juegos/caida-libre.html',tag:'Habilidad · Acción',avatar:true,multi:true,nuevo:true,
+  desc:'Caes por un pozo sin fondo. Colócate encima del hueco de cada placa para pasar sin chocar, coge aros dorados y frena cuando lo necesites.',
+  draw(g,w,h){g.fillStyle='#0c1630';g.fillRect(0,0,w,h);const c=['#3fa7ff','#b48cff','#ff6fae','#3fd15c'];for(let k=0;k<5;k++){const m=k*22;g.strokeStyle=c[k%4];g.lineWidth=14;g.strokeRect(80+m,20+m*.6,320-m*2,230-m*1.2)}
+    rr(g,170,110,140,60,'#e5484d');rr(g,215,122,50,36,'#0c1630');g.strokeStyle='#fff';g.lineWidth=3;g.strokeRect(215,122,50,36);g.strokeStyle='#ffd54a';g.lineWidth=5;g.beginPath();g.ellipse(330,190,18,8,0,0,7);g.stroke();person(g,240,70,1.5,'#ff7a2f')}},
+ {id:'laseres',name:'Láseres Locos',file:'juegos/laseres-locos.html',tag:'Esquivar · Acción',avatar:true,multi:true,nuevo:true,
+  desc:'La torre del centro dispara láseres que barren la arena. Salta los bajos, quédate abajo con los altos y pasa por el hueco de los muros láser.',
+  draw(g,w,h){g.fillStyle='#120a24';g.fillRect(0,0,w,h);g.fillStyle='#2b3047';g.beginPath();g.ellipse(240,180,210,70,0,0,7);g.fill();g.strokeStyle='#22d3ee';g.lineWidth=5;g.stroke();
+    g.strokeStyle='#ff2d55';g.lineWidth=7;g.beginPath();g.moveTo(240,170);g.lineTo(60,200);g.moveTo(240,170);g.lineTo(420,150);g.stroke();rr(g,225,135,30,40,'#1f2937');g.fillStyle='#ff2d55';g.beginPath();g.arc(240,130,12,0,7);g.fill();
+    for(let k=0;k<4;k++){rr(g,40,40+k*14,150,4,'#ff2d55');rr(g,250,40+k*14,190,4,'#ff2d55')}person(g,150,170,1.5,'#ff7a2f')}},
+ {id:'jetpack',name:'Jetpack Loco',file:'juegos/jetpack-loco.html',tag:'Volar · Acción',avatar:true,multi:true,nuevo:true,
+  desc:'Vuela con una mochila cohete por la ciudad: mantén pulsado para subir y suelta para bajar. Esquiva láseres y misiles y coge monedas.',
+  draw(g,w,h){g.fillStyle='#9ad7ff';g.fillRect(0,0,w,h);[[20,90],[110,60],[200,110],[300,70],[390,100]].forEach(([x,y])=>{rr(g,x,y,70,h-y,'#b9c7e0');for(let k=y+12;k<h-30;k+=22)rr(g,x+10,k,50,8,'#fff3b0')});rr(g,0,240,w,30,'#7b869a');rr(g,0,0,w,22,'#4a5468');
+    g.strokeStyle='#ff2d55';g.lineWidth=8;g.beginPath();g.moveTo(300,60);g.lineTo(380,150);g.stroke();g.fillStyle='#9aa3ad';[[300,60],[380,150]].forEach(([x,y])=>{g.beginPath();g.arc(x,y,10,0,7);g.fill()});
+    person(g,150,130,1.7,'#ff7a2f');rr(g,128,118,10,22,'#e5484d');g.fillStyle='#ffa726';g.beginPath();g.moveTo(128,142);g.lineTo(138,142);g.lineTo(133,175);g.fill();g.fillStyle='#ffcc33';[0,1,2,3].forEach(k=>{g.beginPath();g.arc(200+k*20,120-Math.sin(k)*10,7,0,7);g.fill()})}},
+ {id:'slimes',name:'Asalto de Slimes',file:'juegos/asalto-slimes.html',tag:'Oleadas · Acción',avatar:true,multi:true,nuevo:true,
+  desc:'Llegan oleadas de slimes de colores. Tu lanzador dispara solo: tú esquívalos y, al acabar cada oleada, elige una mejora. Los grandes se parten en dos.',
+  draw(g,w,h){g.fillStyle='#7ccf5a';g.fillRect(0,0,w,h);const sl=(x,y,r,c)=>{g.fillStyle=c;g.beginPath();g.ellipse(x,y,r,r*.8,0,0,7);g.fill();g.fillStyle='#fff';g.beginPath();g.arc(x-r*.35,y-r*.2,r*.18,0,7);g.arc(x+r*.35,y-r*.2,r*.18,0,7);g.fill();g.fillStyle='#111';g.beginPath();g.arc(x-r*.35,y-r*.15,r*.09,0,7);g.arc(x+r*.35,y-r*.15,r*.09,0,7);g.fill()};
+    sl(80,80,36,'#ff6fae');sl(400,90,30,'#3fa7ff');sl(390,210,44,'#b48cff');sl(90,210,28,'#ffd166');sl(300,50,20,'#7cfc5a');g.fillStyle='#fff176';[[200,150],[260,120],[150,120]].forEach(([x,y])=>{g.beginPath();g.arc(x,y,6,0,7);g.fill()});person(g,240,160,1.8,'#ff7a2f')}},
  {id:'lava',name:'El Suelo es Lava',file:'juegos/suelo-lava.html',tag:'Plataformas · Acción',avatar:true,multi:true,nuevo:true,
   desc:'La lava sube sin parar: salta de plataforma en plataforma hasta lo más alto. Unas se mueven, otras se caen al pisarlas. Coge monedas por el camino.',
   draw(g,w,h){const sk=g.createLinearGradient(0,0,0,h);sk.addColorStop(0,'#3a1410');sk.addColorStop(1,'#7a2a14');g.fillStyle=sk;g.fillRect(0,0,w,h);
@@ -533,7 +566,7 @@ const GAMES=[
     g.fillStyle='#ff9800';g.beginPath();g.arc(330,90,16,0,7);g.fill();g.strokeStyle='rgba(255,152,0,.6)';g.lineWidth=10;g.beginPath();g.moveTo(342,80);g.lineTo(390,30);g.stroke();person(g,190,200,1.6,'#3fa7ff');g.fillStyle='#ffe066';g.beginPath();g.arc(120,200,8,0,7);g.fill()}}
 ];
 GAMES.forEach(gm=>gm.img=art(gm.draw));
-const ACCION=['obby','globos','ladrones','tormentas','zombis','karts','lava','espadas','meteoritos','patadon'];let gFilt='todo';
+const ACCION=['obby','globos','ladrones','tormentas','zombis','karts','lava','espadas','meteoritos','patadon','runner','sumo','punteria','caida','laseres','jetpack','slimes'];let gFilt='todo';
 function dayKey(off){const d=new Date(Date.now()+off*864e5);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
 function dailyAmount(k){k=Math.max(1,k||1);return 50+(Math.min(k,7)-1)*10+(k%7===0?100:0)}
 function streakNow(){return st.lastDay===dayKey(0)||st.lastDay===dayKey(-1)?(st.streak||0):0}

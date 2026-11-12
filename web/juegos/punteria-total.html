@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Puntería Total</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+body{background:#2a1f4a}
+.pad{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:20;display:none;gap:12px}
+body.k-touch .pad{display:flex}
+.pad button{width:74px;height:74px;border-radius:50%;border:3px solid #000;font:900 26px system-ui;color:#000;touch-action:none;box-shadow:inset 0 -5px 0 rgba(0,0,0,.25)}
+#cross{position:fixed;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border:3px solid #fff;border-radius:50%;pointer-events:none;z-index:15;box-shadow:0 0 0 2px #000}
+#cross::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;background:#e5484d;border-radius:50%}
+body.k-touch #cross{display:none}#c{cursor:none}
+.shot{position:fixed;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:radial-gradient(#fff,rgba(255,255,255,0) 70%);pointer-events:none;z-index:16;animation:sh .3s ease-out forwards}
+.shot.ok{background:radial-gradient(#ffd54a,rgba(255,200,0,0) 70%)}@keyframes sh{to{transform:scale(2.2);opacity:0}}
+.pts{position:fixed;font:400 28px "Lilita One","Arial Black",sans-serif;color:#ffcc33;-webkit-text-stroke:2px #000;paint-order:stroke fill;pointer-events:none;z-index:16;transform:translate(-50%,-50%);animation:pt .8s ease-out forwards}
+@keyframes pt{to{transform:translate(-50%,-160%);opacity:0}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="cross" aria-hidden="true"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../graficos.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
+<script>
+const K=Kit,J=Juego,$=s=>document.querySelector(s);
+addEventListener('touchstart',()=>document.body.classList.add('k-touch'),{once:true,passive:true});
+
+/* Puntería Total: dianas que salen y se mueven en una feria. Toca o haz clic para darles. 60 segundos. Las doradas valen más; las bombas restan tiempo. */
+const {renderer,scene,camera,sun,hemi}=K.setup({sky:0x2a1f4a,fogNear:60,fogFar:140,shadows:false});
+let HALF=14;function cam(){HALF=camera.aspect<.85?8:14;booth.scale.x=HALF/14;const k=Math.max(1,(HALF/14)*1.35/camera.aspect);camera.position.set(0,6.4,15*k);camera.lookAt(0,5.6,-8)}
+hemi.intensity=1;
+const booth=new THREE.Group();scene.add(booth);
+// caseta de feria
+K.box(30,1,16,K.M(0x7c4a2a),0,-.5,-4,booth);K.box(30,14,1,K.M(0x3b2a6b),0,6,-10,booth);
+for(let i=0;i<10;i++)K.box(3,1.6,.6,K.M(i%2?0xffffff:0xe5484d),-13.5+i*3,13.2,-9,booth);
+for(let i=0;i<3;i++)K.box(26,.3,.8,K.M(0xb5895a),0,1.2+i*3.6,-8.4,booth);
+K.box(.8,14,.8,K.M(0xe5484d),-14,6,-9,booth);K.box(.8,14,.8,K.M(0xe5484d),14,6,-9,booth);
+const bulbs=[];for(let i=0;i<14;i++){const b=K.sph(.22,new THREE.MeshBasicMaterial({color:0xffe08a}),-13+i*2,12.2,-8.4,booth);bulbs.push(b)}
+// mostrador
+K.box(30,2.2,1.4,K.M(0xe5484d),0,1.1,6.5,booth);K.box(30,.3,1.6,K.M(0xffd166),0,2.3,6.5,booth);
+cam();addEventListener('resize',cam);
+const tex=(cols)=>{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');cols.forEach((col,i)=>{g.fillStyle=col;g.beginPath();g.arc(64,64,64-i*(64/cols.length),0,7);g.fill()});return new THREE.CanvasTexture(c)};
+const MAT={n:new THREE.MeshLambertMaterial({map:tex(['#ffffff','#e5484d','#ffffff','#e5484d','#ffffff'])}),g:new THREE.MeshLambertMaterial({map:tex(['#ffd54a','#ffffff','#ffd54a','#ffffff','#ff9f1c']),emissive:0x332200}),
+  s:new THREE.MeshLambertMaterial({map:tex(['#7ab8ff','#ffffff','#3fa7ff','#ffffff','#1565c0'])}),b:new THREE.MeshLambertMaterial({color:0x222222})};
+let targets=[],running=false,time=60,score=0,combo=0,hits=0,shots=0,spawnT=0,R=Math.random;
+function spawn(){const row=Math.floor(R()*3),y=1.9+row*3.6,dir=R()<.5?1:-1;const r=R();const type=r<.12?'g':r<.24?'b':r<.4?'s':'n';
+  const size=type==='s'?.7:1.1;let m;
+  if(type==='b'){m=new THREE.Group();K.sph(.8,MAT.b,0,0,0,m);const f=K.cyl(.08,.08,.5,K.M(0x8d6e63),0,.9,0,m);K.sph(.15,new THREE.MeshBasicMaterial({color:0xff9f1c}),0,1.2,0,m)}
+  else{m=new THREE.Mesh(new THREE.CylinderGeometry(size,size,.2,28),MAT[type]);m.rotation.x=Math.PI/2;const st=K.box(.15,1.2,.15,K.M(0x8d6e63),0,0,0,scene);m.userData.stick=st}
+  m.position.set(-dir*(HALF+1),y+1,-8);scene.add(m);
+  const speed=(HALF/14)*(3+R()*3+ (60-time)*.06)*(type==='s'?1.6:1);
+  targets.push({m,type,dir,speed,y,t:0,up:0,pop:type==='n'&&R()<.3?{at:2+R()*2}:null,hit:false})}
+const ray=new THREE.Raycaster(),cross=$('#cross');
+function shoot(cx,cy){if(!running)return;shots++;J.sfx('laser');const r=renderer.domElement.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2((cx-r.left)/r.width*2-1,-(cy-r.top)/r.height*2+1),camera);
+  const objs=targets.filter(t=>!t.hit).map(t=>t.m);const h=ray.intersectObjects(objs,true)[0];
+  flash(cx,cy,!!h);
+  if(!h){combo=0;return}let o=h.object;while(o.parent&&!objs.includes(o))o=o.parent;const t=targets.find(q=>q.m===o);if(!t)return;t.hit=true;
+  if(t.type==='b'){time=Math.max(0,time-5);combo=0;J.sfx('boom');K.toast('¡BOMBA!','-5 segundos','#e5484d');return}
+  combo++;hits++;const base=t.type==='g'?50:t.type==='s'?25:10;const mult=Math.min(5,1+Math.floor(combo/5));score+=base*mult;J.sfx(t.type==='g'?'lucky':'pop');
+  if(t.type==='g'){time+=3;K.toast('¡DORADA!','+50 y +3 segundos','#ffcc33')}
+  if(combo%5===0)K.toast('COMBO x'+mult,combo+' seguidas','#b48cff');pts(cx,cy,'+'+base*mult)}
+function flash(x,y,ok){const d=document.createElement('div');d.className='shot'+(ok?' ok':'');d.style.left=x+'px';d.style.top=y+'px';document.body.appendChild(d);setTimeout(()=>d.remove(),300)}
+function pts(x,y,t){const d=document.createElement('div');d.className='pts';d.textContent=t;d.style.left=x+'px';d.style.top=y+'px';document.body.appendChild(d);setTimeout(()=>d.remove(),800)}
+renderer.domElement.addEventListener('pointerdown',e=>{e.preventDefault();shoot(e.clientX,e.clientY)});
+addEventListener('pointermove',e=>{cross.style.left=e.clientX+'px';cross.style.top=e.clientY+'px'});
+addEventListener('keydown',e=>{if(e.key===' '){e.preventDefault();const r=cross.getBoundingClientRect();shoot(r.left+r.width/2,r.top+r.height/2)}});
+function reset(sd){R=sd?Sala.rng(sd):Math.random;targets.forEach(t=>{scene.remove(t.m);if(t.m.userData.stick)scene.remove(t.m.userData.stick)});targets=[];time=60;score=0;combo=0;hits=0;shots=0;spawnT=0}
+function finish(){running=false;J.sfx('win');const acc=shots?Math.round(hits/shots*100):0;const rec=J.saveBest('punteria',score,true);if(window.Sala)Sala.score(score);
+  setTimeout(()=>J.end({title:'¡SE ACABÓ EL TIEMPO!',col:'#b48cff',lines:[`Puntos: <b style="color:#ffcc33">${score}</b>`,`Aciertos: ${hits} de ${shots} disparos (${acc}%)`,`Récord: ${J.best('punteria')}`],record:rec,onAgain(){reset();running=true}}),600)}
+let last=performance.now();
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
+  bulbs.forEach((b,i)=>b.material.color.setHex(((Math.floor(t/250)+i)%2)?0xffe08a:0xff6fae));
+  if(running){time-=dt;spawnT-=dt;if(spawnT<=0){spawn();spawnT=Math.max(.35,1.1-(60-time)*.012)}
+    if(time<=0){time=0;finish()}
+    if(window.Sala&&Math.floor(time)!==Math.floor(time+dt))Sala.score(score)}
+  for(let i=targets.length-1;i>=0;i--){const q=targets[i];q.t+=dt;q.up=Math.min(1,q.up+dt*4);
+    if(q.hit){q.m.rotation.y+=dt*14;q.m.position.y-=dt*8;q.m.scale.multiplyScalar(1-dt*2)}
+    else{q.m.position.x+=q.dir*q.speed*dt;q.m.position.y=q.y+1+(q.type==='s'?Math.sin(q.t*5)*.6:0);if(q.type==='b')q.m.rotation.z=Math.sin(q.t*6)*.3}
+    if(q.m.userData.stick){q.m.userData.stick.position.set(q.m.position.x,q.m.position.y-1.2,-8.1);q.m.userData.stick.visible=!q.hit}
+    if(Math.abs(q.m.position.x)>HALF+2||q.m.position.y<-2){scene.remove(q.m);if(q.m.userData.stick)scene.remove(q.m.userData.stick);targets.splice(i,1)}}
+  if(running)J.hud([['Tiempo',Math.ceil(time)+' s'],['Puntos',score],['Combo','x'+Math.min(5,1+Math.floor(combo/5))]]);
+  renderer.render(scene,camera);requestAnimationFrame(loop)}
+Sala.init({game:'punteria',remote:false,board:{label:'Puntos'},shared:'Al empezar todos a la vez, las dianas salen igual para todos.',onStart(sd){J.closePanels();reset(sd);running=true}});
+J.music('fiesta');
+J.start({title:'PUNTERÍA TOTAL',col:'#b48cff',sub:'Una caseta de feria llena de dianas que se mueven. Dales a todas las que puedas en 60 segundos.',
+  howto:['Haz <b>clic</b> o <b>toca</b> la diana para darle (o apunta con el ratón y pulsa ESPACIO)','Rojas: 10 · Azules pequeñas: 25 · <b>Doradas: 50 y +3 segundos</b>','¡No le des a las <b>bombas</b>! Te quitan 5 segundos','Acierta seguidas para subir el combo hasta x5'],
+  record:J.best('punteria')!=null?J.best('punteria')+' puntos':null,onStart(){running=true}});
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>

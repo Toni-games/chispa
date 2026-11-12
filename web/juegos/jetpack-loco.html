@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Jetpack Loco</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+body{background:#9ad7ff}
+.pad{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:20;display:none;gap:12px}
+body.k-touch .pad{display:flex}
+.pad button{width:74px;height:74px;border-radius:50%;border:3px solid #000;font:900 26px system-ui;color:#000;touch-action:none;box-shadow:inset 0 -5px 0 rgba(0,0,0,.25)}
+.warn{position:fixed;right:max(14px,env(safe-area-inset-right,0px));top:50%;z-index:15;width:44px;height:44px;margin-top:-22px;border-radius:50%;background:#ff2d55;border:3px solid #000;color:#fff;font:400 30px "Lilita One",sans-serif;display:grid;place-items:center;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../graficos.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
+<script>
+const K=Kit,J=Juego,$=s=>document.querySelector(s);
+addEventListener('touchstart',()=>document.body.classList.add('k-touch'),{once:true,passive:true});
+
+/* Jetpack Loco: vista de lado. Mantén pulsado para subir con la mochila cohete; suelta para caer. Esquiva láseres y misiles, coge monedas. */
+const {renderer,scene,camera,sun,hemi}=K.setup({sky:0x9ad7ff,fogNear:40,fogFar:90,shadows:false});hemi.intensity=1;
+const TOP=11,BOT=0;
+const bg=new THREE.Group();scene.add(bg);
+for(let i=0;i<16;i++){const x=i*8-30,h=6+Math.random()*12;K.box(6,h,4,K.M([0xb9c7e0,0xa3b1cc,0xc8d3ea][i%3]),x,h/2,-14,bg);
+  for(let k=1;k<h/2.2;k++)K.box(4.6,.6,.1,K.M(0xfff3b0),x,k*2.2,-11.95,bg)}
+const fl=new THREE.Group();scene.add(fl);for(let i=0;i<14;i++){K.box(6,1,6,K.M(i%2?0x8a95a8:0x7b869a),i*6-36,-.5,0,fl);}
+K.box(200,10,8,K.M(0x5b6475),0,-6,0,scene);
+const roof=K.box(200,1,6,K.M(0x4a5468),0,TOP+1.8,0,scene);
+const a=K.person(scene,null,null,.75);a.root.rotation.y=Math.PI/2;
+const pack=new THREE.Group();a.body.add(pack);K.box(.6,.8,.35,K.M(0xe5484d),0,1.2,-.42,pack);[-.18,.18].forEach(x=>K.cyl(.12,.12,.5,K.M(0x9aa3ad),x,.75,-.48,pack));
+const flame=K.cyl(.02,.2,.7,new THREE.MeshBasicMaterial({color:0xffa726}),0,.25,-.48,pack);flame.rotation.x=Math.PI;
+let y=1,vy=0,hold=false,running=false,dist=0,coins=0,speed=9,obs=[],nextX=20,R=Math.random,dead=false;
+const press=v=>{hold=v};
+addEventListener('keydown',e=>{if(e.key===' '||e.key==='ArrowUp'||e.key==='w'){e.preventDefault();press(true)}});addEventListener('keyup',e=>{if(e.key===' '||e.key==='ArrowUp'||e.key==='w')press(false)});
+renderer.domElement.addEventListener('pointerdown',e=>{e.preventDefault();press(true)});addEventListener('pointerup',()=>press(false));addEventListener('pointercancel',()=>press(false));
+const LM=new THREE.MeshBasicMaterial({color:0xff2d55});
+function spawn(x){const r=R();
+  if(r<.45){// láser entre dos postes
+    const len=3+R()*4,cy=1+R()*(TOP-2),ang=R()<.4?0:R()<.5?Math.PI/2:Math.PI/4*(R()<.5?1:-1);const g=new THREE.Group();
+    K.box(len,.25,.25,LM,0,0,0,g);[-1,1].forEach(s=>K.sph(.45,K.M(0x9aa3ad),s*len/2,0,0,g));g.rotation.z=ang;g.position.set(x,cy,0);scene.add(g);
+    obs.push({g,type:'laser',len,ang,cy,x,spin:dist>500&&R()<.35?(R()<.5?1:-1)*1.2:0})}
+  else if(r<.62&&dist>120){// misil con aviso
+    const g=new THREE.Group();K.cyl(.3,.3,1.6,K.M(0xe5484d),0,0,0,g).rotation.z=Math.PI/2;K.cyl(0,.3,.5,K.M(0xffffff),-1,0,0,g).rotation.z=Math.PI/2;g.position.set(x+25,y,0);scene.add(g);
+    const warn=document.createElement('div');warn.className='warn';warn.textContent='!';document.body.appendChild(warn);obs.push({g,type:'mis',x:x+25,cy:y,warn,t:0})}
+  // monedas en forma de arco o fila
+  if(R()<.7){const cy=1.5+R()*(TOP-3),n=6;for(let k=0;k<n;k++){const m=K.cyl(.4,.4,.12,K.M(0xffcc33,{emissive:0x553300}),0,0,0,scene);m.rotation.x=Math.PI/2;const ox=x+4+k*1.2,oy=cy+Math.sin(k/(n-1)*Math.PI)*1.5;m.position.set(ox,oy,0);obs.push({g:m,type:'coin',x:ox,cy:oy})}}}
+function reset(sd){R=sd?Sala.rng(sd):Math.random;obs.forEach(o=>{scene.remove(o.g);if(o.warn)o.warn.remove()});obs=[];y=1;vy=0;dist=0;coins=0;speed=9;nextX=20;dead=false;a.root.rotation.z=0;for(let x=20;x<60;x+=12)spawn(x);nextX=60}
+function die(){if(dead)return;dead=true;running=false;J.sfx('boom');J.sfx('lose');const score=Math.floor(dist)+coins*5;const rec=J.saveBest('jetpack',score,true);if(window.Sala)Sala.score(score);
+  setTimeout(()=>J.end({title:'¡PATAPÚM!',col:'#ff9f1c',lines:[`Distancia: <b style="color:#ffcc33">${Math.floor(dist)} m</b> · Monedas: ${coins}`,`Puntos: <b style="color:#ffcc33">${score}</b>`,`Récord: ${J.best('jetpack')}`],record:rec,onAgain(){reset();running=true}}),1000)}
+function segHit(o){// distancia del jugador al segmento del láser
+  const c=Math.cos(o.g.rotation.z),s=Math.sin(o.g.rotation.z),px=0-o.g.position.x,py=(y+.9)-o.g.position.y;const u=Math.max(-o.len/2,Math.min(o.len/2,px*c+py*s));const dx=px-u*c,dy=py-u*s;return Math.hypot(dx,dy)<.75}
+let last=performance.now(),flick=0;
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
+  if(running){speed=Math.min(22,speed+dt*.18);const mv=speed*dt;dist+=mv;
+    vy+=(hold?26:-24)*dt;vy=Math.max(-14,Math.min(10,vy));y+=vy*dt;if(y<BOT){y=BOT;vy=0}if(y>TOP){y=TOP;vy=0}
+    bg.children.forEach(m=>{m.position.x-=mv*.35;if(m.position.x<-40)m.position.x+=128});fl.children.forEach(m=>{m.position.x-=mv;if(m.position.x<-40)m.position.x+=84});
+    nextX-=mv;while(nextX<60){spawn(nextX+8+R()*6);nextX+=12-Math.min(4,dist/400)}
+    for(let i=obs.length-1;i>=0;i--){const o=obs[i];
+      if(o.type==='mis'){o.t+=dt;if(o.t<1.3){o.cy+=(y-o.cy)*Math.min(1,dt*3);o.g.position.set(20,o.cy,0);o.warn.style.top=((1-((o.cy+.9)-2)/(TOP+2))*100)+'%';o.warn.style.opacity=Math.floor(t/120)%2?1:.4}
+        else{if(o.warn){o.warn.remove();o.warn=null}o.g.position.x-=(speed+18)*dt;o.g.position.y=o.cy;if(Math.abs(o.g.position.x)<1&&Math.abs(o.cy-(y+.9))<.9)die()}
+        if(o.g.position.x<-20){scene.remove(o.g);obs.splice(i,1)}continue}
+      o.x-=mv;o.g.position.x=o.x;if(o.spin)o.g.rotation.z+=o.spin*dt;
+      if(o.type==='coin'){o.g.rotation.z+=dt*3;if(Math.abs(o.x)<.8&&Math.abs(o.cy-(y+.9))<1){coins++;J.sfx('coin');scene.remove(o.g);obs.splice(i,1);continue}}
+      else if(o.type==='laser'&&Math.abs(o.x)<o.len/2+1&&segHit(o))die();
+      if(o.x<-20){scene.remove(o.g);obs.splice(i,1)}}
+    if(window.Sala&&Math.floor(dist/30)!==Math.floor((dist-mv)/30))Sala.score(Math.floor(dist)+coins*5);
+    J.hud([['Metros',Math.floor(dist)],['Monedas',coins]])}
+  else if(dead){vy-=24*dt;y=Math.max(BOT,y+vy*dt);a.root.rotation.z+=dt*4*(y>BOT?1:0)}
+  a.root.position.set(0,y,0);flame.visible=hold&&running;flame.scale.y=.7+Math.random()*.6;
+  const run=y<=BOT+.01&&running;K.walkAnim(a,run?t/90:0,!run);if(!run){a.legL.rotation.x=.3;a.legR.rotation.x=-.1}
+  {const k=Math.sqrt(Math.max(1,1.1/camera.aspect));camera.position.set(5*k,TOP/2+.5,15*k);camera.lookAt(5*k,TOP/2,0)}
+  renderer.render(scene,camera);requestAnimationFrame(loop)}
+Sala.init({game:'jetpack',remote:false,board:{label:'Puntos'},shared:'Al empezar todos a la vez, los obstáculos salen igual para todos.',onStart(sd){J.closePanels();reset(sd);running=true}});
+reset();J.music('aventura');
+J.start({title:'JETPACK LOCO',col:'#ff9f1c',sub:'Vuela con tu mochila cohete por la ciudad. Esquiva los láseres y los misiles y coge todas las monedas.',
+  howto:['<b>Mantén pulsado</b> ESPACIO, el ratón o la pantalla para subir','Suelta para bajar','Los misiles avisan con una <b>!</b> roja antes de llegar'],
+  record:J.best('jetpack')!=null?J.best('jetpack')+' puntos':null,onStart(){running=true}});
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
