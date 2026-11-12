@@ -1,8 +1,20 @@
 {
- "latest": "3.2",
+ "latest": "3.3",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "3.3",
+   "date": "2026-11-12",
+   "title": "Creador de videojuegos 2D y gestos propios",
+   "notes": [
+    "Nuevo: Creador de videojuegos 2D. Dibuja niveles de plataformas, juégalos y compártelos con un código",
+    "Pon una intro de Intros Molonas al principio de tus juegos",
+    "Crea tus propios gestos moviendo y separando brazos, piernas y cabeza"
+   ],
+   "size": 975691,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-3.3.zip"
+  },
   {
    "id": "3.2",
    "date": "2026-11-12",

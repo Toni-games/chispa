@@ -8,7 +8,7 @@
 <style>
 /* Estudio de animación: escenario 3D a la izquierda, fotogramas y deslizadores a la derecha */
 :root{--bg:#141826;--panel:#1d2236;--panel2:#262c45;--line:#34406a;--ink:#f3f5ff;--muted:#9aa3c7;--y:#ffcc33;--g:#3fd15c;--r:#ff5a6a;color-scheme:dark}
-*{box-sizing:border-box}html,body{height:100%;margin:0}
+*{box-sizing:border-box}[hidden]{display:none!important}html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--ink);font:15px/1.4 Nunito,system-ui,sans-serif;overflow:hidden;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 button,input{font:inherit;color:inherit}button{cursor:pointer}
 .app{height:100%;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(300px,420px)}
@@ -24,7 +24,7 @@ button,input{font:inherit;color:inherit}button{cursor:pointer}
 .head h1{margin:0;font:400 22px "Lilita One","Arial Black",sans-serif;letter-spacing:.02em}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .name{flex:1;min-width:120px;border:3px solid #000;border-radius:10px;background:#0f1322;padding:7px 10px;font-weight:800}
-.tabs{display:flex;gap:6px}.tabs button{flex:1;border:3px solid #000;border-radius:10px;background:var(--panel2);padding:7px 4px;font-weight:900}.tabs button.on{background:var(--y);color:#1a1200}
+.tabs{display:flex;gap:6px}.tabs.kind button.on{background:#fff;color:#000}.tabs button{flex:1;border:3px solid #000;border-radius:10px;background:var(--panel2);padding:7px 4px;font-weight:900}.tabs button.on{background:var(--y);color:#1a1200}
 .scroll{flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:12px}
 .frames{display:flex;gap:6px;flex-wrap:wrap}
 .frames .fr{width:44px;height:44px;border:3px solid #000;border-radius:10px;background:var(--panel2);font:400 18px "Lilita One",sans-serif}
@@ -48,7 +48,8 @@ button,input{font:inherit;color:inherit}button{cursor:pointer}
   <aside class="side">
     <div class="head"><h1>Creador de animaciones</h1>
       <div class="row"><input class="name" id="nm" maxlength="28" value="Mi animación" aria-label="Nombre de la animación"><button class="b y" id="bSave">Guardar y ponérmela</button></div>
-      <div class="tabs" role="tablist"><button data-st="idle" class="on">Quieto</button><button data-st="walk">Andar</button><button data-st="jump">Saltar</button></div></div>
+      <div class="tabs kind" role="tablist"><button data-kind="anim" class="on">Andar y saltar</button><button data-kind="gesto">Gesto</button></div>
+      <div class="tabs" role="tablist" id="stTabs"><button data-st="idle" class="on">Quieto</button><button data-st="walk">Andar</button><button data-st="jump">Saltar</button></div></div>
     <div class="scroll" id="sc"></div>
   </aside>
 </div>
@@ -69,6 +70,15 @@ const TPL={
   heroe:{n:'Superhéroe',idle:{sp:1,f:[[0,.4,0,.4,0,.12,0,.12,-.06,0,0],[0,.45,0,.45,0,.12,0,.12,-.06,0,.02]]},walk:{sp:2,f:[[-.9,.1,.9,.1,.9,0,-.9,0,.12,0,0],[.9,.1,-.9,.1,-.9,0,.9,0,.12,0,0]]},jump:{sp:2,f:[[.4,.1,-3.1,0,.1,0,.5,0,-.15,0,0]]}},
   cero:{n:'Desde cero',idle:{sp:1,f:[Z()]},walk:{sp:2,f:[Z(),Z()]},jump:{sp:2,f:[Z()]}}};
 const clone=o=>JSON.parse(JSON.stringify(o));
+const GZ=()=>new Array(22).fill(0);const gp=(o)=>{const p=GZ();for(const k in o)p[k]=o[k];return p};
+/* gesto: [0..10] como arriba · 11/12 separar brazo izq (fuera, arriba) · 13/14 brazo der · 15/16 pierna izq · 17/18 pierna der · 19 cabeza separar · 20 cabeza girar · 21 cabeza inclinar */
+const GTPL={
+  saludo:{n:'Saludar',sp:4,rep:3,f:[gp({2:-2.9,3:.1}),gp({2:-2.9,3:.7})]},
+  cabeza:{n:'Cabeza voladora',sp:1.2,rep:1,f:[gp({}),gp({19:1.4,20:3.14,0:-2.6,2:-2.6}),gp({19:1.4,20:6.28,0:-2.6,2:-2.6}),gp({})]},
+  desmonte:{n:'Desmontarse',sp:1.4,rep:1,f:[gp({}),gp({11:.9,12:.4,13:.9,14:.4,15:.5,16:-.2,17:.5,18:-.2,19:.8,1:.8,3:.8}),gp({11:.9,12:.4,13:.9,14:.4,15:.5,16:-.2,17:.5,18:-.2,19:.8,1:.8,3:.8,20:.6}),gp({})]},
+  brazos:{n:'Brazos locos',sp:3,rep:3,f:[gp({11:.5,12:.6,13:.5,14:.6,0:-1.5,2:-1.5}),gp({11:.2,12:-.1,13:.2,14:-.1,0:-3,2:-.3})]},
+  cero:{n:'Desde cero',sp:2,rep:1,f:[GZ(),GZ()]}};
+let kind='anim',gcur=clone({sp:GTPL.saludo.sp,rep:GTPL.saludo.rep,f:GTPL.saludo.f}),gEditId=null;
 let st=A.state(),cur=clone({idle:TPL.normal.idle,walk:TPL.normal.walk,jump:TPL.normal.jump}),tab='idle',fi=0,playing=false,walkPrev=false,editId=null;
 /* ---------- escena ---------- */
 const cv=$('#cv'),R=new THREE.WebGLRenderer({canvas:cv,antialias:true});R.setPixelRatio(Math.min(devicePixelRatio||1,2));R.shadowMap.enabled=true;
@@ -83,48 +93,64 @@ let drag=null;cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y0:yaw};cv
 cv.addEventListener('pointermove',e=>{if(drag)yaw=drag.y0+(e.clientX-drag.x)*.01});cv.addEventListener('pointerup',()=>drag=null);
 let t0=performance.now(),lt=t0,walkX=0;
 function frame(now){const dt=Math.min(.05,(now-lt)/1000);lt=now;const w=cv.clientWidth,h=cv.clientHeight;if(cv.width!==Math.round(w*R.getPixelRatio())){R.setSize(w,h,false);C.aspect=w/h;C.updateProjectionMatrix()}
-  C.position.set(0,2.2,7.2);C.lookAt(0,1.25,0);
+  C.position.set(0,2.6,8.6);C.lookAt(0,1.55,0);
   av.root.rotation.y=yaw;av.root.position.set(0,0,0);
   if(walkPrev){walkX+=dt;const ph=walkX*cur.walk.sp*cur.walk.f.length/2;A.playAnim(av,cur,'walk',ph);grid.position.z=(walkX*2.4)%0.5;}
+  else if(kind==='gesto'){const g=gcur;if(playing){A.playGest(av,g,(now-t0)/1000*g.sp)}else A.playGest(av,g,Math.min(fi,g.f.length-1))}
   else if(playing){const S2=cur[tab];A.playAnim(av,cur,tab,(now-t0)/1000*S2.sp*(tab==='walk'?S2.f.length/2:1));if(tab==='jump'){const k=((now-t0)/1000*S2.sp)%S2.f.length/S2.f.length;av.root.position.y=Math.sin(k*Math.PI)*.9}}
   else{const F=cur[tab].f;A.playAnim(av,cur,tab,Math.min(fi,F.length-1))}
+  if(kind!=='gesto'&&av.head){A.playGest(av,{sp:1,rep:1,f:[GZ()]},0);if(walkPrev)A.playAnim(av,cur,'walk',walkX*cur.walk.sp*cur.walk.f.length/2);else if(playing){const S2=cur[tab];A.playAnim(av,cur,tab,(now-t0)/1000*S2.sp*(tab==='walk'?S2.f.length/2:1))}else A.playAnim(av,cur,tab,Math.min(fi,cur[tab].f.length-1))}
   R.render(S,C);requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
 /* ---------- panel ---------- */
 const J=[['Brazo izquierdo',[[0,'Levantar',-60,180,-1],[1,'Abrir',-20,120,1]]],['Brazo derecho',[[2,'Levantar',-60,180,-1],[3,'Abrir',-20,120,1]]],
   ['Pierna izquierda',[[4,'Adelante',-90,90,-1],[5,'Abrir',-10,60,1]]],['Pierna derecha',[[6,'Adelante',-90,90,-1],[7,'Abrir',-10,60,1]]],
   ['Cuerpo',[[8,'Inclinar',-45,60,1],[9,'Ladear',-30,30,1]]]];
+/* deslizadores de separar (en centímetros del muñeco) y de la cabeza */
+const JG=[['Separar brazos',[[11,'Brazo izq. hacia fuera',-40,150,'m'],[12,'Brazo izq. arriba o abajo',-100,150,'m'],[13,'Brazo der. hacia fuera',-40,150,'m'],[14,'Brazo der. arriba o abajo',-100,150,'m']]],
+  ['Separar piernas',[[15,'Pierna izq. hacia fuera',-20,150,'m'],[16,'Pierna izq. arriba o abajo',-100,150,'m'],[17,'Pierna der. hacia fuera',-20,150,'m'],[18,'Pierna der. arriba o abajo',-100,150,'m']]],
+  ['Cabeza',[[19,'Separar hacia arriba',-40,200,'m'],[20,'Girar',-180,180,1],[21,'Inclinar',-60,60,1]]]];
 const deg=r=>Math.round(r*180/Math.PI);
-function draw(){const F=cur[tab].f;fi=Math.min(fi,F.length-1);const mine=(st.mine||[]).map(id=>A.BY[id]).filter(i=>i&&i.cat==='animacion');
-  $('#sc').innerHTML=`<div class="sec"><h3>Fotogramas · ${{idle:'Quieto',walk:'Andar',jump:'Saltar'}[tab]}</h3>
+function data(){return kind==='gesto'?gcur:cur[tab]}
+function draw(){const F=data().f;fi=Math.min(fi,F.length-1);const mine=(st.mine||[]).map(id=>A.BY[id]).filter(i=>i&&i.cat===(kind==='gesto'?'gesto':'animacion'));
+  $('#sc').innerHTML=`<div class="sec"><h3>Fotogramas · ${kind==='gesto'?'Gesto':{idle:'Quieto',walk:'Andar',jump:'Saltar'}[tab]}</h3>
     <div class="frames">${F.map((_,i)=>`<button class="fr ${i===fi?'on':''}" data-fr="${i}" aria-label="Fotograma ${i+1}">${i+1}</button>`).join('')}</div>
-    <div class="row" style="margin-top:8px"><button class="b" data-a="add" ${F.length>=10?'disabled':''}>+ Nuevo</button><button class="b" data-a="dup" ${F.length>=10?'disabled':''}>Duplicar</button><button class="b r" data-a="del" ${F.length<=1?'disabled':''}>Borrar</button></div></div>
-    ${J.map(([n,sl])=>`<div class="sec"><h3>${n}</h3>${sl.map(([k,l,mn,mx,sg])=>{const v=deg(F[fi][k]*sg);return `<div class="sl"><label for="s${k}">${l}</label><input type="range" id="s${k}" data-k="${k}" data-sg="${sg}" min="${mn}" max="${mx}" value="${v}"><output id="o${k}">${v}°</output></div>`}).join('')}</div>`).join('')}
+    <div class="row" style="margin-top:8px"><button class="b" data-a="add" ${F.length>=(kind==='gesto'?12:10)?'disabled':''}>+ Nuevo</button><button class="b" data-a="dup" ${F.length>=(kind==='gesto'?12:10)?'disabled':''}>Duplicar</button><button class="b r" data-a="del" ${F.length<=1?'disabled':''}>Borrar</button></div></div>
+    ${(kind==='gesto'?J.concat(JG):J).map(([n,sl])=>`<div class="sec"><h3>${n}</h3>${sl.map(([k,l,mn,mx,sg])=>{if(sg==='m'){const v=Math.round(F[fi][k]*100);return `<div class="sl"><label for="s${k}">${l}</label><input type="range" id="s${k}" data-k="${k}" data-sg="m" min="${mn}" max="${mx}" value="${v}"><output id="o${k}">${v}</output></div>`}const v=deg(F[fi][k]*sg);return `<div class="sl"><label for="s${k}">${l}</label><input type="range" id="s${k}" data-k="${k}" data-sg="${sg}" min="${mn}" max="${mx}" value="${v}"><output id="o${k}">${v}°</output></div>`}).join('')}</div>`).join('')}
     <div class="sec"><h3>Cuerpo · altura</h3><div class="sl"><label for="s10">Subir o agacharse</label><input type="range" id="s10" data-k="10" data-sg="0" min="-50" max="100" value="${Math.round(F[fi][10]*100)}"><output id="o10">${Math.round(F[fi][10]*100)}</output></div></div>
-    <div class="sec"><h3>Velocidad</h3><div class="sl"><label for="sp">Más lento ← → más rápido</label><input type="range" id="sp" min="2" max="80" value="${Math.round(cur[tab].sp*10)}"><output id="osp">${cur[tab].sp.toFixed(1)}</output></div></div>
-    <div class="sec"><h3>Empezar desde una plantilla</h3><div class="tpl">${Object.entries(TPL).map(([k,t])=>`<button class="b" data-tpl="${k}">${t.n}</button>`).join('')}</div><p style="margin:6px 0 0;color:var(--muted);font-size:12px">Cambia las tres partes (quieto, andar y saltar).</p></div>
-    ${mine.length?`<div class="sec"><h3>Mis animaciones</h3><div class="mine">${mine.map(i=>`<button class="b ${editId===i.id?'on':''}" data-mine="${i.id}">${i.name.replace(/[<&>"]/g,'')}</button>`).join('')}<button class="b" data-a="newanim">+ Nueva</button></div></div>`:''}`}
-$('#sc').addEventListener('input',e=>{const i=e.target;if(i.id==='sp'){cur[tab].sp=+i.value/10;$('#osp').textContent=cur[tab].sp.toFixed(1);return}
-  const k=+i.dataset.k;if(isNaN(k))return;const sg=+i.dataset.sg,F=cur[tab].f[fi];if(k===10){F[10]=+i.value/100;$('#o10').textContent=i.value}else{F[k]=+i.value*Math.PI/180*sg;$('#o'+k).textContent=i.value+'°'}playing=walkPrev=false;syncPlay()});
-$('#sc').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const F=cur[tab].f;
+    <div class="sec"><h3>Velocidad</h3><div class="sl"><label for="sp">Más lento ← → más rápido</label><input type="range" id="sp" min="2" max="80" value="${Math.round(data().sp*10)}"><output id="osp">${data().sp.toFixed(1)}</output></div>
+    ${kind==='gesto'?`<div class="sl"><label for="rep">Veces que se repite</label><input type="range" id="rep" min="1" max="5" value="${gcur.rep}"><output id="orep">${gcur.rep}</output></div>`:''}</div>
+    <div class="sec"><h3>Empezar desde una plantilla</h3><div class="tpl">${Object.entries(kind==='gesto'?GTPL:TPL).map(([k,t])=>`<button class="b" data-tpl="${k}">${t.n}</button>`).join('')}</div>${kind==='gesto'?'':'<p style="margin:6px 0 0;color:var(--muted);font-size:12px">Cambia las tres partes (quieto, andar y saltar).</p>'}</div>
+    ${mine.length?`<div class="sec"><h3>${kind==='gesto'?'Mis gestos':'Mis animaciones'}</h3><div class="mine">${mine.map(i=>`<button class="b ${(kind==='gesto'?gEditId:editId)===i.id?'on':''}" data-mine="${i.id}">${i.name.replace(/[<&>"]/g,'')}</button>`).join('')}<button class="b" data-a="newanim">+ Nueva</button></div></div>`:''}`}
+$('#sc').addEventListener('input',e=>{const i=e.target;if(i.id==='sp'){data().sp=+i.value/10;$('#osp').textContent=data().sp.toFixed(1);return}
+  if(i.id==='rep'){gcur.rep=+i.value;$('#orep').textContent=i.value;return}
+  const k=+i.dataset.k;if(isNaN(k))return;const F=data().f[fi];if(i.dataset.sg==='m'){F[k]=+i.value/100;$('#o'+k).textContent=i.value;playing=walkPrev=false;syncPlay();return}const sg=+i.dataset.sg;if(k===10){F[10]=+i.value/100;$('#o10').textContent=i.value}else{F[k]=+i.value*Math.PI/180*sg;$('#o'+k).textContent=i.value+'°'}playing=walkPrev=false;syncPlay()});
+$('#sc').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const F=data().f;
   if(b.dataset.fr!=null){fi=+b.dataset.fr;playing=walkPrev=false;syncPlay();sfx('tick');draw();return}
-  if(b.dataset.tpl){const t=TPL[b.dataset.tpl];cur=clone({idle:t.idle,walk:t.walk,jump:t.jump});fi=0;sfx('pop');draw();toast('Plantilla: '+t.n);return}
-  if(b.dataset.mine){const it=A.BY[b.dataset.mine];editId=it.id;cur=clone(it.anim);$('#nm').value=it.name;fi=0;draw();toast('Editando «'+it.name+'»');return}
-  const a=b.dataset.a;if(a==='add'){F.splice(fi+1,0,Z());fi++}if(a==='dup'){F.splice(fi+1,0,F[fi].slice());fi++}if(a==='del'&&F.length>1){F.splice(fi,1);fi=Math.max(0,fi-1)}
-  if(a==='newanim'){editId=null;cur=clone({idle:TPL.normal.idle,walk:TPL.normal.walk,jump:TPL.normal.jump});$('#nm').value='Mi animación'}
+  if(b.dataset.tpl){if(kind==='gesto'){const t=GTPL[b.dataset.tpl];gcur=clone({sp:t.sp,rep:t.rep,f:t.f})}else{const t=TPL[b.dataset.tpl];cur=clone({idle:t.idle,walk:t.walk,jump:t.jump})}fi=0;sfx('pop');draw();toast('Plantilla: '+(kind==='gesto'?GTPL:TPL)[b.dataset.tpl].n);return}
+  if(b.dataset.mine){const it=A.BY[b.dataset.mine];if(kind==='gesto'){gEditId=it.id;gcur=clone(it.gest)}else{editId=it.id;cur=clone(it.anim)}$('#nm').value=it.name;fi=0;draw();toast('Editando «'+it.name+'»');return}
+  const a=b.dataset.a;if(a==='add'){F.splice(fi+1,0,kind==='gesto'?GZ():Z());fi++}if(a==='dup'){F.splice(fi+1,0,F[fi].slice());fi++}if(a==='del'&&F.length>1){F.splice(fi,1);fi=Math.max(0,fi-1)}
+  if(a==='newanim'){if(kind==='gesto'){gEditId=null;gcur=clone({sp:2,rep:1,f:[GZ(),GZ()]});$('#nm').value='Mi gesto'}else{editId=null;cur=clone({idle:TPL.normal.idle,walk:TPL.normal.walk,jump:TPL.normal.jump});$('#nm').value='Mi animación'}}
   sfx('pop');draw()});
 document.querySelectorAll('[data-st]').forEach(b=>b.onclick=()=>{tab=b.dataset.st;fi=0;document.querySelectorAll('[data-st]').forEach(x=>x.classList.toggle('on',x===b));playing=walkPrev=false;syncPlay();draw()});
 function syncPlay(){$('#bPlay').textContent=playing?'■ Parar':'▶ Reproducir';$('#bWalk').textContent=walkPrev?'■ Parar':'Probar andando';grid.position.z=0;
   $('#hint').textContent=playing||walkPrev?'Así se verá en los juegos':'Fotograma '+(fi+1)+' · mueve los deslizadores para colocarlo'}
 $('#bPlay').onclick=()=>{playing=!playing;walkPrev=false;t0=performance.now();syncPlay();sfx('tick')};
 $('#bWalk').onclick=()=>{walkPrev=!walkPrev;playing=false;walkX=0;if(walkPrev){tab='walk';document.querySelectorAll('[data-st]').forEach(x=>x.classList.toggle('on',x.dataset.st==='walk'));draw()}syncPlay();sfx('tick')};
-$('#bSave').onclick=()=>{st=A.state();const name=($('#nm').value||'').trim()||'Mi animación';
+$('#bSave').onclick=()=>{if(kind==='gesto'){saveGest();return}st=A.state();const name=($('#nm').value||'').trim()||'Mi animación';
   const id=editId||('uan'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
   const it=A.register({id,cat:'animacion',name,price:0,author:st.name||'Jugador',mode:'me',created:Date.now(),anim:cur});if(!it){toast('No se ha podido guardar');return}
   st.custom=st.custom||{};st.custom[id]=A.clean(it);st.mine=st.mine||[];if(!st.mine.includes(id))st.mine.unshift(id);if(!st.owned.includes(id))st.owned.push(id);st.eq.animacion=id;A.save(st);
   try{window.CubiCuenta&&CubiCuenta.guardar&&CubiCuenta.guardar()}catch(e){}
   editId=id;sfx('levelup');toast('¡Guardada! Ya la llevas puesta en todos los juegos');draw()};
+document.querySelectorAll('[data-kind]').forEach(b=>b.onclick=()=>{kind=b.dataset.kind;fi=0;playing=walkPrev=false;document.querySelectorAll('[data-kind]').forEach(x=>x.classList.toggle('on',x===b));
+  $('#stTabs').hidden=kind==='gesto';$('#bWalk').hidden=kind==='gesto';$('#nm').value=kind==='gesto'?'Mi gesto':'Mi animación';$('#bSave').textContent=kind==='gesto'?'Guardar gesto':'Guardar y ponérmela';syncPlay();draw();sfx('tick')});
+function saveGest(){st=A.state();const name=($('#nm').value||'').trim()||'Mi gesto';const id=gEditId||('uge'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+  const it=A.register({id,cat:'gesto',name,price:0,author:st.name||'Jugador',mode:'me',created:Date.now(),gest:gcur});if(!it){toast('No se ha podido guardar');return}
+  st.custom=st.custom||{};st.custom[id]=A.clean(it);st.mine=st.mine||[];if(!st.mine.includes(id))st.mine.unshift(id);if(!st.owned.includes(id))st.owned.push(id);st.eq.gesto=id;A.save(st);
+  try{window.CubiCuenta&&CubiCuenta.guardar&&CubiCuenta.guardar()}catch(e){}gEditId=id;sfx('levelup');toast('¡Gesto guardado! Úsalo en los juegos con la tecla G o el botón GESTOS');draw()}
 syncPlay();draw();
+if(/gesto/.test(location.search))document.querySelector('[data-kind="gesto"]').click();
 </script>
 </body>
 </html>
