@@ -86,7 +86,7 @@ function newOutfit(name,eq,wearIt){const s=state();if(!Array.isArray(s.outfits))
 function renameOutfit(id,name){const s=state();const o=(s.outfits||[]).find(x=>x.id===id);if(!o)return;o.name=String(name||'').replace(/[<>&"]/g,'').trim().slice(0,24)||o.name;save(s)}
 function deleteOutfit(id){const s=state();s.outfits=(s.outfits||[]).filter(x=>x.id!==id);if(s.outfit===id)s.outfit=null;save(s)}
 function wear(id){const s=state();const o=(s.outfits||[]).find(x=>x.id===id);if(!o)return null;
-  const eq=Object.assign({},DEF_EQ);Object.keys(o.eq||{}).forEach(k=>{if(BY[o.eq[k]]&&s.owned.includes(o.eq[k]))eq[k]=o.eq[k]});
+  const eq=Object.assign({},DEF_EQ);Object.keys(o.eq||{}).forEach(k=>{if(BY[o.eq[k]]&&s.owned.includes(o.eq[k]))eq[k]=o.eq[k]});if(/^#[0-9a-f]{6}$/i.test((o.eq||{}).pelocol||''))eq.pelocol=o.eq.pelocol;
   s.eq=eq;s.outfit=id;save(s);refreshMine(eq);
   try{const M=window.CubiMulti;if(M&&M.online)M.send({t:'eq',eq,defs:customDefs?customDefs(eq):[]})}catch(e){}
   try{dispatchEvent(new CustomEvent('cubi-avatar',{detail:{eq,id}}))}catch(e){}
@@ -327,10 +327,11 @@ function build(THREE,p,eq){
   // cabeza: accesorios
   const H=1.9;
   ['cabeza','accesorio','espalda'].forEach(k=>{const it=BY[eq[k]];if(it&&it.custom)customPart(THREE,R,it,M,tex,box,cyl)});
-  const hi=BY[eq.cabeza];if(hi&&hi.hair)hairStyle(THREE,R,hi,M,box,cyl,H);
+  const HC=/^#[0-9a-f]{6}$/i.test(eq.pelocol||'')?eq.pelocol:null;
+  const hi=BY[eq.cabeza];if(hi&&hi.hair)hairStyle(THREE,R,HC?Object.assign({},hi,{col:HC}):hi,M,box,cyl,H);
   switch(eq.cabeza){
-    case 'h1':{const m=M(BY.h1.col);box(.6,.16,.6,m,0,H+.33,0);box(.6,.3,.1,m,0,H+.15,-.26);box(.08,.22,.5,m,-.28,H+.2,-.02);box(.08,.22,.5,m,.28,H+.2,-.02);break}
-    case 'h2':{const m=M(BY.h2.col);box(.62,.16,.62,m,0,H+.33,0);box(.62,.8,.12,m,0,H-.05,-.3);box(.1,.6,.55,m,-.31,H+.05,-.03);box(.1,.6,.55,m,.31,H+.05,-.03);break}
+    case 'h1':{const m=M(HC||BY.h1.col);box(.6,.16,.6,m,0,H+.33,0);box(.6,.3,.1,m,0,H+.15,-.26);box(.08,.22,.5,m,-.28,H+.2,-.02);box(.08,.22,.5,m,.28,H+.2,-.02);break}
+    case 'h2':{const m=M(HC||BY.h2.col);box(.62,.16,.62,m,0,H+.33,0);box(.62,.8,.12,m,0,H-.05,-.3);box(.1,.6,.55,m,-.31,H+.05,-.03);box(.1,.6,.55,m,.31,H+.05,-.03);break}
     case 'h3':{const m=M(0xd32f2f);box(.6,.18,.6,m,0,H+.36,0);box(.6,.05,.32,m,0,H+.29,.42);box(.12,.05,.12,M(0xffffff),0,H+.47,0);break}
     case 'h4':{const m=M(0x3fa7ff);cyl(.32,.32,.3,m,0,H+.34,0);cyl(.33,.33,.1,M(0xffffff),0,H+.2,0);const pm=new THREE.Mesh(new THREE.SphereGeometry(.1,10,8),M(0xffffff));pm.position.set(0,H+.56,0);R.add(pm);break}
     case 'h5':{const k=M(0x111111);cyl(.25,.25,.5,k,0,H+.55,0);cyl(.42,.42,.04,k,0,H+.3,0);cyl(.255,.255,.08,M(0xc62828),0,H+.36,0);break}
@@ -351,7 +352,7 @@ function build(THREE,p,eq){
     case 'h16':{const m=M(0x3fa7ff);box(.6,.18,.6,m,0,H+.36,0);box(.6,.05,.3,m,0,H+.29,.42);cyl(.03,.03,.14,M(0x777777),0,H+.52,0);
       const pr=new THREE.Group();pr.position.set(0,H+.6,0);R.add(pr);box(.55,.02,.09,M(0xff4f4f),0,0,0,pr);box(.09,.02,.55,M(0xffcc33),0,0,0,pr);pr.userData.spin=1;break}
     case 'h17':{const k=M(0x1a1a1a);box(.82,.22,.24,k,0,H+.38,0);box(.5,.14,.24,k,0,H+.53,0);box(.12,.1,.02,M(0xffffff),0,H+.43,.13);box(.84,.03,.25,M(0xffcc33),0,H+.28,0);break}
-    case 'h9':{const m=M(BY.h9.col);for(let k=0;k<5;k++){const c=new THREE.Mesh(new THREE.ConeGeometry(.08,.35,6),m);c.position.set(0,H+.42,-.2+k*.1);R.add(c)}box(.56,.06,.56,M(0x222222),0,H+.28,0);break}
+    case 'h9':{const m=M(HC||BY.h9.col);for(let k=0;k<5;k++){const c=new THREE.Mesh(new THREE.ConeGeometry(.08,.35,6),m);c.position.set(0,H+.42,-.2+k*.1);R.add(c)}box(.56,.06,.56,M(0x222222),0,H+.28,0);break}
   }
   switch(eq.accesorio){
     case 'a1':{const k=M(0x222222);[-1,1].forEach(s=>{const r=new THREE.Mesh(new THREE.TorusGeometry(.07,.015,6,16),k);r.position.set(s*.13,H+.03,.29);R.add(r)});box(.08,.02,.02,k,0,H+.03,.29);break}

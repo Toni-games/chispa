@@ -69,6 +69,7 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
 .gcard .th{aspect-ratio:16/9;width:100%;max-width:100%;border-radius:12px;background:var(--panel2) center/cover no-repeat;transition:transform .15s}
 .gcard:hover .th{transform:translateY(-3px)}
 .gcard .th{position:relative}
+.gcard .fav{position:absolute;top:6px;right:8px;color:#ff4f7b;font-size:20px;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,.6)}
 .gcard .new{position:absolute;top:8px;left:8px;background:var(--brand);color:var(--brand-ink);font-size:11px;font-weight:800;border-radius:999px;padding:2px 9px}
 .gcard b{font-size:15px}
 .studio{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;border-radius:16px;padding:20px;background:linear-gradient(120deg,#0b4f86,#00a2ff 60%,#43c6ff);color:#fff;overflow:hidden;position:relative}
@@ -85,6 +86,9 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
 .hello{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:28px}
 .hello .face{width:84px;height:84px;border-radius:50%;background:var(--panel2);overflow:hidden}
 .hello .face img{width:100%;height:100%;display:block}
+.btn.favon{background:#ff4f7b;color:#fff;border-color:transparent}
+.news{display:flex;flex-direction:column;gap:6px}.news ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:3px}.news .nh{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.streak{display:flex;gap:4px}.streak i{width:14px;height:14px;border-radius:4px;background:var(--line,rgba(127,127,127,.3))}.streak i.on{background:#ff9f1c}
 .daily{display:flex;flex-direction:column;align-items:flex-end;gap:6px;text-align:right}
 .btn{border:0;border-radius:10px;padding:10px 16px;font-weight:700;background:var(--panel2);border:1px solid var(--line)}
 .btn:hover:not(:disabled){filter:brightness(1.08)}
@@ -101,6 +105,7 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 .tab{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 14px;font-weight:500;font-size:14px;color:var(--muted)}
 .tab.on{background:var(--fg);color:var(--bg);border-color:transparent;font-weight:700}
+.hcs{width:30px;height:30px;border-radius:50%;border:3px solid rgba(127,127,127,.45);cursor:pointer;padding:0}.hcs.on{border-color:var(--brand,#ffcc33);box-shadow:0 0 0 3px rgba(255,204,51,.35)}
 .ofs{margin:4px 0 18px;display:flex;flex-direction:column;gap:8px}.ofh{display:flex;flex-direction:column;gap:2px}.ofh h2{margin:0;font-size:18px}.ofh small{color:var(--muted)}
 .ofl{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
 .ofc{flex:0 0 132px;display:flex;flex-direction:column;gap:6px;border:2px solid var(--line,rgba(255,255,255,.12));border-radius:14px;padding:8px;background:var(--card,rgba(255,255,255,.04));color:inherit;font:inherit;text-align:center}
@@ -529,7 +534,13 @@ const GAMES=[
 ];
 GAMES.forEach(gm=>gm.img=art(gm.draw));
 const ACCION=['obby','globos','ladrones','tormentas','zombis','karts','lava','espadas','meteoritos','patadon'];let gFilt='todo';
-function gameCard(gm){return `<button class="gcard" data-act="game" data-id="${gm.id}"><span class="th" style="background-image:url(${gm.img})">${gm.nuevo?'<span class="new">NUEVO</span>':''}</span><b>${esc(gm.name)}</b><span>${esc(gm.tag)}</span></button>`}
+function dayKey(off){const d=new Date(Date.now()+off*864e5);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
+function dailyAmount(k){k=Math.max(1,k||1);return 50+(Math.min(k,7)-1)*10+(k%7===0?100:0)}
+function streakNow(){return st.lastDay===dayKey(0)||st.lastDay===dayKey(-1)?(st.streak||0):0}
+let NEWS=null;try{fetch('versiones.json',{cache:'no-store'}).then(r=>r.json()).then(d=>{NEWS=(d.versions||[])[0]||null;if(view==='inicio')render()}).catch(()=>{})}catch(e){}
+function newsHTML(){if(!NEWS||st.seenVer===NEWS.id)return '';return `<section class="card news" style="margin-top:14px"><div class="nh"><b>Novedades de la versión ${esc(NEWS.id)}: ${esc(NEWS.title||'')}</b><button class="btn" data-act="newsclose">Entendido</button></div><ul>${(NEWS.notes||[]).map(n=>`<li>${esc(n)}</li>`).join('')}</ul></section>`}
+const isFav=id=>(st.favs||[]).includes(id);
+function gameCard(gm){return `<button class="gcard" data-act="game" data-id="${gm.id}"><span class="th" style="background-image:url(${gm.img})">${gm.nuevo?'<span class="new">NUEVO</span>':''}${isFav(gm.id)?'<span class="fav" aria-label="Favorito">♥</span>':''}</span><b>${esc(gm.name)}</b><span>${esc(gm.tag)}</span></button>`}
 
 /* ================= MINIATURAS 3D ================= */
 let TR=null,TSc=null,TC=null,webgl=true;
@@ -541,6 +552,9 @@ const CATVIEW={mascota:'pet',piel:'head',cara:'head',cabeza:'hat',accesorio:'hea
 function renderThumb(eq,view,pose){if(!TR&&webgl)thumbSetup();if(!webgl)return '';const av=A.makeAvatar(THREE,eq);TSc.add(av.root);if(pose)try{pose(av)}catch(e){}
   const[p,l]=VIEWS[view]||VIEWS.full;TC.position.set(...p);TC.lookAt(...l);TR.render(TSc,TC);const url=String(TR.domElement.toDataURL()||'');TSc.remove(av.root);dispose(av.root);return url}
 const thumbs={};
+const HAIRC=['#1f1a17','#3b2416','#6b3a1e','#a0522d','#c4512b','#e8c15a','#f5e6b8','#9ca3af','#ffffff','#ff8fc7','#b48cff','#4fc3f7','#3fd15c','#e5484d'];
+function hairColorHTML(){const cur=st.eq.pelocol||'';return `<div class="card" style="margin-bottom:12px;display:flex;flex-direction:column;gap:8px"><b>Color del pelo</b><small style="color:var(--muted)">Sirve para todos los peinados. Es gratis.</small>
+  <div class="row" style="gap:6px">${HAIRC.map(c=>`<button class="hcs ${cur===c?'on':''}" data-act="haircol" data-id="${c}" style="background:${c}" aria-label="Color ${c}" aria-pressed="${cur===c}"></button>`).join('')}<button class="btn sm" data-act="haircol" data-id="" aria-pressed="${!cur}">Original</button></div></div>`}
 const ofThumbs={};function outfitThumb(eq){const k=JSON.stringify(eq);if(!(k in ofThumbs)){try{ofThumbs[k]=renderThumb(eq,'full')}catch(e){ofThumbs[k]=''}}return ofThumbs[k]}
 function outfitsHTML(){const L=A.outfits?A.outfits():[];const cur=st.outfit;
   return `<section class="ofs" aria-label="Mis avatares"><div class="ofh"><h2>Mis avatares</h2><small>Crea varios avatares y cámbiate cuando quieras, también en mitad de un juego con el botón AVATAR o la tecla Y.</small></div>
@@ -595,21 +609,25 @@ const V={
     return `<div class="hello"><div class="face">${headshot().startsWith('data:')?`<img src="${headshot()}" alt="Tu avatar">`:''}</div>
       <div style="min-width:0"><h1>Hola, ${esc(st.name)}</h1><p class="sub" style="margin:0">Tienes ${CUBE} <b>${fmtC(st.cubos)}</b> Cubos y ${st.owned.filter(id=>(A.BY[id]||{}).price).length} objetos comprados.</p>
       <div class="row" style="margin-top:10px"><a class="btn" href="#avatar" style="text-decoration:none">Editar avatar</a><a class="btn" href="#catalogo" style="text-decoration:none">Ir al catálogo</a></div></div>
-      <div class="daily"><b>Recompensa diaria</b><span class="chip">${canDaily?'¡Disponible!':'Vuelve mañana'}</span><button class="btn brand" data-act="daily" ${canDaily?'':'disabled'}>Recoger ${CUBE} 50</button></div></div>
+      <div class="daily"><b>Recompensa diaria</b><span class="chip">${canDaily?'¡Disponible!':'Vuelve mañana'}</span>
+        <div class="streak" aria-label="Racha de ${streakNow()} días">${[1,2,3,4,5,6,7].map(k=>`<i class="${k<=((streakNow()-1)%7+1)&&streakNow()?'on':''}"></i>`).join('')}</div><small style="color:var(--muted)">Racha: ${streakNow()} ${streakNow()===1?'día':'días'} · el 7.º día, premio extra</small>
+        <button class="btn brand" data-act="daily" ${canDaily?'':'disabled'}>Recoger ${CUBE} ${dailyAmount(canDaily?(st.lastDay===dayKey(-1)?(st.streak||0)+1:1):(st.streak||1))}</button></div></div>
+    ${newsHTML()}
     ${misionesHTML()}
     ${adCardHTML()}
     ${logrosHTML()}
+    ${(st.favs||[]).length?`<section class="sec"><div class="sec-h"><h2>Tus favoritos</h2><a href="#juegos" data-act="gfilt" data-id="fav">Ver todos</a></div><div class="games">${st.favs.map(id=>GAMES.find(g=>g.id===id)).filter(Boolean).map(gameCard).join('')}</div></section>`:''}
     ${recent.length?`<section class="sec"><div class="sec-h"><h2>Seguir jugando</h2></div><div class="games">${recent.map(gameCard).join('')}</div></section>`:''}
     ${studioBanner()}
     ${tallerBanner()}
     <section class="sec"><div class="sec-h"><h2>Tus juegos</h2><a href="#juegos">Ver todos</a></div><div class="games">${GAMES.map(gameCard).join('')}</div></section>
     <section class="sec"><div class="sec-h"><h2>Nuevo: animaciones y gestos</h2><a href="#catalogo" data-act="tocat" data-id="animacion">Ver todos</a></div><div class="items">${['an2','an5','an6','ge5','ge1','ge6'].map(id=>itemCard(A.BY[id],'item')).join('')}</div></section>
     <section class="sec"><div class="sec-h"><h2>Novedades del catálogo</h2><a href="#catalogo">Ver catálogo</a></div><div class="items">${['h11','b9','sh13','h14','b8','f11'].map(id=>itemCard(A.BY[id],'item')).join('')}</div></section>`},
-  juegos(){const q=query.trim().toLowerCase();const list=GAMES.filter(g=>(!q||(g.name+' '+g.tag+' '+g.desc).toLowerCase().includes(q))&&(gFilt==='todo'||(gFilt==='accion')===ACCION.includes(g.id)&&gFilt!=='nuevo'||gFilt==='nuevo'&&g.nuevo));
+  juegos(){const q=query.trim().toLowerCase();const list=GAMES.filter(g=>(!q||(g.name+' '+g.tag+' '+g.desc).toLowerCase().includes(q))&&(gFilt==='todo'||gFilt==='fav'&&isFav(g.id)||(gFilt==='accion')===ACCION.includes(g.id)&&gFilt!=='nuevo'&&gFilt!=='fav'||gFilt==='nuevo'&&g.nuevo));
     return `<h1>Juegos</h1><p class="sub">${q?`Resultados para «${esc(query)}»`:'Todos tus juegos en un solo sitio.'}</p>
     ${q?'':studioBanner()}
-    <div class="tabs" role="tablist" style="margin-bottom:14px">${[['todo','Todos'],['nuevo','Nuevos'],['tranquilo','Tranquilos'],['accion','Acción']].map(([k,n])=>`<button class="tab ${gFilt===k?'on':''}" role="tab" aria-selected="${gFilt===k}" data-act="gfilt" data-id="${k}">${n}</button>`).join('')}</div>
-    ${list.length?`<div class="games">${list.map(gameCard).join('')}</div>`:`<div class="card">No hay ningún juego que se llame así. Prueba con otra palabra.</div>`}
+    <div class="tabs" role="tablist" style="margin-bottom:14px">${[['todo','Todos'],['fav','♥ Favoritos'],['nuevo','Nuevos'],['tranquilo','Tranquilos'],['accion','Acción']].map(([k,n])=>`<button class="tab ${gFilt===k?'on':''}" role="tab" aria-selected="${gFilt===k}" data-act="gfilt" data-id="${k}">${n}</button>`).join('')}<button class="btn" data-act="randgame" style="margin-left:auto">🎲 Juego al azar</button></div>
+    ${list.length?`<div class="games">${list.map(gameCard).join('')}</div>`:`<div class="card">${gFilt==='fav'&&!q?'Aún no tienes favoritos. Abre un juego y pulsa <b>♡ Favorito</b> para guardarlo aquí.':'No hay ningún juego que se llame así. Prueba con otra palabra.'}</div>`}
     ${q?'':creadosSec()}`},
   avatar(){const its=A.ITEMS.filter(i=>i.cat===avCat&&st.owned.includes(i.id));const more=A.ITEMS.filter(i=>!i.custom&&i.cat===avCat&&!st.owned.includes(i.id)).length;
     return `<h1>Avatar</h1><p class="sub">Arrastra el muñeco para girarlo. Lo que te pongas aquí lo llevas en todos los juegos. En <b>Animaciones</b> eliges cómo andas, saltas y trepas; en <b>Gestos</b> pruebas los que puedes hacer en los juegos con la tecla G o el botón GESTOS.</p>
@@ -617,6 +635,7 @@ const V={
     <div class="av"><div style="min-width:0"><div class="stage" id="stage"><span class="hint">${webgl?'Arrastra para girar':'Tu navegador no puede mostrar 3D'}</span></div>
     ${webgl?`<div class="demo" role="group" aria-label="Probar animaciones">${[['idle','Quieto'],['walk','Andar'],['jump','Saltar'],['climb','Trepar']].map(([k,n])=>`<button class="btn ${PV&&PV.mode===k?'on':''}" data-act="demo" data-id="${k}">${n}</button>`).join('')}<button class="btn" data-act="demoemote">Gesto: ${esc((A.BY[st.eq.gesto]||A.BY.ge0).name)}</button></div>`:''}</div>
     <div style="min-width:0"><div class="tabs" role="tablist">${A.CATS.map(([id,n])=>`<button class="tab ${avCat===id?'on':''}" role="tab" aria-selected="${avCat===id}" data-act="avcat" data-id="${id}">${n}</button>`).join('')}</div>
+    ${avCat==='cabeza'?hairColorHTML():''}
     ${avCat==='gesto'?`<div class="card row" style="margin-bottom:12px;justify-content:space-between;gap:12px"><span><b>¡Crea tu propio gesto!</b><br><small style="color:var(--muted)">Mueve y separa las partes del muñeco: brazos, piernas y hasta la cabeza.</small></span><button class="btn brand" data-act="animgesto">Crear gesto</button></div>`:''}
     ${avCat==='animacion'?`<div class="card row" style="margin-bottom:12px;justify-content:space-between;gap:12px"><span><b>¡Crea tu propia animación!</b><br><small style="color:var(--muted)">Decide cómo andas, saltas y te quedas quieto.</small></span><button class="btn brand" data-act="animador">Crear animación</button></div>`:''}
     <div class="items">${its.map(i=>itemCard(i,'equip')).join('')}</div>
@@ -785,7 +804,7 @@ function closeModal(){$('#modal').innerHTML=''}
 function gameModal(gm){openModal(gm.name,`<div class="banner" style="background-image:url(${gm.img})"></div>
   <div class="row"><span class="chip">${esc(gm.tag)}</span>${gm.avatar?'<span class="chip ok">Usa tu avatar</span>':''}${gm.multi?'<span class="chip" style="color:var(--sel)">Multijugador</span>':''}</div>
   <p style="margin:0">${esc(gm.desc)}</p>
-  <div><button class="btn play big" data-act="playgame" data-id="${gm.id}">${PLAY}Jugar</button></div>
+  <div class="row"><button class="btn play big" data-act="playgame" data-id="${gm.id}">${PLAY}Jugar</button><button class="btn ${isFav(gm.id)?'favon':''}" data-act="togfav" data-id="${gm.id}" aria-pressed="${isFav(gm.id)}">${isFav(gm.id)?'♥ En favoritos':'♡ Favorito'}</button>${(st.plays||{})[gm.id]?`<small style="color:var(--muted)">Has jugado ${st.plays[gm.id]} ${st.plays[gm.id]===1?'vez':'veces'}</small>`:''}</div>
   ${passList(gm.id)}`)}
 const GID={barrio:'barrio',tormentas:'tormentas',bolsillo:'bolsillo',cambiazo:'cambiazo',ladrones:'ladrones',patadon:'patadon'};
 function passList(gid){const P=window.CubiPases;if(!P||!P.CAT[gid])return '';
@@ -825,7 +844,7 @@ function redeem(code){code=(code||'').trim().toUpperCase();if(!code){toast('Escr
 
 /* ================= JUGAR ================= */
 let curGame=null;
-function playGame(gm){curGame=gm;if(Au)Au.sfx('open');closeModal();if(GAMES.some(g=>g.id===gm.id))st.recent=[gm.id].concat(st.recent.filter(i=>i!==gm.id)).slice(0,4);save();
+function playGame(gm){curGame=gm;if(Au)Au.sfx('open');closeModal();st.plays=st.plays||{};st.plays[gm.id]=(st.plays[gm.id]||0)+1;if(GAMES.some(g=>g.id===gm.id))st.recent=[gm.id].concat(st.recent.filter(i=>i!==gm.id)).slice(0,4);save();
   $('#gname').textContent=gm.name;$('#gbal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;$('#gpanel').hidden=true;
   $('#frame').src=gm.file+'#plataforma';$('#play').hidden=false;document.body.style.overflow='hidden';
   const el=$('#play');try{const f=el.requestFullscreen||el.webkitRequestFullscreen;if(f){const r=f.call(el);if(r&&r.catch)r.catch(()=>{})}}catch(e){}
@@ -850,6 +869,7 @@ const ACT={
   buyitem(id){const it=A.BY[id];if(st.owned.includes(id)||it.lvl)return;if(st.cubos<it.price){itemModal(it);return}if(it.custom){buyCustom(it);return}
     st.cubos-=it.price;st.owned.push(id);st.eq[it.cat]=id;addHist(`Catálogo: ${it.name}`,-it.price);save();rebuildPV();closeModal();if(Au)Au.sfx('buy');render();previewItem(it);toast(`¡Comprado! Ya llevas puesto: ${it.name}`)},
   avcat(id){avCat=id;render()},
+  haircol(c){if(c)st.eq.pelocol=c;else delete st.eq.pelocol;save();rebuildPV();render();if(Au)Au.sfx('equip')},
   newav(){st=A.state();const first=!(A.outfits()||[]).length;const o=A.newOutfit();if(!o){toast('Puedes guardar hasta 20 avatares');return}st=A.state();rebuildPV();avCat='piel';render();if(Au)Au.sfx('equip');
     toast(first?`Tu avatar de antes está guardado en «Avatar 1». Ahora estás creando «${o.name}»`:`Nuevo avatar: «${o.name}». Lo que te pongas se guarda en él`)},
   wearav(id){const r=A.wear(id);if(!r)return;st=A.state();rebuildPV();render();if(Au)Au.sfx('equip');const o=A.outfits().find(x=>x.id===id);toast('Te has puesto «'+(o?o.name:'tu avatar')+'»')},
@@ -858,7 +878,11 @@ const ACT={
   catcat(id){catCat=id;render()},
   tocat(id){catCat=id;location.hash='#catalogo'},
   randomav(){A.CATS.forEach(([c])=>{const own=A.ITEMS.filter(i=>i.cat===c&&st.owned.includes(i.id));st.eq[c]=own[Math.floor(Math.random()*own.length)].id});save();rebuildPV();render()},
-  daily(){if(Date.now()-(st.daily||0)<=20*3600e3)return;if(Au)Au.sfx('daily');st.daily=Date.now();st.cubos+=50;addHist('Recompensa diaria',50);save();render();toast('+50 Cubos. ¡Vuelve mañana!')},
+  daily(){if(Date.now()-(st.daily||0)<=20*3600e3)return;if(Au)Au.sfx('daily');const today=dayKey(0),yest=dayKey(-1);st.streak=st.lastDay===yest?(st.streak||0)+1:st.lastDay===today?(st.streak||1):1;st.lastDay=today;
+    const n=dailyAmount(st.streak);st.daily=Date.now();st.cubos+=n;addHist('Recompensa diaria (racha de '+st.streak+(st.streak===1?' día':' días')+')',n);save();render();toast(`+${n} Cubos · racha de ${st.streak} ${st.streak===1?'día':'días'}${st.streak%7===0?' · ¡premio de semana!':''}`)},
+  togfav(id){st.favs=st.favs||[];st.favs=isFav(id)?st.favs.filter(x=>x!==id):[id].concat(st.favs);save();if(Au)Au.sfx('click');const gm=GAMES.find(g=>g.id===id);if(gm&&$('#modal').innerHTML)gameModal(gm);render();toast(isFav(id)?'Añadido a favoritos':'Quitado de favoritos')},
+  randgame(){const L=GAMES.filter(g=>g.id!==(curGame&&curGame.id));const g=L[Math.floor(Math.random()*L.length)];if(g){if(Au)Au.sfx('click');gameModal(g)}},
+  newsclose(){st.seenVer=NEWS&&NEWS.id;save();render()},
   buypack(i){checkoutModal(+i)},
   pay,
   resetask(){$('#resetbox').innerHTML=`<p style="margin:0 0 8px">¿Seguro? No se puede deshacer.</p><div class="row"><button class="btn danger" data-act="resetgo">Sí, borrar todo</button><button class="btn" data-act="resetno">Cancelar</button></div>`},
