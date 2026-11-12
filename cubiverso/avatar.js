@@ -74,7 +74,25 @@ function defaults(){return {name:'Jugador',cubos:250,owned:ITEMS.filter(i=>!i.pr
 function state(){let s=null;try{s=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){}const d=defaults();if(!s)return d;s=Object.assign(d,s);s.eq=Object.assign({},DEF_EQ,s.eq||{});
   if(s.custom)Object.values(s.custom).forEach(register);
   ITEMS.forEach(i=>{if(!i.price&&!i.custom&&!i.lvl&&!s.owned.includes(i.id))s.owned.push(i.id)});return s}
-function save(s){try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){}}
+function save(s){if(s&&s.outfit&&Array.isArray(s.outfits)){const o=s.outfits.find(x=>x.id===s.outfit);if(o)o.eq=Object.assign({},s.eq)}try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){}}
+/* ---------- varios avatares guardados ---------- */
+const MINE=[];
+function outfits(){const s=state();return Array.isArray(s.outfits)?s.outfits:[]}
+function newOutfit(name,eq,wearIt){const s=state();if(!Array.isArray(s.outfits))s.outfits=[];
+  if(!s.outfits.length&&!eq){s.outfits.push({id:'o'+Date.now().toString(36)+'a',name:'Avatar 1',eq:Object.assign({},s.eq)})}
+  if(s.outfits.length>=20)return null;
+  const o={id:'o'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:String(name||('Avatar '+(s.outfits.length+1))).replace(/[<>&"]/g,'').slice(0,24),eq:Object.assign({},eq||DEF_EQ)};
+  s.outfits.push(o);if(wearIt!==false){s.eq=Object.assign({},DEF_EQ,o.eq);s.outfit=o.id}save(s);if(wearIt!==false)refreshMine(s.eq);return o}
+function renameOutfit(id,name){const s=state();const o=(s.outfits||[]).find(x=>x.id===id);if(!o)return;o.name=String(name||'').replace(/[<>&"]/g,'').trim().slice(0,24)||o.name;save(s)}
+function deleteOutfit(id){const s=state();s.outfits=(s.outfits||[]).filter(x=>x.id!==id);if(s.outfit===id)s.outfit=null;save(s)}
+function wear(id){const s=state();const o=(s.outfits||[]).find(x=>x.id===id);if(!o)return null;
+  const eq=Object.assign({},DEF_EQ);Object.keys(o.eq||{}).forEach(k=>{if(BY[o.eq[k]]&&s.owned.includes(o.eq[k]))eq[k]=o.eq[k]});
+  s.eq=eq;s.outfit=id;save(s);refreshMine(eq);
+  try{const M=window.CubiMulti;if(M&&M.online)M.send({t:'eq',eq,defs:customDefs?customDefs(eq):[]})}catch(e){}
+  try{dispatchEvent(new CustomEvent('cubi-avatar',{detail:{eq,id}}))}catch(e){}
+  try{if(window.CubiCuenta&&CubiCuenta.guardar)CubiCuenta.guardar()}catch(e){}
+  return s}
+function refreshMine(eq){for(let i=MINE.length-1;i>=0;i--){const p=MINE[i];if(!p.root.parent){MINE.splice(i,1);continue}try{build(p._T,p,eq)}catch(e){}}}
 
 /* ---------- texturas ---------- */
 function cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h||w;return c}
@@ -273,7 +291,7 @@ function petModel(THREE,id,M){const g=new THREE.Group(),fl=[];
       [0x8b5cf6,0x22d3ee,0xf472b6,0xfacc15,0x60a5fa,0xa3e635].forEach((col,k)=>{const a=k/6*Math.PI*2;B(.09,.09,.09,M(col,{emissive:col}),Math.cos(a)*.34,Math.sin(k)*.05,Math.sin(a)*.34,null,ring)});break}
     default:return null}
   g.userData.fl=fl;return g}
-function addPet(THREE,R,id,M){const g=petModel(THREE,id,M);if(!g)return;const base={x:1.05,y:2.35,z:-.35};g.position.set(base.x,base.y,base.z);R.add(g);const fl=g.userData.fl,seed=Math.random()*10;
+function addPet(THREE,R,id,M){const g=petModel(THREE,id,M);if(!g)return;g.userData.isPet=true;const base={x:1.05,y:2.35,z:-.35};g.position.set(base.x,base.y,base.z);R.add(g);const fl=g.userData.fl,seed=Math.random()*10;
   let first=null;g.traverse(o=>{if(o.isMesh&&!first)first=o});if(!first)return;
   first.onBeforeRender=()=>{const t=performance.now()/1000+seed;g.position.y=base.y+Math.sin(t*2.2)*.12;g.position.x=base.x+Math.sin(t*.7)*.08;g.rotation.y=Math.sin(t*.9)*.45;g.rotation.z=Math.sin(t*1.3)*.06;
     fl.forEach(f=>{if(f.isObject3D)f.rotation.z=(f.position.x<0?1:-1)*Math.sin(t*14)*.6;else if(f.tent)f.tent.rotation.x=Math.sin(t*4+f.a*2)*.4;else if(f.spark){const k=(t*1.5+f.k/3)%1;f.spark.position.set(Math.sin(t*3+f.k)*.1,-k*.2,-.25-k*.4);f.spark.scale.setScalar(1-k)}});
@@ -351,6 +369,7 @@ function build(THREE,p,eq){
     case 'a13':{const w=M(0xfaf6ee,{roughness:.3});for(let k=0;k<11;k++){const a=Math.PI*(.15+.7*k/10);const b=new THREE.Mesh(new THREE.SphereGeometry(.035,8,6),w);b.position.set(Math.cos(a)*.3,1.58-Math.sin(a)*.1,.18+Math.sin(a)*.06);R.add(b)}break}
     case 'a4':{const k=M(0x111111);box(.14,.13,.03,k,.13,H+.03,.29);box(.58,.025,.02,k,0,H+.1,.285).rotation.z=-.25;break}
   }
+  if(p.root)p.root.children.filter(o=>o.userData&&o.userData.isPet).forEach(o=>p.root.remove(o));
   if(eq.mascota&&eq.mascota!=='m0')addPet(THREE,p.root||R,eq.mascota,M);
   switch(eq.espalda){
     case 'b1':{const m=M(0x3f6fd8);box(.6,.62,.26,m,0,1.15,-.36);box(.5,.24,.06,M(0x2f55aa),0,1,-.51);box(.08,.6,.06,M(0x2f55aa),-.22,1.25,.24);box(.08,.6,.06,M(0x2f55aa),.22,1.25,.24);break}
@@ -381,7 +400,10 @@ function makeAvatar(THREE,eq){
   const root=new THREE.Group(),body=new THREE.Group(),legL=new THREE.Group(),legR=new THREE.Group(),armL=new THREE.Group(),armR=new THREE.Group();
   root.add(body);
   legL.position.set(-.225,.7,0);legR.position.set(.225,.7,0);armL.position.set(-.67,1.55,0);armR.position.set(.67,1.55,0);body.add(legL,legR,armL,armR);
-  const parts={root,body,legL,legR,armL,armR};build(THREE,parts,eq);return parts;
+  const parts={root,body,legL,legR,armL,armR};build(THREE,parts,eq);
+  // si es el avatar del propio jugador, se apunta para poder cambiarlo en mitad de la partida
+  try{const mine=state().eq;if(!eq||JSON.stringify(Object.assign({},DEF_EQ,eq))===JSON.stringify(Object.assign({},DEF_EQ,mine))){parts._T=THREE;MINE.push(parts);if(MINE.length>40)MINE.shift()}}catch(e){}
+  return parts;
 }
 /* ---------- animaciones ----------
    animate(a,{walk,moving,air,climb,dt}) · llamar cada fotograma.
@@ -462,7 +484,7 @@ function drive(a,walk,air,o){o=o||{};const now=performance.now(),dt=a._lt?Math.m
   animate(a,{walk,air,moving,climb:o.climb,dt});
   if(a.isMe&&window.CubiAudio){if(o.climb){if(moving&&Math.floor(now/260)!==a._cs){a._cs=Math.floor(now/260);CubiAudio.sfx('climb')}a._wasAir=false}else CubiAudio.steps(a,walk,air)}}
 function levelOf(xp){xp=Math.max(0,+xp||0);let l=1,need=150;while(xp>=need){xp-=need;l++;need=100+l*50}return {lvl:l,cur:xp,need}}
-window.CubiAvatar={cleanGest,playGest,GLEN,cleanAnim,playAnim,ANIM_STATES,levelOf,KEY,TPL,DECAL,ART_ABC,register,customDefs,artCanvas,clean,drive,CATS,ITEMS,BY,DEF_EQ,state,save,build,makeAvatar,animate,emote,faceCanvas,shirtCanvas};
+window.CubiAvatar={outfits,newOutfit,renameOutfit,deleteOutfit,wear,cleanGest,playGest,GLEN,cleanAnim,playAnim,ANIM_STATES,levelOf,KEY,TPL,DECAL,ART_ABC,register,customDefs,artCanvas,clean,drive,CATS,ITEMS,BY,DEF_EQ,state,save,build,makeAvatar,animate,emote,faceCanvas,shirtCanvas};
 /* la lista de gestos se calcula al pedirla: así salen también los que el jugador crea o compra después */
 Object.defineProperty(window.CubiAvatar,'EMOTES',{enumerable:true,get(){let own=null;try{own=state().owned}catch(e){}return ITEMS.filter(i=>i.cat==='gesto'&&(!i.custom||(own&&own.includes(i.id))))}});
 })();

@@ -7,7 +7,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const CSS=`
 #s-bar{position:fixed;z-index:45;right:max(8px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 108px);display:flex;flex-direction:column;gap:6px;font-family:"Nunito","Segoe UI",system-ui,sans-serif}
 #s-bar button{border:3px solid #000;border-radius:12px;padding:5px 9px;font:900 12px "Nunito","Segoe UI",system-ui,sans-serif;color:#fff;background:#3fa7ff;box-shadow:inset 0 -3px 0 rgba(0,0,0,.25);cursor:pointer;-webkit-text-stroke:1px #000;paint-order:stroke fill}
-#s-bar button.on{background:#3fd15c}#s-bar .chat{background:#ff9f1c}#s-bar .emo{background:#9c6bff}
+#s-bar button.on{background:#3fd15c}#s-bar .chat{background:#ff9f1c}#s-bar .emo{background:#9c6bff}#s-bar .avb{background:#ff6fae}
 #s-board{position:fixed;z-index:30;right:max(8px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 10px);background:rgba(20,22,34,.88);border:3px solid #000;border-radius:12px;padding:6px 10px;font:800 13px "Nunito",system-ui,sans-serif;color:#fff;min-width:150px;max-width:240px;pointer-events:none}
 #s-board div{display:flex;justify-content:space-between;gap:10px}#s-board b{color:#ffcc33}#s-board .me{color:#7fd0ff}
 #s-log{position:fixed;z-index:30;left:max(10px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 170px);display:flex;flex-direction:column;gap:4px;pointer-events:none;font:800 14px "Nunito",system-ui,sans-serif;color:#fff;max-width:min(380px,70vw)}
@@ -74,9 +74,9 @@ function doStart(s){started=true;seed=s;scores={};if(O.onStart)O.onStart(s);boar
 
 /* ---------- barra de botones ---------- */
 function bar(){if(!ui.bar){ui.bar=el('<div id="s-bar"></div>');ui.bar.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-    if(b.dataset.b==='amigos')openRoom();if(b.dataset.b==='chat')chatBox();if(b.dataset.b==='emo')emoMenu()})}
+    if(b.dataset.b==='amigos')openRoom();if(b.dataset.b==='chat')chatBox();if(b.dataset.b==='emo')emoMenu();if(b.dataset.b==='av')avMenu()})}
   if(O.top)ui.bar.style.top=`calc(env(safe-area-inset-top,0px) + ${O.top}px)`;
-  const on=online();ui.bar.innerHTML=`<button data-b="amigos" class="${on?'on':''}" aria-label="${on?'Sala '+esc(M.code):'Jugar con amigos'}">${on?'SALA '+esc(M.code):'AMIGOS'}</button>${on?'<button data-b="chat" class="chat">CHAT</button>':''}${O.emotes&&O.me?'<button data-b="emo" class="emo">GESTOS</button>':''}`}
+  const on=online();ui.bar.innerHTML=`<button data-b="amigos" class="${on?'on':''}" aria-label="${on?'Sala '+esc(M.code):'Jugar con amigos'}">${on?'SALA '+esc(M.code):'AMIGOS'}</button>${on?'<button data-b="chat" class="chat">CHAT</button>':''}${O.emotes&&O.me?'<button data-b="emo" class="emo">GESTOS</button><button data-b="av" class="avb">AVATAR</button>':''}`}
 /* ---------- marcador ---------- */
 function board(){if(!O.board||!online()){if(ui.board){ui.board.remove();ui.board=null}return}
   if(!ui.board)ui.board=el('<div id="s-board" aria-live="polite"></div>');const ps=players();const rows=Object.keys(ps).map(id=>{const me=id===M.myId;const sc=me?myScore:scores[id];return {id,me,name:ps[id].name,v:sc?sc.v:null,txt:sc?sc.txt:'—'}});
@@ -96,6 +96,10 @@ function bubble(id,t){if(!window.Kit||!O.scene)return;let a=null;if(id==null)a=O
   if(a._bub){a.root.remove(a._bub)}const sc=a.root.scale.x||1;const s=Kit.sprite(Kit.textTex([[t,30,'#ffffff',36]],520,72,'rgba(20,22,34,.85)'),5.2/sc*.6,.72/sc*.6);s.position.y=3.7;a.root.add(s);a._bub=s;
   clearTimeout(a._bt);a._bt=setTimeout(()=>{if(a._bub===s){a.root.remove(s);a._bub=null}},4500)}
 /* ---------- gestos (para juegos que no traen su propio botón) ---------- */
+function avMenu(){if($('#s-emop')){$('#s-emop').remove();return}if(!window.CubiAvatar||!CubiAvatar.wear)return;const L=CubiAvatar.outfits(),cur=CubiAvatar.state().outfit;
+  const p=el(`<div id="s-emop" role="menu">${L.length?L.map(o=>`<button role="menuitem" data-o="${o.id}">${o.id===cur?'✓ ':''}${esc(o.name)}</button>`).join(''):'<button disabled>Crea avatares en Avatar → Mis avatares</button>'}</div>`);
+  p.addEventListener('click',e=>{const b=e.target.closest('[data-o]');if(!b)return;CubiAvatar.wear(b.dataset.o);sfx('equip');p.remove()})}
+addEventListener('keydown',e=>{if(e.target&&e.target.tagName==='INPUT')return;if((e.key==='y'||e.key==='Y')&&O&&O.emotes&&O.me&&!document.getElementById('k-av'))avMenu()});
 function emoMenu(){if($('#s-emop')){$('#s-emop').remove();return}if(!window.CubiAvatar)return;const st=CubiAvatar.state();
   const p=el(`<div id="s-emop" role="menu">${CubiAvatar.EMOTES.map(e=>{const own=st.owned.includes(e.id);return `<button role="menuitem" data-e="${e.id}" aria-disabled="${!own}">${esc(e.name)}</button>`}).join('')}</div>`);
   p.addEventListener('click',e=>{const b=e.target.closest('[data-e]');if(!b)return;if(b.getAttribute('aria-disabled')==='true'){log('Ese gesto se compra en Avatar → Gestos');return}

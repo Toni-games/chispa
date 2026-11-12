@@ -101,6 +101,15 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 .tab{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 14px;font-weight:500;font-size:14px;color:var(--muted)}
 .tab.on{background:var(--fg);color:var(--bg);border-color:transparent;font-weight:700}
+.ofs{margin:4px 0 18px;display:flex;flex-direction:column;gap:8px}.ofh{display:flex;flex-direction:column;gap:2px}.ofh h2{margin:0;font-size:18px}.ofh small{color:var(--muted)}
+.ofl{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.ofc{flex:0 0 132px;display:flex;flex-direction:column;gap:6px;border:2px solid var(--line,rgba(255,255,255,.12));border-radius:14px;padding:8px;background:var(--card,rgba(255,255,255,.04));color:inherit;font:inherit;text-align:center}
+.ofc.on{border-color:#ffcc33;box-shadow:0 0 0 2px rgba(255,204,51,.25)}
+.ofi{position:relative;aspect-ratio:1;width:100%;border:0;border-radius:10px;background:rgba(0,0,0,.25) center/cover no-repeat;cursor:pointer}
+.ofb{position:absolute;left:6px;top:6px;background:#ffcc33;color:#1a1300;font-weight:800;font-size:11px;border-radius:999px;padding:2px 8px}
+.ofn{width:100%;min-width:0;border:1px solid transparent;background:transparent;color:inherit;font:inherit;font-weight:800;text-align:center;border-radius:8px;padding:3px}.ofn:hover,.ofn:focus{border-color:var(--line,rgba(255,255,255,.2));background:rgba(0,0,0,.2);outline:0}
+.ofa{display:flex;gap:6px;justify-content:center;align-items:center}.ofa .btn.sm{padding:5px 9px;font-size:12px}.ofs2{font-size:11px;color:var(--muted);line-height:1.2}
+.ofnew{cursor:pointer;justify-content:center;align-items:center;border-style:dashed;min-height:190px}.ofplus{font-size:42px;line-height:1;font-weight:300}.ofnew small{color:var(--muted);font-size:12px}
 .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:12px}
 .item{position:relative;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:6px;text-align:left}
 .item:hover{border-color:color-mix(in srgb,var(--sel) 50%,var(--line))}
@@ -532,6 +541,14 @@ const CATVIEW={mascota:'pet',piel:'head',cara:'head',cabeza:'hat',accesorio:'hea
 function renderThumb(eq,view,pose){if(!TR&&webgl)thumbSetup();if(!webgl)return '';const av=A.makeAvatar(THREE,eq);TSc.add(av.root);if(pose)try{pose(av)}catch(e){}
   const[p,l]=VIEWS[view]||VIEWS.full;TC.position.set(...p);TC.lookAt(...l);TR.render(TSc,TC);const url=String(TR.domElement.toDataURL()||'');TSc.remove(av.root);dispose(av.root);return url}
 const thumbs={};
+const ofThumbs={};function outfitThumb(eq){const k=JSON.stringify(eq);if(!(k in ofThumbs)){try{ofThumbs[k]=renderThumb(eq,'full')}catch(e){ofThumbs[k]=''}}return ofThumbs[k]}
+function outfitsHTML(){const L=A.outfits?A.outfits():[];const cur=st.outfit;
+  return `<section class="ofs" aria-label="Mis avatares"><div class="ofh"><h2>Mis avatares</h2><small>Crea varios avatares y cámbiate cuando quieras, también en mitad de un juego con el botón AVATAR o la tecla Y.</small></div>
+  <div class="ofl">${L.map(o=>{const on=o.id===cur,u=outfitThumb(o.eq);return `<div class="ofc ${on?'on':''}">
+    <button class="ofi" data-act="wearav" data-id="${o.id}" aria-label="Ponerte ${esc(o.name)}" style="${u?`background-image:url(${u})`:''}">${on?'<span class="ofb">Puesto</span>':''}</button>
+    <input class="ofn" data-ofname="${o.id}" value="${esc(o.name)}" maxlength="24" aria-label="Nombre del avatar">
+    <div class="ofa">${on?'<span class="ofs2">Lo que cambies se guarda aquí</span>':`<button class="btn sm brand" data-act="wearav" data-id="${o.id}">Ponérmelo</button>`}<button class="btn sm" data-act="delav" data-id="${o.id}" aria-label="Borrar ${esc(o.name)}">✕</button></div></div>`}).join('')}
+    ${L.length<20?`<button class="ofc ofnew" data-act="newav"><span class="ofplus">+</span><b>Nuevo avatar</b><small>${L.length?'Empieza uno desde cero':'Guarda tu avatar actual y crea otro'}</small></button>`:''}</div></section>`}
 function itemThumb(it){if(thumbs[it.id]!==undefined)return thumbs[it.id];const eq=Object.assign({},A.DEF_EQ,{[it.cat]:it.id});let pose=null;
   if(it.cat==='animacion')pose=av=>{av.root.rotation.y=-.6;A.animate(av,{walk:1.25,moving:1,dt:.016,pack:it.id})};
   if(it.cat==='gesto')pose=av=>{av.root.rotation.y=-.4;A.emote(av,it.id);const n=Math.round((it.dur||2.5)*.42/.1);for(let k=0;k<n;k++)A.animate(av,{dt:.1,moving:0})};
@@ -596,6 +613,7 @@ const V={
     ${q?'':creadosSec()}`},
   avatar(){const its=A.ITEMS.filter(i=>i.cat===avCat&&st.owned.includes(i.id));const more=A.ITEMS.filter(i=>!i.custom&&i.cat===avCat&&!st.owned.includes(i.id)).length;
     return `<h1>Avatar</h1><p class="sub">Arrastra el muñeco para girarlo. Lo que te pongas aquí lo llevas en todos los juegos. En <b>Animaciones</b> eliges cómo andas, saltas y trepas; en <b>Gestos</b> pruebas los que puedes hacer en los juegos con la tecla G o el botón GESTOS.</p>
+    ${outfitsHTML()}
     <div class="av"><div style="min-width:0"><div class="stage" id="stage"><span class="hint">${webgl?'Arrastra para girar':'Tu navegador no puede mostrar 3D'}</span></div>
     ${webgl?`<div class="demo" role="group" aria-label="Probar animaciones">${[['idle','Quieto'],['walk','Andar'],['jump','Saltar'],['climb','Trepar']].map(([k,n])=>`<button class="btn ${PV&&PV.mode===k?'on':''}" data-act="demo" data-id="${k}">${n}</button>`).join('')}<button class="btn" data-act="demoemote">Gesto: ${esc((A.BY[st.eq.gesto]||A.BY.ge0).name)}</button></div>`:''}</div>
     <div style="min-width:0"><div class="tabs" role="tablist">${A.CATS.map(([id,n])=>`<button class="tab ${avCat===id?'on':''}" role="tab" aria-selected="${avCat===id}" data-act="avcat" data-id="${id}">${n}</button>`).join('')}</div>
@@ -832,6 +850,11 @@ const ACT={
   buyitem(id){const it=A.BY[id];if(st.owned.includes(id)||it.lvl)return;if(st.cubos<it.price){itemModal(it);return}if(it.custom){buyCustom(it);return}
     st.cubos-=it.price;st.owned.push(id);st.eq[it.cat]=id;addHist(`Catálogo: ${it.name}`,-it.price);save();rebuildPV();closeModal();if(Au)Au.sfx('buy');render();previewItem(it);toast(`¡Comprado! Ya llevas puesto: ${it.name}`)},
   avcat(id){avCat=id;render()},
+  newav(){st=A.state();const first=!(A.outfits()||[]).length;const o=A.newOutfit();if(!o){toast('Puedes guardar hasta 20 avatares');return}st=A.state();rebuildPV();avCat='piel';render();if(Au)Au.sfx('equip');
+    toast(first?`Tu avatar de antes está guardado en «Avatar 1». Ahora estás creando «${o.name}»`:`Nuevo avatar: «${o.name}». Lo que te pongas se guarda en él`)},
+  wearav(id){const r=A.wear(id);if(!r)return;st=A.state();rebuildPV();render();if(Au)Au.sfx('equip');const o=A.outfits().find(x=>x.id===id);toast('Te has puesto «'+(o?o.name:'tu avatar')+'»')},
+  delav(id){const b=document.querySelector(`[data-act=delav][data-id="${id}"]`);if(b&&b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='¿Borrar?';setTimeout(()=>{if(b.isConnected){b.dataset.sure='';b.textContent='✕'}},2500);return}
+    A.deleteOutfit(id);st=A.state();render();toast('Avatar borrado')},
   catcat(id){catCat=id;render()},
   tocat(id){catCat=id;location.hash='#catalogo'},
   randomav(){A.CATS.forEach(([c])=>{const own=A.ITEMS.filter(i=>i.cat===c&&st.owned.includes(i.id));st.eq[c]=own[Math.floor(Math.random()*own.length)].id});save();rebuildPV();render()},
@@ -1315,7 +1338,9 @@ document.addEventListener('submit',e=>{const id=e.target.id;if(!['admform','adms
   if(id==='admform'){const c=$('#admcode').value;if(fnv(c)===(a.hash||ADM_DEF)){a.on=true;admWrite(a);if(Au)Au.sfx('levelup');render();toast('¡Modo administrador activado!')}else{$('#admmsg').textContent='Ese código no es correcto.';$('#admcode').value=''}}
   if(id==='admsetc'){const v=Math.max(0,Math.min(99999999,Math.round(+$('#admc').value||0)));st.cubos=v;admAfter(`Ahora tienes ${fmtC(v)} Cubos`)}
   if(id==='admnew'){const v=$('#admn1').value.trim();if(v.length<4){toast('El código necesita al menos 4 caracteres');return}a.hash=fnv(v);admWrite(a);$('#admpassbox').innerHTML='<p class="gnote">Código cambiado. Apúntalo: si lo olvidas, se vuelve a usar el código original.</p>'}});
-document.addEventListener('change',e=>{if(e.target.id==='fpschk'&&CG)CG.fps.set(e.target.checked)});
+document.addEventListener('change',e=>{if(e.target.id==='fpschk'&&CG)CG.fps.set(e.target.checked);
+  if(e.target.dataset&&e.target.dataset.ofname){A.renameOutfit(e.target.dataset.ofname,e.target.value);st=A.state();toast('Nombre guardado')}});
+addEventListener('cubi-avatar',()=>{st=A.state();if(view==='avatar'){rebuildPV();render()}});
 function gpanelLabel(){const b=document.querySelector('#gpanel [data-act=gcycle]');if(b&&CG)b.textContent='Gráficos: '+CG.LV[CG.level()].name}
 gpanelLabel();
 /* ================= AMIGOS ================= */
