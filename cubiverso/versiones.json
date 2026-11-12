@@ -1,8 +1,20 @@
 {
- "latest": "4.3",
+ "latest": "4.4",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "4.4",
+   "date": "2026-11-12",
+   "title": "Mundo Bloque más fluido",
+   "notes": [
+    "Mundo Bloque: andas, corres y saltas más rápido (doble W o joystick a tope para correr)",
+    "Sombras suaves en las esquinas de los bloques y agua con ondas que se mueven",
+    "Más fotogramas por segundo: la calidad se ajusta sola si el juego va a tirones"
+   ],
+   "size": 1062249,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-4.4.zip"
+  },
   {
    "id": "4.3",
    "date": "2026-11-12",
