@@ -53,7 +53,7 @@ button,input{font:inherit;color:inherit}button{cursor:pointer}
   <section class="left">
     <div class="brief" id="brief"></div>
     <div class="screen"><div class="cine" id="cine"><canvas id="cv" aria-label="Pantalla de la intro"></canvas><span class="rec">● INTRO</span></div></div>
-    <div class="ctrl"><button class="b h" id="bPlay">▶ VER INTRO</button><button class="b y" id="bDeliver">Entregar al cliente</button><button class="b" id="bMode">Modo libre</button></div>
+    <div class="ctrl"><button class="b h" id="bPlay">▶ VER INTRO</button><button class="b y" id="bDeliver">Entregar al cliente</button><button class="b" id="bSaveI">Guardar intro</button><button class="b" id="bMode">Modo libre</button></div>
   </section>
   <aside class="side" id="side"></aside>
 </div>
@@ -216,9 +216,10 @@ function music(){const a=ac();if(!a)return;const t=a.currentTime+.05,hit=t+T_HIT
   if(cfg.mus==='pop'){for(let i=0;i<12;i++){kick(t+i*.48);if(i%2)clap(t+i*.48);hat(t+i*.48+.24)}[[261.6,329.6,392],[293.7,370,440]].forEach((ch,i)=>ch.forEach(f=>{osc(f,hit+i*.96,.4,'square',.04);osc(f,hit+i*.96+.48,.4,'square',.04)}));for(let i=0;i<8;i++)osc([65.4,65.4,73.4,82.4][i%4],t+i*.48+.24,.3,'triangle',.18)}}
 /* ---------- reproducir y entregar ---------- */
 function blip(){const a=ac();if(a)osc(900,a.currentTime,.06,'square',.05)}
+function startIntro(){rebuild();playStart=performance.now();playT=0;$('#cine').classList.add('full');music();watched=true}
 $('#bPlay').onclick=()=>{rebuild();playStart=performance.now();playT=0;$('#cine').classList.add('full');music();watched=true};
 $('#cine').addEventListener('click',()=>{if(playT>=0){playT=-1;endPlay()}});
-function endPlay(){$('#cine').classList.remove('full');rebuild()}
+function endPlay(){if(PLAYER){try{parent.postMessage({introEnd:1},'*')}catch(e){}return}$('#cine').classList.remove('full');rebuild()}
 function cubiEnd(){try{if(parent!==window)parent.postMessage({cubiEvt:'end'},'*')}catch(e){}}
 $('#bDeliver').onclick=()=>{if(mode==='libre'){toast('En modo libre no hay cliente: ¡disfruta tu intro!');return}if(!watched){toast('Primero mira tu intro con ▶ VER INTRO');return}
   const J=job(),met=J.req.filter(reqMet).length,stars=met===J.req.length?3:met>=J.req.length-1?2:met>0?1:0,pay=stars*20+(stars===3?20:0);
@@ -231,8 +232,24 @@ $('#bDeliver').onclick=()=>{if(mode==='libre'){toast('En modo libre no hay clien
   $('#oNext').onclick=()=>{$('#ovl').innerHTML='';watched=false;if(next){cfg.fx=[];cfg.esl=''}setLogo();side()}};
 $('#bMode').onclick=()=>{mode=mode==='encargo'?'libre':'encargo';$('#bMode').textContent=mode==='encargo'?'Modo libre':'Encargos';$('#bDeliver').hidden=mode==='libre';setLogo();side()};
 addEventListener('keydown',e=>{if(e.key==='Escape'&&playT>=0){playT=-1;endPlay()}});
-document.fonts&&document.fonts.ready.then(()=>{for(const k in thumbs)delete thumbs[k];setLogo();side()});
-setLogo();side();
+document.fonts&&document.fonts.ready.then(()=>{for(const k in thumbs)delete thumbs[k];if(!new URLSearchParams(location.search).get('ver')){setLogo();side()}else if(playT<0)setLogo()});
+/* ---------- guardar intros para usarlas en otros juegos (Creador de videojuegos 2D) ---------- */
+const IKEY='cubi-intros';const loadIntros=()=>{try{return JSON.parse(localStorage.getItem(IKEY)||'[]')||[]}catch(e){return []}};
+$('#bSaveI').onclick=()=>{const def=mode==='encargo'?'Intro de '+CO[job().co].n:cfg.src==='txt'?'Intro de '+cfg.text:'Mi intro';
+  $('#ovl').innerHTML=`<div class="ov"><div class="card" role="dialog" aria-modal="true" aria-labelledby="sv"><h2 id="sv" style="font-size:26px">GUARDAR INTRO</h2><p>Podrás ponerla al principio de tus juegos en el Creador de videojuegos 2D.</p>
+    <input class="in" id="iName" maxlength="28" value="${esc(def)}" aria-label="Nombre de la intro"><div style="display:flex;gap:8px;justify-content:center"><button class="b h" id="iOk">Guardar</button><button class="b" id="iNo">Cancelar</button></div></div></div>`;
+  $('#iNo').onclick=()=>$('#ovl').innerHTML='';
+  $('#iOk').onclick=()=>{const name=($('#iName').value||'').trim()||'Mi intro';const c=Object.assign({},cfg,{fx:cfg.fx.slice()});if(mode==='encargo'){c.src='co';c.logo=job().co}
+    let imgData=null;if(c.src==='img'&&img){const k=cnv(256,256);k.getContext('2d').drawImage(img,0,0,256,256);imgData=k.toDataURL('image/png')}
+    const L=loadIntros().filter(i=>i.name!==name);L.unshift({id:'in'+Date.now().toString(36),name,cfg:c,imgData,created:Date.now()});
+    try{localStorage.setItem(IKEY,JSON.stringify(L.slice(0,20)));toast('Intro guardada: «'+name+'»')}catch(e){toast('No se ha podido guardar (¿imagen muy grande?)')}$('#ovl').innerHTML=''}};
+/* ---------- modo reproductor: otro juego abre esta página con ?ver=ID ---------- */
+const PLAYER=new URLSearchParams(location.search).get('ver');
+if(PLAYER){const it=loadIntros().find(i=>i.id===PLAYER);document.querySelector('.side').hidden=true;document.querySelector('.brief').hidden=true;document.querySelector('.ctrl').hidden=true;
+  if(!it){try{parent.postMessage({introEnd:1},'*')}catch(e){}}
+  else{mode='libre';cfg=Object.assign(cfg,it.cfg);const go=()=>{$('#cine').classList.add('full');const a=ac();if(a&&a.state!=='running'){$('#ovl').innerHTML='<div class="ov" id="tapGo" style="cursor:pointer"><button class="b h" style="font-size:22px">▶ Ver la intro</button></div>';$('#tapGo').onclick=()=>{$('#ovl').innerHTML='';ac();startIntro()}}else startIntro()};
+    if(it.imgData){const im=new Image();im.onload=()=>{const c=cnv(512,512);c.getContext('2d').drawImage(im,0,0,512,512);img=c;setLogo();go()};im.src=it.imgData}else{setLogo();go()}}}
+else{setLogo();side()}
 </script>
 </body>
 </html>
