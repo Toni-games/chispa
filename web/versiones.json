@@ -1,8 +1,22 @@
 {
- "latest": "3.9",
+ "latest": "4.0",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "4.0",
+   "date": "2026-11-12",
+   "title": "Ruleta, juego del día y récords",
+   "notes": [
+    "Ruleta de la suerte: gírala una vez al día y gana Cubos o un objeto sorpresa del catálogo",
+    "Juego del día: cada día uno distinto, y si lo juegas ganas 25 Cubos",
+    "Mis récords: tus mejores marcas en cada juego y cuántas veces has jugado",
+    "Pantalla de carga con la portada del juego y consejos mientras se abre",
+    "Ajustes → Tema: automático, claro u oscuro"
+   ],
+   "size": 1033425,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-4.0.zip"
+  },
   {
    "id": "3.9",
    "date": "2026-11-12",

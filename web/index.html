@@ -164,6 +164,19 @@ h2{font-size:19px;font-weight:700;margin:0;text-wrap:balance}
 .big-ok{font-size:40px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--play)}
 /* juego abierto */
 #play{position:fixed;inset:0;z-index:60;background:#000;display:flex;flex-direction:column}
+#gload{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:radial-gradient(circle at 50% 30%,#2a3350,#0d0f16);color:#fff;padding:20px max(16px,env(safe-area-inset-right,0px)) 20px max(16px,env(safe-area-inset-left,0px));transition:opacity .35s}
+#gload.out{opacity:0;pointer-events:none}.gl-in{display:flex;flex-direction:column;align-items:center;gap:12px;max-width:520px;width:100%;text-align:center}
+#gl-img{width:min(420px,80vw);aspect-ratio:16/9;object-fit:cover;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.5);animation:glb 1.6s ease-in-out infinite alternate}
+@keyframes glb{to{transform:translateY(-6px) scale(1.02)}}#gl-name{font-size:24px}.gl-bar{width:min(320px,70vw);height:10px;border-radius:99px;background:rgba(255,255,255,.15);overflow:hidden}
+.gl-bar i{display:block;height:100%;width:40%;border-radius:99px;background:linear-gradient(90deg,#ffcc33,#ff7a2f);animation:glr 1s ease-in-out infinite}@keyframes glr{from{transform:translateX(-100%)}to{transform:translateX(260%)}}
+#gl-tip{margin:0;color:#c9d1e4;font-size:14px;line-height:1.45;min-height:2.9em}
+.wheelw{display:flex;flex-direction:column;align-items:center;gap:14px}.wheel{position:relative;width:min(300px,76vw);aspect-ratio:1}.wheel svg{width:100%;height:100%;transition:transform 4.2s cubic-bezier(.12,.75,.12,1)}
+.wheel::after{content:"";position:absolute;left:50%;top:-6px;margin-left:-14px;border:14px solid transparent;border-top:26px solid #e23b41;filter:drop-shadow(0 2px 2px rgba(0,0,0,.4))}
+.wres{min-height:1.6em;font-weight:800;font-size:18px;text-align:center}
+.jdia{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:14px;align-items:center}.jdia img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px}
+@media (max-width:560px){.jdia{grid-template-columns:1fr}}
+.recl{display:flex;flex-direction:column;gap:6px}.recr{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:10px;align-items:center;padding:6px;border-radius:10px;background:var(--panel2)}.recr img{width:64px;aspect-ratio:16/9;object-fit:cover;border-radius:6px}.recr b{display:block}.recr small{color:var(--muted)}.recr .rv{font-weight:800;color:var(--brand);text-align:right;white-space:nowrap}
+.themes{display:flex;gap:8px;flex-wrap:wrap}.jdia .row{align-items:center}.jdia .btn.play{flex-direction:row;gap:6px}.jdia .btn.play svg{width:18px;height:18px}
 #play .bar{flex:none;display:flex;align-items:center;gap:10px;background:#0b0c10;color:#f1f3f7;padding:6px max(10px,env(safe-area-inset-right,0px)) 6px max(10px,env(safe-area-inset-left,0px));padding-top:calc(6px + env(safe-area-inset-top,0px))}
 #play .bar b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #play .bar .btn{padding:6px 12px;font-size:13px;background:#242833;border-color:rgba(255,255,255,.1);color:#f1f3f7}
@@ -337,6 +350,7 @@ body.hasban{padding-bottom:66px}body.hasban .side{bottom:66px}
     <button class="btn" data-act="exitgame">Salir</button>
   </div>
   <iframe id="frame" title="Juego" allow="fullscreen; autoplay"></iframe>
+  <div id="gload" hidden aria-live="polite"><div class="gl-in"><img id="gl-img" alt=""><b id="gl-name"></b><div class="gl-bar"><i></i></div><p id="gl-tip"></p></div></div>
   <div id="gpanel" hidden>
     <button data-act="resume">Volver al juego</button>
     <button data-act="restartgame">Reiniciar el juego</button>
@@ -570,6 +584,22 @@ const GAMES=[
 ];
 GAMES.forEach(gm=>gm.img=art(gm.draw));
 const ACCION=['obby','globos','ladrones','tormentas','zombis','karts','lava','espadas','meteoritos','patadon','runner','sumo','punteria','caida','laseres','jetpack','slimes'];let gFilt='todo';
+const TIPS=['Pulsa G o el botón GESTOS para saludar a tus amigos.','Con el botón AVATAR (o la tecla Y) te cambias de avatar en mitad de la partida.','Marca tus juegos favoritos con ♡ para encontrarlos antes.',
+  'Recoge la recompensa diaria todos los días seguidos: el 7.º hay premio extra.','En CuboStudio puedes crear tu propio juego escribiendo lo que quieres.','Juega al Juego del día para ganar 25 Cubos extra.',
+  'Con el botón AMIGOS creas una sala y juegas con tus amigos.','Gira la ruleta de la suerte una vez al día en Inicio.','En Ajustes puedes cambiar la flecha del ratón y el tema.','Los logros te dan Cubos la primera vez que los consigues.'];
+let loadT=0;function showLoad(gm){const L=$('#gload');if(!L)return;$('#gl-img').src=gm.img||'';$('#gl-name').textContent=gm.name;$('#gl-tip').textContent='Consejo: '+TIPS[Math.floor(Math.random()*TIPS.length)];
+  L.hidden=false;L.classList.remove('out');const t0=Date.now();const done=()=>{clearTimeout(loadT);loadT=setTimeout(()=>{L.classList.add('out');setTimeout(()=>{if(L.classList.contains('out'))L.hidden=true},400)},Math.max(0,1100-(Date.now()-t0)))};
+  $('#frame').onload=()=>{if($('#frame').src!=='about:blank')done()};clearTimeout(loadT);loadT=setTimeout(done,8000)}
+function juegoDelDia(){const k=dayKey(0);let h=0;for(const c of k)h=(h*31+c.charCodeAt(0))>>>0;const L=GAMES.filter(g=>!/creador|intros/.test(g.id));return L[h%L.length]}
+function jdiaHTML(){const g=juegoDelDia();if(!g)return '';const hecho=st.jdiaDay===dayKey(0);
+  return `<section class="card sec jdia" style="margin-top:14px"><img src="${g.img}" alt=""><div style="display:flex;flex-direction:column;gap:8px;min-width:0"><small style="color:var(--muted);font-weight:800;letter-spacing:.06em">JUEGO DEL DÍA</small><b style="font-size:20px">${esc(g.name)}</b>
+    <span style="color:var(--muted)">${hecho?'Ya has ganado los 25 Cubos de hoy. ¡Mañana hay otro!':'Juega hoy y gana <b>25 Cubos</b> extra.'}</span><div class="row"><button class="btn play" data-act="playgame" data-id="${g.id}">${PLAY}Jugar</button><button class="btn" data-act="ruleta">🎡 Ruleta de la suerte${st.ruleta===dayKey(0)?' (mañana)':''}</button><button class="btn" data-act="records">🏆 Mis récords</button></div></div></section>`}
+/* ruleta: una tirada al día */
+const RUL=[['20',20,'#ffcc33'],['50',50,'#3fa7ff'],['30',30,'#ff6fae'],['100',100,'#3fd15c'],['20',20,'#b48cff'],['Sorpresa',0,'#ff7a2f'],['40',40,'#22d3ee'],['250',250,'#e5484d']];
+function wheelSVG(){const n=RUL.length,r=100;let o='';RUL.forEach(([t,v,c],i)=>{const a0=(i/n)*Math.PI*2-Math.PI/2-Math.PI/n,a1=a0+Math.PI*2/n;const x0=r+r*Math.cos(a0),y0=r+r*Math.sin(a0),x1=r+r*Math.cos(a1),y1=r+r*Math.sin(a1);
+  const am=(a0+a1)/2,tx=r+r*.64*Math.cos(am),ty=r+r*.64*Math.sin(am);o+=`<path d="M${r} ${r}L${x0} ${y0}A${r} ${r} 0 0 1 ${x1} ${y1}Z" fill="${c}" stroke="#111" stroke-width="2"/><text x="${tx}" y="${ty}" fill="#111" font-size="${t.length>4?11:16}" font-weight="900" text-anchor="middle" dominant-baseline="middle" transform="rotate(${am*180/Math.PI+90} ${tx} ${ty})">${t}</text>`});
+  return `<svg viewBox="-4 -4 208 208" id="wsvg">${o}<circle cx="100" cy="100" r="16" fill="#fff" stroke="#111" stroke-width="3"/></svg>`}
+let spinning=false;
 function dayKey(off){const d=new Date(Date.now()+off*864e5);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
 function dailyAmount(k){k=Math.max(1,k||1);return 50+(Math.min(k,7)-1)*10+(k%7===0?100:0)}
 function streakNow(){return st.lastDay===dayKey(0)||st.lastDay===dayKey(-1)?(st.streak||0):0}
@@ -651,6 +681,7 @@ const V={
     ${newsHTML()}
     ${misionesHTML()}
     ${adCardHTML()}
+    ${jdiaHTML()}
     ${logrosHTML()}
     ${(st.favs||[]).length?`<section class="sec"><div class="sec-h"><h2>Tus favoritos</h2><a href="#juegos" data-act="gfilt" data-id="fav">Ver todos</a></div><div class="games">${st.favs.map(id=>GAMES.find(g=>g.id===id)).filter(Boolean).map(gameCard).join('')}</div></section>`:''}
     ${recent.length?`<section class="sec"><div class="sec-h"><h2>Seguir jugando</h2></div><div class="games">${recent.map(gameCard).join('')}</div></section>`:''}
@@ -737,7 +768,7 @@ const V={
       <div id="codewrap" style="margin-top:8px"><button class="btn" data-act="mkcode">Generar código</button></div></div></div>`:''}
     <div class="two"><form class="card sec" style="margin:0" id="nameform"><h2>Nombre</h2><div class="row"><input class="field nocase" id="nameinput" maxlength="20" value="${esc(st.name)}" aria-label="Tu nombre"><button class="btn brand" type="submit">Guardar</button></div></form>
     <div class="card sec" style="margin:0"><h2>Empezar de cero</h2><p style="margin:0;color:var(--muted)">Borra tu avatar, tus Cubos y tus compras. Las partidas de cada juego se guardan aparte.</p><div id="resetbox"><button class="btn danger" data-act="resetask">Borrar mi cuenta</button></div></div></div>
-    ${versionCardHTML()}${APP_KIND?`<section class="card sec gcard"><h2>Actualizaciones</h2><p class="gnote">Al abrir Cubiverso se comprueba solo si hay una versión nueva.</p><button class="btn" data-act="checkupd" style="align-self:flex-start">Buscar actualizaciones ahora</button></section>`:''}${graficosCard()}${cursorCard()}${adminCard()}`}
+    ${versionCardHTML()}${APP_KIND?`<section class="card sec gcard"><h2>Actualizaciones</h2><p class="gnote">Al abrir Cubiverso se comprueba solo si hay una versión nueva.</p><button class="btn" data-act="checkupd" style="align-self:flex-start">Buscar actualizaciones ahora</button></section>`:''}${graficosCard()}${themeCard()}${cursorCard()}${adminCard()}`}
 };
 const PACKS=[{c:400,e:4.99},{c:800,e:9.99},{c:1700,e:19.99,tag:'+6% extra'},{c:4500,e:49.99,tag:'Popular'},{c:10000,e:99.99,tag:'Mejor precio'}];
 const GIFTS={'REGALO-10':{eur:10},'REGALO-25':{eur:25},'BIENVENIDA':{cubos:250}};
@@ -882,11 +913,12 @@ function redeem(code){code=(code||'').trim().toUpperCase();if(!code){toast('Escr
 let curGame=null;
 function playGame(gm){curGame=gm;if(Au)Au.sfx('open');closeModal();st.plays=st.plays||{};st.plays[gm.id]=(st.plays[gm.id]||0)+1;if(GAMES.some(g=>g.id===gm.id))st.recent=[gm.id].concat(st.recent.filter(i=>i!==gm.id)).slice(0,4);save();
   $('#gname').textContent=gm.name;$('#gbal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;$('#gpanel').hidden=true;
-  $('#frame').src=gm.file+'#plataforma';$('#play').hidden=false;document.body.style.overflow='hidden';
+  showLoad(gm);$('#frame').src=gm.file+'#plataforma';$('#play').hidden=false;document.body.style.overflow='hidden';
+  const jd=juegoDelDia();if(jd&&jd.id===gm.id&&st.jdiaDay!==dayKey(0)){st.jdiaDay=dayKey(0);st.cubos+=25;addHist('Juego del día: '+gm.name,25);save();setTimeout(()=>toast('¡Juego del día! +25 Cubos'),1500)}
   const el=$('#play');try{const f=el.requestFullscreen||el.webkitRequestFullscreen;if(f){const r=f.call(el);if(r&&r.catch)r.catch(()=>{})}}catch(e){}
   setTimeout(()=>{try{$('#frame').focus()}catch(e){}},300)}
 function previewItem(it){if(!PV||!PV.av)return;if(it.cat==='animacion')ACT.demo('walk');if(it.cat==='gesto'){A.emote(PV.av,it.id);PV.mode='emote'}}
-function exitGame(){if(window.CubiCuenta)CubiCuenta.guardar();$('#frame').src='about:blank';$('#play').hidden=true;document.body.style.overflow='';curGame=null;
+function exitGame(){const L=$('#gload');if(L){L.hidden=true;clearTimeout(loadT)}if(window.CubiCuenta)CubiCuenta.guardar();$('#frame').src='about:blank';$('#play').hidden=true;document.body.style.overflow='';curGame=null;
   try{if(document.fullscreenElement||document.webkitFullscreenElement)(document.exitFullscreen||document.webkitExitFullscreen).call(document)}catch(e){}
   st=A.state();render();if(Au)Au.gameMusic('bienvenida')}
 addEventListener('storage',e=>{if(e.key===A.KEY){st=A.state();$('#bal').innerHTML=`${CUBE}${fmtC(st.cubos)}`;$('#gbal').innerHTML=`${CUBE}${fmtC(st.cubos)}`}});
@@ -920,6 +952,19 @@ const ACT={
   togfav(id){st.favs=st.favs||[];st.favs=isFav(id)?st.favs.filter(x=>x!==id):[id].concat(st.favs);save();if(Au)Au.sfx('click');const gm=GAMES.find(g=>g.id===id);if(gm&&$('#modal').innerHTML)gameModal(gm);render();toast(isFav(id)?'Añadido a favoritos':'Quitado de favoritos')},
   randgame(){const L=GAMES.filter(g=>g.id!==(curGame&&curGame.id));const g=L[Math.floor(Math.random()*L.length)];if(g){if(Au)Au.sfx('click');gameModal(g)}},
   newsclose(){st.seenVer=NEWS&&NEWS.id;save();render()},
+  ruleta(){const done=st.ruleta===dayKey(0);openModal('Ruleta de la suerte',`<div class="wheelw"><p style="margin:0;color:var(--muted);text-align:center">Gira una vez al día y gana Cubos o un objeto sorpresa del catálogo.</p><div class="wheel">${wheelSVG()}</div><div class="wres" id="wres">${done?'Ya has girado hoy. ¡Vuelve mañana!':''}</div><button class="btn brand big" data-act="spin" ${done?'disabled':''}>Girar</button></div>`)},
+  spin(){if(spinning||st.ruleta===dayKey(0))return;spinning=true;const i=Math.floor(Math.random()*RUL.length),n=RUL.length;st.ruleta=dayKey(0);save();
+    const deg=360*6-(i*360/n)+(Math.random()-.5)*(300/n);const sv=$('#wsvg');if(Au)Au.sfx('whoosh');sv.style.transform=`rotate(${deg}deg)`;document.querySelector('[data-act=spin]').disabled=true;
+    setTimeout(()=>{spinning=false;const [t,v]=RUL[i];let msg;
+      if(v){st.cubos+=v;addHist('Ruleta de la suerte',v);msg=`¡Has ganado ${v} Cubos!`}
+      else{const L=A.ITEMS.filter(x=>!x.custom&&!x.lvl&&x.price>0&&x.price<=150&&!st.owned.includes(x.id)&&!['animacion','gesto'].includes(x.cat));
+        if(L.length){const it=L[Math.floor(Math.random()*L.length)];st.owned.push(it.id);addHist('Ruleta: '+it.name,0);msg=`¡Sorpresa! Te llevas: ${it.name}`}else{st.cubos+=150;addHist('Ruleta de la suerte',150);msg='¡Ya lo tienes todo! +150 Cubos'}}
+      save();if(Au)Au.sfx('lucky');const w=$('#wres');if(w)w.textContent=msg;toast(msg);$('#gbal')&&($('#gbal').innerHTML=`${CUBE}${fmtC(st.cubos)}`);if(window.CubiCuenta)CubiCuenta.guardar()},4300)},
+  records(){const R2=(()=>{try{return JSON.parse(localStorage.getItem('cubi-records')||'{}')}catch(e){return {}}})();try{const o=+localStorage.getItem('cubi-obby-best');if(o)R2.obby=o}catch(e){}
+    const U={obby:v=>v.toFixed(1)+' s',karts:v=>(+v).toFixed(1)+' s',golf:v=>v+' golpes',mascotas:v=>v+' s',zombis:v=>'Oleada '+v,sumo:v=>v+' rondas',espadas:v=>v+' KOs',cocina:v=>v+' monedas',reparar:v=>v+' monedas',granja:v=>v+' ganado'};
+    const rows=GAMES.map(g=>{const v=R2[g.id];const pl=(st.plays||{})[g.id]||0;return {g,v,pl}}).filter(r=>r.v!=null||r.pl).sort((a,b)=>(b.v!=null)-(a.v!=null)||b.pl-a.pl);
+    openModal('Mis récords',rows.length?`<div class="recl">${rows.map(({g,v,pl})=>`<div class="recr"><img src="${g.img}" alt=""><div style="min-width:0"><b>${esc(g.name)}</b><small>${pl?`Jugado ${pl} ${pl===1?'vez':'veces'}`:''}</small></div><span class="rv">${v!=null?(U[g.id]?U[g.id](v):fmtC(v)+' pts'):'—'}</span></div>`).join('')}</div>`:'<p>Aún no tienes récords. ¡Juega a algo y vuelve aquí!</p>')},
+  theme(id){try{if(id==='auto')localStorage.removeItem('cubi-theme');else localStorage.setItem('cubi-theme',id)}catch(e){}applyTheme(true);render()},
   buypack(i){checkoutModal(+i)},
   pay,
   resetask(){$('#resetbox').innerHTML=`<p style="margin:0 0 8px">¿Seguro? No se puede deshacer.</p><div class="row"><button class="btn danger" data-act="resetgo">Sí, borrar todo</button><button class="btn" data-act="resetno">Cancelar</button></div>`},
@@ -1361,6 +1406,10 @@ Object.assign(ACT,{checkupd(){checkUpdate(true)}});
 setTimeout(()=>checkUpdate(false),2500);
 /* ================= GRÁFICOS Y ADMINISTRADOR ================= */
 const CG=window.CubiGraficos;
+function applyTheme(force){let t=null;try{t=localStorage.getItem('cubi-theme')}catch(e){}if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);else if(force)document.documentElement.removeAttribute('data-theme')}
+applyTheme();
+function themeCard(){let t='auto';try{t=localStorage.getItem('cubi-theme')||'auto'}catch(e){}
+  return `<section class="card sec gcard"><h2>Tema</h2><p class="gnote">Colores claros u oscuros para Cubiverso.</p><div class="themes" role="radiogroup" aria-label="Tema">${[['auto','Automático'],['light','Claro'],['dark','Oscuro']].map(([k,n])=>`<button class="btn ${t===k?'brand':''}" role="radio" aria-checked="${t===k}" data-act="theme" data-id="${k}">${n}</button>`).join('')}</div></section>`}
 function cursorCard(){const CC2=window.CubiCursor;if(!CC2)return '';const cur=CC2.get();const fine=matchMedia('(pointer:fine)').matches;
   return `<section class="card sec gcard"><h2>Flecha del ratón</h2><p class="gnote">Elige tu flecha: sale en Cubiverso y en todos los juegos.${fine?'':' (En pantallas táctiles no hay flecha; se verá cuando uses un ratón).'}</p>
     <div class="curs" role="radiogroup" aria-label="Flecha del ratón">${Object.entries(CC2.LIST).map(([k,c])=>`<button role="radio" aria-checked="${k===cur}" class="${k===cur?'on':''}" data-act="cursor" data-id="${k}">${c.svg?`<img src="${CC2.preview(k)}" alt="" width="52" height="52">`:'<span class="curn" aria-hidden="true">↖</span>'}<small>${esc(c.name)}</small></button>`).join('')}</div></section>`}
