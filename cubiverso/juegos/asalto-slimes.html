@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Asalto de Slimes</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap">
+<style>
+body{background:#8fd6ff}
+.pad{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:20;display:none;gap:12px}
+body.k-touch .pad{display:flex}
+.pad button{width:74px;height:74px;border-radius:50%;border:3px solid #000;font:900 26px system-ui;color:#000;touch-action:none;box-shadow:inset 0 -5px 0 rgba(0,0,0,.25)}
+
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="../graficos.js"></script>
+<script src="../avatar.js"></script>
+<script src="../kit.js"></script>
+<script src="../audio.js"></script>
+<script src="comun.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="../multi.js"></script>
+<script src="../sala.js"></script>
+<script>
+const K=Kit,J=Juego,$=s=>document.querySelector(s);
+addEventListener('touchstart',()=>document.body.classList.add('k-touch'),{once:true,passive:true});
+
+/* Asalto de Slimes: oleadas de slimes llegan desde los bordes. Tu lanzador dispara solo al más cercano; tú solo te mueves.
+   Entre oleadas eliges una mejora. Los slimes grandes se parten en dos pequeños. */
+const {renderer,scene,camera,sun,hemi}=K.setup({sky:0x8fd6ff,fogNear:60,fogFar:140});
+const AR=24;
+K.box(AR*2+2,1,AR*2+2,K.M(0x7ccf5a),0,-.5,0,scene).receiveShadow=true;
+for(let i=0;i<40;i++){const x=(Math.random()*2-1)*AR,z=(Math.random()*2-1)*AR;if(Math.hypot(x,z)<5)continue;K.box(.3,.3+Math.random()*.4,.3,K.M(0x5fae44),x,.2,z,scene)}
+[[0,AR+1,AR*2+4,1],[0,-AR-1,AR*2+4,1],[AR+1,0,1,AR*2+4],[-AR-1,0,1,AR*2+4]].forEach(([x,z,w,d])=>K.box(w,1.4,d,K.M(0x8d6e63),x,.7,z,scene));
+const ctl=K.controls(renderer.domElement,{dist:17,pitch:.95,yaw:0,joystick:true,jumpLabel:'SALTAR'});
+const P=J.player(scene,ctl,{speed:7.5,jump:9,grav:28,bound:AR-.5});K.emotes(P.a);
+const gun=new THREE.Group();P.a.body.add(gun);K.box(.3,.3,.9,K.M(0x3fa7ff),.62,1.15,.35,gun);
+const SC=[0x7cfc5a,0x3fa7ff,0xff6fae,0xffd166,0xb48cff];
+let slimes=[],shots=[],gems=[],running=false,wave=0,kills=0,hp=5,maxhp=5,inv=0,fireT=0,choosing=false,R=Math.random,toSpawn=0,spawnT=0;
+const up={rate:.55,dmg:1,multi:1,speed:7.5,pierce:0,range:18,magnet:2};
+function slime(size,x,z,col){const s=.6+size*.45,g=new THREE.Group();const body=K.sph(s,K.M(col,{transparent:true,opacity:.92}),0,s*.8,0,g);body.scale.y=.8;body.castShadow=true;
+  [-1,1].forEach(k=>{K.sph(s*.18,new THREE.MeshBasicMaterial({color:0xffffff}),k*s*.35,s*1,s*.72,g);K.sph(s*.09,new THREE.MeshBasicMaterial({color:0x111111}),k*s*.35,s*1,s*.85,g)});
+  g.position.set(x,0,z);scene.add(g);const o={g,body,size,s,x,z,hp:size*2+Math.floor(wave/3),hop:R()*6,col,speed:(3.4+wave*.15)*(size===1?1.35:size===2?1:.75)};slimes.push(o);return o}
+function spawnOne(){const side=Math.floor(R()*4),u=(R()*2-1)*AR;const x=side<2?u:(side===2?1:-1)*AR,z=side<2?(side?1:-1)*AR:u;
+  const r=R(),size=wave>=4&&r<.18?3:wave>=2&&r<.45?2:1;slime(size,x,z,SC[Math.floor(R()*SC.length)])}
+function nextWave(){wave++;toSpawn=5+wave*3;spawnT=0;K.toast('OLEADA '+wave,toSpawn+' slimes','#7cfc5a');J.sfx('alarm')}
+function shoot(){const tg=slimes.filter(s=>Math.hypot(s.x-P.x,s.z-P.z)<up.range).sort((a,b)=>Math.hypot(a.x-P.x,a.z-P.z)-Math.hypot(b.x-P.x,b.z-P.z));if(!tg.length)return;
+  for(let k=0;k<up.multi;k++){const t=tg[k%tg.length];const dx=t.x-P.x,dz=t.z-P.z,d=Math.hypot(dx,dz)||1;const spread=(k-(up.multi-1)/2)*.12;const ang=Math.atan2(dx,dz)+(tg.length>k?0:spread);
+    const m=K.sph(.22,new THREE.MeshBasicMaterial({color:0xfff176}),P.x,1.2,P.z,scene);shots.push({m,x:P.x,z:P.z,vx:Math.sin(ang)*24,vz:Math.cos(ang)*24,life:.9,pierce:up.pierce,hit:new Set()})}
+  P.face=Math.atan2(tg[0].x-P.x,tg[0].z-P.z);J.sfx('pop')}
+function kill(s){const i=slimes.indexOf(s);if(i<0)return;slimes.splice(i,1);scene.remove(s.g);kills++;J.sfx('splash');
+  if(s.size>1){for(let k=0;k<2;k++)slime(s.size-1,s.x+(k?.8:-.8),s.z+(k?.5:-.5),s.col)}
+  const gm=K.box(.4,.4,.4,new THREE.MeshBasicMaterial({color:0x7ef0ff}),s.x,.5,s.z,scene);gm.rotation.set(.6,.6,0);gems.push({m:gm,x:s.x,z:s.z})}
+const UPS=[['Disparo rápido','Disparas más seguido',()=>up.rate=Math.max(.15,up.rate*.78)],['Más fuerza','Cada disparo quita más vida',()=>up.dmg+=1],['Disparo doble','Un proyectil más cada vez',()=>up.multi=Math.min(5,up.multi+1)],
+  ['Zapatillas','Corres más rápido',()=>{up.speed+=1.2;P.speed=up.speed}],['Corazón extra','+1 de vida máxima y te curas',()=>{maxhp++;hp=maxhp}],['Atraviesa','Los disparos atraviesan un slime más',()=>up.pierce++],['Más alcance','Disparas desde más lejos',()=>up.range+=5]];
+function chooseUp(){choosing=true;const pick=[];const pool=UPS.slice();while(pick.length<3&&pool.length)pick.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]);
+  const ov=J.el(K.panel('¡OLEADA '+wave+' SUPERADA!','#7cfc5a',`<p>Elige una mejora:</p><div class="k-row" style="flex-direction:column">${pick.map((u,i)=>`<button class="k-btn b k-out" data-u="${i}" style="text-align:left"><b>${u[0]}</b><br><small>${u[1]}</small></button>`).join('')}</div>`));
+  ov.addEventListener('click',e=>{const b=e.target.closest('[data-u]');if(!b)return;pick[+b.dataset.u][2]();J.sfx('levelup');ov.remove();choosing=false;hp=Math.min(maxhp,hp+1);nextWave()})}
+function reset(sd){R=sd?Sala.rng(sd):Math.random;slimes.forEach(s=>scene.remove(s.g));shots.forEach(s=>scene.remove(s.m));gems.forEach(g=>scene.remove(g.m));slimes=[];shots=[];gems=[];
+  Object.assign(up,{rate:.55,dmg:1,multi:1,speed:7.5,pierce:0,range:18,magnet:2});P.speed=7.5;wave=0;kills=0;hp=maxhp=5;inv=0;P.x=0;P.z=0;choosing=false;toSpawn=0}
+function over(){running=false;J.sfx('lose');const score=kills*10+(wave-1)*50;const rec=J.saveBest('slimes',score,true);if(window.Sala)Sala.score(score,'Oleada '+wave);
+  setTimeout(()=>J.end({title:'¡TE HAN PRINGADO!',col:'#7cfc5a',lines:[`Llegaste a la <b style="color:#ffcc33">oleada ${wave}</b> · Slimes: ${kills}`,`Puntos: <b style="color:#ffcc33">${score}</b>`,`Récord: ${J.best('slimes')}`],record:rec,onAgain(){reset();running=true;nextWave()}}),800)}
+let last=performance.now();
+function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;const act=running&&!choosing;
+  P.frozen=!act;P.update(dt,camera,1);inv=Math.max(0,inv-dt);P.a.root.visible=!(inv>0&&Math.floor(t/90)%2);
+  if(act){fireT-=dt;if(fireT<=0){shoot();fireT=up.rate}
+    if(toSpawn>0){spawnT-=dt;if(spawnT<=0){spawnOne();toSpawn--;spawnT=Math.max(.25,1-wave*.06)}}
+    if(toSpawn<=0&&!slimes.length&&wave>0){chooseUp()}}
+  for(const s of slimes){if(act){const dx=P.x-s.x,dz=P.z-s.z,d=Math.hypot(dx,dz)||1;s.hop+=dt*6;const k=Math.max(0,Math.sin(s.hop));s.x+=dx/d*s.speed*dt*(.4+k);s.z+=dz/d*s.speed*dt*(.4+k);
+      if(d<s.s+.5&&inv<=0){hp--;inv=1.2;J.sfx('hit');if(hp<=0)over()}}
+    s.g.position.set(s.x,Math.max(0,Math.sin(s.hop))*.5,s.z);s.body.scale.set(1+Math.cos(s.hop)*.08,.8-Math.cos(s.hop)*.08,1+Math.cos(s.hop)*.08);s.g.rotation.y=Math.atan2(P.x-s.x,P.z-s.z)}
+  for(let i=slimes.length-1;i>=0;i--){const a=slimes[i];for(let j=i-1;j>=0;j--){const b=slimes[j];const dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz),m=a.s+b.s;if(d<m&&d>0){const k=(m-d)/2;a.x-=dx/d*k;a.z-=dz/d*k;b.x+=dx/d*k;b.z+=dz/d*k}}}
+  for(let i=shots.length-1;i>=0;i--){const s=shots[i];s.x+=s.vx*dt;s.z+=s.vz*dt;s.life-=dt;s.m.position.set(s.x,1.2,s.z);let gone=s.life<=0;
+    for(const q of slimes.slice()){if(s.hit.has(q))continue;if(Math.hypot(q.x-s.x,q.z-s.z)<q.s+.2){s.hit.add(q);q.hp-=up.dmg;q.body.material.emissive=new THREE.Color(0x666666);setTimeout(()=>{if(q.body.material)q.body.material.emissive=new THREE.Color(0)},80);if(q.hp<=0)kill(q);if(s.pierce--<=0){gone=true;break}}}
+    if(gone){scene.remove(s.m);shots.splice(i,1)}}
+  for(let i=gems.length-1;i>=0;i--){const g=gems[i];g.m.rotation.y+=dt*3;const d=Math.hypot(P.x-g.x,P.z-g.z);if(d<up.magnet+2.5){g.x+=(P.x-g.x)*Math.min(1,dt*6);g.z+=(P.z-g.z)*Math.min(1,dt*6);g.m.position.set(g.x,.5,g.z)}if(d<.8){scene.remove(g.m);gems.splice(i,1);J.sfx('coin')}}
+  if(running)J.hud([['Oleada',wave],['Vida','♥'.repeat(Math.max(0,hp))+'♡'.repeat(Math.max(0,maxhp-hp))],['Slimes',kills]]);
+  if(window.Sala&&running&&Math.floor(t/1000)!==Math.floor((t-dt*1000)/1000))Sala.score(kills*10+Math.max(0,wave-1)*50,'Oleada '+wave);
+  sun.position.set(P.x+20,50,P.z+10);sun.target.position.set(P.x,0,P.z);
+  renderer.render(scene,camera);requestAnimationFrame(loop)}
+Sala.init({game:'slimes',scene,me:P.a,getState:()=>({x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),ry:+P.face.toFixed(2),air:!P.ground}),board:{label:'Puntos'},
+  shared:'Cada uno lucha contra sus propios slimes; en el marcador veréis quién llega más lejos.',onStart(sd){J.closePanels();reset(sd);running=true;nextWave()}});
+reset();J.music('batalla');
+J.start({title:'ASALTO DE SLIMES',col:'#7cfc5a',sub:'Los slimes llegan por oleadas. Tu lanzador dispara solo al más cercano: tú solo tienes que moverte y esquivar. Los grandes se parten en dos.',
+  howto:['<b>WASD</b> o joystick para moverte','Al acabar cada oleada eliges una mejora: más disparos, más fuerza, más vida…','Tienes 5 corazones. Si un slime te toca, pierdes uno'],
+  record:J.best('slimes')!=null?J.best('slimes')+' puntos':null,onStart(){running=true;nextWave()}});
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
