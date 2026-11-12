@@ -1,5 +1,5 @@
 /* Cubiverso · service worker: guarda los archivos para que la app cargue rápido y funcione sin conexión (menos el multijugador) */
-const CACHE='cubiverso-v37';
+const CACHE='cubiverso-v38';
 const FILES=['./','./index.html','./avatar.js','./audio.js','./cuenta.js','./firebase-config.js','./pases.js','./kit.js','./cursor.js','./multi.js','./amigos.js','./graficos.js','./sala.js','./estudio/index.html','./estudio/ia.js','./estudio/estudio.js','./estudio/escena.js','./estudio/bloques.js','./estudio/plantillas.js','./juegos/creado.html','./juegos/comun.js','./juegos/granja-cubica.html','./juegos/minigolf.html','./juegos/busca-mascotas.html','./juegos/cocina-rapida.html','./juegos/torre-bloques.html','./juegos/zombis.html','./juegos/karts.html','./juegos/suelo-lava.html','./juegos/espadas.html','./juegos/meteoritos.html','./juegos/sin-carcasas.html','./juegos/reparar-moviles.html','./juegos/intros-molonas.html','./juegos/creador-2d.html','./animador.html','./manifest.json','./icon-192.png','./icon-512.png',
  './juegos/barrio-tycoon.html','./juegos/repartidor-tormentas.html','./juegos/ciudad-de-bolsillo.html','./juegos/el-cambiazo.html',
  './juegos/ladrones-de-brainrots.html','./juegos/patadon-lucky-blocks.html','./juegos/carrera-imposible.html','./juegos/guerra-de-globos.html',

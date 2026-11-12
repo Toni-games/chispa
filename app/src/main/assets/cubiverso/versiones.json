@@ -1,8 +1,19 @@
 {
- "latest": "4.4",
+ "latest": "4.5",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "4.5",
+   "date": "2026-11-12",
+   "title": "Mundo Bloque: salto arreglado",
+   "notes": [
+    "Mundo Bloque: arreglado el salto con ESPACIO",
+    "Nuevo menú de Ajustes: salto automático de 1 bloque, sensibilidad de la cámara y distancia de vista"
+   ],
+   "size": 1063290,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-4.5.zip"
+  },
   {
    "id": "4.4",
    "date": "2026-11-12",
