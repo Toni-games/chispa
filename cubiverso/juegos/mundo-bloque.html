@@ -242,7 +242,7 @@ function structure(rx,rz){const k=rx+','+rz;if(scache.has(k))return scache.get(k
   if(S){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;S.blocks.forEach(([x,,z])=>{x0=Math.min(x0,x);x1=Math.max(x1,x);z0=Math.min(z0,z);z1=Math.max(z1,z)});S.bb=[x0,x1,z0,z1]}
   scache.set(k,S);return S}
 /* ---------- trozos ---------- */
-let edits={};const chunks=new Map();const torches=new Map();const ck=(cx,cz)=>cx+','+cz;const li=(x,y,z)=>x+CH*(z+CH*y);
+let waterT=0,wph=0;let edits={};const chunks=new Map();const torches=new Map();const ck=(cx,cz)=>cx+','+cz;const li=(x,y,z)=>x+CH*(z+CH*y);
 function get(x,y,z){if(y<0)return BASE;if(y>=H)return 0;const cx=Math.floor(x/CH),cz=Math.floor(z/CH);const c=chunks.get(ck(cx,cz));if(!c)return 0;return c.d[li(x-cx*CH,y,z-cz*CH)]}
 function genChunk(cx,cz){const d=new Uint8Array(CH*CH*H),x0=cx*CH,z0=cz*CH;
   const put=(x,y,z,id,soft)=>{if(x<x0||x>=x0+CH||z<z0||z>=z0+CH||y<1||y>=H)return;const i=li(x-x0,y,z-z0);if(soft&&d[i]&&d[i]!==LEAVES&&d[i]!==PINE)return;d[i]=id};
@@ -269,15 +269,21 @@ function genChunk(cx,cz){const d=new Uint8Array(CH*CH*H),x0=cx*CH,z0=cz*CH;
   return {cx,cz,d,meshes:[],dirty:true}}
 const FACES=[[[1,0,0],[[1,0,0],[1,1,0],[1,1,1],[1,0,1]],.8,2],[[-1,0,0],[[0,0,1],[0,1,1],[0,1,0],[0,0,0]],.8,2],[[0,1,0],[[0,1,1],[1,1,1],[1,1,0],[0,1,0]],1,1],
   [[0,-1,0],[[0,0,0],[1,0,0],[1,0,1],[0,0,1]],.55,3],[[0,0,1],[[1,0,1],[1,1,1],[0,1,1],[0,0,1]],.68,2],[[0,0,-1],[[0,0,0],[0,1,0],[1,1,0],[1,0,0]],.68,2]];
+const AOV=[.5,.66,.82,1];
 function meshChunk(c){c.meshes.forEach(m=>{scene.remove(m);m.geometry.dispose()});c.meshes=[];c.dirty=false;const x0=c.cx*CH,z0=c.cz*CH,d=c.d;
   const nb=(lx,y,lz)=>(lx>=0&&lx<CH&&lz>=0&&lz<CH)?(y<0?BASE:y>=H?0:d[li(lx,y,lz)]):get(x0+lx,y,z0+lz);
   const L=[{p:[],u:[],c:[],i:[]},{p:[],u:[],c:[],i:[]},{p:[],u:[],c:[],i:[]}];
   for(let y=0;y<H;y++)for(let lz=0;lz<CH;lz++)for(let lx=0;lx<CH;lx++){const id=d[li(lx,y,lz)];if(!id)continue;const b=B[id];
     for(const [n,vs,shade,ti] of FACES){const o=nb(lx+n[0],y+n[1],lz+n[2]);if(o===id||opaque(o))continue;if(id===WATER&&o&&o!==WATER&&n[1]!==1)continue;
       if(id===TORCH)continue;const L2=L[id===LAMP?2:b[4]===2?1:0],base=L2.p.length/3,t=b[ti],u0=(t%AC)/AC,v0=1-Math.floor(t/AC)/AR,du=1/AC,dv=1/AR,e=.002;
-      const wy=id===WATER&&n[1]===1&&nb(lx,y+1,lz)!==WATER?-.12:0;const x=x0+lx,z=z0+lz;
-      for(const [a,b2,c2] of vs){L2.p.push(x+a,y+b2+(b2?wy:0),z+c2);L2.c.push(shade,shade,shade)}
-      L2.u.push(u0+e,v0-dv+e,u0+e,v0-e,u0+du-e,v0-e,u0+du-e,v0-dv+e);L2.i.push(base,base+1,base+2,base,base+2,base+3)}}
+      const wy=id===WATER&&n[1]===1&&nb(lx,y+1,lz)!==WATER?-.12:0;const x=x0+lx,z=z0+lz;const doAO=L2===L[0];
+      const bx=lx+n[0],by=y+n[1],bz=lz+n[2],t1=n[0]?1:0,t2=n[2]?1:2;let a0=3,a1=3,a2=3,a3=3,vi=0;
+      for(const [a,b2,c2] of vs){let ao=3;if(doAO){const v=[a,b2,c2],o=[bx,by,bz],d1=v[t1]?1:-1,d2=v[t2]?1:-1;
+          const p1=o.slice();p1[t1]+=d1;const p2=o.slice();p2[t2]+=d2;const pc=o.slice();pc[t1]+=d1;pc[t2]+=d2;
+          const s1=opaque(nb(p1[0],p1[1],p1[2]))?1:0,s2=opaque(nb(p2[0],p2[1],p2[2]))?1:0,sc=opaque(nb(pc[0],pc[1],pc[2]))?1:0;ao=s1&&s2?0:3-(s1+s2+sc)}
+        const k=shade*AOV[ao];L2.p.push(x+a,y+b2+(b2?wy:0),z+c2);L2.c.push(k,k,k);if(vi===0)a0=ao;else if(vi===1)a1=ao;else if(vi===2)a2=ao;else a3=ao;vi++}
+      L2.u.push(u0+e,v0-dv+e,u0+e,v0-e,u0+du-e,v0-e,u0+du-e,v0-dv+e);
+      if(a0+a2<a1+a3)L2.i.push(base+1,base+2,base+3,base+1,base+3,base);else L2.i.push(base,base+1,base+2,base,base+2,base+3)}}
   for(let y=0;y<H;y++)for(let lz=0;lz<CH;lz++)for(let lx=0;lx<CH;lx++){if(d[li(lx,y,lz)]!==TORCH)continue;const L2=L[2],x=x0+lx,z=z0+lz,t=36,u0=(t%AC)/AC,v0=1-Math.floor(t/AC)/AR,du=1/AC,dv=1/AR;
     for(const [n,vs] of FACES){const base=L2.p.length/3;for(const [a,b2,c2] of vs){L2.p.push(x+.44+a*.12,y+b2*.62,z+.44+c2*.12);L2.c.push(1,1,1)}L2.u.push(u0+.4*du,v0-dv,u0+.4*du,v0,u0+.6*du,v0,u0+.6*du,v0-dv);L2.i.push(base,base+1,base+2,base,base+2,base+3)}}
   L.forEach((l,k)=>{if(!l.p.length)return;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(l.p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(l.u,2));
@@ -355,7 +361,7 @@ function updateMob(m,dt,sunUp){const dx=P.x-m.x,dz=P.z-m.z,dist=Math.hypot(dx,dz
   const spd=Math.hypot(m.vx,m.vz);if(spd>.3)m.yaw=Math.atan2(m.vx,m.vz);m.walk+=dt*spd*3;
   m.g.position.set(m.x,m.y,m.z);m.g.rotation.y=m.yaw;
   if(m.a)K.walkAnim(m.a,m.walk,!m.ground);else{m.legs.forEach((l,i)=>l.rotation.x=Math.sin(m.walk+(i%2)*Math.PI)*.6*Math.min(1,spd));if(m.arms)m.arms.forEach((a,i)=>a.rotation.x=-1.2+Math.sin(m.walk+i*Math.PI)*.2)}
-  m.g.traverse(o=>{if(o.isMesh&&o.material.emissive&&!o.material.userData.keep){o.material.emissive.setHex(m.hitT>0?0x881111:(m.type==='sombra'?0x1a0a33:0))}});
+  const red=m.hitT>0;if(red!==m.red){m.red=red;m.g.traverse(o=>{if(o.isMesh&&o.material.emissive)o.material.emissive.setHex(red?0x881111:(m.type==='sombra'?0x1a0a33:0))})}
   if(m.hostile&&mode==='aventura'&&started&&dist<m.r+.55&&Math.abs(P.y-m.y)<1.8&&m.cd<=0){m.cd=1;hurt(m.type==='calabazon'?3:2,m.x,m.z)}
   return true}
 function hurt(n,fx,fz){if(mode!=='aventura'||hurtT>0)return;hp=Math.max(0,hp-n);hurtT=.6;J.sfx('hit');const dx=P.x-fx,dz=P.z-fz,d=Math.hypot(dx,dz)||1;P.vx+=dx/d*7;P.vz+=dz/d*7;P.vy=5;
@@ -375,7 +381,8 @@ const keys={};let locked=false,started=false;
 addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(e.target.tagName==='INPUT')return;keys[k]=true;
   if(k===' '){e.preventDefault();const now=performance.now();if(mode==='creativo'&&now-(P.lastSp||0)<300){P.fly=!P.fly;P.vy=0;toast(P.fly?'Volando':'Andando')}P.lastSp=now}
   if(/^[1-9]$/.test(k))selSlot(+k-1);if(k==='e'||(k==='escape'&&invOpen)){e.preventDefault();toggleInv()}if(k==='c'||k==='f5'){e.preventDefault();third=!third}});
-addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
+addEventListener('keydown',e=>{if(e.repeat)return;const k=e.key.toLowerCase();if(k==='w'||k==='arrowup'){const n=performance.now();if(n-(P.lastW||0)<280)P.run=true;P.lastW=n}});
+addEventListener('keyup',e=>{const k=e.key.toLowerCase();keys[k]=false;if(k==='w'||k==='arrowup')P.run=false});
 const cv=renderer.domElement;
 cv.addEventListener('click',()=>{if(!started||invOpen)return;if(!locked&&!isTouch&&cv.requestPointerLock){try{const r=cv.requestPointerLock();if(r&&r.catch)r.catch(()=>{})}catch(e){}}});
 document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===cv;$('#pause').hidden=locked||!started||isTouch||invOpen});
@@ -520,27 +527,30 @@ const SKY_D=new THREE.Color(0x8fd0ff),SKY_N=new THREE.Color(0x070b20),SKY_S=new 
 const sunM=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.MeshBasicMaterial({color:0xfff3a0,fog:false}));const moonM=new THREE.Mesh(new THREE.PlaneGeometry(6,6),new THREE.MeshBasicMaterial({color:0xe8ecff,fog:false}));scene.add(sunM,moonM);
 const stars=new THREE.Points(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(Array.from({length:900},()=>(Math.random()-.5)*300),3)),new THREE.PointsMaterial({color:0xffffff,size:1.2,fog:false,transparent:true}));scene.add(stars);
 scene.fog.near=RD*CH*.45;scene.fog.far=RD*CH-4;
-let last=performance.now();
-function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
+let last=performance.now(),hudT=0;
+/* calidad automática: si va a tirones baja la resolución, si va sobrado la sube */
+const PR0=Math.min(devicePixelRatio||1,1.5);let pr=PR0,fpsAcc=0,fpsN=0;renderer.setPixelRatio(pr);
+function perf(dt){fpsAcc+=dt;fpsN++;if(fpsAcc>2){const fps=fpsN/fpsAcc;fpsAcc=0;fpsN=0;let np=pr;if(fps<40&&pr>.75)np=Math.max(.75,pr-.15);else if(fps>57&&pr<PR0)np=Math.min(PR0,pr+.1);if(np!==pr){pr=np;renderer.setPixelRatio(pr);renderer.setSize(innerWidth,innerHeight,false)}}}
+function loop(t){const dt=Math.min(.1,(t-last)/1000);last=t;perf(dt);
   const a=dayT*Math.PI*2,sun=Math.sin(a),sunUp=sun>-.05;
-  streamChunks(started?6:2,started?8:3,started?9:6);
+  streamChunks(started?4:2,started?6:3,started?5:6);
   if(started&&!invOpen){
     dayT=(dayT+dt/600)%1;atkCd=Math.max(0,atkCd-dt);hurtT=Math.max(0,hurtT-dt);
     if(mode==='aventura'&&hp<10&&(regenT+=dt)>5){regenT=0;hp++;drawHearts()}
-    let fx=0,fz=0;if(keys.w||keys.arrowup)fz-=1;if(keys.s||keys.arrowdown)fz+=1;if(keys.a||keys.arrowleft)fx-=1;if(keys.d||keys.arrowright)fx+=1;if(joy){fx+=joy.dx/50;fz+=joy.dy/50}
+    let fx=0,fz=0;if(keys.w||keys.arrowup)fz-=1;if(keys.s||keys.arrowdown)fz+=1;if(keys.a||keys.arrowleft)fx-=1;if(keys.d||keys.arrowright)fx+=1;if(joy){fx+=joy.dx/50;fz+=joy.dy/50;P.run=Math.hypot(joy.dx,joy.dy)>46}
     const len=Math.hypot(fx,fz);if(len>1){fx/=len;fz/=len}
-    const cy=Math.cos(P.yaw),sy=Math.sin(P.yaw);const sp=P.fly?11:keys.control?6.2:4.4,wx=(fx*cy+fz*sy)*sp,wz=(-fx*sy+fz*cy)*sp;
+    const cy=Math.cos(P.yaw),sy=Math.sin(P.yaw);const sp=P.fly?13:(keys.control||P.run)?8:5.6,wx=(fx*cy+fz*sy)*sp,wz=(-fx*sy+fz*cy)*sp;
     const loaded=chunks.has(ck(Math.floor(P.x/CH),Math.floor(P.z/CH)))&&!chunks.get(ck(Math.floor(P.x/CH),Math.floor(P.z/CH))).dirty;
     P.inWater=get(Math.floor(P.x),Math.floor(P.y+.4),Math.floor(P.z))===WATER;
-    const k=P.ground||P.fly?14:4;P.vx+=(wx*(P.inWater?.6:1)-P.vx)*Math.min(1,dt*k);P.vz+=(wz*(P.inWater?.6:1)-P.vz)*Math.min(1,dt*k);
+    const k=P.ground||P.fly?30:10;P.vx+=(wx*(P.inWater?.6:1)-P.vx)*Math.min(1,dt*k);P.vz+=(wz*(P.inWater?.6:1)-P.vz)*Math.min(1,dt*k);
     if(!loaded){P.vy=0}else if(P.fly){P.vy=(keys[' ']?7:0)-(keys.shift?7:0)}
     else if(P.inWater){P.vy=Math.max(-3,P.vy-10*dt);if(keys[' '])P.vy=3.2}
-    else{P.vy-=28*dt;if(keys[' ']&&P.ground){P.vy=8.6;P.ground=false}}
-    const steps=Math.ceil(dt/.016);for(let s=0;s<steps;s++){const d=dt/steps;
-      let nx=P.x+P.vx*d;if(!hits(nx,P.y,P.z))P.x=nx;else{if((P.ground||P.inWater)&&!hits(nx,P.y+1.05,P.z)&&!hits(P.x,P.y+1.05,P.z)&&(isTouch||joy)){P.vy=8.6;P.ground=false}P.vx=0}
-      let nz=P.z+P.vz*d;if(!hits(P.x,P.y,nz))P.z=nz;else{if((P.ground||P.inWater)&&!hits(P.x,P.y+1.05,nz)&&!hits(P.x,P.y+1.05,P.z)&&(isTouch||joy)){P.vy=8.6;P.ground=false}P.vz=0}
+    else{P.vy-=30*dt;if(keys[' ']&&(P.ground||P.coyote>0)){P.vy=9.3;P.ground=false;P.coyote=0}}
+    const steps=Math.ceil(dt/.012);for(let s=0;s<steps;s++){const d=dt/steps;
+      let nx=P.x+P.vx*d;if(!hits(nx,P.y,P.z))P.x=nx;else{if((P.ground||P.inWater)&&!hits(nx,P.y+1.05,P.z)&&!hits(P.x,P.y+1.05,P.z)&&(isTouch||joy)){P.vy=9.3;P.ground=false}P.vx=0}
+      let nz=P.z+P.vz*d;if(!hits(P.x,P.y,nz))P.z=nz;else{if((P.ground||P.inWater)&&!hits(P.x,P.y+1.05,nz)&&!hits(P.x,P.y+1.05,P.z)&&(isTouch||joy)){P.vy=9.3;P.ground=false}P.vz=0}
       let ny=P.y+P.vy*d;if(!hits(P.x,ny,P.z)){P.y=ny;P.ground=false}else{if(P.vy<0){P.ground=true;P.y=Math.floor(ny)+1}P.vy=0}}
-    if(P.y<-10){[P.x,P.y,P.z]=spawnPt;P.vy=0}
+    P.coyote=P.ground?.12:Math.max(0,(P.coyote||0)-dt);if(P.y<-10){[P.x,P.y,P.z]=spawnPt;P.vy=0}
     if(Math.hypot(P.vx,P.vz)>.5&&P.ground)P.walk+=dt*Math.hypot(P.vx,P.vz)*1.6;
     const h=pick(),mm=pickMob();
     if(h&&!(mm&&mm.t<h.t)){sel3.visible=true;sel3.position.set(h.x+.5,h.y+.5,h.z+.5)}else sel3.visible=false;
@@ -552,6 +562,7 @@ function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
   }
   for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];if(!updateMob(m,started&&!invOpen?dt:0,sunUp)){scene.remove(m.g);mobs.splice(i,1)}}
   for(let i=parts.length-1;i>=0;i--){const m=parts[i],u=m.userData;u.vy-=18*dt;m.position.x+=u.vx*dt;m.position.y+=u.vy*dt;m.position.z+=u.vz*dt;u.t-=dt;if(u.t<=0){scene.remove(m);m.geometry.dispose();parts.splice(i,1)}}
+  if((waterT+=dt)>.15){waterT=0;wph+=.6;const ox=(11%AC)*TS,oy=Math.floor(11/AC)*TS;ag.clearRect(ox,oy,TS,TS);for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){const w=Math.sin(x*.8+y*.35+wph)*.5+Math.sin(y*1.1-x*.3-wph*.7)*.5;ag.fillStyle=`rgba(${40+w*18|0},${105+w*25|0},${215+w*15|0},${.66+w*.06})`;ag.fillRect(ox+x,oy+y,1,1)}tex.needsUpdate=true}
   const light=Math.max(.16,Math.min(1,.32+sun*1.15));
   tmpC.copy(SKY_N).lerp(SKY_D,Math.max(0,Math.min(1,.2+sun*1.4)));const dusk=Math.max(0,1-Math.abs(sun)*4)*.5;tmpC.lerp(SKY_S,dusk);scene.background.copy(tmpC);scene.fog.color.copy(tmpC);
   matO.color.setScalar(light);matT.color.setScalar(light);avLight.intensity=1.1*light;stars.material.opacity=Math.max(0,-sun*1.6);
@@ -565,7 +576,7 @@ function loop(t){const dt=Math.min(.05,(t-last)/1000);last=t;
   else camera.position.copy(eye);
   camera.lookAt(eye.clone().add(dir));
   $('#under').hidden=get(Math.floor(eye.x),Math.floor(eye.y),Math.floor(eye.z))!==WATER;
-  if(started){const tb=terrain(Math.floor(P.x),Math.floor(P.z)).b;let near='';const S=structure(Math.floor(P.x/RG),Math.floor(P.z/RG));if(S&&Math.hypot(S.x-P.x,S.z-P.z)<30)near=S.name;
+  if(started&&(hudT-=dt)<=0){hudT=.25;const tb=terrain(Math.floor(P.x),Math.floor(P.z)).b;let near='';const S=structure(Math.floor(P.x/RG),Math.floor(P.z/RG));if(S&&Math.hypot(S.x-P.x,S.z-P.z)<30)near=S.name;
     J.hud([[mode==='creativo'?'Creativo':'Aventura',P.fly?'Volando':''],[sunUp?'Día':'Noche',''],[near||BIO[tb],''],['Posición',`${Math.floor(P.x)} ${Math.floor(P.y)} ${Math.floor(P.z)}`],mode==='aventura'&&kills?['Monstruos',kills]:null])}
   renderer.render(scene,camera);requestAnimationFrame(loop)}
 // vista del menú
