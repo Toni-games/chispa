@@ -1,7 +1,7 @@
 {
   "name": "cubiverso",
   "productName": "Cubiverso",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Cubiverso: juegos, avatar y CuboStudio",
   "author": "Toni-games",
   "main": "main.js",

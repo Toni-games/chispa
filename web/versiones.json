@@ -1,8 +1,21 @@
 {
- "latest": "4.0",
+ "latest": "4.1",
  "launcher": "1.2.0",
  "launcherUrl": "https://github.com/Toni-games/chispa/releases/download/cubiverso-launcher-v1.0.3/Cubiverso-Launcher-Instalador.exe",
  "versions": [
+  {
+   "id": "4.1",
+   "date": "2026-11-12",
+   "title": "Mundo Bloque",
+   "notes": [
+    "Nuevo juego: Mundo Bloque, un mundo de bloques para explorar, picar y construir",
+    "Montañas, playas, desiertos, árboles, agua, minerales y ciclo de día y noche",
+    "Modo Creativo (vuelas y tienes 22 bloques) y modo Aventura (consigues los bloques picando)",
+    "Primera o tercera persona con tu avatar, controles de ratón y táctiles, y el mundo se guarda solo"
+   ],
+   "size": 1047307,
+   "url": "https://toni-games.github.io/chispa/cubiverso-versiones/cubiverso-web-4.1.zip"
+  },
   {
    "id": "4.0",
    "date": "2026-11-12",
