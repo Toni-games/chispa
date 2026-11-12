@@ -533,15 +533,6 @@ const GAMES=[
   draw(g,w,h){rr(g,0,0,w,h,'#8fd0ff');rr(g,0,120,w,150,'#5aa845');g.fillStyle='#3a3f4a';g.beginPath();g.moveTo(140,270);g.lineTo(220,120);g.lineTo(260,120);g.lineTo(340,270);g.fill();
     for(let i=0;i<6;i++){g.fillStyle=i%2?'#fff':'#ff4f4f';g.fillRect(132+i*-1,250-i*22,10,20);g.fillRect(338-i*-1,250-i*22,10,20)}
     [[200,200,'#3fa7ff'],[260,160,'#ff4f4f'],[230,135,'#ffcc33']].forEach(([x,y,c],i)=>{const s=1-i*.25;rr(g,x,y,60*s,30*s,c);g.fillStyle='#111';g.fillRect(x-4*s,y+20*s,12*s,12*s);g.fillRect(x+52*s,y+20*s,12*s,12*s);rr(g,x+20*s,y-16*s,20*s,18*s,'#ffd29a')})}},
- {id:'mundobloque',name:'Mundo Bloque',file:'juegos/mundo-bloque.html',tag:'Construir · Aventura',avatar:true,multi:false,nuevo:true,
-  desc:'Un mundo hecho de bloques para explorar, picar y construir lo que quieras: montañas, playas, desiertos, árboles, minerales y día y noche. Modo Creativo (vuelas y tienes todos los bloques) o Aventura (consigues los bloques picando). Tu mundo se guarda solo.',
-  draw(g,w,h){g.fillStyle='#8fd0ff';g.fillRect(0,0,w,h);const S=24;const col=(c,k)=>{const n=parseInt(c.slice(1),16);return `rgb(${(n>>16)*k|0},${(n>>8&255)*k|0},${(n&255)*k|0})`};
-    const blk=(x,y,top,side)=>{g.fillStyle=side;g.fillRect(x,y,S,S);g.fillStyle=top;g.fillRect(x,y,S,6);for(let i=0;i<6;i++){g.fillStyle='rgba(0,0,0,.08)';g.fillRect(x+((i*7)%S),y+8+((i*5)%14),3,3)}g.strokeStyle='rgba(0,0,0,.25)';g.strokeRect(x+.5,y+.5,S-1,S-1)};
-    const hs=[7,7,6,6,5,5,4,4,5,6,6,7,7,7,6,6,6,5,5,6];hs.forEach((hh,i)=>{for(let y=hh;y<12;y++)blk(i*S,y*S,y===hh?'#5fbf3a':y<hh+2?'#8a5a35':'#8b8f96',y===hh?'#8a5a35':y<hh+3?'#8a5a35':'#8b8f96')});
-    g.fillStyle='rgba(40,110,220,.75)';g.fillRect(0,8*S,4*S,4*S);
-    for(let y=0;y<4;y++)blk(10*S,(1+y)*S,'#b48a55','#7a5530');for(let x=-2;x<=2;x++)for(let y=-1;y<=0;y++)blk((10+x)*S,(y)*S+S*0,'#3f8f2f','#3f8f2f');
-    blk(15*S,4*S,'#ffd23a','#8b8f96');blk(3*S,6*S,'#c49a5c','#c49a5c');blk(4*S,6*S,'#c49a5c','#c49a5c');blk(4*S,5*S,'#a8442f','#a8442f');
-    g.fillStyle='#fff3a0';g.fillRect(380,24,40,40);person(g,200,150,1.6,'#ff7a2f')}},
  {id:'runner',name:'Corre Cubo Corre',file:'juegos/corre-cubo.html',tag:'Correr · Acción',avatar:true,multi:true,nuevo:true,
   desc:'Corre sin parar por la calle: cambia de carril, salta las vallas, esquiva muros y autobuses y coge monedas. Hay escudos e imanes. Cada vez más rápido.',
   draw(g,w,h){g.fillStyle='#8fd6ff';g.fillRect(0,0,w,h);g.fillStyle='#6fcf5a';g.fillRect(0,150,w,120);g.fillStyle='#5b6475';g.beginPath();g.moveTo(200,150);g.lineTo(280,150);g.lineTo(420,h);g.lineTo(60,h);g.fill();
