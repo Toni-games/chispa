@@ -1,8 +1,18 @@
 {
-  "latest": "1.8.0",
+  "latest": "1.8.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.8.1",
+      "date": "2026-11-15",
+      "title": "Importar música",
+      "notes": [
+        "Botón en Música para importar el zip de música del juego"
+      ],
+      "size": 218302,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.8.1.zip"
+    },
     {
       "id": "1.8.0",
       "date": "2026-11-15",

@@ -240,6 +240,7 @@
   <div id="muPackRow"><div class="hint" id="muPackInfo"></div><div class="row"><button class="btn small" id="muPackGap"></button><button class="btn small" id="muPackNext">Siguiente canción</button><button class="btn small" id="muPackClear">Quitar música del paquete</button></div></div>
   <div class="panel" id="muList" style="max-height:38vh;margin-top:8px"></div>
   <div class="row"><span class="btn half file">Añadir música…<input type="file" id="muFiles" accept="audio/*,.mp3,.ogg,.wav,.m4a" multiple></span><button class="btn half" id="muStop">Parar</button></div>
+  <div class="row"><span class="btn file" style="width:100%">Importar zip de música del juego…<input type="file" id="muZip" accept=".zip,application/zip"></span></div>
   <div class="row" id="muDirRow" style="display:none"><button class="btn half" id="muDirOpen">Abrir carpeta de música</button><button class="btn half" id="muDirReload">Volver a leer la carpeta</button></div>
   <div class="txt" id="muInfo" style="text-align:center"></div>
   <div class="txt" id="muMsg" style="text-align:center;color:#ffff88;min-height:22px"></div>
@@ -304,7 +305,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.8.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.8.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -7892,6 +7893,17 @@ const UI = {
     $('mpCode').onkeydown = (e) => { if (e.key === 'Enter') $('mpJoin').click(); };
     $('btnOpenLan').onclick = async () => { Sound.play('click'); if (Game.world && Game.world.temp) { Chat.add('§7Ya estás en la partida de otro jugador.'); return; } if (!Net.active) { const b = $('btnOpenLan'); b.textContent = 'Abriendo…'; await Net.open(); } this.updatePauseLan(); };
     // música
+    $('muZip').onchange = async (e) => {
+      const f = e.target.files[0]; e.target.value = ''; if (!f) return; Sound.init();
+      $('muMsg').textContent = 'Importando música… 0%';
+      try {
+        const z = await readZip(await f.arrayBuffer()); const paths = z.names.filter(p => PackMusic.isMusic(p));
+        if (!paths.length) { $('muMsg').textContent = 'Ese zip no tiene carpetas de música (por ejemplo «Musica del juego/Supervivencia» o «Discos»).'; return; }
+        const n = await PackMusic.importZip(z, paths, (k) => { $('muMsg').textContent = 'Importando música… ' + Math.round(k * 100) + '%'; });
+        $('muMsg').textContent = '¡' + n + ' canciones importadas! Suenan según dónde estés.';
+      } catch (err) { $('muMsg').textContent = 'No se pudo leer el zip: ' + (err && err.message || err); }
+      this.renderMusic();
+    };
     $('muFiles').onchange = async (e) => { const n = await Music.add(e.target.files); $('muMsg').textContent = n ? `¡${n} canción${n > 1 ? 'es' : ''} añadida${n > 1 ? 's' : ''}!` : 'No se reconoció ningún archivo de audio.'; e.target.value = ''; this.renderMusic(); };
     $('muStop').onclick = () => { Music.stop(); Music.nextAt = performance.now() + 600000; this.renderMusic(); };
     $('muMode').onclick = () => { const m = ['mix', 'mine', 'gen']; Settings.musicMode = m[(m.indexOf(Settings.musicMode || 'mix') + 1) % 3]; saveSettings(); if (Settings.musicMode === 'gen') Music.stop(); this.renderMusic(); };
