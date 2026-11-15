@@ -1,8 +1,24 @@
 {
-  "latest": "1.5.1",
+  "latest": "1.6",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.6",
+      "date": "2026-11-15",
+      "title": "El Nether",
+      "notes": [
+        "El Nether: portal de obsidiana (marco de 4x5 encendido con el mechero), con sus cinco biomas, fortalezas y bastiones en ruinas",
+        "Criaturas nuevas con texturas del paquete: zombi momificado, ahogado, esqueleto glacial, esqueleto oscuro, araña de cueva, slime y cubo de magma; cerdos, vacas y gallinas de clima cálido y frío",
+        "Aparecen más criaturas, de día y de noche",
+        "Estructuras nuevas: mazmorra, cabaña del bosque y torre en ruinas",
+        "Libro de recetas (crafteo rápido) en el inventario y en la mesa de crafteo",
+        "El chat sugiere y completa los comandos (Tab); /tp más fácil: /tp x z, /tp inicio, /tp aldea, /tp desierto, /tp jugador",
+        "Arreglos: los objetos sueltos en el suelo vuelven a verse y el zombi tiene sus dos brazos y piernas"
+      ],
+      "size": 207283,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.6.zip"
+    },
     {
       "id": "1.5.1",
       "date": "2026-11-15",
