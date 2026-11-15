@@ -237,6 +237,7 @@
 <div class="screen dim" id="s_music">
   <h2>Música</h2>
   <div class="row"><button class="btn small" id="muMode"></button><button class="btn small" id="muShuffle"></button><button class="btn small" id="muGap"></button></div>
+  <div id="muPackRow"><div class="hint" id="muPackInfo"></div><div class="row"><button class="btn small" id="muPackGap"></button><button class="btn small" id="muPackNext">Siguiente canción</button><button class="btn small" id="muPackClear">Quitar música del paquete</button></div></div>
   <div class="panel" id="muList" style="max-height:38vh;margin-top:8px"></div>
   <div class="row"><span class="btn half file">Añadir música…<input type="file" id="muFiles" accept="audio/*,.mp3,.ogg,.wav,.m4a" multiple></span><button class="btn half" id="muStop">Parar</button></div>
   <div class="row" id="muDirRow" style="display:none"><button class="btn half" id="muDirOpen">Abrir carpeta de música</button><button class="btn half" id="muDirReload">Volver a leer la carpeta</button></div>
@@ -303,7 +304,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.7.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.8.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -1829,7 +1830,7 @@ def13('loom', 'Telar', { tex: { top: 'loom_top', bottom: 'loom_bottom', side: 'l
 def13('stonecutter', 'Cortapiedras', BOX({ tex: { top: 'stonecutter_top', bottom: 'stonecutter_bottom', side: 'stonecutter_side' }, shape: 'stonecutter', hardness: 3.5, tool: 'pickaxe', interact: 'craft', color: '#7a7a7a', cat: 'func' }));
 def13('cauldron', 'Caldero', BOX({ tex: { top: 'cauldron_top', bottom: 'cauldron_bottom', side: 'cauldron_side' }, shape: 'cauldron', hardness: 2, tool: 'pickaxe', needsTool: true, sound: 'metal', color: '#3a3a3a', cat: 'func' }));
 def13('enchanting_table', 'Mesa de encantamientos', BOX({ tex: { top: 'enchanting_table_top', bottom: 'enchanting_table_bottom', side: 'enchanting_table_side' }, shape: 'enchant', interact: 'enchant', hardness: 5, tool: 'pickaxe', needsTool: true, emit: 7, color: '#6a2030', cat: 'func', resist: 1200 }));
-def13('jukebox', 'Tocadiscos', { tex: { top: 'jukebox_top', side: 'jukebox_side' }, hardness: 2, tool: 'axe', sound: 'wood', color: '#6a4a3a', cat: 'func', fuel: 300 });
+def13('jukebox', 'Tocadiscos', { tex: { top: 'jukebox_top', side: 'jukebox_side' }, interact: 'jukebox', hardness: 2, tool: 'axe', sound: 'wood', color: '#6a4a3a', cat: 'func', fuel: 300 });
 def13('honey_block', 'Bloque de miel', { tex: { top: 'honey_block_top', bottom: 'honey_block_bottom', side: 'honey_block_side' }, hardness: 0, opaque: false, translucent: true, cullSelf: true, filter: 1, sound: 'wool', color: '#f8b030', cat: 'func', sticky: true });
 
 // ---------- redstone ----------
@@ -2212,6 +2213,9 @@ for (const [k, n, o] of [
   ['beetroot_soup', 'Sopa de remolacha', { food: { h: 6, s: 7.2 }, stack: 1, cat: 'food', bowl: true }], ['mushroom_stew', 'Estofado de champiñones', { food: { h: 6, s: 7.2 }, stack: 1, cat: 'food', bowl: true }],
   ['cookie', 'Galleta', { food: { h: 2, s: 0.4 }, cat: 'food' }],
 ]) if (!ITEMS[k]) defItem(k, n, Object.assign({ cat: 'misc' }, o || {}));
+// discos de música (suenan en el tocadiscos si cargaste un paquete de música con la carpeta «Discos»)
+const DISCS = ['13', 'cat', 'blocks', 'chirp', 'far', 'mall', 'mellohi', 'stal', 'strad', 'ward', '11', 'wait'];
+for (const n of DISCS) defItem('music_disc_' + n, 'Disco de música', { stack: 1, cat: 'misc', disc: n, desc: 'C418 - ' + n });
 // la redstone se coloca como polvo
 ITEMS.redstone.places = 'redstone_wire'; ITEMS.redstone.cat = 'redstone';
 // huevos para hacer aparecer criaturas
@@ -2829,6 +2833,13 @@ const FALLBACK_ICONS = {
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d <= 3.4) P(c, x, y, (x + y) % 2 ? '#5a3a1a' : '#7a5228'); }
   },
 };
+// discos de música: disco negro con la etiqueta de color
+const DISC_COLORS = { '13': '#e8d24a', cat: '#5fd04a', blocks: '#e8762c', chirp: '#c8302a', far: '#a8d84a', mall: '#8a5ad0', mellohi: '#f0d8f0', stal: '#3a3a3a', strad: '#f4f4f4', ward: '#2f7a3a', '11': '#2a2a2a', wait: '#3a7ad8' };
+for (const [n, col] of Object.entries(DISC_COLORS)) FALLBACK_ICONS['music_disc_' + n] = (c) => {
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 7.2) P(c, x, y, d > 6.4 ? '#101010' : (d < 2.6 ? (d < 1 ? '#101010' : col) : ((x + y) % 5 === 0 ? '#2e2e2e' : '#1c1c1c'))); }
+  P(c, 4, 4, '#4a4a4a'); P(c, 5, 3, '#4a4a4a'); if (n === '11') { P(c, 9, 4, '#5a5a5a', 1, 4); P(c, 10, 8, '#5a5a5a', 1, 3); }
+};
+
 function fallbackIcon(k, it) {
   if (FALLBACK_ICONS[k]) return FALLBACK_ICONS[k];
   const m = k.match(/^(.*)_spawn_egg$/); if (m && EGG_COLORS[m[1]]) return eggIcon(...EGG_COLORS[m[1]]);
@@ -3196,7 +3207,12 @@ const TexturePack = {
   async loadZip(file, onProgress, keep = true) {
     const z = await readZip(await file.arrayBuffer());
     // sonidos dentro del zip: se guardan aparte (paquete de sonidos)
-    const audio = z.names.filter(p => /\.(ogg|mp3|wav|m4a)$/i.test(p));
+    const allAudio = z.names.filter(p => /\.(ogg|mp3|wav|m4a)$/i.test(p));
+    const music = allAudio.filter(p => PackMusic.isMusic(p)), audio = allAudio.filter(p => !PackMusic.isMusic(p));
+    if (music.length) {
+      const msig = JSON.stringify([file.name || '', file.size, music.length]);
+      if (keep || msig !== (await Store.get('kv', 'mus:launcherSig').catch(() => null))) { this.lastMusic = await PackMusic.importZip(z, music, onProgress); await Store.put('kv', 'mus:launcherSig', msig).catch(() => { }); }
+    }
     if (audio.length) {
       const ssig = JSON.stringify([file.name || '', file.size, audio.length]);
       if (keep || ssig !== (await Store.get('kv', 'snd:launcherSig').catch(() => null))) { this.lastSounds = await SoundPack.importZip(z, audio, onProgress); await Store.put('kv', 'snd:launcherSig', ssig).catch(() => { }); }
@@ -5410,6 +5426,8 @@ class Mob extends Entity {
     if (this.lookPlayer > 0 && !this.target) { this.lookPlayer--; const ty = Math.atan2(-(P.x - this.x), -(P.z - this.z)); this.headYaw = lerpAngle(this.headYaw, clampAngle(ty, this.bodyYaw, 1.2), 0.3); this.pitch = clamp(Math.atan2(P.y + P.eye - (this.y + this.h * 0.85), Math.hypot(dx, dz)), -0.8, 0.8); }
     else { this.headYaw = lerpAngle(this.headYaw, this.yaw, 0.3); this.pitch = this.target ? clamp(Math.atan2(P.y + P.eye - (this.y + this.h * 0.85), Math.hypot(dx, dz)), -0.8, 0.8) : this.pitch * 0.8; }
     if (--this.soundT <= 0) { this.soundT = 200 + Math.random() * 400 | 0; if (dist < 24) Sound.play(d.sound, this.x, this.y, this.z); }
+    // pasos de las criaturas (solo con el paquete de sonidos)
+    if (SoundPack.count && this.onGround && dist < 16) { this.stepD = (this.stepD || 0) + Math.hypot(this.x - this.px, this.z - this.pz); if (this.stepD > 1.6) { this.stepD = 0; Sound.play(d.sound + '_step', this.x, this.y, this.z); } }
   }
   hurtByPlayer(dmg, P, crit) {
     this.playerHit = performance.now();
@@ -5715,7 +5733,7 @@ const Store = {
 const SETTINGS_DEFAULT = {
   fov: 70, sens: 0.5, renderDist: 7, gamma: 0.5, volume: 0.7, music: 0.4, fancy: true, clouds: true, bobbing: true, invertY: false,
   guiScale: 0, hiRes: false, gameName: 'Picaterra', subtitle: 'HTML Edition', avatar: 'pico', particles: true, smooth: true, fpsLimit: 0, touch: 'auto',
-  nick: 'Jugador' + Math.floor(Math.random() * 900 + 100), musicMode: 'mix', shuffle: false, musicGap: false,
+  nick: 'Jugador' + Math.floor(Math.random() * 900 + 100), musicMode: 'mix', shuffle: false, musicGap: false, packGap: 'mc',
 };
 const Settings = Object.assign({}, SETTINGS_DEFAULT);
 function loadSettings() {
@@ -5799,30 +5817,43 @@ const SoundPack = {
   },
   // ---- bloques ----
   FOLDERS: [
+    [/^(furnace|lit_furnace)$/, 'horno'], [/blast_furnace/, 'blastfurnace'], [/smoker/, 'smoker'], [/^barrel$/, 'barril'], [/^ender_chest$/, 'cofre de ender'],
+    [/pumpkin|jack_o_lantern|^melon$/, 'pumpkin'], [/^cake$/, 'pastel'], [/candle/, 'vela'], [/campfire/, 'hoguera'], [/^note_block$/, 'bloque musical'], [/^bell$/, 'campana'],
+    [/hanging_sign$/, 'hanging sign'], [/_sign$|^sign$/, 'sign'], [/^dead_bush$/, 'deadbush'], [/sweet_berry/, 'arbusto de bayas'], [/^cherry_(planks|log|wood|stairs|slab|fence)/, 'cherry wood'],
+    [/^bamboo_(planks|block|stairs|slab|mosaic|fence)/, 'bamboo wood'], [/^mangrove_roots$/, 'mangrove roots'], [/^lodestone$/, 'lodestone'], [/respawn_anchor/, 'nexo de reaparicion'], [/^beacon$/, 'faro'],
+    [/^conduit$/, 'conduit'], [/^crafter$/, 'crafter'], [/chiseled_bookshelf/, 'chiseled bookshelf'], [/decorated_pot/, 'decorated pot'], [/smithing_table/, 'mesa de herreria'], [/^grindstone$/, 'afilador'],
+    [/brewing_stand/, 'soporte para pociones'], [/^composter$/, 'compostador'], [/beehive|bee_nest/, 'beehive'], [/shulker_box/, 'caja de shulker'], [/enchanting_table/, 'enchantment table'],
+    [/^tripwire/, 'tripwire'], [/froglight/, 'froglight'], [/^polished_tuff/, 'polished tuff'], [/^resin_brick/, 'resin bricks'], [/^resin/, 'resin'], [/^suspicious_gravel$/, 'suspicious gravel'],
+    [/^big_dripleaf/, 'big dripleaf'], [/cave_vines/, 'cave vines'], [/spore_blossom/, 'spore blossom'], [/hanging_roots/, 'hanging roots'], [/pointed_dripstone/, 'pointed dripstone'], [/^lever$/, 'palanca'],
+    [/^(oak|spruce|birch|jungle|acacia|dark_oak|pale_oak|mangrove)_button$/, 'boton de madera'], [/^target$|^hay_block$/, 'hierba'],
     [/^(nether_bricks|red_nether_bricks|nether_brick_fence|nether_brick_.*|chiseled_nether_bricks|cracked_nether_bricks)$/, 'ladrillos del nether'],
     [/^netherrack$/, 'netherrack'], [/^nether_(quartz|gold)_ore$/, 'nether ore'], [/_nylium$/, 'nylium'], [/^(crimson|warped)_(stem|hyphae)|stripped_(crimson|warped)/, 'stem'],
     [/wart_block$/, 'wart block'], [/^shroomlight$/, 'shroomlight'], [/^soul_sand$/, 'soul sand'], [/^soul_soil$/, 'soul soil'], [/^(crimson|warped)_fungus$/, 'fungus'],
     [/^(crimson|warped)_roots$/, 'roots'], [/^nether_sprouts$/, 'nether sprouts'], [/^ancient_debris$/, 'ancient debris'], [/basalt/, 'basalto'],
     [/^(crimson|warped)_/, 'nether wood'], [/^bone_block$/, 'bloque de hueso'], [/deepslate_(bricks|tiles)|deepslate_brick|deepslate_tile/, 'deepslate bricks'], [/deepslate/, 'pizarra profunda'],
     [/copper/, 'cobre'], [/^ladder$/, 'escalera de mano'], [/chain$/, 'cadena'], [/lantern$/, 'farol'], [/^calcite$/, 'calcite'], [/^tuff_brick|^tuff_bricks/, 'tuff bricks'], [/tuff/, 'tuff'],
-    [/^amethyst_block$|^budding_amethyst$/, 'amatista'], [/^netherite_block$/, 'netherite block'], [/coral_block$/, 'coral block'], [/^spawner$/, 'spawner'], [/^moss/, 'musgo'],
+    [/^amethyst_block$|^budding_amethyst$/, 'amatista'], [/^netherite_block$/, 'netherite block'], [/coral_block$/, 'coral block'], [/^spawner$/, 'spawner'], [/^moss_(block|carpet)$/, 'musgo'],
     [/^vine$/, 'vine'], [/^cobweb$/, 'cobweb'], [/^scaffolding$/, 'andamio'], [/^honey_block$/, 'bloque de miel'], [/^packed_mud$/, 'packed mud'], [/^mud_brick/, 'mud bricks'], [/^mud$/, 'mud'],
     [/^sculk/, 'sculk'], [/^dripstone_block$/, 'dripstone block'], [/^bamboo/, 'bambu'], [/^anvil|_anvil$/, 'yunque'], [/^wet_sponge$/, 'wet sponge'], [/^sponge$/, 'sponge'], [/^powder_snow$/, 'powder snow'],
     [/^(snow|snow_block|snowy_grass)$/, 'nieve'], [/(wool|carpet)$/, 'lana'], [/^(red_)?sand$|^suspicious_sand$/, 'arena'], [/gravel/, 'grava'], [/^(dirt|coarse_dirt|farmland|dirt_path|grass_path|clay|rooted_dirt|podzol|mycelium)$/, 'grava'],
     [/^(wheat|carrots|potatoes|beetroots|.*_crop)$/, 'cultivo'], [/^lily_pad$/, 'lily pad'], [/(glass|ice)/, 'cristal'], [/^cherry_leaves$/, 'cherry leaves'], [/^azalea_leaves$/, 'azalea leaves'],
   ],
-  MAT: { grass: 'hierba', gravel: 'grava', sand: 'arena', wool: 'lana', glass: 'cristal', wood: 'madera', metal: 'iron', snow: 'nieve' },
-  blockKeys(d, kind) {
-    const act = { break: ['romper'], place: ['poner', 'romper'], step: ['pasos'], hit: ['pasos'] }[kind] || ['romper'];
-    const folders = []; if (d && d.key) for (const [re, f] of this.FOLDERS) if (re.test(d.key)) { folders.push(f); break; }
-    const mat = d ? d.sound : null; if (mat && this.MAT[mat]) folders.push(this.MAT[mat]);
-    const out = []; for (const f of folders) { if (f === 'cristal' && kind !== 'break') continue; for (const a of act) out.push('bloques/' + f + '/' + a); }
-    return out;
+  MAT: { grass: 'hierba', gravel: 'grava', sand: 'arena', wool: 'lana', glass: 'cristal', wood: 'madera', metal: 'iron', snow: 'nieve', stone: 'piedra' },
+  // si el paquete no trae una carpeta, se usa otra que suene parecido (el tono se ajusta un poco)
+  SIMILAR: { piedra: [['piedra', 1], ['stone', 1], ['pizarra profunda', 1.2], ['tuff', 1.1]], nieve: [['nieve', 1], ['powder snow', 1]], madera: [['madera', 1], ['cherry wood', 1]] },
+  blockKeys(d, kind, withPitch) {
+    const act = { break: ['romper'], place: ['poner', 'romper'], step: ['pasos'], hit: ['golpear (picando)', 'pasos'] }[kind] || ['romper'];
+    const folders = []; if (d && d.key) for (const [re, f] of this.FOLDERS) if (re.test(d.key)) { folders.push([f, 1]); break; }
+    const mat = d ? d.sound : null; const m = mat && this.MAT[mat];
+    if (m) for (const e of (this.SIMILAR[m] || [[m, 1]])) folders.push(e);
+    // el cristal solo tiene «romper»: al pisarlo o ponerlo suena como la piedra
+    const out = []; for (const [f, p] of folders) { if (f === 'cristal' && kind !== 'break') { for (const e of this.SIMILAR.piedra) for (const a of act) out.push([`bloques/${e[0]}/${a}`, e[1]]); continue; } for (const a of act) out.push(['bloques/' + f + '/' + a, p]); }
+    return withPitch ? out : out.map(e => e[0]);
   },
   dig(d, kind, v) {
-    const keys = this.blockKeys(d, kind); if (!keys.length) return false;
+    const hit = this.blockKeys(d, kind, true).find(e => this.has(e[0])); if (!hit) return false;
     const [vol, pitch] = { break: [1, 0.8], place: [1, 0.8], step: [0.3, 1], hit: [0.35, 0.5] }[kind] || [1, 1];
-    return this.play(keys, vol * v, pitch);
+    return this.play(hit[0], vol * v, pitch * hit[1]);
   },
   // ---- sonidos con nombre (criaturas, jugador, interfaz...) ----
   MOB: { pig: 'cerdo', cow: 'vaca', sheep: 'oveja', chicken: 'gallina', zombie: 'zombi', skeleton: 'esqueleto', spider: 'arana', husk: 'zombi del desierto', drowned: 'ahogado', stray: 'esqueleto glacial', wither_skeleton: 'esqueleto wither', cave_spider: 'arana', slime: 'slime', magma_cube: 'cubo de magma' },
@@ -5844,6 +5875,8 @@ const SoundPack = {
     attack: ['criaturas y entidades/jugador/ataca strong'], attack_weak: ['criaturas y entidades/jugador/ataca weak'], crit: ['criaturas y entidades/jugador/ataca crit'],
   },
   VOL: { click: 0.35, step: 0.3, pop: 0.3, xp: 0.25, swim: 0.3 },
+  // sonidos que solo existen con el paquete (sin sonido sintetizado)
+  ONLY_PACK: /_step$|^swim$|^attack|^crit$|^shear$|^bucket|^lava_bucket|^till$|^strip$|^flatten$|^bonemeal$|^equip$|^drink$|^player_death$|^thunder$/,
   named(name, v) {
     let keys = this.NAMED[name];
     if (!keys) {
@@ -5943,7 +5976,7 @@ const Sound = {
     if (!this.ctx) return; const v = this.vol(x, y, z); if (v <= 0) return; const t = this.ctx.currentTime; const T = this;
     if (SoundPack.count && SoundPack.named(name, v)) return;
     // nombres sin sonido sintetizado propio: usar uno parecido
-    const ALIAS = { door_open: 'chest_open', door_close: 'chest_close', iron_door_open: 'chest_open', iron_door_close: 'chest_close', trapdoor_open: 'chest_open', trapdoor_close: 'chest_close', iron_trapdoor_open: 'chest_open', iron_trapdoor_close: 'chest_close', gate_open: 'chest_open', gate_close: 'chest_close', husk: 'zombie', drowned: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', slime: 'pop', magma_cube: 'pop', portal_travel: 'portal', piston_in: 'piston' };
+    const ALIAS = { door_open: 'chest_open', door_close: 'chest_close', iron_door_open: 'chest_open', iron_door_close: 'chest_close', trapdoor_open: 'chest_open', trapdoor_close: 'chest_close', iron_trapdoor_open: 'chest_open', iron_trapdoor_close: 'chest_close', gate_open: 'chest_open', gate_close: 'chest_close', husk: 'zombie', drowned: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', slime: 'pop', magma_cube: 'pop', portal_travel: 'portal', piston_in: 'piston', bucket_fill: 'splash', bucket_empty: 'splash', lava_bucket_fill: 'fizz', lava_bucket_empty: 'fizz' };
     const base = name.replace(/_(hurt|death)$/, ''), suf = name.slice(base.length); if (ALIAS[base] && !ALIAS[name]) name = ALIAS[base] + suf; else if (ALIAS[name]) name = ALIAS[name];
     switch (name) {
       case 'pop': T.tone(t, 0.07, 'sine', 500 + Math.random() * 300, 1300, 0.25 * v); break;
@@ -5989,7 +6022,7 @@ const Sound = {
   // música ambiental generativa (propia): notas suaves de una escala pentatónica
   musicTick() {
     if (!this.ctx || Settings.music <= 0 || Game.state !== 'play') return;
-    if ((Settings.musicMode || 'mix') === 'mine' || Music.audio || Music.wantsOwn('g')) return;
+    if ((Settings.musicMode || 'mix') === 'mine' || Music.audio || Music.wantsOwn('g') || PackMusic.active()) return;
     const t = this.ctx.currentTime; if (t < this.nextMusic) return;
     this.nextMusic = t + 90 + Math.random() * 150;
     const scale = [261.6, 293.7, 329.6, 392, 440, 523.3, 587.3, 659.3, 784];
@@ -6024,7 +6057,7 @@ const Sound = {
   menuTick() {
     if (!this.ctx) return;
     const onMenu = Game.state !== 'play' && Game.state !== 'loading';
-    const want = onMenu && Settings.music > 0 && (Settings.musicMode || 'mix') !== 'mine' && !Music.audio && !Music.wantsOwn('m');
+    const want = onMenu && Settings.music > 0 && (Settings.musicMode || 'mix') !== 'mine' && !Music.audio && !Music.wantsOwn('m') && !PackMusic.active();
     if (!want) { if (this.menuPerf) this.stopMenuTheme(); return; }
     const t = this.ctx.currentTime;
     if (!this.menuPerf) { if (t < this.nextMenu) return; const g = this.ctx.createGain(); g.gain.value = 1; g.connect(this.musicGain); this.menuPerf = { g, t0: t + 0.4, bar: 0, B: 60 / 68, alt: Math.random() < 0.5 }; }
@@ -6305,6 +6338,7 @@ const Game = {
     const str = P.attackStrength(); let dmg = ((it && it.tool ? it.tool.dmg : 1) + Ench.damageBonus(P.held)) * (0.2 + str * str * 0.8);
     const crit = str > 0.9 && P.fall > 0 && !P.onGround && !P.inWater && !P.climbing();
     if (crit) dmg *= 1.5;
+    if (SoundPack.count) Sound.play(crit ? 'crit' : str > 0.9 ? 'attack' : 'attack_weak', e.x, e.y, e.z);
     P.swinging = true; P.swingTime = 0; P.attackCD = 0;
     if (e.hurtByPlayer(dmg, P, crit)) { const fa = Ench.held('fire_aspect'); if (fa) e.fire = Math.max(e.fire || 0, 80 * fa); const kb = Ench.held('knockback'); if (kb) { const a = Math.atan2(e.x - P.x, e.z - P.z); e.vx += Math.sin(a) * 0.5 * kb; e.vz += Math.cos(a) * 0.5 * kb; e.vy = Math.max(e.vy, 0.2); } P.addExh(0.1); if (it && it.tool) P.useDurability(it.tool.type === 'sword' ? 1 : 2); if (P.sprinting) P.sprinting = false; }
   },
@@ -6327,6 +6361,7 @@ const Game = {
       if (d.interact === 'chest') { UI.openContainer('chest', T); Sound.play('chest_open', T.x, T.y, T.z); return; }
       if ((d.interact === 'toggle' || d.interact === 'press' || d.interact === 'cycle') && RS.use(T)) { P.swinging = true; P.swingTime = 0; return; }
       if (d.interact === 'bed') { this.trySleep(T); return; }
+      if (d.interact === 'jukebox' && Jukebox.use(T, held)) { P.swinging = true; P.swingTime = 0; return; }
       if (d.interact === 'tnt' && held && held.id === 'flint_and_steel') { World.set(T.x, T.y, T.z, 0); Entities.add(new PrimedTNT(T.x, T.y, T.z, 80)); P.useDurability(1); P.swinging = true; P.swingTime = 0; return; }
     }
     if (!held) return;
@@ -6341,7 +6376,7 @@ const Game = {
       if (r && LIQUID[r.id] && World.getMeta(r.x, r.y, r.z) === 0) {
         World.set(r.x, r.y, r.z, 0); const out = LIQUID[r.id] === 1 ? 'water_bucket' : 'lava_bucket';
         if (P.mode !== 1) { if (held.n === 1) P.inv[P.sel] = { id: out, n: 1 }; else { held.n--; if (P.give(out, 1)) Entities.dropItem(P.x, P.y + 1, P.z, { id: out, n: 1 }); } }
-        Sound.play('splash'); P.swinging = true; P.swingTime = 0;
+        Sound.play(out === 'lava_bucket' ? 'lava_bucket_fill' : 'bucket_fill', r.x, r.y, r.z); P.swinging = true; P.swingTime = 0;
       }
       return;
     }
@@ -6351,10 +6386,10 @@ const Game = {
       const cur = World.get(nx, ny, nz); if (cur && !REPLACE[cur] && !LIQUID[cur]) return;
       World.set(nx, ny, nz, held.id === 'water_bucket' ? B.water : B.lava, 0); World.schedule(nx, ny, nz, 2);
       if (P.mode !== 1) P.inv[P.sel] = { id: 'bucket', n: 1 };
-      Sound.play('splash'); P.swinging = true; P.swingTime = 0; return;
+      Sound.play(held.id === 'lava_bucket' ? 'lava_bucket_empty' : 'bucket_empty', nx, ny, nz); P.swinging = true; P.swingTime = 0; return;
     }
     if (it.tool && it.tool.type === 'hoe') {
-      if ((T.id === B.grass_block || T.id === B.dirt || T.id === B.snowy_grass) && T.face !== 3 && !World.get(T.x, T.y + 1, T.z)) { World.set(T.x, T.y, T.z, B.farmland, 0); Sound.dig('gravel', 'place', T.x, T.y, T.z); P.useDurability(1); P.swinging = true; P.swingTime = 0; }
+      if ((T.id === B.grass_block || T.id === B.dirt || T.id === B.snowy_grass) && T.face !== 3 && !World.get(T.x, T.y + 1, T.z)) { World.set(T.x, T.y, T.z, B.farmland, 0); if (SoundPack.has('objetos/azada/till')) Sound.play('till', T.x, T.y, T.z); else Sound.dig('gravel', 'place', T.x, T.y, T.z); P.useDurability(1); P.swinging = true; P.swingTime = 0; }
       return;
     }
     if (held.id === 'wheat_seeds' || (it.places && it.placeOn === 'farmland')) {
@@ -6387,7 +6422,7 @@ const Game = {
         for (let k = 0; k < 40; k++) { const x = T.x + Math.round((Math.random() - 0.5) * 7), z = T.z + Math.round((Math.random() - 0.5) * 7); for (let y = T.y + 2; y >= T.y - 2; y--) { if (World.get(x, y, z) === B.grass_block && !World.get(x, y + 1, z)) { const r = Math.random(); World.set(x, y + 1, z, r < 0.8 ? B.short_grass : r < 0.9 ? B.dandelion : B.poppy); break; } } }
         ok = true;
       }
-      if (ok) { this.consume(); Particles.color(T.x + 0.5, T.y + 1, T.z + 0.5, 0.4, 0.9, 0.3, 10, 0.1, 20, -0.005, 0.07); P.swinging = true; P.swingTime = 0; }
+      if (ok) { Sound.play('bonemeal', T.x, T.y, T.z); this.consume(); Particles.color(T.x + 0.5, T.y + 1, T.z + 0.5, 0.4, 0.9, 0.3, 10, 0.1, 20, -0.005, 0.07); P.swinging = true; P.swingTime = 0; }
       return;
     }
     if (it.block) this.placeBlock(T, held);
@@ -6472,6 +6507,7 @@ const Game = {
     // contenido del bloque
     const pk = x + ',' + y + ',' + z; const be = World.blockEnts.get(pk);
     if (be && drop !== false) for (const s of be.slots || []) if (s) Entities.dropItem(x + 0.5, y + 0.5, z + 0.5, s);
+    if (be && be.type === 'jukebox') Jukebox.stop(pk);
     World.blockEnts.delete(pk);
     if (d.key === 'tnt' && !decay && drop && this.player.mode !== 1) { /* romper dinamita la suelta */ }
     let replace = 0;
@@ -7406,13 +7442,13 @@ const GUI = {
   },
   // botín de los cofres de las estructuras: [objeto, mín, máx, peso]
   LOOT: [
-    /* 0 mazmorra */ [['bread', 1, 4, 10], ['iron_ingot', 1, 5, 8], ['gold_ingot', 1, 4, 5], ['coal', 3, 12, 10], ['string', 1, 6, 8], ['bone', 1, 6, 8], ['gunpowder', 1, 6, 8], ['wheat', 2, 6, 8], ['bucket', 1, 1, 3], ['diamond', 1, 2, 2], ['golden_apple', 1, 1, 1], ['iron_pickaxe', 1, 1, 2], ['apple', 1, 4, 5], ['arrow', 4, 12, 5], ['lapis_lazuli', 2, 8, 4], ['emerald', 1, 2, 1], ['iron_helmet', 1, 1, 1], ['bow', 1, 1, 1]],
+    /* 0 mazmorra */ [['music_disc_13', 1, 1, 2], ['music_disc_cat', 1, 1, 2], ['bread', 1, 4, 10], ['iron_ingot', 1, 5, 8], ['gold_ingot', 1, 4, 5], ['coal', 3, 12, 10], ['string', 1, 6, 8], ['bone', 1, 6, 8], ['gunpowder', 1, 6, 8], ['wheat', 2, 6, 8], ['bucket', 1, 1, 3], ['diamond', 1, 2, 2], ['golden_apple', 1, 1, 1], ['iron_pickaxe', 1, 1, 2], ['apple', 1, 4, 5], ['arrow', 4, 12, 5], ['lapis_lazuli', 2, 8, 4], ['emerald', 1, 2, 1], ['iron_helmet', 1, 1, 1], ['bow', 1, 1, 1]],
     /* 1 aldea */ [['bread', 1, 4, 12], ['apple', 1, 5, 10], ['wheat', 2, 8, 10], ['wheat_seeds', 2, 8, 8], ['oak_sapling', 1, 2, 5], ['iron_ingot', 1, 3, 5], ['emerald', 1, 3, 4], ['coal', 2, 6, 6], ['stick', 2, 6, 5], ['leather', 1, 3, 4], ['stone_pickaxe', 1, 1, 3], ['iron_shovel', 1, 1, 2], ['white_wool', 1, 3, 4], ['torch', 2, 8, 5], ['book', 1, 2, 3]],
     /* 2 templo */ [['gold_ingot', 2, 7, 10], ['iron_ingot', 1, 5, 10], ['diamond', 1, 3, 4], ['emerald', 1, 3, 6], ['bone', 4, 6, 12], ['rotten_flesh', 3, 7, 12], ['golden_apple', 1, 1, 3], ['gunpowder', 1, 8, 8], ['sand', 1, 8, 6], ['string', 1, 8, 6], ['iron_chestplate', 1, 1, 2], ['diamond_sword', 1, 1, 1], ['gold_block', 1, 1, 1]],
     /* 3 mina */ [['iron_ingot', 1, 5, 10], ['gold_ingot', 1, 3, 5], ['coal', 3, 8, 10], ['redstone', 4, 9, 6], ['lapis_lazuli', 4, 9, 5], ['diamond', 1, 2, 3], ['bread', 1, 3, 10], ['torch', 4, 12, 8], ['wheat_seeds', 2, 4, 6], ['iron_pickaxe', 1, 1, 2], ['raw_iron', 2, 6, 6], ['raw_gold', 1, 3, 3]],
     /* 4 barco / tesoro */ [['gold_ingot', 1, 5, 10], ['iron_ingot', 1, 5, 10], ['emerald', 1, 5, 8], ['diamond', 1, 2, 4], ['gold_nugget', 2, 12, 8], ['iron_nugget', 2, 12, 8], ['paper', 1, 8, 6], ['bread', 1, 4, 6], ['coal', 2, 8, 6], ['tnt', 1, 2, 3], ['leather_chestplate', 1, 1, 2], ['golden_apple', 1, 1, 1]],
     /* 5 fortaleza / mansión */ [['book', 1, 4, 10], ['paper', 2, 8, 8], ['iron_ingot', 1, 5, 10], ['gold_ingot', 1, 3, 6], ['diamond', 1, 3, 4], ['golden_apple', 1, 1, 3], ['bread', 1, 3, 8], ['apple', 1, 3, 6], ['iron_sword', 1, 1, 3], ['iron_chestplate', 1, 1, 2], ['diamond_pickaxe', 1, 1, 1], ['redstone', 4, 9, 4], ['emerald', 1, 3, 4], ['bookshelf', 1, 2, 2]],
-    /* 6 cabaña / iglú / torre */ [['golden_apple', 1, 1, 2], ['coal', 1, 4, 8], ['apple', 1, 3, 10], ['wheat', 2, 5, 8], ['rotten_flesh', 1, 3, 6], ['emerald', 1, 2, 4], ['stone_axe', 1, 1, 4], ['bread', 1, 3, 8], ['arrow', 2, 7, 6], ['bow', 1, 1, 3], ['iron_ingot', 1, 3, 5], ['brown_mushroom', 1, 2, 4]],
+    /* 6 cabaña / iglú / torre */ [['music_disc_mellohi', 1, 1, 1], ['music_disc_wait', 1, 1, 1], ['golden_apple', 1, 1, 2], ['coal', 1, 4, 8], ['apple', 1, 3, 10], ['wheat', 2, 5, 8], ['rotten_flesh', 1, 3, 6], ['emerald', 1, 2, 4], ['stone_axe', 1, 1, 4], ['bread', 1, 3, 8], ['arrow', 2, 7, 6], ['bow', 1, 1, 3], ['iron_ingot', 1, 3, 5], ['brown_mushroom', 1, 2, 4]],
     /* 7 ruinas */ [['gold_nugget', 2, 8, 10], ['coal', 1, 4, 10], ['wheat', 2, 4, 8], ['emerald', 1, 2, 5], ['iron_nugget', 2, 8, 8], ['gold_ingot', 1, 2, 4], ['stone_axe', 1, 1, 4], ['golden_apple', 1, 1, 1], ['leather_helmet', 1, 1, 3], ['prismarine', 1, 4, 3]],
   ],
   fillLoot(be, table) {
@@ -7745,6 +7781,7 @@ const GUI = {
     if (it.tool) lines.push('§9+' + it.tool.dmg + ' de daño · velocidad ' + it.tool.aspd);
     if (it.armor) lines.push('§9+' + it.armor.pts + ' de armadura');
     if (it.food) lines.push('§7Alimenta ' + it.food.h / 2 + ' muslos');
+    if (it.desc) lines.push('§7' + it.desc);
     for (const n of Ench.names(st)) lines.push('§7' + n);
     if (it.dur) lines.push('§7Durabilidad: ' + (it.dur - (st.d || 0)) + ' / ' + it.dur);
     if (Game.debug) lines.push('§8' + it.key);
@@ -7860,6 +7897,9 @@ const UI = {
     $('muMode').onclick = () => { const m = ['mix', 'mine', 'gen']; Settings.musicMode = m[(m.indexOf(Settings.musicMode || 'mix') + 1) % 3]; saveSettings(); if (Settings.musicMode === 'gen') Music.stop(); this.renderMusic(); };
     $('muShuffle').onclick = () => { Settings.shuffle = !Settings.shuffle; saveSettings(); this.renderMusic(); };
     $('muGap').onclick = () => { Settings.musicGap = !Settings.musicGap; saveSettings(); this.renderMusic(); };
+    $('muPackGap').onclick = () => { const m = ['mc', 'short', 'none']; Settings.packGap = m[(m.indexOf(Settings.packGap || 'mc') + 1) % 3]; saveSettings(); if (!PackMusic.audio) PackMusic.nextAt = Math.min(PackMusic.nextAt, performance.now() + PackMusic.gap(PackMusic.sit)); this.renderMusic(); };
+    $('muPackClear').onclick = async () => { await PackMusic.clear(); this.renderMusic(); };
+    $('muPackNext').onclick = () => { Sound.init(); PackMusic.stop(600); PackMusic.nextAt = 0; setTimeout(() => this.renderMusic(), 400); };
     $('muDirOpen').onclick = () => { Sound.play('click'); Music.openFolder(); $('muMsg').textContent = 'Mete las canciones en esa carpeta y pulsa «Volver a leer la carpeta».'; };
     $('muDirReload').onclick = async () => { Sound.play('click'); await Music.reloadFolder(); const n = Music.songs.filter(s => s.src === 'dir').length; $('muMsg').textContent = Music.folderMsg || (n ? n + ' canción' + (n > 1 ? 'es' : '') + ' en la carpeta.' : 'La carpeta está vacía.'); this.renderMusic(); };
     this.buildOptions(); this.applyName(); this.renderAvatars();
@@ -7872,7 +7912,7 @@ const UI = {
     this.$('rName').value = n; this.$('rSub').value = sub; this.previewName();
   },
   previewName() { this.$('rPrevName').textContent = this.$('rName').value || 'Picaterra'; this.$('rPrevSub').textContent = this.$('rSub').value; },
-  texMsg(n) { const sn = TexturePack.lastSounds || 0; TexturePack.lastSounds = 0; if (sn) { this.$('texMsg').textContent = '¡' + sn + ' sonidos cargados!' + (n ? ' Y ' + n + ' texturas.' : ''); Game.reloadTextures(); this.renderTexList(); return; } this.$('texMsg').textContent = n ? `¡${n} textura${n > 1 ? 's' : ''} cargada${n > 1 ? 's' : ''}!` : 'No se reconoció ningún nombre de archivo. Mira la lista de abajo.'; Game.reloadTextures(); this.renderTexList(); },
+  texMsg(n) { const sn = TexturePack.lastSounds || 0, mn = TexturePack.lastMusic || 0; TexturePack.lastSounds = 0; TexturePack.lastMusic = 0; if (sn || mn) { this.$('texMsg').textContent = '¡' + [sn ? sn + ' sonidos' : '', mn ? mn + ' canciones' : ''].filter(Boolean).join(' y ') + ' cargad' + (sn ? 'os' : 'as') + '!' + (n ? ' Y ' + n + ' texturas.' : ''); Game.reloadTextures(); this.renderTexList(); return; } this.$('texMsg').textContent = n ? `¡${n} textura${n > 1 ? 's' : ''} cargada${n > 1 ? 's' : ''}!` : 'No se reconoció ningún nombre de archivo. Mira la lista de abajo.'; Game.reloadTextures(); this.renderTexList(); },
   renderTexList() {
     const box = this.$('texList'); box.innerHTML = '';
     for (const n of TEX_NAMES) {
@@ -7951,6 +7991,11 @@ const UI = {
     $('muMode').textContent = 'Música: ' + { mix: 'Mis canciones + la del juego', mine: 'Solo mis canciones', gen: 'Solo la del juego' }[mode];
     $('muShuffle').textContent = 'Aleatorio: ' + (Settings.shuffle ? 'Sí' : 'No');
     $('muGap').textContent = 'Pausas entre canciones: ' + (Settings.musicGap ? 'Sí' : 'No');
+    { const n = PackMusic.tracks.length, cats = {}; for (const t of PackMusic.tracks) cats[t.cat] = (cats[t.cat] || 0) + 1;
+      $('muPackRow').style.display = n ? '' : 'none';
+      $('muPackGap').textContent = 'Pausas de la música del juego: ' + { mc: 'como Minecraft (10-20 min)', short: 'cortas (1-3 min)', none: 'sin pausas' }[Settings.packGap || 'mc'];
+      const NM = { survival: 'Supervivencia', creative: 'Creativo', menu: 'Menú', nether: 'Nether', water: 'Bajo el agua', end: 'End', disc: 'Discos' };
+      $('muPackInfo').textContent = n ? 'Paquete de música: ' + Object.entries(cats).map(([c, k]) => NM[c] + ' ' + k).join(' · ') + (PackMusic.nowName() ? '  —  ♪ Suena: ' + PackMusic.nowName() : '') : ''; }
     $('muDirRow').style.display = IN_LAUNCHER ? '' : 'none';
     $('muInfo').textContent = (IN_LAUNCHER ? 'Mete tus canciones en la carpeta de música del launcher o súbelas con «Añadir música…». ' : 'Sube tus archivos de audio (MP3, OGG, WAV…); se guardan solo en este navegador. ') + 'Marca «Menú» para que suenen en la pantalla de inicio y «Partida» para que suenen mientras juegas. El volumen se cambia en Opciones → Música.';
     const box = $('muList'); box.innerHTML = '';
@@ -8709,7 +8754,7 @@ function frame(now) {
       }
       Sound.musicTick();
     }
-    Net.tick(dt); Music.tick(); Sound.menuTick();
+    Net.tick(dt); Music.tick(); PackMusic.tick(); Jukebox.tick(); Sound.menuTick();
     renderFrame();
     HUD.draw();
   } catch (e) { console.error(e); if (!frame.errShown) { frame.errShown = true; Chat.add('§cError: ' + e.message); } }
@@ -8725,6 +8770,7 @@ async function boot() {
     await FaceTex.load(); await MobTex.load(); await Music.load();
     await TexturePack.restore();
     await SoundPack.restore();
+    await PackMusic.restore();
     await TexturePack.fromLauncher();
     await TexturePack.refreshStored();
     FaceTex.apply();
@@ -9399,9 +9445,158 @@ const Music = {
     // al entrar o salir de una partida, la canción que no toca se para (como en el juego original)
     if (this.audio && (this.curCtx !== c || (Settings.musicMode || 'mix') === 'gen' || Settings.music <= 0)) this.stop();
     if (!this.wantsOwn(c)) return;
+    if (PackMusic.active()) return; // con paquete de música, el turno lo reparte PackMusic
     if (!Sound.ctx) return; // aún no hubo un clic
     if (!this.audio && performance.now() > this.nextAt) { this.nextAt = performance.now() + 5000; this.next(c); }
   },
+};
+
+
+// ---- extra/music17.js ----
+// ============================================================
+//  Paquete de música (.zip con «Musica del juego/<sitio>/canción.ogg»
+//  y «Discos/<nombre>.ogg»). Se carga en local como las texturas y suena
+//  con las reglas de la wiki: menú 1-30 s; en partida 10-20 min de pausa
+//  entre canciones; cada sitio (superviviencia, creativo, bajo el agua en
+//  océanos, el Nether salvo el bosque distorsionado) tiene sus canciones.
+// ============================================================
+const PackMusic = {
+  tracks: [],          // { path, cat, name }
+  audio: null, cur: null, nextAt: 0, sit: null, fade: 0,
+  CATS: { 'supervivencia': 'survival', 'creativo': 'creative', 'menu principal': 'menu', 'nether': 'nether', 'bajo el agua': 'water', 'end y creditos': 'end', 'discos': 'disc' },
+  catOf(path) {
+    const parts = path.replace(/\\/g, '/').split('/').map(sndNorm);
+    for (let i = parts.length - 2; i >= 0; i--) if (this.CATS[parts[i]]) return this.CATS[parts[i]];
+    return null;
+  },
+  isMusic(path) { return /\.(ogg|mp3|wav|m4a)$/i.test(path) && !!this.catOf(path); },
+  index(paths) { this.tracks = paths.map(path => ({ path, cat: this.catOf(path), name: path.split('/').pop().replace(/\.[a-z0-9]+$/i, '') })).filter(t => t.cat); },
+  async restore() { try { const idx = await Store.get('kv', 'mus:index'); if (Array.isArray(idx)) this.index(idx); } catch (e) { } },
+  async importZip(z, paths, onProgress) {
+    const type = (p) => /\.mp3$/i.test(p) ? 'audio/mpeg' : /\.wav$/i.test(p) ? 'audio/wav' : /\.m4a$/i.test(p) ? 'audio/mp4' : 'audio/ogg';
+    // si había otra música guardada, se sustituye
+    const old = (await Store.get('kv', 'mus:index').catch(() => null)) || [];
+    await Store.req('kv', 'readwrite', st => { for (const p of old) st.delete('mus:' + p); }).catch(() => { });
+    for (let i = 0; i < paths.length; i += 4) {
+      const part = await Promise.all(paths.slice(i, i + 4).map(async p => { try { return [p, new Blob([await z.get(p)], { type: type(p) })]; } catch (e) { return null; } }));
+      await Store.req('kv', 'readwrite', st => { for (const e of part) if (e) st.put(e[1], 'mus:' + e[0]); }).catch(() => { });
+      if (onProgress) onProgress(Math.min(1, (i + 4) / paths.length));
+    }
+    await Store.put('kv', 'mus:index', paths).catch(() => { });
+    this.index(paths); this.stop(); this.nextAt = 0;
+    return paths.length;
+  },
+  async clear() {
+    const old = (await Store.get('kv', 'mus:index').catch(() => null)) || [];
+    await Store.req('kv', 'readwrite', st => { for (const p of old) st.delete('mus:' + p); st.delete('mus:index'); st.delete('mus:launcherSig'); }).catch(() => { });
+    this.stop(); this.tracks = [];
+  },
+  // ¿manda la música del paquete? (si no hay paquete, sigue la música de siempre)
+  active() { return this.tracks.some(t => t.cat !== 'disc') && (Settings.musicMode || 'mix') !== 'mine' && Settings.music > 0; },
+  // sitio actual, como en el juego original
+  situation() {
+    if (Game.state !== 'play' && Game.state !== 'loading') return 'menu';
+    const P = Game.player; if (!P) return 'menu';
+    if (World.dim === 'n') { const b = Gen.local.netherBiomeAt(World.seed, Math.floor(P.x), Math.floor(P.z)); return b === 3 ? 'none' : 'nether'; }
+    if (P.eyeInWater && !World.flat) { const b = Gen.local.column(World.seed, Math.floor(P.x), Math.floor(P.z)).b; if (b === Gen.local.BI.OCEAN || b === Gen.local.BI.FROZEN_OCEAN) return 'water'; }
+    return P.mode === 1 ? 'creative' : 'survival';
+  },
+  poolFor(sit) {
+    const c = sit === 'creative' ? ['creative', 'survival'] : sit === 'none' ? [] : [sit];
+    const out = this.tracks.filter(t => c.includes(t.cat)).map(t => ({ t }));
+    // en «mis canciones + la del juego» tus canciones también entran en el sorteo
+    if ((Settings.musicMode || 'mix') === 'mix') for (const [s, i] of Music.pool(sit === 'menu' ? 'm' : 'g')) out.push({ own: i });
+    return out;
+  },
+  // pausa tras una canción: la de Minecraft (10-20 min), corta (1-3 min) o ninguna
+  gap(sit) {
+    const g = Settings.packGap || 'mc';
+    if (sit === 'menu') return 1000 + Math.random() * 29000;
+    if (g === 'none') return 2000 + Math.random() * 3000;
+    if (g === 'short') return 60000 + Math.random() * 120000;
+    return 600000 + Math.random() * 600000;
+  },
+  vol() { return Music.vol(); },
+  stop(fadeMs = 0) {
+    const a = this.audio; this.audio = null; this.cur = null;
+    if (a) { if (fadeMs > 0) { const v0 = a.volume, t0 = performance.now(); const f = () => { const k = (performance.now() - t0) / fadeMs; if (k >= 1) { try { a.pause(); } catch (e) { } if (a._url) URL.revokeObjectURL(a._url); return; } a.volume = v0 * (1 - k); requestAnimationFrame(f); }; f(); } else { try { a.pause(); } catch (e) { } if (a._url) URL.revokeObjectURL(a._url); } }
+  },
+  async play(t, sit) {
+    this.stop(); const blob = await Store.get('kv', 'mus:' + t.path).catch(() => null); if (!blob) { this.nextAt = performance.now() + 5000; return; }
+    const url = URL.createObjectURL(blob); const a = new Audio(url); a._url = url; a.volume = this.vol();
+    this.audio = a; this.cur = { t, sit };
+    const done = () => { if (this.audio !== a) return; URL.revokeObjectURL(url); this.audio = null; this.cur = null; this.nextAt = performance.now() + this.gap(sit); if (UI.cur === 'music') UI.renderMusic(); };
+    a.onended = done; a.onerror = done;
+    a.play().catch(() => { if (this.audio === a) { this.audio = null; this.cur = null; this.nextAt = performance.now() + 3000; } });
+    if (UI.cur === 'music') UI.renderMusic();
+  },
+  ownPlaying: false,
+  tick() {
+    if (!this.active()) { if (this.audio) this.stop(800); return; }
+    if (!Sound.ctx) return; // aún no hubo un clic
+    if (this.audio) this.audio.volume = this.vol() * (Jukebox.near() ? 0.15 : 1);
+    const sit = this.situation(), now = performance.now();
+    if (sit !== this.sit) {
+      const prev = this.sit; this.sit = sit;
+      // al cambiar de menú a partida o de dimensión, la canción que no toca se para y la nueva empieza pronto
+      const big = (a, b) => (a === 'menu') !== (b === 'menu') || (a === 'nether' || a === 'none') !== (b === 'nether' || b === 'none');
+      if (prev === null || big(prev, sit)) {
+        if (this.audio) this.stop(1500);
+        if (this.ownPlaying && Music.audio) Music.stop();
+        this.nextAt = now + (sit === 'menu' ? 1000 + Math.random() * 4000 : 4000 + Math.random() * 6000);
+      }
+    }
+    if (this.ownPlaying) { if (Music.audio) return; this.ownPlaying = false; this.nextAt = now + this.gap(sit); }
+    if (this.audio || now < this.nextAt || Jukebox.near()) return;
+    const pool = this.poolFor(sit); if (!pool.length) { this.nextAt = now + 5000; return; }
+    let pick = pool[Math.random() * pool.length | 0];
+    if (pool.length > 1 && pick.t && this.last === pick.t.path) pick = pool[(pool.indexOf(pick) + 1) % pool.length];
+    if (pick.t) { this.last = pick.t.path; this.play(pick.t, sit); }
+    else { this.ownPlaying = true; Music.play(pick.own, sit === 'menu' ? 'm' : 'g'); }
+  },
+  nowName() { return this.cur ? this.cur.t.name : null; },
+};
+
+// ---- tocadiscos ----
+const Jukebox = {
+  playing: new Map(),   // "x,y,z" -> { a, x, y, z, disc }
+  discTrack(n) { return PackMusic.tracks.find(t => t.cat === 'disc' && sndNorm(t.name) === sndNorm(n)); },
+  use(T, held) {
+    const k = T.x + ',' + T.y + ',' + T.z; let be = World.blockEnts.get(k);
+    if (be && be.slots && be.slots[0]) { // sacar el disco
+      const s = be.slots[0]; be.slots[0] = null; this.stop(k);
+      Entities.dropItem(T.x + 0.5, T.y + 1.1, T.z + 0.5, s); World.markEdit && World.markEdit(T.x, T.y, T.z); return true;
+    }
+    const it = held && ITEMS[held.id]; if (!it || !it.disc) return false;
+    if (!be) { be = { type: 'jukebox', slots: [null] }; World.blockEnts.set(k, be); }
+    be.slots[0] = { id: held.id, n: 1 }; const P = Game.player; if (P.mode !== 1) { held.n--; if (held.n <= 0) P.inv[P.sel] = null; }
+    this.start(k, T.x, T.y, T.z, it.disc); return true;
+  },
+  async start(k, x, y, z, disc) {
+    this.stop(k);
+    const t = this.discTrack(disc);
+    HUD.actionbar ? HUD.actionbar('Ahora suena: C418 - ' + disc) : Chat.add('§dAhora suena: C418 - ' + disc);
+    if (!t) { Chat.add('§7(Carga un paquete de música con la carpeta «Discos» para oír este disco)'); return; }
+    const blob = await Store.get('kv', 'mus:' + t.path).catch(() => null); if (!blob) return;
+    const url = URL.createObjectURL(blob); const a = new Audio(url); a.volume = 0;
+    const e = { a, url, x: x + 0.5, y: y + 0.5, z: z + 0.5, disc }; this.playing.set(k, e);
+    a.onended = () => { URL.revokeObjectURL(url); if (this.playing.get(k) === e) this.playing.delete(k); };
+    a.play().catch(() => { });
+    if (PackMusic.audio) PackMusic.stop(2000);
+  },
+  stop(k) { const e = this.playing.get(k); if (!e) return; try { e.a.pause(); } catch (er) { } URL.revokeObjectURL(e.url); this.playing.delete(k); },
+  stopAll() { for (const k of [...this.playing.keys()]) this.stop(k); },
+  // volumen según la distancia (se oye hasta unos 64 bloques, como en el original)
+  tick() {
+    if (!this.playing.size) return;
+    const P = Game.player; if (Game.state !== 'play' || !P) { this.stopAll(); return; }
+    for (const [k, e] of this.playing) {
+      const d = Math.hypot(P.x - e.x, P.y + 1.6 - e.y, P.z - e.z);
+      e.a.volume = clamp((1 - d / 64) * Settings.volume * Math.max(Settings.music, 0.5), 0, 1);
+      if (World.blockEnts.get(k) === undefined || !BLOCKS[World.get(Math.floor(e.x), Math.floor(e.y), Math.floor(e.z))] || BLOCKS[World.get(Math.floor(e.x), Math.floor(e.y), Math.floor(e.z))].interact !== 'jukebox') this.stop(k);
+    }
+  },
+  near() { const P = Game.player; if (!P) return false; for (const e of this.playing.values()) if (Math.hypot(P.x - e.x, P.y - e.y, P.z - e.z) < 48) return true; return false; },
 };
 
 // ---------------- pieles personalizadas de las criaturas ----------------

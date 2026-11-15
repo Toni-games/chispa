@@ -1,8 +1,20 @@
 {
-  "latest": "1.7.0",
+  "latest": "1.8.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.8.0",
+      "date": "2026-11-15",
+      "title": "Música por sitio",
+      "notes": [
+        "Paquetes de música (.zip): menú, supervivencia, creativo, bajo el agua y Nether, con las pausas de Minecraft (10-20 min) o más cortas",
+        "Discos de música y tocadiscos",
+        "Piedra, minerales y más bloques con sonido del paquete; pasos de criaturas; golpes, cubos, azada y polvo de hueso"
+      ],
+      "size": 218004,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.8.0.zip"
+    },
     {
       "id": "1.7.0",
       "date": "2026-11-15",
