@@ -1,8 +1,20 @@
 {
-  "latest": "1.8.1",
+  "latest": "1.9.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.9.0",
+      "date": "2026-11-15",
+      "title": "Biomas, bloques y cría",
+      "notes": [
+        "Los biomas del Overworld de Minecraft (51 de superficie y 3 de cueva) con su terreno, árboles y plantas",
+        "Unos 80 bloques nuevos con su textura del paquete y su función: roble pálido, bambú, barro, corales, algas, pasto marino, musgo, azalea, enredaderas, espeleotemas, sculk, nieve polvo, bayas, amatista...",
+        "Cría de animales: comida, corazones, crías que crecen, huevos que se lanzan"
+      ],
+      "size": 232321,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.9.0.zip"
+    },
     {
       "id": "1.8.1",
       "date": "2026-11-15",

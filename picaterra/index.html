@@ -305,7 +305,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.8.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.9.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -441,7 +441,50 @@ function GEN_MODULE(B) {
   const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
   // Biomas
-  const BI = { OCEAN: 0, BEACH: 1, PLAINS: 2, FOREST: 3, BIRCH: 4, TAIGA: 5, SNOWY: 6, DESERT: 7, SAVANNA: 8, SWAMP: 9, MOUNTAINS: 10, FROZEN_OCEAN: 11, SNOW_PEAKS: 12, FLOWER: 13 };
+  const BI = { OCEAN: 0, BEACH: 1, PLAINS: 2, FOREST: 3, BIRCH: 4, TAIGA: 5, SNOWY: 6, DESERT: 7, SAVANNA: 8, SWAMP: 9, MOUNTAINS: 10, FROZEN_OCEAN: 11, SNOW_PEAKS: 12, FLOWER: 13,
+    // biomas detallados (los de arriba son la «familia» que usan estructuras y criaturas)
+    RIVER: 14, FROZEN_RIVER: 15, SNOWY_BEACH: 16, STONY_SHORE: 17, DEEP_OCEAN: 18, WARM_OCEAN: 19, LUKEWARM_OCEAN: 20, DEEP_LUKEWARM_OCEAN: 21, COLD_OCEAN: 22, DEEP_COLD_OCEAN: 23, DEEP_FROZEN_OCEAN: 24,
+    SUNFLOWER_PLAINS: 25, ICE_SPIKES: 26, MANGROVE: 27, DARK_FOREST: 28, PALE_GARDEN: 29, OLD_BIRCH: 30, OLD_PINE: 31, OLD_SPRUCE: 32, SNOWY_TAIGA: 33, SAVANNA_PLATEAU: 34, WINDSWEPT_SAVANNA: 35,
+    WINDSWEPT_HILLS: 36, WINDSWEPT_GRAVELLY: 37, WINDSWEPT_FOREST: 38, JUNGLE: 39, SPARSE_JUNGLE: 40, BAMBOO_JUNGLE: 41, BADLANDS: 42, ERODED_BADLANDS: 43, WOODED_BADLANDS: 44, MEADOW: 45, CHERRY: 46,
+    GROVE: 47, SNOWY_SLOPES: 48, FROZEN_PEAKS: 49, JAGGED_PEAKS: 50, STONY_PEAKS: 51, MUSHROOM: 52, DRIPSTONE_CAVES: 53, LUSH_CAVES: 54, DEEP_DARK: 55 };
+  // elegir el bioma detallado dentro de su familia (como en el original: temperatura, humedad, «rareza» y altura)
+  function subBiome(N, wx, wz, b, h, temp, hum, cont, river) {
+    const v1 = N.misc.n2(wx / 520 + 100, wz / 520 - 40), v2 = N.det.n2(wx / 340 + 300, wz / 340 - 200);
+    if (river > 0.55 && h < SEA + 1) return temp < -0.45 ? BI.FROZEN_RIVER : BI.RIVER;
+    switch (b) {
+      case BI.OCEAN: { const deep = h < SEA - 14; if (temp > 0.42) return deep ? BI.DEEP_LUKEWARM_OCEAN : BI.WARM_OCEAN; if (temp > 0.15) return deep ? BI.DEEP_LUKEWARM_OCEAN : BI.LUKEWARM_OCEAN; if (temp < -0.22) return deep ? BI.DEEP_COLD_OCEAN : BI.COLD_OCEAN; return deep ? BI.DEEP_OCEAN : BI.OCEAN; }
+      case BI.FROZEN_OCEAN: return h < SEA - 14 ? BI.DEEP_FROZEN_OCEAN : BI.FROZEN_OCEAN;
+      case BI.BEACH: return v2 > 0.45 ? BI.STONY_SHORE : BI.BEACH;
+      case BI.PLAINS: if (N.det.n2(wx / 1400 + 77, wz / 1400 - 13) > 0.62) return BI.MUSHROOM; return v1 > 0.5 ? BI.SUNFLOWER_PLAINS : BI.PLAINS;
+      case BI.FOREST:
+        if (temp > 0.2 && hum > 0.08) return v1 > 0.4 ? BI.BAMBOO_JUNGLE : hum < 0.16 ? BI.SPARSE_JUNGLE : BI.JUNGLE;
+        if (hum > 0.24) return v1 > 0.42 ? BI.PALE_GARDEN : BI.DARK_FOREST;
+        return BI.FOREST;
+      case BI.BIRCH: return v1 > 0.35 ? BI.OLD_BIRCH : BI.BIRCH;
+      case BI.TAIGA: return v1 > 0.38 ? BI.OLD_SPRUCE : v1 < -0.38 ? BI.OLD_PINE : BI.TAIGA;
+      case BI.SNOWY: if (h <= SEA + 2) return BI.SNOWY_BEACH; if (v1 > 0.48) return BI.ICE_SPIKES; return hum > 0.05 ? BI.SNOWY_TAIGA : BI.SNOWY;
+      case BI.SAVANNA: if (h > SEA + 22) return BI.SAVANNA_PLATEAU; return v1 > 0.5 ? BI.WINDSWEPT_SAVANNA : BI.SAVANNA;
+      case BI.DESERT: if (hum > -0.16) { if (h > SEA + 16) return BI.WOODED_BADLANDS; return v1 > 0.25 ? BI.ERODED_BADLANDS : BI.BADLANDS; } return BI.DESERT;
+      case BI.SWAMP: return temp > 0.18 ? BI.MANGROVE : BI.SWAMP;
+      case BI.MOUNTAINS:
+        if (temp < -0.22) return hum > 0.05 ? BI.GROVE : BI.SNOWY_SLOPES;
+        if (temp > 0.02 && v1 > 0.2) return BI.CHERRY;
+        if (v1 < -0.25 && h < SEA + 48) return BI.MEADOW;
+        if (v2 > 0.4) return BI.WINDSWEPT_GRAVELLY;
+        return hum > 0.12 ? BI.WINDSWEPT_FOREST : BI.WINDSWEPT_HILLS;
+      case BI.SNOW_PEAKS: if (temp > 0.15) return BI.STONY_PEAKS; return v2 > 0.1 ? BI.JAGGED_PEAKS : BI.FROZEN_PEAKS;
+    }
+    return b;
+  }
+  const LEAF = new Uint8Array(4096); for (const k in B) if (k.endsWith('_leaves')) LEAF[B[k]] = 1;
+  // biomas de cueva (por zonas: exuberante, de espeleotemas y la oscuridad profunda, que va abajo del todo)
+  function caveBiome(N, wx, y, wz) {
+    if (y < 22 && N.ero.n2(wx / 260 + 40, wz / 260 - 90) > 0.42) return BI.DEEP_DARK;
+    const c = N.hum.n2(wx / 300 - 70, wz / 300 + 55);
+    if (c > 0.38) return BI.LUSH_CAVES;
+    if (c < -0.38) return BI.DRIPSTONE_CAVES;
+    return -1;
+  }
 
   let cache = null;
   function setup(seed) {
@@ -464,7 +507,7 @@ function GEN_MODULE(B) {
     const det = fbm(N.det, wx / 70, wz / 70, 3);
     const temp = fbm(N.temp, wx / 1100, wz / 1100, 3) + N.det.n2(wx / 30, wz / 30) * 0.03;
     const hum = fbm(N.hum, wx / 950 + 31.7, wz / 950, 3);
-    let h;
+    let h, riverK = 0;
     const mount = sm(0.05, 0.55, ero) * sm(-0.05, 0.25, cont);
     if (cont < -0.22) {
       h = SEA - 8 + (cont + 0.22) * 45 + det * 4;
@@ -476,7 +519,7 @@ function GEN_MODULE(B) {
       h = SEA + 1.5 + (cont + 0.08) * 22 + det * 5 + mount * (ridge * ridge) * 58 + mount * 6;
       // ríos suaves
       const rv = Math.abs(N.misc.n2(wx / 380, wz / 380));
-      if (rv < 0.035 && mount < 0.4) { const k = 1 - rv / 0.035; h = h * (1 - k * 0.9) + (SEA - 3) * k * 0.9; }
+      if (rv < 0.035 && mount < 0.4) { const k = 1 - rv / 0.035; riverK = k; h = h * (1 - k * 0.9) + (SEA - 3) * k * 0.9; }
     }
     if (h > WH - 10) h = WH - 10 - (h - (WH - 10)) * 0.2;
     h = Math.floor(h);
@@ -493,7 +536,11 @@ function GEN_MODULE(B) {
     }
     else if (temp > -0.45) b = BI.TAIGA;
     else b = BI.SNOWY;
-    return { h, b, temp, hum };
+    let sb = subBiome(N, wx, wz, b, h, temp, hum, cont, riverK);
+    // algunos biomas detallados tienen su propia familia (sin las estructuras de la familia original)
+    if (sb === BI.BADLANDS || sb === BI.ERODED_BADLANDS || sb === BI.WOODED_BADLANDS || sb === BI.MUSHROOM) b = sb;
+    if (sb === BI.ERODED_BADLANDS) { const sp = N.ridge.n2(wx / 14, wz / 14); if (sp > 0.45) h = Math.min(WH - 12, h + Math.floor((sp - 0.45) * 60)); }
+    return { h, b, sb, temp, hum };
   }
 
   function treeList(N, tcx, tcz) {
@@ -519,6 +566,26 @@ function GEN_MODULE(B) {
         case BI.SWAMP: dens = 0.22; type = 'swamp'; break;
         case BI.MOUNTAINS: dens = c.h < SEA + 50 ? 0.12 : 0; type = 'spruce'; break;
         default: dens = 0;
+      }
+      // biomas detallados
+      switch (c.sb) {
+        case BI.DARK_FOREST: dens = 0.8; type = r < 0.06 ? 'huge_mushroom' : r < 0.85 ? 'dark_oak' : 'oak'; break;
+        case BI.PALE_GARDEN: dens = 0.65; type = 'pale_oak'; break;
+        case BI.OLD_BIRCH: dens = 0.65; type = 'tall_birch'; break;
+        case BI.JUNGLE: dens = 0.85; type = r < 0.18 ? 'mega_jungle' : r < 0.6 ? 'jungle' : 'jungle_bush'; break;
+        case BI.SPARSE_JUNGLE: dens = 0.2; type = r < 0.6 ? 'jungle' : 'jungle_bush'; break;
+        case BI.BAMBOO_JUNGLE: dens = 0.35; type = r < 0.15 ? 'mega_jungle' : r < 0.6 ? 'jungle_bush' : 'jungle'; break;
+        case BI.OLD_SPRUCE: case BI.OLD_PINE: dens = 0.6; type = r < 0.4 ? 'mega_spruce' : 'spruce'; break;
+        case BI.SNOWY_TAIGA: case BI.GROVE: dens = 0.45; type = 'spruce'; break;
+        case BI.SNOWY_SLOPES: case BI.FROZEN_PEAKS: case BI.JAGGED_PEAKS: case BI.STONY_PEAKS: case BI.MEADOW: dens = c.sb === BI.MEADOW ? 0.015 : 0; type = r < 0.5 ? 'oak' : 'birch'; break;
+        case BI.SAVANNA_PLATEAU: case BI.WINDSWEPT_SAVANNA: dens = 0.1; type = 'acacia'; break;
+        case BI.WINDSWEPT_FOREST: dens = 0.4; type = r < 0.7 ? 'spruce' : 'oak'; break;
+        case BI.WINDSWEPT_HILLS: case BI.WINDSWEPT_GRAVELLY: dens = 0.05; type = r < 0.7 ? 'spruce' : 'oak'; break;
+        case BI.CHERRY: dens = 0.28; type = 'cherry'; break;
+        case BI.MANGROVE: dens = 0.5; type = 'mangrove'; break;
+        case BI.WOODED_BADLANDS: dens = c.h > SEA + 16 ? 0.18 : 0; type = 'oak'; break;
+        case BI.BADLANDS: case BI.ERODED_BADLANDS: case BI.ICE_SPIKES: case BI.SUNFLOWER_PLAINS: case BI.SNOWY_BEACH: case BI.STONY_SHORE: dens = c.sb === BI.ICE_SPIKES ? 0.035 : c.sb === BI.SUNFLOWER_PLAINS ? 0.02 : 0; type = c.sb === BI.ICE_SPIKES ? 'ice_spike' : 'oak'; break;
+        case BI.MUSHROOM: dens = 0.05; type = 'huge_mushroom'; break;
       }
       if (rnd() >= dens) continue;
       out.push({ wx, wz, y: c.h + 1, type, s: Math.floor(rnd() * 1e9) });
@@ -735,7 +802,7 @@ function GEN_MODULE(B) {
     const ox = cx * 16, oz = cz * 16;
     const cols = new Array(256);
     for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
-      const c = column(N, ox + x, oz + z); cols[z * 16 + x] = c; biomes[z * 16 + x] = c.b; heights[z * 16 + x] = c.h;
+      const c = column(N, ox + x, oz + z); cols[z * 16 + x] = c; biomes[z * 16 + x] = c.sb; heights[z * 16 + x] = c.h;
     }
     // ---- terreno base ----
     for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
@@ -769,6 +836,34 @@ function GEN_MODULE(B) {
         }
         if (id) blocks[I(x, y, z)] = id;
       }
+    }
+    // ---- superficie de los biomas detallados ----
+    const BANDS = [B.terracotta, B.orange_terracotta, B.terracotta, B.yellow_terracotta, B.brown_terracotta, B.terracotta, B.red_terracotta, B.white_terracotta, B.orange_terracotta, B.light_gray_terracotta, B.terracotta, B.red_terracotta];
+    for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
+      const c = cols[z * 16 + x], h = c.h, sb = c.sb, wx = ox + x, wz = oz + z; if (sb < 14) continue;
+      const set = (y, id) => { if (y > 0 && y < WH && id !== undefined) blocks[I(x, y, z)] = id; };
+      const g = hash3(wx, 3, wz, N.seedInt);
+      switch (sb) {
+        case BI.BADLANDS: case BI.ERODED_BADLANDS: case BI.WOODED_BADLANDS:
+          for (let y = h; y > h - 24 && y > 4; y--) { const d = h - y; let id = BANDS[((y + Math.floor(N.det.n2(wx / 60, wz / 60) * 3)) % BANDS.length + BANDS.length) % BANDS.length]; if (d < 1 && h < SEA + 14) id = B.red_sand; set(y, id); }
+          if (sb === BI.WOODED_BADLANDS && h > SEA + 16) { set(h, g < 0.3 ? B.coarse_dirt : B.grass_block); set(h - 1, B.dirt); }
+          break;
+        case BI.MUSHROOM: if (h >= SEA) set(h, B.mycelium); break;
+        case BI.ICE_SPIKES: case BI.SNOWY_SLOPES: if (h >= SEA) { set(h, B.snow_block); if (sb === BI.SNOWY_SLOPES && g < 0.08) set(h, B.powder_snow); } break;
+        case BI.GROVE: if (h >= SEA) set(h, B.snowy_grass); break;
+        case BI.FROZEN_PEAKS: if (h >= SEA) { set(h, g < 0.5 ? B.packed_ice : B.snow_block); set(h - 1, B.packed_ice); } break;
+        case BI.JAGGED_PEAKS: if (h >= SEA) set(h, g < 0.7 ? B.snow_block : B.stone); break;
+        case BI.STONY_PEAKS: for (let y = h; y > h - 5; y--) set(y, ((y >> 2) & 3) === 0 ? B.calcite : B.stone); break;
+        case BI.MANGROVE: for (let y = h; y > h - 3; y--) set(y, B.mud); break;
+        case BI.OLD_SPRUCE: case BI.OLD_PINE: if (h > SEA) set(h, g < 0.55 ? B.podzol : g < 0.75 ? B.coarse_dirt : B.grass_block); break;
+        case BI.WINDSWEPT_GRAVELLY: if (h > SEA) for (let y = h; y > h - 3; y--) set(y, B.gravel); break;
+        case BI.WINDSWEPT_SAVANNA: if (h > SEA && g < 0.3) set(h, B.coarse_dirt); break;
+        case BI.STONY_SHORE: for (let y = h; y > h - 4; y--) set(y, B.stone); break;
+        case BI.SNOWY_BEACH: for (let y = h; y > h - 3; y--) set(y, B.sand); break;
+        case BI.RIVER: case BI.FROZEN_RIVER: for (let y = h; y > h - 2; y--) set(y, g < 0.3 ? B.gravel : B.sand); break;
+        case BI.WARM_OCEAN: for (let y = h; y > h - 3; y--) set(y, B.sand); break;
+      }
+      if (sb === BI.FROZEN_RIVER || sb === BI.DEEP_FROZEN_OCEAN) { if (blocks[I(x, SEA, z)] === B.water) blocks[I(x, SEA, z)] = B.ice; }
     }
     // ---- cuevas (ruido 3D muestreado cada 4 bloques e interpolado) ----
     const SX = 5, SY = 33, SZ = 5;
@@ -810,7 +905,7 @@ function GEN_MODULE(B) {
       const h = cols[z * 16 + x].h; if (h < SEA) continue;
       for (let y = h; y > h - 4 && y > 1; y--) {
         const i = I(x, y, z);
-        if (blocks[i] === B.dirt && blocks[I(x, y + 1, z)] === 0) { blocks[i] = cols[z * 16 + x].b === BI.SNOWY ? B.snowy_grass : B.grass_block; break; }
+        if (blocks[i] === B.dirt && blocks[I(x, y + 1, z)] === 0) { blocks[i] = (cols[z * 16 + x].b === BI.SNOWY || cols[z * 16 + x].sb === BI.GROVE) ? B.snowy_grass : cols[z * 16 + x].sb === BI.MUSHROOM ? B.mycelium : B.grass_block; break; }
         if (blocks[i] !== 0) break;
       }
     }
@@ -850,6 +945,36 @@ function GEN_MODULE(B) {
       const i = I(x, y, z); const r = DS[blocks[i]]; if (r) blocks[i] = r;
     }
     vein(B.tuff, 1, 2, 14, 28, c => c === B.deepslate);
+    // ---- biomas de cueva: decorar suelos y techos de las cuevas ----
+    const STONY = (id) => id === B.stone || id === B.deepslate || id === B.granite || id === B.diorite || id === B.andesite || id === B.tuff || id === B.dirt || id === B.gravel;
+    for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
+      const wx = ox + x, wz = oz + z, top = cols[z * 16 + x].h - 6;
+      for (let y = 6; y < top; y++) {
+        const i = I(x, y, z); if (blocks[i] !== 0) continue;
+        const below = blocks[I(x, y - 1, z)], above = blocks[I(x, y + 1, z)];
+        const fl = STONY(below), ce = STONY(above); if (!fl && !ce) continue;
+        const cb = caveBiome(N, wx, y, wz); const r = hash3(wx, y, wz, N.seedInt ^ 77);
+        if (cb === BI.LUSH_CAVES) {
+          if (fl) { blocks[I(x, y - 1, z)] = r < 0.06 ? B.clay : B.moss_block; if (r > 0.75) blocks[i] = r > 0.97 ? B.azalea : r > 0.94 ? B.flowering_azalea : r > 0.9 ? B.small_dripleaf : B.moss_carpet; else if (r > 0.7 && blocks[I(x, y + 2, z)] === 0) { blocks[i] = B.big_dripleaf_stem; blocks[I(x, y + 1, z)] = B.big_dripleaf; } }
+          else if (ce) { blocks[I(x, y + 1, z)] = B.moss_block; if (r < 0.22) { const n = 1 + Math.floor(r * 30); for (let k = 0; k < n && y - k > 5 && blocks[I(x, y - k, z)] === 0; k++) { blocks[I(x, y - k, z)] = B.cave_vines; meta[I(x, y - k, z)] = hash3(wx, y - k, wz, 5) < 0.18 ? 1 : 0; } } else if (r > 0.985) blocks[i] = B.spore_blossom; else if (r > 0.95) blocks[i] = B.hanging_roots; }
+        } else if (cb === BI.DRIPSTONE_CAVES) {
+          if (fl) { blocks[I(x, y - 1, z)] = B.dripstone_block; if (r < 0.12) blocks[i] = B.pointed_dripstone; }
+          else if (ce) { blocks[I(x, y + 1, z)] = B.dripstone_block; if (r < 0.16) blocks[i] = B.pointed_dripstone_down; }
+        } else if (cb === BI.DEEP_DARK) {
+          if (fl) { blocks[I(x, y - 1, z)] = B.sculk; if (r < 0.04) blocks[I(x, y - 1, z)] = B.sculk_catalyst; else if (r < 0.1) blocks[i] = B.sculk_sensor; else if (r < 0.115) blocks[i] = B.sculk_shrieker; else if (r < 0.35) blocks[i] = B.sculk_vein; }
+          else if (ce && r < 0.5) blocks[I(x, y + 1, z)] = B.sculk;
+        } else if (r < 0.01 && (fl || ce) && y < 50) blocks[i] = fl ? B.pointed_dripstone : B.pointed_dripstone_down;
+      }
+    }
+    // ---- geoda de amatista (poco común) ----
+    if (rnd() < 0.02) {
+      const gx = 4 + Math.floor(rnd() * 8), gz = 4 + Math.floor(rnd() * 8), gy = 10 + Math.floor(rnd() * 30), R = 3.5 + rnd();
+      if (gy < cols[gz * 16 + gx].h - 10) for (let y = gy - 5; y <= gy + 5; y++) for (let z = gz - 5; z <= gz + 5; z++) for (let x = gx - 5; x <= gx + 5; x++) {
+        if (x < 0 || x > 15 || z < 0 || z > 15 || y < 2) continue; const d = Math.hypot(x - gx, (y - gy) * 1.1, z - gz); const i = I(x, y, z);
+        if (d < R - 1.6) blocks[i] = 0; else if (d < R - 0.8) blocks[i] = rnd() < 0.08 ? B.budding_amethyst : B.amethyst_block; else if (d < R) blocks[i] = B.calcite; else if (d < R + 0.8) blocks[i] = B.smooth_basalt;
+      }
+      for (let y = gy - 4; y <= gy + 4; y++) for (let z = gz - 4; z <= gz + 4; z++) for (let x = gx - 4; x <= gx + 4; x++) { if (x < 0 || x > 15 || z < 0 || z > 15) continue; if (blocks[I(x, y, z)] === 0 && blocks[I(x, y - 1, z)] === B.budding_amethyst && rnd() < 0.5) blocks[I(x, y, z)] = B.amethyst_cluster; }
+    }
     const mb = cols[136].b;
     if (mb === BI.MOUNTAINS || mb === BI.SNOW_PEAKS) {
       vein(B.iron_ore, 8, 70, 125, 9, isStoneish);
@@ -876,8 +1001,43 @@ function GEN_MODULE(B) {
       const lx = x - ox, lz = z - oz;
       if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || y < 1 || y >= WH) return;
       const i = I(lx, y, lz); const cur = blocks[i];
-      if (cur === 0 || cur === B.short_grass || (canReplace && (cur === B.oak_leaves || cur === B.birch_leaves || cur === B.spruce_leaves || cur === B.acacia_leaves))) blocks[i] = id;
+      if (cur === 0 || cur === B.short_grass || cur === B.water && id !== 0 && (id === B.mangrove_roots || id === B.mangrove_log) || (canReplace && LEAF[cur])) blocks[i] = id;
     };
+    const setIfM = (x, y, z, id, m) => { const lx = x - ox, lz = z - oz; if (lx < 0 || lx > 15 || lz < 0 || lz > 15 || y < 1 || y >= WH) return; const i = I(lx, y, lz); if (blocks[i] === 0) { blocks[i] = id; meta[i] = m; } };
+    // árboles de los biomas nuevos; devuelve true si lo ha dibujado
+    function drawTree2(t, r, wx, y, wz, setIf, setIfM) {
+      const blob = (cx, cy, cz, rad, lv, hgt = 1) => { for (let dy = -hgt; dy <= hgt; dy++) { const rr = rad - Math.abs(dy) * 0.6; for (let dz = -Math.ceil(rr); dz <= Math.ceil(rr); dz++) for (let dx = -Math.ceil(rr); dx <= Math.ceil(rr); dx++) if (dx * dx + dz * dz <= rr * rr + 0.5 && r() > 0.06) setIf(cx + dx, cy + dy, cz + dz, lv, false); } };
+      const vines = (cx, cy, cz, n) => { for (const [ax, az, m] of [[1, 0, 1], [-1, 0, 3], [0, 1, 2], [0, -1, 0]]) if (r() < 0.5) for (let k = 0; k < n; k++) setIfM(cx + ax, cy - k, cz + az, B.vine, m); };
+      switch (t.type) {
+        case 'dark_oak': case 'pale_oak': { const L = B[t.type + '_log'], V = B[t.type + '_leaves']; const h = 6 + Math.floor(r() * 3);
+          for (let k = 0; k < h; k++) for (const [ax, az] of [[0, 0], [1, 0], [0, 1], [1, 1]]) setIf(wx + ax, y + k, wz + az, L, true);
+          blob(wx + 0.5 | 0, y + h, wz + 0.5 | 0, 3.6, V, 1); blob(wx, y + h + 1, wz, 2.4, V, 0);
+          if (t.type === 'pale_oak') for (let k = 0; k < 6; k++) { const dx = Math.floor(r() * 7) - 3, dz = Math.floor(r() * 7) - 3; setIf(wx + dx, y + h - 2, wz + dz, B.pale_hanging_moss, false); }
+          return true; }
+        case 'tall_birch': { const h = 9 + Math.floor(r() * 4); for (let k = 0; k < h; k++) setIf(wx, y + k, wz, B.birch_log, true); blob(wx, y + h - 2, wz, 2.3, B.birch_leaves, 2); setIf(wx, y + h + 1, wz, B.birch_leaves, false); return true; }
+        case 'jungle': { const h = 6 + Math.floor(r() * 5); for (let k = 0; k < h; k++) setIf(wx, y + k, wz, B.jungle_log, true); blob(wx, y + h - 1, wz, 2.6, B.jungle_leaves, 1); vines(wx, y + h - 2, wz, 3); return true; }
+        case 'jungle_bush': { setIf(wx, y, wz, B.jungle_log, true); blob(wx, y + 1, wz, 2.2, B.oak_leaves, 1); return true; }
+        case 'mega_jungle': { const h = 14 + Math.floor(r() * 10); for (let k = 0; k < h; k++) for (const [ax, az] of [[0, 0], [1, 0], [0, 1], [1, 1]]) setIf(wx + ax, y + k, wz + az, B.jungle_log, true);
+          blob(wx, y + h, wz, 4.5, B.jungle_leaves, 1); for (let k = 0; k < 3; k++) blob(wx + Math.floor(r() * 7) - 3, y + h - 4 - k * 3, wz + Math.floor(r() * 7) - 3, 2.5, B.jungle_leaves, 0); vines(wx, y + h - 2, wz, 6); vines(wx + 1, y + h - 2, wz + 1, 6); return true; }
+        case 'mega_spruce': { const h = 16 + Math.floor(r() * 9); for (let k = 0; k < h; k++) for (const [ax, az] of [[0, 0], [1, 0], [0, 1], [1, 1]]) setIf(wx + ax, y + k, wz + az, B.spruce_log, true);
+          for (let k = 0; k < 9; k++) { const rr = 0.8 + k * 0.38; for (let dz = -4; dz <= 5; dz++) for (let dx = -4; dx <= 5; dx++) if ((dx - 0.5) ** 2 + (dz - 0.5) ** 2 <= rr * rr) setIf(wx + dx, y + h + 1 - k, wz + dz, B.spruce_leaves, false); }
+          return true; }
+        case 'cherry': { const h = 5 + Math.floor(r() * 3); for (let k = 0; k < h; k++) setIf(wx, y + k, wz, B.cherry_log, true);
+          for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (r() < 0.6) { for (let k = 1; k <= 3; k++) setIf(wx + ax * k, y + h - 2 + (k >> 1), wz + az * k, B.cherry_log, true); blob(wx + ax * 3, y + h + 1, wz + az * 3, 2.8, B.cherry_leaves, 1); }
+          blob(wx, y + h, wz, 2.8, B.cherry_leaves, 1); return true; }
+        case 'mangrove': { const h = 6 + Math.floor(r() * 4), base = y + 2;
+          for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]]) for (let k = -1; k < 3; k++) setIf(wx + ax * (k < 1 ? 2 : 1), base - 1 - k + 2, wz + az * (k < 1 ? 2 : 1), B.mangrove_roots, false);
+          for (let k = 0; k < h; k++) setIf(wx, base + k, wz, B.mangrove_log, true); blob(wx, base + h, wz, 3, B.mangrove_leaves, 1); vines(wx, base + h - 1, wz, 3);
+          for (let k = 0; k < 3; k++) setIf(wx + Math.floor(r() * 5) - 2, base + h - 2, wz + Math.floor(r() * 5) - 2, B.mangrove_propagule, false); return true; }
+        case 'huge_mushroom': { const red = r() < 0.5, h = 5 + Math.floor(r() * 3); for (let k = 0; k < h; k++) setIf(wx, y + k, wz, B.mushroom_stem, true);
+          const cap = red ? B.red_mushroom_block : B.brown_mushroom_block;
+          if (red) { for (let dy = -3; dy <= 0; dy++) for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { const edge = Math.abs(dx) === 2 || Math.abs(dz) === 2; if (dy === 0 ? (Math.abs(dx) < 2 && Math.abs(dz) < 2) : (edge && !(Math.abs(dx) === 2 && Math.abs(dz) === 2))) setIf(wx + dx, y + h + dy, wz + dz, cap, false); } }
+          else for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) if (!(Math.abs(dx) === 3 && Math.abs(dz) === 3)) setIf(wx + dx, y + h, wz + dz, cap, false);
+          return true; }
+        case 'ice_spike': { const h = 5 + Math.floor(r() * (r() < 0.1 ? 25 : 8)); for (let k = 0; k < h; k++) { const rr = Math.max(0, (1 - k / h) * 2.2); for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) if (dx * dx + dz * dz <= rr * rr) setIf(wx + dx, y + k, wz + dz, B.packed_ice, true); } return true; }
+      }
+      return false;
+    }
     for (let tz = cz - 1; tz <= cz + 1; tz++) for (let tx = cx - 1; tx <= cx + 1; tx++) {
       const list = treeList(N, tx, tz);
       for (const t of list) {
@@ -886,9 +1046,11 @@ function GEN_MODULE(B) {
         const lx = wx - ox, lz = wz - oz;
         if (lx >= 0 && lx < 16 && lz >= 0 && lz < 16) {
           const g = blocks[I(lx, y - 1, lz)];
-          if (g !== B.grass_block && g !== B.dirt && g !== B.snowy_grass) continue;
-          blocks[I(lx, y - 1, lz)] = B.dirt;
+          const okG = g === B.grass_block || g === B.dirt || g === B.snowy_grass || g === B.podzol || g === B.coarse_dirt || g === B.mycelium || (t.type === 'mangrove' && (g === B.mud || g === B.water)) || (t.type === 'ice_spike' && (g === B.snow_block || g === B.snowy_grass));
+          if (!okG) continue;
+          if (g !== B.mycelium && g !== B.mud && g !== B.water && t.type !== 'ice_spike') blocks[I(lx, y - 1, lz)] = g === B.podzol ? B.podzol : B.dirt;
         }
+        if (drawTree2(t, r, wx, y, wz, setIf, setIfM)) continue;
         if (t.type === 'oak' || t.type === 'birch' || t.type === 'swamp') {
           const log = t.type === 'birch' ? B.birch_log : B.oak_log, lv = t.type === 'birch' ? B.birch_leaves : B.oak_leaves;
           const hgt = (t.type === 'birch' ? 5 : 4) + Math.floor(r() * 3);
@@ -956,12 +1118,53 @@ function GEN_MODULE(B) {
         if (r < 0.006 && x > 0 && x < 15 && z > 0 && z < 15) { const hh = 1 + Math.floor(rnd() * 3); for (let k = 0; k < hh; k++) blocks[I(x, y + k, z)] = B.cactus; }
         else if (r < 0.014) blocks[I(x, y, z)] = B.dead_bush;
       }
+      // plantas de los biomas detallados
+      if (blocks[I(x, y, z)] === 0) {
+        const sb = c.sb, r2 = rnd(); const put = (id, m) => { if (id !== undefined) { blocks[I(x, y, z)] = id; if (m) meta[I(x, y, z)] = m; } };
+        const tall = (id) => { if (y + 1 < WH && blocks[I(x, y + 1, z)] === 0) { blocks[I(x, y, z)] = id; blocks[I(x, y + 1, z)] = id; meta[I(x, y + 1, z)] = 8; } };
+        const grassy = below === B.grass_block || below === B.podzol || below === B.coarse_dirt || below === B.snowy_grass;
+        if (sb === BI.SUNFLOWER_PLAINS && grassy && r2 < 0.05) tall(B.sunflower);
+        else if ((sb === BI.MEADOW) && grassy) { if (r2 < 0.12) put([B.dandelion, B.poppy, B.cornflower, B.allium, B.azure_bluet, B.oxeye_daisy, B.wildflowers][Math.floor(rnd() * 7)]); else if (r2 < 0.5) put(B.short_grass); else if (r2 < 0.56) tall(B.tall_grass); }
+        else if (sb === BI.CHERRY && grassy) { if (r2 < 0.18) put(B.pink_petals); else if (r2 < 0.4) put(B.short_grass); }
+        else if (sb === BI.PALE_GARDEN && grassy) { if (r2 < 0.25) put(B.pale_moss_carpet); else if (r2 < 0.27) put(B.closed_eyeblossom); else if (r2 < 0.35) blocks[I(x, y - 1, z)] = B.pale_moss_block; }
+        else if (sb === BI.DARK_FOREST && grassy) { if (r2 < 0.02) put(rnd() < 0.5 ? B.brown_mushroom : B.red_mushroom); else if (r2 < 0.05) put(B.leaf_litter); }
+        else if ((sb === BI.JUNGLE || sb === BI.SPARSE_JUNGLE || sb === BI.BAMBOO_JUNGLE) && grassy) {
+          if (sb === BI.BAMBOO_JUNGLE && r2 < 0.35 || sb === BI.JUNGLE && r2 < 0.015) { const hh = 6 + Math.floor(rnd() * 9); for (let k = 0; k < hh && y + k < WH - 1 && blocks[I(x, y + k, z)] === 0; k++) blocks[I(x, y + k, z)] = B.bamboo; if (sb === BI.BAMBOO_JUNGLE) blocks[I(x, y - 1, z)] = B.podzol; }
+          else if (r2 < 0.42) put(rnd() < 0.25 ? B.fern : B.short_grass); else if (r2 < 0.45) tall(B.large_fern); else if (r2 < 0.452) put(B.melon);
+        }
+        else if ((sb === BI.OLD_SPRUCE || sb === BI.OLD_PINE) && (grassy || below === B.podzol)) { if (r2 < 0.2) put(B.fern); else if (r2 < 0.24) tall(B.large_fern); else if (r2 < 0.25) put(B.sweet_berry_bush, 7); else if (r2 < 0.253) put(B.mossy_cobblestone); }
+        else if ((sb === BI.TAIGA || sb === BI.SNOWY_TAIGA || sb === BI.GROVE) && grassy && r2 < 0.006) put(B.sweet_berry_bush, 7);
+        else if ((sb === BI.FOREST || sb === BI.BIRCH || sb === BI.OLD_BIRCH) && grassy) { if (r2 < 0.03) put(B.leaf_litter); else if (r2 < 0.04) put(B.bush); else if (sb !== BI.FOREST && r2 < 0.05) put(B.wildflowers); }
+        else if (sb === BI.SAVANNA_PLATEAU || sb === BI.WINDSWEPT_SAVANNA) { if (grassy && r2 < 0.4) put(B.short_grass); }
+        else if (sb === BI.MUSHROOM && below === B.mycelium && r2 < 0.03) put(rnd() < 0.5 ? B.brown_mushroom : B.red_mushroom);
+        else if ((sb === BI.BADLANDS || sb === BI.ERODED_BADLANDS || sb === BI.WOODED_BADLANDS) && (below === B.red_sand || below === B.terracotta || below === B.orange_terracotta)) { if (r2 < 0.01 && below === B.red_sand && x > 0 && x < 15 && z > 0 && z < 15) { const hh = 1 + Math.floor(rnd() * 3); for (let k = 0; k < hh; k++) blocks[I(x, y + k, z)] = B.cactus; } else if (r2 < 0.02) put(B.dead_bush); }
+        else if (sb === BI.DESERT && below === B.sand) { if (r2 < 0.01) put(rnd() < 0.5 ? B.short_dry_grass : B.tall_dry_grass); }
+        else if (sb === BI.SWAMP || sb === BI.MANGROVE) { if (below === B.water && r2 < 0.04 && y - 1 === SEA) put(B.lily_pad); }
+        else if (sb === BI.PLAINS && grassy && r2 < 0.004) put(B.bush);
+        else if (sb === BI.SNOWY_BEACH && below === B.sand && r2 < 0.5) put(B.snow);
+        else if ((sb === BI.ICE_SPIKES || sb === BI.SNOWY_SLOPES || sb === BI.FROZEN_PEAKS || sb === BI.JAGGED_PEAKS) && (below === B.snow_block) && r2 < 0.3) put(B.snow);
+      }
+      // flor encima de algunos cactus del desierto
+      if (below === B.cactus && blocks[I(x, y, z)] === 0 && rnd() < 0.15) blocks[I(x, y, z)] = B.cactus_flower;
       // caña de azúcar junto al agua
       if ((below === B.sand || below === B.grass_block || below === B.dirt) && y - 1 === SEA && rnd() < 0.25) {
         let water = false;
         for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ax, nz = z + az; if (nx >= 0 && nx < 16 && nz >= 0 && nz < 16 && blocks[I(nx, y - 1, nz)] === B.water) water = true; }
         if (water && blocks[I(x, y, z)] === 0) { const hh = 1 + Math.floor(rnd() * 3); for (let k = 0; k < hh; k++) blocks[I(x, y + k, z)] = B.sugar_cane; }
       }
+    }
+    // ---- vida marina: pasto marino, algas, coral y pepinillos ----
+    for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
+      const c = cols[z * 16 + x], h = c.h, sb = c.sb; if (h >= SEA - 1) continue;
+      const y = h + 1; if (blocks[I(x, y, z)] !== B.water || blocks[I(x, h, z)] === B.water) continue;
+      const r = rnd(), frozen = sb === BI.FROZEN_OCEAN || sb === BI.DEEP_FROZEN_OCEAN || sb === BI.FROZEN_RIVER, warm = sb === BI.WARM_OCEAN;
+      if (frozen) continue;
+      if (warm && r < 0.18) { // arrecife de coral
+        const C = ['tube', 'brain', 'bubble', 'fire', 'horn'][Math.floor(hash3(ox + x >> 2, 9, oz + z >> 2, N.seedInt) * 5)];
+        blocks[I(x, h, z)] = B[C + '_coral_block']; if (rnd() < 0.6 && blocks[I(x, y + 1, z)] === B.water) { blocks[I(x, y, z)] = B[C + '_coral_block']; if (blocks[I(x, y + 1, z)] === B.water && rnd() < 0.6) blocks[I(x, y + 1, z)] = B[C + '_coral']; } else blocks[I(x, y, z)] = B[C + '_coral'];
+      } else if (warm && r < 0.2) blocks[I(x, y, z)] = B.sea_pickle;
+      else if (!warm && (sb === BI.OCEAN || sb === BI.DEEP_OCEAN || sb === BI.COLD_OCEAN || sb === BI.DEEP_COLD_OCEAN || sb === BI.LUKEWARM_OCEAN || sb === BI.DEEP_LUKEWARM_OCEAN) && r < 0.06) { const hh = 3 + Math.floor(rnd() * (SEA - y - 2)); for (let k = 0; k < hh && y + k < SEA; k++) blocks[I(x, y + k, z)] = B.kelp; }
+      else if (r < (sb === BI.RIVER || sb === BI.LUKEWARM_OCEAN || warm ? 0.45 : 0.25)) blocks[I(x, y, z)] = B.seagrass;
     }
     // ---- estructuras ----
     stamp(N, blocks, meta, cx, cz, I);
@@ -1516,7 +1719,7 @@ function GEN_MODULE(B) {
     for (const s of list) { try { BUILD[s.k](s, P); } catch (e) { if (STRUCT_ERRS.length < 20) STRUCT_ERRS.push(s.k + ': ' + (e && e.message)); } }
   }
 
-  return { genChunk, column: (seed, x, z) => column(setup(seed), x, z), BI, treeList, findStruct, fortressNear, netherBiomeAt, NETHER_BIOME_NAMES, STRUCTS, STRUCT_ERRS };
+  return { genChunk, column: (seed, x, z) => column(setup(seed), x, z), caveBiome: (seed, x, y, z) => caveBiome(setup(seed), x, y, z), BI, treeList, findStruct, fortressNear, netherBiomeAt, NETHER_BIOME_NAMES, STRUCTS, STRUCT_ERRS };
 }
 
 // ---- 02_registry.js ----
@@ -1879,6 +2082,113 @@ def13('gilded_blackstone', 'Piedra negra dorada', { tex: 'gilded_blackstone', ha
 for (const [k, n, col] of [['crimson_fungus', 'Hongo carmesí', '#a02020'], ['warped_fungus', 'Hongo distorsionado', '#1a8a7a'], ['crimson_roots', 'Raíces carmesí', '#8a1a24'], ['warped_roots', 'Raíces distorsionadas', '#16807a'], ['nether_sprouts', 'Brotes del Nether', '#1aa08a'], ['weeping_vines', 'Enredaderas lloronas', '#8a1a14'], ['twisting_vines', 'Enredaderas retorcidas', '#14907e']])
   def13(k, n, { tex: k, render: 'cross', solid: false, opaque: false, cutout: true, hardness: 0, sound: 'grass', cat: 'nature', color: col, replaceable: k.endsWith('roots') || k === 'nether_sprouts' });
 
+
+// ---- extra/blocks19.js ----
+// ============================================================
+//  1.9: bloques nuevos (se añaden al final para no cambiar los números de los anteriores)
+//  Las texturas usan los nombres del juego original, así las coge el paquete de texturas.
+// ============================================================
+const PLANT = { render: 'cross', solid: false, opaque: false, cutout: true, hardness: 0, sound: 'grass', cat: 'nature' };
+const FLAT = (tex, o) => BOX(Object.assign({ tex, shape: 'carpet', solid: false, opaque: false, cutout: true, hardness: 0.1, sound: 'grass', cat: 'nature', support: 'floor', replaceable: false }, o || {}));
+// bloque «mojado»: ocupa una casilla de agua y el agua se sigue viendo y nadando alrededor
+const WETP = (o) => Object.assign({}, PLANT, { wet: true, support: 'underwater', replaceable: false }, o);
+
+// ---- tierra y barro ----
+def13('mycelium', 'Micelio', { tex: { top: 'mycelium_top', bottom: 'dirt', side: 'mycelium_side' }, hardness: 0.6, tool: 'shovel', drops: 'dirt', sound: 'grass', color: '#6f6369', cat: 'nature', spreads: true });
+def13('mud', 'Barro', { tex: 'mud', hardness: 0.5, tool: 'shovel', sound: 'gravel', color: '#3c3a3d', cat: 'nature' });
+def13('packed_mud', 'Barro compacto', { tex: 'packed_mud', hardness: 1, tool: 'pickaxe', sound: 'gravel', color: '#8e6b50', cat: 'build' });
+def13('mud_bricks', 'Ladrillos de barro', { tex: 'mud_bricks', hardness: 1.5, tool: 'pickaxe', color: '#89674f', cat: 'build' });
+def13('rooted_dirt', 'Tierra enraizada', { tex: 'rooted_dirt', hardness: 0.5, tool: 'shovel', sound: 'gravel', color: '#90684b', cat: 'nature' });
+def13('hanging_roots', 'Raíces colgantes', Object.assign({}, PLANT, { tex: 'hanging_roots', support: 'ceiling', color: '#a17762' }));
+def13('mangrove_roots', 'Raíces de mangle', { tex: { top: 'mangrove_roots_top', side: 'mangrove_roots_side' }, opaque: false, cutout: true, hardness: 0.7, tool: 'axe', sound: 'wood', color: '#4a3b26', cat: 'nature' });
+def13('muddy_mangrove_roots', 'Raíces de mangle embarradas', { tex: { top: 'muddy_mangrove_roots_top', side: 'muddy_mangrove_roots_side' }, axis: true, hardness: 0.7, tool: 'shovel', sound: 'gravel', color: '#433a2e', cat: 'nature' });
+def13('mangrove_propagule', 'Propágulo de mangle', Object.assign({}, PLANT, { tex: 'mangrove_propagule', support: 'soil', sapling: 'mangrove', fuel: 100, color: '#5ea140' }));
+
+// ---- roble pálido y jardín pálido ----
+def13('pale_oak_log', 'Tronco de roble pálido', { tex: { top: 'pale_oak_log_top', side: 'pale_oak_log' }, hardness: 2, tool: 'axe', sound: 'wood', color: '#4f4744', axis: true, fuel: 300, cat: 'build' });
+def13('stripped_pale_oak_log', 'Tronco de roble pálido sin corteza', { tex: { top: 'stripped_pale_oak_log_top', side: 'stripped_pale_oak_log' }, hardness: 2, tool: 'axe', sound: 'wood', color: '#f3e8e7', axis: true, fuel: 300 });
+def13('pale_oak_planks', 'Tablones de roble pálido', { tex: 'pale_oak_planks', hardness: 2, tool: 'axe', sound: 'wood', color: '#e3d7d4', fuel: 300 });
+def13('pale_oak_leaves', 'Hojas de roble pálido', { tex: 'pale_oak_leaves', hardness: 0.2, tool: 'hoe', sound: 'grass', opaque: false, cutout: true, filter: 1, color: '#8b908a', cat: 'nature', leaves: true, drops: (r) => { const o = []; if (r() < 0.05) o.push(['pale_oak_sapling', 1]); if (r() < 0.02) o.push(['stick', 1 + (r() * 2 | 0)]); return o; } });
+def13('pale_oak_sapling', 'Brote de roble pálido', Object.assign({}, PLANT, { tex: 'pale_oak_sapling', support: 'soil', sapling: 'pale_oak', fuel: 100, color: '#c0c4bc' }));
+{
+  const w = 'pale_oak', pl = 'pale_oak_planks', de = 'de roble pálido', W = { hardness: 2, tool: 'axe', sound: 'wood', color: '#e3d7d4', fuel: 300 };
+  def13(w + '_stairs', 'Escaleras ' + de, Object.assign(BOX({ tex: pl, stairs: true, facing: true, base: pl }), W));
+  def13(w + '_slab', 'Losa ' + de, Object.assign(BOX({ tex: pl, slab: true, base: pl }), W, { fuel: 150 }));
+  def13(w + '_fence', 'Valla ' + de, Object.assign(BOX({ tex: pl, shape: 'fence', tall: true, fence: true }), W));
+  def13(w + '_fence_gate', 'Puerta de valla ' + de, Object.assign(BOX({ tex: pl, shape: 'gate', tall: true, gate: true, interact: 'toggle', rs: 'gate' }), W));
+  def13(w + '_door', 'Puerta ' + de, Object.assign(BOX({ tex: w + '_door_bottom', texAlt: w + '_door_top', altBit: 8, shape: 'door', door: true, interact: 'toggle', rs: 'door', icon: w + '_door', cat: 'func' }), W, { hardness: 3 }));
+  def13(w + '_trapdoor', 'Trampilla ' + de, Object.assign(BOX({ tex: w + '_trapdoor', shape: 'trapdoor', cutout: true, interact: 'toggle', rs: 'trapdoor', cat: 'func' }), W, { hardness: 3 }));
+  def13(w + '_button', 'Botón ' + de, Object.assign(BOX({ tex: pl, shape: 'button', solid: false, support: 'attached', rs: 'button', interact: 'press', press: 30, cat: 'redstone' }), W, { hardness: 0.5 }));
+  def13(w + '_pressure_plate', 'Placa de presión ' + de, Object.assign(BOX({ tex: pl, shape: 'plate', solid: false, support: 'floor', rs: 'plate', plate: 'all', cat: 'redstone' }), W, { hardness: 0.5 }));
+}
+def13('pale_moss_block', 'Bloque de musgo pálido', { tex: 'pale_moss_block', hardness: 0.1, tool: 'hoe', sound: 'grass', color: '#6b7369', cat: 'nature' });
+def13('pale_moss_carpet', 'Alfombra de musgo pálido', FLAT('pale_moss_carpet', { color: '#6b7369' }));
+def13('pale_hanging_moss', 'Musgo pálido colgante', Object.assign({}, PLANT, { tex: 'pale_hanging_moss', support: 'ceiling', color: '#7b8378' }));
+def13('creaking_heart', 'Corazón de crujidor', { tex: { top: 'creaking_heart_top', side: 'creaking_heart' }, axis: true, hardness: 10, tool: 'axe', sound: 'wood', color: '#5a4a44', cat: 'nature', drops: (r) => [['resin_clump', 1 + (r() * 3 | 0)]] });
+def13('open_eyeblossom', 'Ojo flor abierta', Object.assign({}, PLANT, { tex: 'open_eyeblossom', support: 'soil', flower: true, emit: 3, color: '#e88a2a', eyeblossom: 1 }));
+def13('closed_eyeblossom', 'Ojo flor cerrada', Object.assign({}, PLANT, { tex: 'closed_eyeblossom', support: 'soil', flower: true, color: '#7a6a6a', eyeblossom: 0 }));
+
+// ---- plantas de superficie ----
+def13('pink_petals', 'Pétalos rosas', FLAT('pink_petals', { color: '#f2a6c8', flower: true }));
+def13('wildflowers', 'Flores silvestres', FLAT('wildflowers', { color: '#f0e070', flower: true }));
+def13('leaf_litter', 'Hojarasca', FLAT('leaf_litter', { color: '#8a6a3a', tint: '#a88a4a' }));
+def13('bush', 'Arbusto', Object.assign({}, PLANT, { tex: 'bush', support: 'soil', tint: 'foliage', replaceable: true, color: '#4a7a2a' }));
+def13('firefly_bush', 'Arbusto de luciérnagas', Object.assign({}, PLANT, { tex: 'firefly_bush', support: 'soil', emit: 2, color: '#4a6a2a' }));
+def13('short_dry_grass', 'Hierba seca baja', Object.assign({}, PLANT, { tex: 'short_dry_grass', support: 'sand', replaceable: true, color: '#c8a868' }));
+def13('tall_dry_grass', 'Hierba seca alta', Object.assign({}, PLANT, { tex: 'tall_dry_grass', support: 'sand', replaceable: true, color: '#c8a868' }));
+def13('cactus_flower', 'Flor de cactus', Object.assign({}, PLANT, { tex: 'cactus_flower', support: 'any', flower: true, color: '#f07ab0' }));
+def13('torchflower', 'Antorchaflor', Object.assign({}, PLANT, { tex: 'torchflower', support: 'soil', flower: true, color: '#f0a020' }));
+def13('pitcher_plant', 'Planta odre', Object.assign({}, PLANT, { tex: 'pitcher_crop_bottom_stage_4', texAlt: 'pitcher_crop_top_stage_4', altBit: 8, support: 'soil', tall2: true, flower: true, color: '#4a8ab0', icon: 'pitcher_plant' }));
+def13('sweet_berry_bush', 'Arbusto de bayas dulces', Object.assign({}, PLANT, { tex: 'sweet_berry_bush_stage3', render: 'crop', stages: 4, crop: true, support: 'soil', noItem: true, color: '#3a5a2a', stuck: [0.8, 0.75], hurts: 1,
+  drops: (r, tool, meta) => [['sweet_berries', (meta & 7) >= 6 ? 2 + (r() * 2 | 0) : (meta & 7) >= 4 ? 1 + (r() * 2 | 0) : 1]] }));
+def13('bamboo', 'Bambú', BOX({ tex: { top: 'bamboo_stalk', side: 'bamboo_stalk' }, box: [[6.5, 0, 6.5, 9.5, 16, 9.5]], opaque: false, cutout: true, hardness: 1, tool: 'axe', sound: 'wood', support: 'bamboo', color: '#5a8a2a', cat: 'nature', fuel: 50, grows: 16 }));
+def13('bamboo_block', 'Bloque de bambú', { tex: { top: 'bamboo_block_top', side: 'bamboo_block' }, axis: true, hardness: 2, tool: 'axe', sound: 'wood', color: '#7a8a2a', fuel: 300, cat: 'build' });
+def13('bamboo_planks', 'Tablones de bambú', { tex: 'bamboo_planks', hardness: 2, tool: 'axe', sound: 'wood', color: '#c8b04a', fuel: 300, cat: 'build' });
+def13('bamboo_mosaic', 'Mosaico de bambú', { tex: 'bamboo_mosaic', hardness: 2, tool: 'axe', sound: 'wood', color: '#c8b04a', fuel: 300, cat: 'build' });
+def13('vine', 'Enredadera', { tex: 'vine', render: 'ladder', solid: false, opaque: false, cutout: true, hardness: 0.2, tool: 'shears', sound: 'grass', facing: true, support: 'vine', tint: 'foliage', climb: true, replaceable: true, color: '#3a6a1a', cat: 'nature', drops: [] });
+
+// ---- cuevas ----
+def13('moss_carpet', 'Alfombra de musgo', FLAT('moss_block', { color: '#596e2d' }));
+def13('azalea', 'Azalea', BOX({ tex: { top: 'azalea_top', side: 'azalea_side' }, box: [[0, 8, 0, 16, 16, 16], [7, 0, 7, 9, 8, 9]], opaque: false, cutout: true, hardness: 0, sound: 'grass', support: 'soil', sapling: 'azalea', color: '#5f7a2a', cat: 'nature' }));
+def13('flowering_azalea', 'Azalea florecida', BOX({ tex: { top: 'flowering_azalea_top', side: 'flowering_azalea_side' }, box: [[0, 8, 0, 16, 16, 16], [7, 0, 7, 9, 8, 9]], opaque: false, cutout: true, hardness: 0, sound: 'grass', support: 'soil', sapling: 'azalea', color: '#7a6a8a', cat: 'nature' }));
+def13('azalea_leaves', 'Hojas de azalea', { tex: 'azalea_leaves', hardness: 0.2, tool: 'hoe', sound: 'grass', opaque: false, cutout: true, filter: 1, color: '#5a7a2a', cat: 'nature', leaves: true, drops: (r) => r() < 0.05 ? [['azalea', 1]] : [] });
+def13('flowering_azalea_leaves', 'Hojas de azalea florecida', { tex: 'flowering_azalea_leaves', hardness: 0.2, tool: 'hoe', sound: 'grass', opaque: false, cutout: true, filter: 1, color: '#6a7a4a', cat: 'nature', leaves: true, drops: (r) => r() < 0.05 ? [['flowering_azalea', 1]] : [] });
+def13('glow_lichen', 'Liquen luminoso', { tex: 'glow_lichen', render: 'ladder', solid: false, opaque: false, cutout: true, hardness: 0.2, tool: 'shears', sound: 'grass', facing: true, support: 'wall', emit: 7, replaceable: true, color: '#7a8a7a', cat: 'nature', drops: [] });
+def13('cave_vines', 'Enredaderas cavernosas', Object.assign({}, PLANT, { tex: 'cave_vines_plant', texAlt: 'cave_vines_plant_lit', altBit: 1, support: 'ceiling', climb: true, noItem: true, color: '#5a7a2a', berries: true, drops: (r, tool, meta) => (meta & 1) ? [['glow_berries', 1]] : [] }));
+def13('big_dripleaf', 'Plantaforma grande', BOX({ tex: { top: 'big_dripleaf_top', side: 'big_dripleaf_side', bottom: 'big_dripleaf_side' }, box: [[0, 14, 0, 16, 15, 16]], opaque: false, cutout: true, hardness: 0.1, tool: 'axe', sound: 'grass', support: 'dripleaf', color: '#5a8a2a', cat: 'nature' }));
+def13('big_dripleaf_stem', 'Tallo de plantaforma', Object.assign({}, PLANT, { tex: 'big_dripleaf_stem', support: 'dripleaf', noItem: true, drops: [['big_dripleaf', 1]], color: '#5a8a2a' }));
+def13('small_dripleaf', 'Plantaforma pequeña', Object.assign({}, PLANT, { tex: 'small_dripleaf_top', support: 'any', color: '#5a8a2a' }));
+def13('spore_blossom', 'Flor de esporas', Object.assign({}, PLANT, { tex: 'spore_blossom', support: 'ceiling', color: '#d07ab0' }));
+def13('dripstone_block', 'Bloque de espeleotema', { tex: 'dripstone_block', hardness: 1.5, tool: 'pickaxe', needsTool: true, color: '#866b5c', cat: 'nature' });
+def13('pointed_dripstone', 'Espeleotema puntiagudo', Object.assign({}, PLANT, { tex: 'pointed_dripstone_up_tip', support: 'any', hardness: 1.5, tool: 'pickaxe', sound: 'stone', color: '#866b5c', spike: true }));
+def13('pointed_dripstone_down', 'Espeleotema puntiagudo', Object.assign({}, PLANT, { tex: 'pointed_dripstone_down_tip', support: 'ceiling', hardness: 1.5, tool: 'pickaxe', sound: 'stone', noItem: true, drops: [['pointed_dripstone', 1]], color: '#866b5c' }));
+def13('sculk', 'Sculk', { tex: 'sculk', hardness: 0.2, tool: 'hoe', sound: 'grass', color: '#0d1e24', cat: 'nature', xp: [1, 1], silkOnly: true });
+def13('sculk_vein', 'Vena de sculk', FLAT('sculk_vein', { color: '#0d2e34', drops: [] }));
+def13('sculk_catalyst', 'Catalizador de sculk', { tex: { top: 'sculk_catalyst_top', side: 'sculk_catalyst_side', bottom: 'sculk_catalyst_bottom' }, hardness: 3, tool: 'hoe', emit: 6, color: '#3a5a5a', cat: 'nature', xp: [5, 5] });
+def13('sculk_sensor', 'Sensor de sculk', BOX({ tex: { top: 'sculk_sensor_top', side: 'sculk_sensor_side', bottom: 'sculk_sensor_bottom' }, box: [[0, 0, 0, 16, 8, 16]], opaque: false, hardness: 1.5, tool: 'hoe', emit: 1, color: '#1a4a5a', cat: 'redstone', xp: [1, 1] }));
+def13('sculk_shrieker', 'Chillador de sculk', BOX({ tex: { top: 'sculk_shrieker_top', side: 'sculk_shrieker_side', bottom: 'sculk_shrieker_bottom' }, box: [[0, 0, 0, 16, 8, 16]], opaque: false, hardness: 3, tool: 'hoe', color: '#c8c8a8', cat: 'redstone', xp: [5, 5] }));
+def13('powder_snow', 'Nieve polvo', { tex: 'powder_snow', solid: false, opaque: false, hardness: 0.25, sound: 'wool', color: '#f8fdfd', cat: 'nature', noItem: true, drops: [], stuck: [0.9, 1.5], freezes: true });
+def13('smooth_basalt', 'Basalto liso', { tex: 'smooth_basalt', hardness: 1.25, tool: 'pickaxe', needsTool: true, color: '#48484e', cat: 'build' });
+def13('budding_amethyst', 'Amatista brotante', { tex: 'budding_amethyst', hardness: 1.5, tool: 'pickaxe', drops: [], color: '#8461ba', cat: 'nature' });
+def13('amethyst_cluster', 'Racimo de amatista', Object.assign({}, PLANT, { tex: 'amethyst_cluster', support: 'any', hardness: 1.5, tool: 'pickaxe', sound: 'glass', emit: 5, color: '#a58ad8', drops: (r, tool) => tool && tool.type === 'pickaxe' ? [['amethyst_shard', 4]] : [['amethyst_shard', 2]] }));
+
+// ---- mar ----
+const CORALS = [['tube', 'de tubo', '#3157cf'], ['brain', 'de cerebro', '#ce6ba9'], ['bubble', 'de burbuja', '#a419ac'], ['fire', 'de fuego', '#c1393c'], ['horn', 'de cuerno', '#d6c742']];
+for (const [c, n, col] of CORALS) {
+  def13(c + '_coral_block', 'Bloque de coral ' + n, { tex: c + '_coral_block', hardness: 1.5, tool: 'pickaxe', needsTool: true, color: col, cat: 'nature', coral: 'dead_' + c + '_coral_block' });
+  def13('dead_' + c + '_coral_block', 'Bloque de coral ' + n + ' muerto', { tex: 'dead_' + c + '_coral_block', hardness: 1.5, tool: 'pickaxe', needsTool: true, color: '#857e79', cat: 'nature' });
+  def13(c + '_coral', 'Coral ' + n, WETP({ tex: c + '_coral', color: col, coral: 'dead_' + c + '_coral', support: 'underwater', drops: [] }));
+  def13('dead_' + c + '_coral', 'Coral ' + n + ' muerto', Object.assign({}, PLANT, { tex: 'dead_' + c + '_coral', support: 'any', color: '#857e79', drops: [] }));
+}
+def13('seagrass', 'Pasto marino', WETP({ tex: 'seagrass', color: '#2a7a2a', drops: [], replaceable: true }));
+def13('kelp', 'Alga', WETP({ tex: 'kelp', support: 'kelp', color: '#5a8a2a', grows: 18 }));
+def13('sea_pickle', 'Pepinillo de mar', BOX(Object.assign(WETP({ tex: { top: 'sea_pickle', side: 'sea_pickle' }, render: 'box', box: [[6, 0, 6, 10, 6, 10]], emit: 6, support: 'underwater', color: '#5a6a2a', sound: 'wool' }))));
+
+// ---- comportamiento ----
+// soporte nuevo y crecimiento (se engancha a World.canStay y a RandomTick)
+const WET = new Uint8Array(4096);
+for (const d of BLOCKS) if (d && d.wet) WET[d.id] = 1;
+
 const NB = BLOCKS.length;
 if (NB > 4095) throw new Error('Demasiados bloques: ' + NB);
 // tablas rápidas
@@ -2214,6 +2524,23 @@ for (const [k, n, o] of [
   ['beetroot_soup', 'Sopa de remolacha', { food: { h: 6, s: 7.2 }, stack: 1, cat: 'food', bowl: true }], ['mushroom_stew', 'Estofado de champiñones', { food: { h: 6, s: 7.2 }, stack: 1, cat: 'food', bowl: true }],
   ['cookie', 'Galleta', { food: { h: 2, s: 0.4 }, cat: 'food' }],
 ]) if (!ITEMS[k]) defItem(k, n, Object.assign({ cat: 'misc' }, o || {}));
+// 1.9: objetos de los bloques nuevos
+for (const [k, n, o] of [
+  ['sweet_berries', 'Bayas dulces', { food: { h: 2, s: 0.4 }, cat: 'food', block: 'sweet_berry_bush' }], ['glow_berries', 'Bayas luminosas', { food: { h: 2, s: 0.4 }, cat: 'food', block: 'cave_vines' }],
+  ['dried_kelp', 'Alga seca', { food: { h: 1, s: 0.6 }, cat: 'food' }], ['resin_clump', 'Grumo de resina'],
+]) if (!ITEMS[k]) defItem(k, n, Object.assign({ cat: 'misc' }, o));
+SMELT.kelp = ['dried_kelp', 0.1]; SMELT.pale_oak_log = ['charcoal', 0.15];
+shapeless(['pale_oak_log'], 'pale_oak_planks', 4); shapeless(['stripped_pale_oak_log'], 'pale_oak_planks', 4);
+shaped(['BB', 'BB'], { B: 'bamboo' }, 'bamboo_planks'); shaped(['BBB', 'BBB', 'BBB'], { B: 'bamboo' }, 'bamboo_block'); shapeless(['bamboo_block'], 'bamboo_planks', 2); shaped(['S', 'S'], { S: 'bamboo_slab' }, 'bamboo_mosaic');
+shaped(['SS'], { S: 'bamboo' }, 'stick'); shapeless(['mud', 'wheat'], 'packed_mud'); shaped(['MM', 'MM'], { M: 'packed_mud' }, 'mud_bricks', 4);
+shaped(['DDD', 'DDD', 'DDD'], { D: 'dried_kelp' }, 'dried_kelp_block'); shaped(['MM'], { M: 'moss_block' }, 'moss_carpet', 3); shaped(['MM'], { M: 'pale_moss_block' }, 'pale_moss_carpet', 3);
+shaped(['PP', 'PP'], { P: 'pointed_dripstone' }, 'dripstone_block'); shapeless(['torchflower'], 'orange_dye'); shapeless(['pink_petals'], 'pink_dye'); shapeless(['open_eyeblossom'], 'orange_dye'); shapeless(['closed_eyeblossom'], 'gray_dye'); shapeless(['cactus_flower'], 'pink_dye'); shapeless(['pitcher_plant'], 'cyan_dye', 2); shapeless(['wildflowers'], 'yellow_dye');
+{ const P = 'pale_oak_planks', w = 'pale_oak'; shaped(['PSP', 'PSP'], { P, S: 'stick' }, w + '_fence', 3); shaped(['SPS', 'SPS'], { P, S: 'stick' }, w + '_fence_gate'); shaped(['PP', 'PP', 'PP'], { P }, w + '_door', 3); shaped(['PPP', 'PPP'], { P }, w + '_trapdoor', 2); shapeless([P], w + '_button'); shaped(['PP'], { P }, w + '_pressure_plate'); shaped(['X  ', 'XX ', 'XXX'], { X: P }, w + '_stairs', 4); shaped(['XXX'], { X: P }, w + '_slab', 6); }
+// cría: huevo (se lanza) y semillas para las gallinas
+for (const [k, n, o] of [['egg', 'Huevo', { stack: 16, throwable: true }], ['melon_seeds', 'Semillas de sandía'], ['pumpkin_seeds', 'Semillas de calabaza']]) if (!ITEMS[k]) defItem(k, n, Object.assign({ cat: 'misc' }, o));
+if (ITEMS.snowball) ITEMS.snowball.throwable = true;
+if (ITEMS.melon_slice && B.melon !== undefined) shapeless(['melon_slice'], 'melon_seeds', 1);
+if (B.pumpkin !== undefined) shapeless(['pumpkin'], 'pumpkin_seeds', 4);
 // discos de música (suenan en el tocadiscos si cargaste un paquete de música con la carpeta «Discos»)
 const DISCS = ['13', 'cat', 'blocks', 'chirp', 'far', 'mall', 'mellohi', 'stal', 'strad', 'ward', '11', 'wait'];
 for (const n of DISCS) defItem('music_disc_' + n, 'Disco de música', { stack: 1, cat: 'misc', disc: n, desc: 'C418 - ' + n });
@@ -2488,6 +2815,8 @@ addTex('ladder', (c) => { c.clearRect(0, 0, 16, 16); P(c, 2, 0, '#9a7a4a', 2, 16
 addTex('flame', (c) => { c.clearRect(0, 0, 16, 16); P(c, 6, 5, '#ffd84a', 4, 7); P(c, 7, 3, '#ffb020', 2, 3); P(c, 5, 8, '#ff9a20', 6, 4); P(c, 7, 9, '#fff6c0', 2, 3); }, 'particle');
 for (let k = 0; k < 8; k++) addTex('generic_' + k, (c) => { c.clearRect(0, 0, 16, 16); const r = Math.max(1, 7 - k * 0.8); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < r) P(c, x, y, d < r - 1.5 ? '#ffffff' : '#d8d8d8'); } }, 'particle');
 addTex('bubble', (c) => { c.clearRect(0, 0, 16, 16); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 5 && d > 3.6) P(c, x, y, '#cfe6ff'); } P(c, 5, 5, '#ffffff', 2, 2); }, 'particle');
+addTex('heart', (c) => { c.clearRect(0, 0, 16, 16); const H = ['.11...11.', '1221.1221', '122212221', '122222221', '.1222221.', '..12221..', '...121...', '....1....']; H.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') P(c, x * 1.75 | 0, 3 + y * 1.5 | 0, ch === '1' ? '#5a0a0a' : '#e01818', 2, 2); })); }, 'particle');
+addTex('happy_villager', (c) => { c.clearRect(0, 0, 16, 16); P(c, 7, 3, '#3a9a20', 2, 10); P(c, 3, 7, '#3a9a20', 10, 2); P(c, 7, 7, '#9af070', 2, 2); }, 'particle');
 addTex('critical_hit', (c) => { c.clearRect(0, 0, 16, 16); P(c, 7, 2, '#ffffff', 2, 12); P(c, 2, 7, '#ffffff', 12, 2); P(c, 5, 5, '#ffffff', 6, 6); }, 'particle');
 for (let s = 0; s < 10; s++) addTex('destroy_stage_' + s, (c) => {
   c.clearRect(0, 0, 16, 16); const r = mulberry32(99); const n = 2 + s * 2;
@@ -2733,6 +3062,9 @@ const FALLBACK_ICONS = {
     '................',
     '................',
   ], { o: '#262626', g: '#6c6c6c', d: '#545454', k: '#353535' }),
+  egg: shadedBall('#efe2c4', { rx: 4.2, ry: 5.4, cy: 8.5, out: '#a8916a', noise: 0.04 }),
+  melon_seeds: (c) => { for (const [x, y] of [[5, 5], [9, 4], [7, 8], [10, 9], [4, 10]]) { P(c, x, y, '#1a1a12', 2, 2); P(c, x, y, '#3a3a2a'); } },
+  pumpkin_seeds: (c) => { for (const [x, y] of [[5, 5], [9, 4], [7, 8], [10, 9], [4, 10]]) { P(c, x, y, '#e8e0b0', 2, 2); P(c, x + 1, y + 1, '#b8a870'); } },
   snowball: shadedBall('#f4f8fb', { out: '#9fb7c9', noise: 0.05 }),
   slime_ball: shadedBall('#7fc96a', { out: '#3f7a32', noise: 0.08, hiCol: '#d8f7c8' }),
   potato: shadedBall('#c99a52', { rx: 5.2, ry: 3.8, cy: 8.5, out: '#6e4f22', after: (c) => { P(c, 6, 9, '#7d5a2a'); P(c, 9, 7, '#7d5a2a'); P(c, 10, 10, '#7d5a2a'); } }),
@@ -3629,6 +3961,12 @@ const World = {
       case 'floor': return !!(SOLID[below] && (OPAQUE[below] || BLOCKS[below].slab || BLOCKS[below].stairs || BLOCKS[below].translucent || BLOCKS[below].cutout && BLOCKS[below].render === 'cube' || below === B.piston || below === B.sticky_piston));
       case 'any': return below !== 0 && !LIQUID[below] && SOLID[below];
       case 'water': return LIQUID[below] === 1;
+      case 'ceiling': { const a = this.get(x, y + 1, z); return a === id || (!!SOLID[a] && !LIQUID[a]) || BLOCKS[a].leaves; }
+      case 'underwater': { const cur = this.get(x, y, z); return (cur === id || LIQUID[cur] === 1 || WET[cur]) && !!SOLID[below]; }
+      case 'kelp': { const cur = this.get(x, y, z); return (cur === id || LIQUID[cur] === 1 || WET[cur]) && (below === id || !!SOLID[below]); }
+      case 'bamboo': return below === id || soil || below === B.sand || below === B.red_sand || below === B.gravel || below === B.mud || below === B.podzol || below === B.coarse_dirt || below === B.mycelium || below === B.moss_block;
+      case 'vine': { const D = [[0, 0, 1], [-1, 0, 0], [0, 0, -1], [1, 0, 0]][meta & 3]; return !!OPAQUE[this.get(x + D[0], y, z + D[2])] || this.get(x, y + 1, z) === id; }
+      case 'dripleaf': return below === B.big_dripleaf_stem || soil || below === B.clay || below === B.moss_block || below === B.mud;
       case 'lantern': { if (meta & 1) { const a = this.get(x, y + 1, z); return !!SOLID[a]; } return !!SOLID[below]; }
     }
     return true;
@@ -3698,6 +4036,25 @@ function RandomTick(x, y, z, id, meta) {
       const nx = x + (Math.random() * 3 | 0) - 1, ny = y + (Math.random() * 5 | 0) - 3, nz = z + (Math.random() * 3 | 0) - 1;
       if (World.get(nx, ny, nz) === B.dirt && !OPAQUE[World.get(nx, ny + 1, nz)] && !LIQUID[World.get(nx, ny + 1, nz)] && World.lightAt(nx, ny + 1, nz) >= 4) World.set(nx, ny, nz, B.grass_block);
     }
+  } else if (id === B.mycelium) { // el micelio se extiende como la hierba
+    const above = World.get(x, y + 1, z);
+    if (OPAQUE[above] || LIQUID[above]) { World.set(x, y, z, B.dirt); return; }
+    if (light >= 9) for (let k = 0; k < 4; k++) { const nx = x + (Math.random() * 3 | 0) - 1, ny = y + (Math.random() * 5 | 0) - 3, nz = z + (Math.random() * 3 | 0) - 1; if (World.get(nx, ny, nz) === B.dirt && !OPAQUE[World.get(nx, ny + 1, nz)] && World.lightAt(nx, ny + 1, nz) >= 4) World.set(nx, ny, nz, B.mycelium); }
+  } else if (d.grows) { // bambú y algas crecen hacia arriba
+    const up = World.get(x, y + 1, z); const ok = id === B.kelp ? LIQUID[up] === 1 && World.getMeta(x, y + 1, z) === 0 : up === 0;
+    if (!ok || Math.random() > (id === B.kelp ? 0.14 : 0.3)) return;
+    let h = 1; while (World.get(x, y - h, z) === id && h < 40) h++;
+    if (h < d.grows - (Math.abs(Math.imul(x * 73856093 ^ z * 19349663, 1)) % 6)) World.set(x, y + 1, z, id, 0);
+  } else if (id === B.vine) { // la enredadera cuelga hacia abajo
+    if (Math.random() < 0.2 && World.get(x, y - 1, z) === 0 && y > 1) { let h = 1; while (World.get(x, y + h, z) === id && h < 20) h++; if (h < 12) World.set(x, y - 1, z, id, meta); }
+  } else if (id === B.cave_vines) { // crecen hacia abajo y a veces dan bayas
+    if (!(meta & 1) && Math.random() < 0.08) World.set(x, y, z, id, meta | 1, 1);
+    else if (Math.random() < 0.1 && World.get(x, y - 1, z) === 0 && y > 2) { let h = 1; while (World.get(x, y + h, z) === id && h < 30) h++; if (h < 10) World.set(x, y - 1, z, id, Math.random() < 0.11 ? 1 : 0); }
+  } else if (d.coral) { // sin agua al lado, el coral se muere
+    let wet = false; for (const [ax, ay, az] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) { const n = World.get(x + ax, y + ay, z + az); if (LIQUID[n] === 1 || WET[n]) { wet = true; break; } }
+    if (!wet && !d.wet && B[d.coral] !== undefined) World.set(x, y, z, B[d.coral], 0);
+  } else if (d.eyeblossom !== undefined) { // la ojo flor se abre de noche y se cierra de día
+    const night = World.time > 12600 && World.time < 23400; if ((d.eyeblossom === 1) !== night) World.set(x, y, z, night ? B.open_eyeblossom : B.closed_eyeblossom, 0);
   } else if (id === B.farmland) {
     let wet = false;
     for (let dz = -4; dz <= 4 && !wet; dz++) for (let dx = -4; dx <= 4 && !wet; dx++) for (let dy = 0; dy <= 1; dy++) if (LIQUID[World.get(x + dx, y + dy, z + dz)] === 1) { wet = true; break; }
@@ -3812,10 +4169,12 @@ function columnHeight(x, z) { // altura del terreno generado (sin ediciones)
 //  Generación de mallas (chunks, objetos en mano, bloques sueltos)
 // ============================================================
 const STRUCT_NAMES = { dungeon: 'Mazmorra', cabin: 'Cabaña del bosque', ruined_tower: 'Torre en ruinas', village: 'Aldea', desert_temple: 'Templo del desierto', forest_temple: 'Templo del bosque', swamp_hut: 'Cabaña del pantano', igloo: 'Iglú', well: 'Pozo del desierto', mineshaft: 'Mina abandonada', shipwreck: 'Barco hundido', ocean_ruins: 'Ruinas oceánicas', treasure: 'Tesoro enterrado', fossil: 'Fósil', watchtower: 'Torre de vigía', ocean_temple: 'Templo oceánico', mansion: 'Mansión del bosque', obsidian_ruins: 'Ruinas de obsidiana', stronghold: 'Fortaleza subterránea', buried_ruins: 'Ruinas enterradas' };
-const BIOME_NAMES = ['Océano', 'Playa', 'Llanura', 'Bosque', 'Bosque de abedules', 'Taiga', 'Llanura nevada', 'Desierto', 'Sabana', 'Pantano', 'Montañas', 'Océano helado', 'Picos nevados', 'Pradera de flores'];
+const BIOME_NAMES = ['Océano', 'Playa', 'Llanura', 'Bosque', 'Bosque de abedules', 'Taiga', 'Llanura nevada', 'Desierto', 'Sabana', 'Pantano', 'Colinas ventosas', 'Océano helado', 'Picos nevados', 'Bosque de flores', 'Río', 'Río helado', 'Playa nevada', 'Costa pedregosa', 'Océano profundo', 'Océano cálido', 'Océano templado', 'Océano templado profundo', 'Océano frío', 'Océano frío profundo', 'Océano helado profundo', 'Llanura de girasoles', 'Pinchos de hielo', 'Manglar', 'Bosque oscuro', 'Jardín pálido', 'Bosque de abedules ancestral', 'Taiga de pinos ancestral', 'Taiga de abetos ancestral', 'Taiga nevada', 'Meseta de sabana', 'Sabana ventosa', 'Colinas ventosas', 'Colinas de grava ventosas', 'Bosque ventoso', 'Jungla', 'Jungla dispersa', 'Jungla de bambú', 'Badlands', 'Badlands erosionadas', 'Meseta arbolada de badlands', 'Pradera', 'Arboleda de cerezos', 'Arboleda', 'Laderas nevadas', 'Picos helados', 'Picos escarpados', 'Picos pedregosos', 'Campo de champiñones', 'Cuevas de espeleotemas', 'Cuevas exuberantes', 'Oscuridad profunda'];
+// bioma donde está el jugador: bajo tierra puede ser un bioma de cueva
+function biomeHere(x, y, z) { if (!World.flat && World.sky(x, y + 1, z) < 1 && y < Gen.local.column(World.seed, x, z).h - 8) { const cb = Gen.local.caveBiome(World.seed, x, y, z); if (cb >= 0) return cb; } return World.biome(x, z); }
 const hexRGB = (h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
-const GRASS_C = ['#8eb971', '#91bd59', '#91bd59', '#79c05a', '#88bb67', '#86b783', '#80b497', '#bfb755', '#bfb755', '#6a7039', '#8ab689', '#80b497', '#80b497', '#79c05a'].map(hexRGB);
-const FOLI_C = ['#71a74d', '#77ab2f', '#77ab2f', '#59ae30', '#6ba941', '#68a464', '#60a17b', '#aea42a', '#aea42a', '#6a7039', '#6da36b', '#60a17b', '#60a17b', '#59ae30'].map(hexRGB);
+const GRASS_C = ['#8eb971', '#91bd59', '#91bd59', '#79c05a', '#88bb67', '#86b783', '#80b497', '#bfb755', '#bfb755', '#6a7039', '#8ab689', '#80b497', '#80b497', '#79c05a', '#8eb971', '#80b497', '#83b593', '#8ab689', '#8eb971', '#8eb971', '#8eb971', '#8eb971', '#8eb971', '#8eb971', '#80b497', '#91bd59', '#80b497', '#6a7039', '#507a32', '#778272', '#88bb67', '#86b87f', '#86b783', '#80b497', '#bfb755', '#bfb755', '#8ab689', '#8ab689', '#8ab689', '#59c93c', '#64c73f', '#59c93c', '#90814d', '#90814d', '#90814d', '#83bb6d', '#b6db61', '#80b497', '#80b497', '#80b497', '#80b497', '#9abe4b', '#55c93f', '#91bd59', '#91bd59', '#91bd59'].map(hexRGB);
+const FOLI_C = ['#71a74d', '#77ab2f', '#77ab2f', '#59ae30', '#6ba941', '#68a464', '#60a17b', '#aea42a', '#aea42a', '#6a7039', '#6da36b', '#60a17b', '#60a17b', '#59ae30', '#71a74d', '#60a17b', '#64a278', '#6da36b', '#71a74d', '#71a74d', '#71a74d', '#71a74d', '#71a74d', '#71a74d', '#60a17b', '#77ab2f', '#60a17b', '#8db127', '#59ae30', '#878d76', '#6ba941', '#68a55f', '#68a464', '#60a17b', '#aea42a', '#aea42a', '#6da36b', '#6da36b', '#6da36b', '#30bb0b', '#3eb80f', '#30bb0b', '#9e814d', '#9e814d', '#9e814d', '#63a948', '#b6db61', '#60a17b', '#60a17b', '#60a17b', '#60a17b', '#82ac1e', '#2bbb0f', '#77ab2f', '#77ab2f', '#77ab2f'].map(hexRGB);
 
 class VB {
   constructor(nq) { this.alloc(nq || 4096); }
@@ -3928,6 +4287,7 @@ const Mesher = {
       const p = ((y + 1) * 18 + (z + 1)) * 18 + (x + 1);
       const id = pb[p]; if (!id) continue;
       const rt = RENDER[id]; const d = BLOCKS[id];
+      if (WET[id]) this.liquid(T, p, B.water, BLOCKS[B.water], x, y, z);
       if (rt === 1) this.cube(O, T, p, id, d, pm[p], x, y, z, fancy);
       else if (rt === 2) this.cross(O, p, id, d, x, y, z);
       else if (rt === 3) this.liquid(d.translucent ? T : O, p, id, d, x, y, z);
@@ -4100,8 +4460,9 @@ const Mesher = {
     }
   },
   liqH(x, y, z, id) { // altura en píxeles
-    const p = this.pi(x, y, z); if (this.pb[p] !== id) return -1;
-    if (this.pb[p + 324] === id) return 16;
+    const p = this.pi(x, y, z); const q = this.pb[p]; if (q !== id && !(WET[q] && id === B.water)) return -1;
+    const up = this.pb[p + 324]; if (up === id || (WET[up] && id === B.water)) return 16;
+    if (WET[q]) return 14.2;
     const m = this.pm[p]; if (m >= 8) return 14.2;
     return (8 - m) / 9 * 16;
   },
@@ -4116,7 +4477,8 @@ const Mesher = {
       }
       return n ? sum / n : 14.2;
     };
-    const full = above === id;
+    const isL = (n) => n === id || (WET[n] && id === B.water);
+    const full = isL(above);
     const h00 = full ? 16 : corner(0, 0), h10 = full ? 16 : corner(1, 0), h11 = full ? 16 : corner(1, 1), h01 = full ? 16 : corner(0, 1);
     const fl = d.fullbright ? 2 : 0;
     const L = (np) => { const l = Math.max(pl[np] >> 4, pl[p] >> 4) * 16; const b = Math.max(pl[np] & 15, pl[p] & 15) * 16; return [l, b]; };
@@ -4135,13 +4497,13 @@ const Mesher = {
     ];
     for (const [f, v] of sides) {
       const np = p + this.NOFF[f]; const n = pb[np];
-      if (n === id || OPAQUE[n] || (TRANSL[n] && d.translucent)) continue;
+      if (isL(n) || OPAQUE[n] || (TRANSL[n] && d.translucent && !WET[n])) continue;
       const [s, bl] = L(np);
       const uv = v.map(q => this.uvOf(f, q[0], q[1], q[2]));
       this.quad(buf, x, y, z, v, uv, ti, w, this.SHADE[f], s, bl, fl);
     }
     const nd = pb[p - 324];
-    if (nd !== id && !OPAQUE[nd]) {
+    if (!isL(nd) && !OPAQUE[nd]) {
       const [s, bl] = L(p - 324);
       this.quad(buf, x, y, z, [[0, 0, 0], [16, 0, 0], [16, 0, 16], [0, 0, 16]], [[0, 0], [16, 0], [16, 16], [0, 16]], ti, w, 0.5, s, bl, fl);
     }
@@ -5092,7 +5454,7 @@ class Entity {
   updateFluids() {
     const bb = this.bb(); let w = false, l = false;
     for (let y = Math.floor(bb[1]); y <= Math.floor(bb[4] - 0.001); y++) for (let z = Math.floor(bb[2]); z <= Math.floor(bb[5] - 0.001); z++) for (let x = Math.floor(bb[0]); x <= Math.floor(bb[3] - 0.001); x++) {
-      const id = World.get(x, y, z); if (LIQUID[id] === 1) { const m = World.getMeta(x, y, z); const top = y + (m >= 8 ? 1 : (8 - m) / 9); if (top > bb[1]) w = true; } else if (LIQUID[id] === 2) l = true;
+      const id = World.get(x, y, z); if (WET[id]) w = true; else if (LIQUID[id] === 1) { const m = World.getMeta(x, y, z); const top = y + (m >= 8 ? 1 : (8 - m) / 9); if (top > bb[1]) w = true; } else if (LIQUID[id] === 2) l = true;
     }
     this.inWater = w; this.inLava = l;
   }
@@ -5120,10 +5482,24 @@ class Entity {
     const a = this.onGround ? speed * (0.21600002 / (slip * slip * slip)) : this.airSpeed;
     accel(a);
     if (this.climbing()) { this.vx = clamp(this.vx, -0.15, 0.15); this.vz = clamp(this.vz, -0.15, 0.15); this.fall = 0; if (this.vy < -0.15) this.vy = -0.15; if (this.sneaking && this.vy < 0) this.vy = 0; }
+    const st = this.stuckIn();
+    if (st) { // telaraña, arbusto de bayas, nieve polvo: frenan (como en el original)
+      this.move(this.vx * st.m[0], this.vy * st.m[1], this.vz * st.m[0]); this.fall = 0;
+      if (st.hurt && Math.hypot(this.x - this.px, this.z - this.pz) > 0.003 && this.age % 10 === 0 && !(this.kind === 'fox')) { if (this.hurtBy) this.hurtBy(st.hurt, null); else this.damage(st.hurt, null); }
+      this.vx = 0; this.vz = 0; this.vy = st.m[1] > 1 ? (jump && this.inv ? 0.1 : -0.06) : 0; return;
+    }
     this.move(this.vx, this.vy, this.vz);
     if (this.climbing() && (this.horizCol || jump)) this.vy = 0.2;
     this.vy = (this.vy - this.gravity) * this.drag;
     this.vx *= fr; this.vz *= fr;
+  }
+  stuckIn() {
+    const bb = this.bb();
+    for (let y = Math.floor(bb[1]); y <= Math.floor(bb[4] - 0.001); y++) for (let z = Math.floor(bb[2]); z <= Math.floor(bb[5] - 0.001); z++) for (let x = Math.floor(bb[0]); x <= Math.floor(bb[3] - 0.001); x++) {
+      const d = BLOCKS[World.get(x, y, z)]; if (d.stuck) return { m: d.stuck, hurt: d.hurts || 0 };
+      if (d.key === 'cobweb') return { m: [0.25, 0.05], hurt: 0 };
+    }
+    return null;
   }
   damage(amt, src) { // devuelve true si recibe daño
     if (this.dead || amt <= 0) return false;
@@ -5188,7 +5564,7 @@ class Player extends Entity {
     if (ok && this.health < was) { this.exh += 0.1; Sound.play('hurt'); this.dmgTilt = 1; HUD.flash = 1; }
     return ok;
   }
-  onLand(dmg) { if (this.mode === 0) this.hurtBy(Math.round(Ench.protect(dmg, true)), null, true); Sound.play(dmg > 4 ? 'land_big' : 'land', this.x, this.y, this.z); Particles.landing(this.x, this.y, this.z, dmg); }
+  onLand(dmg) { if (dmg > 0 && BLOCKS[World.get(Math.floor(this.x), Math.floor(this.y + 0.1), Math.floor(this.z))].spike) dmg = dmg * 2 + 2; if (this.mode === 0) this.hurtBy(Math.round(Ench.protect(dmg, true)), null, true); Sound.play(dmg > 4 ? 'land_big' : 'land', this.x, this.y, this.z); Particles.landing(this.x, this.y, this.z, dmg); }
   die() {
     this.dead = true; this.deathTime = 0; Game.onPlayerDeath();
   }
@@ -5281,7 +5657,7 @@ class Player extends Entity {
     if (this.onGround && this.stepDist > 1.7 && !this.sneaking) { this.stepDist = 0; const id = World.get(Math.floor(this.x), Math.floor(this.y - 0.2), Math.floor(this.z)); if (id) Sound.dig(BLOCKS[id], 'step'); }
     // aire / ahogo
     const eyeId = World.get(Math.floor(this.x), Math.floor(this.y + this.eye), Math.floor(this.z));
-    this.eyeInWater = LIQUID[eyeId] === 1 && (World.getMeta(Math.floor(this.x), Math.floor(this.y + this.eye), Math.floor(this.z)) >= 8 || (this.y + this.eye) % 1 < 0.88);
+    this.eyeInWater = WET[eyeId] ? true : LIQUID[eyeId] === 1 && (World.getMeta(Math.floor(this.x), Math.floor(this.y + this.eye), Math.floor(this.z)) >= 8 || (this.y + this.eye) % 1 < 0.88);
     this.eyeInLava = LIQUID[eyeId] === 2;
     if (this.eyeInWater && !creative && !spect) { this.air--; if (this.air <= -20) { this.air = 0; this.hurtBy(2, null, true); Particles.bubbles(this); } }
     else this.air = Math.min(300, this.air + 4);
@@ -5348,7 +5724,7 @@ class Mob extends Entity {
   die(src) {
     if (this.dead) return; this.dead = true; this.deathTime = 0;
     Sound.play(this.def.sound + '_death', this.x, this.y, this.z);
-    if (src && src.player) {
+    if (src && src.player && !this.baby) {
       const r = Math.random; const loot = this.playerHit && performance.now() - this.playerHit < 5000 ? Ench.held('looting') : 0;
       for (const [id, n] of this.def.drops(r, this.fire > 0)) if (n > 0) Entities.dropItem(this.x, this.y + 0.5, this.z, { id, n: n + (loot ? Math.floor(r() * (loot + 1)) : 0) }, true);
       const [a, b] = this.def.xp; Game.player.addXP(a + Math.floor(Math.random() * (b - a + 1)));
@@ -5374,6 +5750,7 @@ class Mob extends Entity {
       if (playerOk && dist < 16 && !spiderCalm) this.target = P; else if (!playerOk || dist > 24) this.target = null;
     }
     if (this.panic > 0) this.panic--;
+    if (d.passive) this.breedTick();
     if (this.target) {
       const t = this.target; const ty = Math.atan2(-(t.x - this.x), -(t.z - this.z));
       this.yaw = lerpAngle(this.yaw, ty, 0.35);
@@ -5393,6 +5770,7 @@ class Mob extends Entity {
     } else {
       this.aiming = false;
       if (this.panic > 0) { fwd = 1; speed = d.speed * 1.6; if (Math.random() < 0.08) this.goalYaw = Math.random() * Math.PI * 2; this.yaw = lerpAngle(this.yaw, this.goalYaw ?? this.yaw, 0.3); }
+      else if (d.passive && !this.eating && (this._bg = this.breedGoal(P, dist))) { fwd = this._bg.fwd; speed = d.speed * this._bg.sp; this.yaw = lerpAngle(this.yaw, this._bg.yaw, 0.3); }
       else {
         if (--this.wanderT <= 0) { this.wanderT = 60 + (Math.random() * 120 | 0); this.goalYaw = Math.random() < 0.6 ? Math.random() * Math.PI * 2 : null; this.walkFor = 30 + Math.random() * 60; if (this.kind === 'sheep' && Math.random() < 0.3) this.eating = 40; }
         if (this.goalYaw !== null && this.goalYaw !== undefined && this.walkFor > 0) { this.walkFor--; fwd = 1; speed = d.speed * 0.8; this.yaw = lerpAngle(this.yaw, this.goalYaw, 0.15); }
@@ -5440,6 +5818,123 @@ class Mob extends Entity {
 function clampAngle(a, ref, lim) { let d = a - ref; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return ref + clamp(d, -lim, lim); }
 
 // ---------------- objetos sueltos, flechas, bloques que caen, dinamita ----------------
+
+// ---- extra/breed19.js ----
+// ============================================================
+//  Cría de animales (como en el juego original)
+//  - Cada animal se alimenta con su comida: vacas y ovejas trigo; cerdos zanahoria,
+//    patata o remolacha; gallinas semillas.
+//  - Al darle de comer entra en «modo amor» 30 s (corazones). Dos del mismo tipo en
+//    modo amor se buscan y nace una cría; los padres esperan 5 min para volver a criar
+//    y el jugador gana 1-7 de experiencia.
+//  - Las crías miden la mitad (con la cabeza más grande), siguen a los adultos y
+//    crecen en 20 min; darles su comida las hace crecer un 10 % más rápido.
+//  - Con la comida en la mano, los animales cercanos te siguen.
+//  - Las gallinas ponen un huevo cada 5-10 min; un huevo lanzado puede soltar pollitos.
+// ============================================================
+const BREED_FOOD = {
+  cow: ['wheat'], sheep: ['wheat'], pig: ['carrot', 'potato', 'beetroot'],
+  chicken: ['wheat_seeds', 'melon_seeds', 'pumpkin_seeds', 'beetroot_seeds', 'torchflower_seeds', 'pitcher_pod'],
+};
+const BABY_GROW = 24000, LOVE_TIME = 600, BREED_CD = 6000;
+const breedFood = (kind, id) => !!(BREED_FOOD[kind] && BREED_FOOD[kind].includes(id));
+
+Object.assign(Mob.prototype, {
+  setBaby(on, age) {
+    this.baby = !!on; this.growAge = on ? (age ?? BABY_GROW) : 0;
+    this.w = this.def.w * (on ? 0.5 : 1); this.h = this.def.h * (on ? 0.5 : 1);
+  },
+  // dar de comer; devuelve true si se ha usado la comida
+  feed(P, held) {
+    if (this.dead || !held || !breedFood(this.kind, held.id)) return false;
+    if (this.baby) { this.growAge = Math.floor(this.growAge * 0.9); Particles.happy(this); }
+    else if ((this.breedCD || 0) <= 0 && !(this.love > 0)) { this.love = LOVE_TIME; this.lover = P; Particles.hearts(this, 3); }
+    else return false;
+    Sound.play('eat', this.x, this.y, this.z);
+    if (P.mode !== 1) { held.n--; if (held.n <= 0) P.inv[P.sel] = null; }
+    this.persistent = true; return true;
+  },
+  // temporizadores de cría (cada tick)
+  breedTick() {
+    if (this.dead) return;
+    if (this.breedCD > 0) this.breedCD--;
+    if (this.baby) { if (--this.growAge <= 0) this.setBaby(false); }
+    if (this.love > 0) {
+      this.love--; if (this.age % 10 === 0) Particles.hearts(this);
+      const mate = this.findMate();
+      if (mate && Math.hypot(mate.x - this.x, mate.z - this.z) < 1.6 && Math.abs(mate.y - this.y) < 1) {
+        this.mateT = (this.mateT || 0) + 1;
+        if (this.mateT > 60 && !this.mateLock) this.breedWith(mate);
+      } else this.mateT = 0;
+    }
+    // las gallinas adultas ponen huevos
+    if (this.kind === 'chicken' && !this.baby) {
+      if (this.eggT === undefined) this.eggT = 6000 + Math.random() * 6000 | 0;
+      if (--this.eggT <= 0) { this.eggT = 6000 + Math.random() * 6000 | 0; if (ITEMS.egg) { Entities.dropItem(this.x, this.y + 0.3, this.z, { id: 'egg', n: 1 }); Sound.play('pop', this.x, this.y, this.z); } }
+    }
+  },
+  findMate() {
+    let best = null, bd = 8;
+    for (const e of Entities.list) {
+      if (e === this || !e.mob || e.dead || e.kind !== this.kind || e.baby || !(e.love > 0)) continue;
+      const d = Math.hypot(e.x - this.x, e.y - this.y, e.z - this.z); if (d < bd) { bd = d; best = e; }
+    }
+    return best;
+  },
+  breedWith(mate) {
+    this.mateLock = mate.mateLock = true;
+    const baby = new Mob(this.kind, (this.x + mate.x) / 2, Math.max(this.y, mate.y), (this.z + mate.z) / 2);
+    baby.setBaby(true); baby.persistent = true; baby.variant = Math.random() < 0.5 ? this.variant : mate.variant;
+    Entities.add(baby); Particles.hearts(baby, 6);
+    for (const p of [this, mate]) { p.love = 0; p.mateT = 0; p.breedCD = BREED_CD; p.mateLock = false; }
+    const P = Game.player; if (P && !P.dead) P.addXP(1 + (Math.random() * 7 | 0));
+  },
+  // a dónde quiere ir (pareja, jugador con comida o adulto); null = pasear como siempre
+  breedGoal(P, dist) {
+    const go = (t, stop, sp) => { const dd = Math.hypot(t.x - this.x, t.z - this.z); return { yaw: Math.atan2(-(t.x - this.x), -(t.z - this.z)), fwd: dd > stop ? 1 : 0, sp }; };
+    if (this.love > 0) { const m = this.findMate(); if (m) return go(m, 0.9, 1); }
+    const held = P && P.held; if (P && !P.dead && held && breedFood(this.kind, held.id) && dist < 10) { this.lookPlayer = 10; return go(P, 2.2, 1.1); }
+    if (this.baby) {
+      let ad = null, bd = 16; for (const e of Entities.list) { if (e.mob && e.kind === this.kind && !e.baby && !e.dead) { const d = Math.hypot(e.x - this.x, e.z - this.z); if (d < bd) { bd = d; ad = e; } } }
+      if (ad && bd > 3) return go(ad, 3, 1.1);
+    }
+    return null;
+  },
+});
+
+// ---- huevos y bolas de nieve lanzados ----
+class Thrown extends Entity {
+  constructor(id, x, y, z, vx, vy, vz, shooter) { super('thrown', x, y, z); this.item = { id, n: 1 }; this.vx = vx; this.vy = vy; this.vz = vz; this.w = 0.25; this.h = 0.25; this.shooter = shooter; }
+  tick() {
+    this.savePrev(); this.age++;
+    const steps = 4;
+    for (let s = 0; s < steps; s++) {
+      const nx = this.x + this.vx / steps, ny = this.y + this.vy / steps, nz = this.z + this.vz / steps;
+      for (const e of Entities.list) {
+        if (e === this || e === this.shooter || !e.mob || e.dead) continue;
+        if (Math.abs(e.x - nx) < e.w / 2 + 0.15 && ny > e.y - 0.1 && ny < e.y + e.h + 0.1 && Math.abs(e.z - nz) < e.w / 2 + 0.15) { e.damage(this.item.id === 'snowball' && e.def && e.def.fireImmune ? 3 : 0.01, { x: this.x - this.vx, z: this.z - this.vz, kb: 0.3 }); this.hit(); return; }
+      }
+      const id = World.get(Math.floor(nx), Math.floor(ny), Math.floor(nz));
+      if (SOLID[id] && !REPLACE[id]) { this.hit(); return; }
+      this.x = nx; this.y = ny; this.z = nz;
+    }
+    this.vy -= 0.03; this.vx *= 0.99; this.vy *= 0.99; this.vz *= 0.99;
+    if (this.age > 400 || this.y < -10) this.remove = true;
+  }
+  hit() {
+    this.remove = true;
+    const col = this.item.id === 'egg' ? [0.95, 0.9, 0.8] : [0.95, 0.97, 1];
+    Particles.color(this.x, this.y, this.z, col[0], col[1], col[2], 8, 0.15, 10, 0.02, 0.06);
+    // un huevo tiene 1/8 de soltar un pollito (y, de esos, 1/32 suelta cuatro)
+    if (this.item.id === 'egg' && Math.random() < 1 / 8) { const n = Math.random() < 1 / 32 ? 4 : 1; for (let i = 0; i < n; i++) { const c = new Mob('chicken', this.x, this.y, this.z); c.setBaby(true); c.persistent = true; Entities.add(c); } }
+  }
+}
+function throwItem(P, id) {
+  const [dx, dy, dz] = lookDir(P.yaw, P.pitch); const sp = 1.5;
+  Entities.add(new Thrown(id, P.x + dx * 0.4, P.y + P.eye - 0.1, P.z + dz * 0.4, dx * sp + P.vx, dy * sp + (P.onGround ? 0 : P.vy), dz * sp + P.vz, P));
+  Sound.play('bow', P.x, P.y, P.z);
+}
+
 class ItemEntity extends Entity {
   constructor(x, y, z, item) { super('item', x, y, z); this.item = item; this.w = 0.25; this.h = 0.25; this.pickupDelay = 10; this.spin = Math.random() * 6.28; this.step = 0; }
   tick() {
@@ -5651,6 +6146,8 @@ const Particles = {
   smoke(x, y, z) { const c = Math.random() * 0.3; this.add({ x, y, z, vx: (Math.random() - 0.5) * 0.02, vy: 0.03, vz: (Math.random() - 0.5) * 0.02, life: 25, s: 0.12, col: [c, c, c], g: -0.002, grow: 1, anim: 'generic_' }); },
   flame(x, y, z) { this.add({ x, y, z, vx: 0, vy: 0.005, vz: 0, life: 12, s: 0.07, col: [1, 1, 1], g: 0, glow: 1, sprite: 'flame' }); },
   poof(e) { this.color(e.x, e.y + e.h / 2, e.z, 0.9, 0.9, 0.9, 18, 0.15, 14, -0.003, 0.18, { anim: 'generic_' }); },
+  hearts(e, n = 1) { for (let i = 0; i < n; i++) this.add({ x: e.x + (Math.random() - 0.5) * e.w * 1.6, y: e.y + e.h * (0.6 + Math.random() * 0.6), z: e.z + (Math.random() - 0.5) * e.w * 1.6, vx: 0, vy: 0.02, vz: 0, life: 20, s: 0.12, col: [1, 1, 1], g: 0, sprite: 'heart' }); },
+  happy(e, n = 6) { for (let i = 0; i < n; i++) this.add({ x: e.x + (Math.random() - 0.5) * e.w * 1.6, y: e.y + Math.random() * e.h * 1.2, z: e.z + (Math.random() - 0.5) * e.w * 1.6, vx: 0, vy: 0.01, vz: 0, life: 22, s: 0.09, col: [1, 1, 1], g: 0, sprite: 'happy_villager' }); },
   crit(e) { this.color(e.x, e.y + e.h * 0.7, e.z, 0.95, 0.9, 0.7, 14, 0.4, 10, 0.02, 0.1, { sprite: 'critical_hit' }); },
   landing(x, y, z, dmg) { const id = World.get(Math.floor(x), Math.floor(y - 0.2), Math.floor(z)); if (id && dmg > 0) for (let k = 0; k < Math.min(30, 6 + dmg * 3); k++) this.hit(Math.floor(x), Math.floor(y - 0.2), Math.floor(z), id, 2); },
   sprint(p) { const id = World.get(Math.floor(p.x), Math.floor(p.y - 0.2), Math.floor(p.z)); if (id) this.add({ x: p.x + (Math.random() - 0.5) * 0.6, y: p.y + 0.1, z: p.z + (Math.random() - 0.5) * 0.6, vx: -p.vx * 4, vy: 0.08, vz: -p.vz * 4, life: 12, s: 0.07, tex: BLOCKS[id].faceTex[2], u: 4, v: 4, g: 0.04, tint: BLOCKS[id].tint ? [121, 192, 90] : null }); },
@@ -6321,7 +6818,7 @@ const Game = {
     // --- clic derecho ---
     const held = P.held; const hit = ITEMS[held?.id];
     if (Input.mouse[2] && P.mode !== 3) {
-      if (hit && hit.food && !(hit.places && this.target && this.target.id === B.farmland && this.target.face === 2) && (P.food < 20 || P.mode === 1 || held.id === 'golden_apple' || hit.always)) {
+      if (hit && hit.food && !(hit.places && this.target && this.target.id === B.farmland && this.target.face === 2) && !(this.targetEnt && this.targetEnt.mob && breedFood(this.targetEnt.kind, held.id)) && !(hit.block && this.target && !P.sneaking) && (P.food < 20 || P.mode === 1 || held.id === 'golden_apple' || hit.always)) {
         P.usingItem = true; P.useTime++;
         if (P.useTime % 4 === 0) { Sound.play('eat'); Particles.color(...this.eyePos(1).map((v, i) => v + lookDir(P.yaw, P.pitch)[i] * 0.4), 0.8, 0.6, 0.4, 2, 0.1, 10, 0.03, 0.05); }
         if (P.useTime >= 32) { P.food = Math.min(20, P.food + hit.food.h); P.sat = Math.min(P.food, P.sat + hit.food.s); if (held.id === 'golden_apple') P.health = Math.min(20, P.health + 4); if (P.mode !== 1) { held.n--; if (!held.n) P.inv[P.sel] = null; const back = hit.bowl ? 'bowl' : hit.returns; if (back) { if (!P.inv[P.sel]) P.inv[P.sel] = { id: back, n: 1 }; else if (P.give(back, 1)) Entities.dropItem(P.x, P.y + 1, P.z, { id: back, n: 1 }); } } P.useTime = 0; P.usingItem = false; Sound.play('burp'); Input.mouse[2] = false; }
@@ -6353,6 +6850,10 @@ const Game = {
   },
   use() {
     const P = this.player; const T = this.target; const held = P.held; const it = held && ITEMS[held.id];
+    // dar de comer a un animal (cría)
+    const fe = this.targetEnt; if (fe && fe.mob && fe.feed && held && fe.feed(P, held)) { P.swinging = true; P.swingTime = 0; return; }
+    // lanzar huevos y bolas de nieve
+    if (it && it.throwable && !(T && !P.sneaking && BLOCKS[T.id].interact)) { throwItem(P, held.id); this.consume(); P.swinging = true; P.swingTime = 0; this.useCD = 4; return; }
     // interactuar con bloques
     if (T && !P.sneaking) {
       const d = BLOCKS[T.id];
@@ -6362,6 +6863,9 @@ const Game = {
       if (d.interact === 'chest') { UI.openContainer('chest', T); Sound.play('chest_open', T.x, T.y, T.z); return; }
       if ((d.interact === 'toggle' || d.interact === 'press' || d.interact === 'cycle') && RS.use(T)) { P.swinging = true; P.swingTime = 0; return; }
       if (d.interact === 'bed') { this.trySleep(T); return; }
+      // coger bayas sin romper la planta
+      if (T.id === B.sweet_berry_bush && (World.getMeta(T.x, T.y, T.z) & 7) >= 4) { const m = World.getMeta(T.x, T.y, T.z) & 7; Entities.dropItem(T.x + 0.5, T.y + 0.5, T.z + 0.5, { id: 'sweet_berries', n: m >= 6 ? 2 + (Math.random() * 2 | 0) : 1 + (Math.random() * 2 | 0) }); World.set(T.x, T.y, T.z, T.id, 2); Sound.play('pop', T.x, T.y, T.z); P.swinging = true; P.swingTime = 0; return; }
+      if (T.id === B.cave_vines && (World.getMeta(T.x, T.y, T.z) & 1)) { Entities.dropItem(T.x + 0.5, T.y + 0.5, T.z + 0.5, { id: 'glow_berries', n: 1 }); World.set(T.x, T.y, T.z, T.id, World.getMeta(T.x, T.y, T.z) & ~1); Sound.play('pop', T.x, T.y, T.z); P.swinging = true; P.swingTime = 0; return; }
       if (d.interact === 'jukebox' && Jukebox.use(T, held)) { P.swinging = true; P.swingTime = 0; return; }
       if (d.interact === 'tnt' && held && held.id === 'flint_and_steel') { World.set(T.x, T.y, T.z, 0); Entities.add(new PrimedTNT(T.x, T.y, T.z, 80)); P.useDurability(1); P.swinging = true; P.swingTime = 0; return; }
     }
@@ -6513,6 +7017,7 @@ const Game = {
     if (d.key === 'tnt' && !decay && drop && this.player.mode !== 1) { /* romper dinamita la suelta */ }
     let replace = 0;
     if (id === B.ice && this.player.mode !== 1 && SOLID[World.get(x, y - 1, z)]) replace = B.water;
+    if (d.wet) replace = B.water; // lo que estaba bajo el agua deja agua al romperse
     if (d.pistonHead) { const D = FDIR[meta & 7]; const bx = x - D[0], by = y - D[1], bz = z - D[2]; const b = World.get(bx, by, bz); if (b === B.piston || b === B.sticky_piston) { World.set(x, y, z, 0, 0, 1); this.breakBlock(bx, by, bz, drop, tool, decay); return; } }
     if ((id === B.piston || id === B.sticky_piston) && (meta & 8)) { const D = FDIR[meta & 7]; if (World.get(x + D[0], y + D[1], z + D[2]) === B.piston_head) World.set(x + D[0], y + D[1], z + D[2], 0, 0); }
     if (d.bedPart) { // quitar la otra mitad de la cama (sin soltar nada)
@@ -6574,7 +7079,7 @@ const Game = {
   },
   growTree(x, y, z, type) {
     const r = mulberry32((x * 31 + z * 17 + World.tickCount) | 0);
-    const log = B[(type === 'swamp' ? 'oak' : type) + '_log'], lv = B[(type === 'swamp' ? 'oak' : type) + '_leaves'];
+    const log = B[(type === 'swamp' || type === 'azalea' ? 'oak' : type) + '_log'], lv = type === 'azalea' ? (r() < 0.5 ? B.flowering_azalea_leaves : B.azalea_leaves) : B[(type === 'swamp' ? 'oak' : type) + '_leaves'];
     const free = (xx, yy, zz) => { const id = World.get(xx, yy, zz); return id === 0 || REPLACE[id] || BLOCKS[id].leaves || BLOCKS[id].sapling; };
     const hgt = type === 'spruce' ? 6 + (r() * 3 | 0) : type === 'birch' ? 5 + (r() * 2 | 0) : 4 + (r() * 3 | 0);
     for (let k = 1; k <= hgt + 1; k++) if (!free(x, y + k, z)) return false;
@@ -6691,7 +7196,7 @@ const Game = {
     const sk = PLACE_NAMES[want] || Object.entries(PLACE_NAMES).find(([n]) => want.length >= 3 && n.startsWith(want))?.[1];
     if (sk && !World.flat) { const s = G.findStruct(World.seed, sk, Math.floor(P.x), Math.floor(P.z)); if (!s) return null; return { x: s.wx, z: s.wz, y: ['mineshaft', 'stronghold', 'fossil', 'dungeon'].includes(s.k) ? s.y : null, label: STRUCT_NAMES[sk] }; }
     const idx = BIOME_NAMES.findIndex(n => n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').startsWith(want)); if (idx < 0) return null;
-    for (let r = 0; r < 80; r++) for (let k = 0; k < Math.max(1, r * 8); k++) { const ang = k / Math.max(1, r * 8) * Math.PI * 2; const x = Math.round(P.x + Math.cos(ang) * r * 32), z = Math.round(P.z + Math.sin(ang) * r * 32); if (G.column(World.seed, x, z).b === idx) return { x, z, y: null, label: BIOME_NAMES[idx] }; }
+    for (let r = 0; r < 80; r++) for (let k = 0; k < Math.max(1, r * 8); k++) { const ang = k / Math.max(1, r * 8) * Math.PI * 2; const x = Math.round(P.x + Math.cos(ang) * r * 32), z = Math.round(P.z + Math.sin(ang) * r * 32); if (idx >= 53 ? G.caveBiome(World.seed, x, 20, z) === idx : G.column(World.seed, x, z).sb === idx) return { x, z, y: idx >= 53 ? (idx === 55 ? 15 : 30) : null, label: BIOME_NAMES[idx] }; }
     return null;
   },
   command(line) {
@@ -6825,8 +7330,8 @@ const Dims = {
     delete meta._editsN; delete meta._editsO;
     this.arrival = null;
   },
-  liveMobs() { return Entities.list.filter(e => e.mob && e.persistent && !e.dead).slice(0, 300).map(e => ({ k: e.kind, x: e.x, y: e.y, z: e.z, yaw: e.yaw, h: e.health, v: e.variant || undefined })); },
-  spawnMobs(list) { for (const m of list) if (MOBS[m.k]) { const e = new Mob(m.k, m.x, m.y, m.z); e.yaw = m.yaw || 0; e.variant = m.v || null; e.health = m.h ?? e.health; Entities.add(e); } },
+  liveMobs() { return Entities.list.filter(e => e.mob && e.persistent && !e.dead).slice(0, 300).map(e => ({ k: e.kind, x: e.x, y: e.y, z: e.z, yaw: e.yaw, h: e.health, v: e.variant || undefined, b: e.baby ? e.growAge : undefined, cd: e.breedCD || undefined })); },
+  spawnMobs(list) { for (const m of list) if (MOBS[m.k]) { const e = new Mob(m.k, m.x, m.y, m.z); e.yaw = m.yaw || 0; e.variant = m.v || null; e.health = m.h ?? e.health; if (m.b) e.setBaby(true, m.b); if (m.cd) e.breedCD = m.cd; Entities.add(e); } },
   ser(st) { return { blockEnts: [...st.blockEnts].map(([k, v]) => ({ k, v })), generated: [...st.generated], mobs: st.mobs }; },
   // completa los datos que se guardan (las dos dimensiones)
   beforeSave(W) {
@@ -7156,7 +7661,7 @@ const HUD = {
       `Chunk: ${bx >> 4} ${bz >> 4}`,
       `Mirando: ${fn} (${yawDeg.toFixed(1)} / ${(-P.pitch * 180 / Math.PI).toFixed(1)})`,
       `Luz: ${World.lightAt(bx, Math.floor(P.y + 0.1), bz)} (${World.sky(bx, Math.floor(P.y + 0.1), bz)} cielo, ${World.blk(bx, Math.floor(P.y + 0.1), bz)} bloque)`,
-      `Bioma: ${BIOME_NAMES[World.biome(bx, bz)] || '?'}`,
+      `Bioma: ${World.dim === 'n' ? Gen.local.NETHER_BIOME_NAMES[Gen.local.netherBiomeAt(World.seed, bx, bz)] : BIOME_NAMES[biomeHere(bx, Math.floor(P.y), bz)] || '?'}`,
       `Día ${World.day} · hora ${World.time}`,
       `Modo: ${['Supervivencia', 'Creativo', '', 'Espectador'][P.mode]} · Dificultad: ${['Pacífico', 'Fácil', 'Normal', 'Difícil'][Game.difficulty]}`,
       ...(T ? ['', `Mirando al bloque: ${T.x} ${T.y} ${T.z}`, `${BLOCKS[T.id].key} (${BLOCKS[T.id].name}) meta=${World.getMeta(T.x, T.y, T.z)}`] : []),
@@ -8477,7 +8982,8 @@ function drawModel(kind, e, skinTex, base, Pw, light, tint, animKind) {
   gl.uniform2f(Pw.u.uAtlas, 64 * 16, 64 * 16); gl.bindTexture(gl.TEXTURE_2D, skinTex);
   gl.uniform2f(Pw.u.uLightMul, light[0], light[1]);
   if (tint) gl.uniform4fv(Pw.u.uTint, tint); else gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
-  for (const p of m.parts) { partMatrix(_m2, base, p); R.drawMesh(p.mesh, _m2, Pw); }
+  const big = e && e.baby;
+  for (const p of m.parts) { partMatrix(_m2, base, p); if (big && /head|horn|snout|muzzle|beak|wattle|bill|nose/i.test(p.n || '')) M4.scale(_m2, 1.5, 1.5, 1.5); R.drawMesh(p.mesh, _m2, Pw); }
   return m;
 }
 function drawEntities(Pw, cam) {
@@ -8493,7 +8999,7 @@ function drawEntities(Pw, cam) {
       const sk = e.variant ? e.kind + '_' + e.variant : e.kind; const tex = R.skinTexture('mob_' + sk, MobSkins.get(sk));
       M4.identity(_m); M4.translate(_m, x, y, z); M4.rotY(_m, lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt));
       if (e.dead) M4.rotZ(_m, Math.min(1, Math.sqrt((e.deathTime + pt) / 20)) * Math.PI / 2);
-      const sc = mobScale(e.kind); M4.scale(_m, sc, sc, sc);
+      const sc = mobScale(e.kind) * (e.baby ? 0.5 : 1); M4.scale(_m, sc, sc, sc);
       const tint = e.hurt > 0 || e.dead ? [1, 0, 0, 0.45] : e.fire > 0 ? [1, 0.5, 0.1, 0.3 + 0.2 * Math.sin(performance.now() / 60)] : null;
       const m = drawModel(e.kind, e, tex, _m, Pw, L, tint);
       if (e.kind === 'slime') { // capa exterior translúcida
@@ -8516,6 +9022,10 @@ function drawEntities(Pw, cam) {
         // como en el original: objetos planos a la mitad, bloques a un cuarto
         const sc = mesh.sprite ? 0.5 : 0.25; M4.scale(_m, sc, sc, sc); R.drawMesh(mesh, _m, Pw);
       }
+    } else if (e.type === 'thrown') {
+      const mesh = ItemMeshes.get(e.item.id);
+      gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
+      M4.identity(_m); M4.translate(_m, x, y, z); M4.rotY(_m, Math.atan2(cam.x - x, cam.z - z)); M4.scale(_m, 0.45, 0.45, 0.45); R.drawMesh(mesh, _m, Pw);
     } else if (e.type === 'arrow') {
       gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
       M4.identity(_m); M4.translate(_m, x, y, z); M4.rotY(_m, e.yaw); M4.rotX(_m, e.pitch); M4.rotY(_m, Math.PI / 2); M4.rotZ(_m, -Math.PI / 4); M4.scale(_m, 0.6, 0.6, 0.6);
