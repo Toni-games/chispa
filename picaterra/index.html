@@ -203,7 +203,7 @@
   <div class="txt" id="texMsg" style="text-align:center;color:#ffff88;min-height:22px"></div>
   <div class="txt" id="texCount" style="text-align:center"></div>
   <div class="panel" style="max-height:38vh"><div id="texList"></div></div>
-  <div class="row"><button class="btn small" data-go="blocktex">Editor por bloque (arriba, lados, abajo)…</button><button class="btn small" data-go="mobtex">Texturas de criaturas…</button><button class="btn small" id="btnTexCopy">Copiar lista de nombres</button><button class="btn small" id="btnTexClear">Quitar todas</button><button class="btn small" id="texBack" data-go="title">Hecho</button></div>
+  <div class="row"><button class="btn small" data-go="blocktex">Editor por bloque (arriba, lados, abajo)…</button><button class="btn small" data-go="mobtex">Texturas de criaturas…</button><button class="btn small" id="btnSndClear">Quitar sonidos</button><button class="btn small" id="btnTexCopy">Copiar lista de nombres</button><button class="btn small" id="btnTexClear">Quitar todas</button><button class="btn small" id="texBack" data-go="title">Hecho</button></div>
 </div>
 
 <!-- Editor de texturas por bloque -->
@@ -303,7 +303,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.6.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.7.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -3195,8 +3195,15 @@ const TexturePack = {
   },
   async loadZip(file, onProgress, keep = true) {
     const z = await readZip(await file.arrayBuffer());
-    if (keep) { try { await Store.put('kv', 'texpack:zip', file); await Store.put('kv', 'texpack:sig', this.sig()); } catch (e) { } }
+    // sonidos dentro del zip: se guardan aparte (paquete de sonidos)
+    const audio = z.names.filter(p => /\.(ogg|mp3|wav|m4a)$/i.test(p));
+    if (audio.length) {
+      const ssig = JSON.stringify([file.name || '', file.size, audio.length]);
+      if (keep || ssig !== (await Store.get('kv', 'snd:launcherSig').catch(() => null))) { this.lastSounds = await SoundPack.importZip(z, audio, onProgress); await Store.put('kv', 'snd:launcherSig', ssig).catch(() => { }); }
+    }
     const want = [...this.pick(z.names)]; let n = 0;
+    if (!want.length) return 0; // era solo de sonidos: no tocar las texturas guardadas
+    if (keep) { try { await Store.put('kv', 'texpack:zip', file); await Store.put('kv', 'texpack:sig', this.sig()); } catch (e) { } }
     // de 32 en 32 a la vez, para que vaya rápido
     for (let i = 0; i < want.length; i += 32) {
       const res = await Promise.all(want.slice(i, i + 32).map(async ([name, { path }]) => {
@@ -5254,7 +5261,7 @@ class Player extends Entity {
     this.headYaw = this.yaw;
     // pasos
     this.stepDist = (this.stepDist || 0) + hd;
-    if (this.onGround && this.stepDist > 1.7 && !this.sneaking) { this.stepDist = 0; const id = World.get(Math.floor(this.x), Math.floor(this.y - 0.2), Math.floor(this.z)); if (id) Sound.step(BLOCKS[id].sound); }
+    if (this.onGround && this.stepDist > 1.7 && !this.sneaking) { this.stepDist = 0; const id = World.get(Math.floor(this.x), Math.floor(this.y - 0.2), Math.floor(this.z)); if (id) Sound.dig(BLOCKS[id], 'step'); }
     // aire / ahogo
     const eyeId = World.get(Math.floor(this.x), Math.floor(this.y + this.eye), Math.floor(this.z));
     this.eyeInWater = LIQUID[eyeId] === 1 && (World.getMeta(Math.floor(this.x), Math.floor(this.y + this.eye), Math.floor(this.z)) >= 8 || (this.y + this.eye) % 1 < 0.88);
@@ -5304,13 +5311,13 @@ const MOBS = {
   chicken: { name: 'Gallina', hp: 4, w: 0.4, h: 0.7, speed: 0.25, passive: true, drops: (r, fire) => [['feather', r() * 3 | 0], [fire ? 'cooked_chicken' : 'chicken', 1]], xp: [1, 3], sound: 'chicken' },
   zombie: { name: 'Zombi', hp: 20, w: 0.6, h: 1.95, speed: 0.23, hostile: true, dmg: 3, undead: true, drops: (r) => [['rotten_flesh', r() * 3 | 0], ...(r() < 0.025 ? [['iron_ingot', 1]] : [])], xp: [5, 5], sound: 'zombie' },
   skeleton: { name: 'Esqueleto', hp: 20, w: 0.6, h: 1.99, speed: 0.25, hostile: true, ranged: true, undead: true, drops: (r) => [['bone', r() * 3 | 0], ['arrow', r() * 3 | 0]], xp: [5, 5], sound: 'skeleton', holds: 'bow' },
-  husk: { name: 'Zombi momificado', model: 'zombie', hp: 20, w: 0.6, h: 1.95, speed: 0.23, hostile: true, dmg: 3, undead: true, noBurn: true, drops: (r) => [['rotten_flesh', r() * 3 | 0]], xp: [5, 5], sound: 'zombie' },
-  drowned: { name: 'Ahogado', model: 'zombie', hp: 20, w: 0.6, h: 1.95, speed: 0.23, hostile: true, dmg: 3, undead: true, swims: true, drops: (r) => [['rotten_flesh', r() * 3 | 0], ...(r() < 0.11 ? [['copper_ingot', 1]] : [])], xp: [5, 5], sound: 'zombie' },
-  stray: { name: 'Esqueleto glacial', model: 'skeleton', hp: 20, w: 0.6, h: 1.99, speed: 0.25, hostile: true, ranged: true, undead: true, drops: (r) => [['bone', r() * 3 | 0], ['arrow', r() * 3 | 0]], xp: [5, 5], sound: 'skeleton', holds: 'bow' },
-  wither_skeleton: { name: 'Esqueleto oscuro', model: 'skeleton', scale: 1.2, hp: 20, w: 0.7, h: 2.4, speed: 0.25, hostile: true, dmg: 5, undead: true, noBurn: true, drops: (r) => [['coal', r() * 2 | 0], ['bone', r() * 3 | 0]], xp: [5, 5], sound: 'skeleton', holds: 'stone_sword' },
-  cave_spider: { name: 'Araña de cueva', model: 'spider', scale: 0.7, hp: 12, w: 0.7, h: 0.5, speed: 0.3, hostile: true, dmg: 2, climbs: true, drops: (r) => [['string', r() * 3 | 0]], xp: [5, 5], sound: 'spider' },
-  slime: { name: 'Slime', model: 'slime', scale: 2, hp: 8, w: 1.0, h: 1.0, speed: 0.22, hostile: true, dmg: 2, hops: true, drops: (r) => [['slime_ball', r() * 3 | 0]], xp: [2, 3], sound: 'zombie' },
-  magma_cube: { name: 'Cubo de magma', model: 'magma_cube', scale: 2, hp: 8, w: 1.0, h: 1.0, speed: 0.24, hostile: true, dmg: 3, hops: true, fireImmune: true, drops: (r) => [['magma_cream', r() < 0.5 ? 1 : 0]], xp: [2, 3], sound: 'zombie' },
+  husk: { name: 'Zombi momificado', model: 'zombie', hp: 20, w: 0.6, h: 1.95, speed: 0.23, hostile: true, dmg: 3, undead: true, noBurn: true, drops: (r) => [['rotten_flesh', r() * 3 | 0]], xp: [5, 5], sound: 'husk' },
+  drowned: { name: 'Ahogado', model: 'zombie', hp: 20, w: 0.6, h: 1.95, speed: 0.23, hostile: true, dmg: 3, undead: true, swims: true, drops: (r) => [['rotten_flesh', r() * 3 | 0], ...(r() < 0.11 ? [['copper_ingot', 1]] : [])], xp: [5, 5], sound: 'drowned' },
+  stray: { name: 'Esqueleto glacial', model: 'skeleton', hp: 20, w: 0.6, h: 1.99, speed: 0.25, hostile: true, ranged: true, undead: true, drops: (r) => [['bone', r() * 3 | 0], ['arrow', r() * 3 | 0]], xp: [5, 5], sound: 'stray', holds: 'bow' },
+  wither_skeleton: { name: 'Esqueleto oscuro', model: 'skeleton', scale: 1.2, hp: 20, w: 0.7, h: 2.4, speed: 0.25, hostile: true, dmg: 5, undead: true, noBurn: true, drops: (r) => [['coal', r() * 2 | 0], ['bone', r() * 3 | 0]], xp: [5, 5], sound: 'wither_skeleton', holds: 'stone_sword' },
+  cave_spider: { name: 'Araña de cueva', model: 'spider', scale: 0.7, hp: 12, w: 0.7, h: 0.5, speed: 0.3, hostile: true, dmg: 2, climbs: true, drops: (r) => [['string', r() * 3 | 0]], xp: [5, 5], sound: 'cave_spider' },
+  slime: { name: 'Slime', model: 'slime', scale: 2, hp: 8, w: 1.0, h: 1.0, speed: 0.22, hostile: true, dmg: 2, hops: true, drops: (r) => [['slime_ball', r() * 3 | 0]], xp: [2, 3], sound: 'slime' },
+  magma_cube: { name: 'Cubo de magma', model: 'magma_cube', scale: 2, hp: 8, w: 1.0, h: 1.0, speed: 0.24, hostile: true, dmg: 3, hops: true, fireImmune: true, drops: (r) => [['magma_cream', r() < 0.5 ? 1 : 0]], xp: [2, 3], sound: 'magma_cube' },
   spider: { name: 'Araña', hp: 16, w: 1.4, h: 0.9, speed: 0.3, hostile: true, dmg: 2, climbs: true, drops: (r) => [['string', r() * 3 | 0]], xp: [5, 5], sound: 'spider' },
 };
 class Mob extends Entity {
@@ -5471,7 +5478,7 @@ class FallingBlock extends Entity {
     this.vy -= 0.04; this.move(0, this.vy, 0); this.vy *= 0.98;
     if (this.onGround || this.age > 600) {
       const bx = Math.floor(this.x), by = Math.round(this.y), bz = Math.floor(this.z); const cur = World.get(bx, by, bz);
-      if (cur === 0 || REPLACE[cur] || LIQUID[cur]) { World.set(bx, by, bz, this.block, this.meta); Sound.dig(BLOCKS[this.block].sound, 'place'); }
+      if (cur === 0 || REPLACE[cur] || LIQUID[cur]) { World.set(bx, by, bz, this.block, this.meta); Sound.dig(BLOCKS[this.block], 'place'); }
       else Entities.dropItem(this.x, this.y + 0.5, this.z, { id: BLOCKS[this.block].key, n: 1 });
       this.remove = true;
     }
@@ -5724,6 +5731,161 @@ async function loadSettingsAsync() {
 }
 
 // ---------------- sonido ----------------
+
+// ---- extra/sound15.js ----
+// ============================================================
+//  Paquete de sonidos del jugador (.zip con carpetas como
+//  «Bloques/Hierba/Pasos/1.ogg» o «Criaturas y entidades/Cerdo/Muere/1.ogg»).
+//  Se carga una vez (botón de cargar .zip o carpeta del launcher), se guarda
+//  en este navegador y sustituye a los sonidos sintetizados; lo que no esté
+//  en el paquete sigue sonando como antes.
+// ============================================================
+const sndNorm = (t) => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
+const SoundPack = {
+  map: new Map(),      // clave -> [rutas]
+  cache: new Map(),    // ruta -> AudioBuffer | Promise
+  count: 0,
+  // claves de un archivo: su carpeta (sin la carpeta raíz del zip) y también carpeta + nombre sin números
+  keysFor(path) {
+    const parts = path.replace(/\\/g, '/').split('/').filter(Boolean); const file = parts.pop();
+    if (parts.length && /sonidos/i.test(parts[0]) && parts.length > 1) parts.shift(); // carpeta raíz del zip
+    const dir = sndNorm(parts.join('/')); const base = sndNorm(file.replace(/\.[a-z0-9]+$/i, '').replace(/\d+$/, ''));
+    return [dir, dir + '/' + base];
+  },
+  index(paths) {
+    this.map.clear();
+    for (const p of paths) for (const k of this.keysFor(p)) { if (!this.map.has(k)) this.map.set(k, []); this.map.get(k).push(p); }
+    this.count = paths.length;
+  },
+  has(key) { return this.map.has(key); },
+  async restore() {
+    try { const idx = await Store.get('kv', 'snd:index'); if (Array.isArray(idx) && idx.length) this.index(idx); } catch (e) { }
+  },
+  // guardar los audios de un zip (en lotes, en una sola transacción cada uno)
+  async importZip(z, names, onProgress) {
+    const audio = names.filter(p => /\.(ogg|mp3|wav|m4a)$/i.test(p)); if (!audio.length) return 0;
+    const type = (p) => /\.mp3$/i.test(p) ? 'audio/mpeg' : /\.wav$/i.test(p) ? 'audio/wav' : /\.m4a$/i.test(p) ? 'audio/mp4' : 'audio/ogg';
+    for (let i = 0; i < audio.length; i += 150) {
+      const part = await Promise.all(audio.slice(i, i + 150).map(async p => { try { return [p, new Blob([await z.get(p)], { type: type(p) })]; } catch (e) { return null; } }));
+      await Store.req('kv', 'readwrite', st => { for (const e of part) if (e) st.put(e[1], 'snd:' + e[0]); }).catch(() => { });
+      if (onProgress) onProgress(Math.min(1, (i + 150) / audio.length));
+    }
+    await Store.put('kv', 'snd:index', audio).catch(() => { });
+    this.index(audio); this.cache.clear();
+    return audio.length;
+  },
+  async clear() {
+    try { const idx = (await Store.get('kv', 'snd:index')) || []; await Store.req('kv', 'readwrite', st => { for (const p of idx) st.delete('snd:' + p); st.delete('snd:index'); st.delete('snd:launcherSig'); }); } catch (e) { }
+    this.map.clear(); this.cache.clear(); this.count = 0;
+  },
+  async buffer(path) {
+    let b = this.cache.get(path); if (b) return b instanceof Promise ? await b : b;
+    const pr = (async () => { const blob = await Store.get('kv', 'snd:' + path); if (!blob) return null; const ab = await blob.arrayBuffer(); return await Sound.ctx.decodeAudioData(ab); })().catch(() => null);
+    this.cache.set(path, pr); const r = await pr; this.cache.set(path, r); return r;
+  },
+  // reproducir una variante al azar de la primera clave que exista; devuelve false si no hay ninguna
+  play(keys, vol = 1, pitch = 1, opts = {}) {
+    if (!Sound.ctx || !this.count) return false;
+    const list = (Array.isArray(keys) ? keys : [keys]).map(k => this.map.get(k)).find(Boolean); if (!list) return false;
+    const path = list[Math.random() * list.length | 0];
+    const go = (buf) => {
+      if (!buf) return null; const c = Sound.ctx; const s = c.createBufferSource(); s.buffer = buf; s.playbackRate.value = pitch * (opts.vary === false ? 1 : 0.92 + Math.random() * 0.16);
+      const g = c.createGain(); g.gain.value = vol; s.connect(g); g.connect(opts.dest || Sound.master); if (opts.loop) s.loop = true; s.start(); return { s, g };
+    };
+    const b = this.cache.get(path);
+    if (b && !(b instanceof Promise)) { const r = go(b); if (opts.onStart) opts.onStart(r); }
+    else this.buffer(path).then(buf => { const r = go(buf); if (opts.onStart) opts.onStart(r); });
+    return true;
+  },
+  // ---- bloques ----
+  FOLDERS: [
+    [/^(nether_bricks|red_nether_bricks|nether_brick_fence|nether_brick_.*|chiseled_nether_bricks|cracked_nether_bricks)$/, 'ladrillos del nether'],
+    [/^netherrack$/, 'netherrack'], [/^nether_(quartz|gold)_ore$/, 'nether ore'], [/_nylium$/, 'nylium'], [/^(crimson|warped)_(stem|hyphae)|stripped_(crimson|warped)/, 'stem'],
+    [/wart_block$/, 'wart block'], [/^shroomlight$/, 'shroomlight'], [/^soul_sand$/, 'soul sand'], [/^soul_soil$/, 'soul soil'], [/^(crimson|warped)_fungus$/, 'fungus'],
+    [/^(crimson|warped)_roots$/, 'roots'], [/^nether_sprouts$/, 'nether sprouts'], [/^ancient_debris$/, 'ancient debris'], [/basalt/, 'basalto'],
+    [/^(crimson|warped)_/, 'nether wood'], [/^bone_block$/, 'bloque de hueso'], [/deepslate_(bricks|tiles)|deepslate_brick|deepslate_tile/, 'deepslate bricks'], [/deepslate/, 'pizarra profunda'],
+    [/copper/, 'cobre'], [/^ladder$/, 'escalera de mano'], [/chain$/, 'cadena'], [/lantern$/, 'farol'], [/^calcite$/, 'calcite'], [/^tuff_brick|^tuff_bricks/, 'tuff bricks'], [/tuff/, 'tuff'],
+    [/^amethyst_block$|^budding_amethyst$/, 'amatista'], [/^netherite_block$/, 'netherite block'], [/coral_block$/, 'coral block'], [/^spawner$/, 'spawner'], [/^moss/, 'musgo'],
+    [/^vine$/, 'vine'], [/^cobweb$/, 'cobweb'], [/^scaffolding$/, 'andamio'], [/^honey_block$/, 'bloque de miel'], [/^packed_mud$/, 'packed mud'], [/^mud_brick/, 'mud bricks'], [/^mud$/, 'mud'],
+    [/^sculk/, 'sculk'], [/^dripstone_block$/, 'dripstone block'], [/^bamboo/, 'bambu'], [/^anvil|_anvil$/, 'yunque'], [/^wet_sponge$/, 'wet sponge'], [/^sponge$/, 'sponge'], [/^powder_snow$/, 'powder snow'],
+    [/^(snow|snow_block|snowy_grass)$/, 'nieve'], [/(wool|carpet)$/, 'lana'], [/^(red_)?sand$|^suspicious_sand$/, 'arena'], [/gravel/, 'grava'], [/^(dirt|coarse_dirt|farmland|dirt_path|grass_path|clay|rooted_dirt|podzol|mycelium)$/, 'grava'],
+    [/^(wheat|carrots|potatoes|beetroots|.*_crop)$/, 'cultivo'], [/^lily_pad$/, 'lily pad'], [/(glass|ice)/, 'cristal'], [/^cherry_leaves$/, 'cherry leaves'], [/^azalea_leaves$/, 'azalea leaves'],
+  ],
+  MAT: { grass: 'hierba', gravel: 'grava', sand: 'arena', wool: 'lana', glass: 'cristal', wood: 'madera', metal: 'iron', snow: 'nieve' },
+  blockKeys(d, kind) {
+    const act = { break: ['romper'], place: ['poner', 'romper'], step: ['pasos'], hit: ['pasos'] }[kind] || ['romper'];
+    const folders = []; if (d && d.key) for (const [re, f] of this.FOLDERS) if (re.test(d.key)) { folders.push(f); break; }
+    const mat = d ? d.sound : null; if (mat && this.MAT[mat]) folders.push(this.MAT[mat]);
+    const out = []; for (const f of folders) { if (f === 'cristal' && kind !== 'break') continue; for (const a of act) out.push('bloques/' + f + '/' + a); }
+    return out;
+  },
+  dig(d, kind, v) {
+    const keys = this.blockKeys(d, kind); if (!keys.length) return false;
+    const [vol, pitch] = { break: [1, 0.8], place: [1, 0.8], step: [0.3, 1], hit: [0.35, 0.5] }[kind] || [1, 1];
+    return this.play(keys, vol * v, pitch);
+  },
+  // ---- sonidos con nombre (criaturas, jugador, interfaz...) ----
+  MOB: { pig: 'cerdo', cow: 'vaca', sheep: 'oveja', chicken: 'gallina', zombie: 'zombi', skeleton: 'esqueleto', spider: 'arana', husk: 'zombi del desierto', drowned: 'ahogado', stray: 'esqueleto glacial', wither_skeleton: 'esqueleto wither', cave_spider: 'arana', slime: 'slime', magma_cube: 'cubo de magma' },
+  NAMED: {
+    click: ['interfaz y botones/boton/clic'], chest_open: ['bloques/cofre/abrir', 'otros sonidos/random/chestopen'], chest_close: ['bloques/cofre/cerrar', 'otros sonidos/random/chestclosed'],
+    door_open: ['bloques/puerta de madera/abrir', 'otros sonidos/random/door open'], door_close: ['bloques/puerta de madera/cerrar', 'otros sonidos/random/door close'],
+    iron_door_open: ['bloques/puerta de hierro/abrir'], iron_door_close: ['bloques/puerta de hierro/cerrar'],
+    trapdoor_open: ['bloques/trampilla de madera/abrir'], trapdoor_close: ['bloques/trampilla de madera/cerrar'], iron_trapdoor_open: ['bloques/trampilla de hierro/abrir'], iron_trapdoor_close: ['bloques/trampilla de hierro/cerrar'],
+    gate_open: ['bloques/puerta de valla/abrir'], gate_close: ['bloques/puerta de valla/cerrar'],
+    hurt: ['criaturas y entidades/jugador/recibe dano', 'otros sonidos/random/classic hurt'], player_death: ['criaturas y entidades/jugador/muere'],
+    eat: ['criaturas y entidades/generico/come'], burp: ['criaturas y entidades/jugador/eructo'], drink: ['criaturas y entidades/generico/bebe'],
+    levelup: ['criaturas y entidades/jugador/subir de nivel'], xp: ['criaturas y entidades/orbe de experiencia/recoger'], pop: ['criaturas y entidades/objeto suelto/recoger'],
+    explode: ['criaturas y entidades/generico/explota'], splash: ['criaturas y entidades/jugador/salpicar'], land: ['criaturas y entidades/jugador/small fall'], land_big: ['criaturas y entidades/jugador/big fall'],
+    break_tool: ['criaturas y entidades/objeto suelto/romper'], fizz: ['criaturas y entidades/generico/se quema', 'bloques/lava/pop'], fuse: ['objetos/mechero/usar'], flint: ['objetos/mechero/usar'],
+    portal: ['bloques/portal/trigger'], portal_travel: ['bloques/portal/travel'], piston: ['bloques/piston/extend'], piston_in: ['bloques/piston/contract'],
+    thunder: ['criaturas y entidades/rayo/trueno'], swim: ['criaturas y entidades/jugador/nadar'], till: ['objetos/azada/till'], bucket_fill: ['objetos/cubo/llenar'], bucket_empty: ['objetos/cubo/vaciar'],
+    lava_bucket_fill: ['objetos/cubo/fill lava'], lava_bucket_empty: ['objetos/cubo/empty lava'], bonemeal: ['objetos/polvo de hueso/usar'], strip: ['objetos/hacha/strip'], flatten: ['objetos/pala/flatten'],
+    equip: ['objetos/armadura/equip generic'], enchant: ['bloques/enchantment table/usar'], anvil: ['bloques/yunque/usar'], shear: ['criaturas y entidades/oveja/esquilar'],
+    attack: ['criaturas y entidades/jugador/ataca strong'], attack_weak: ['criaturas y entidades/jugador/ataca weak'], crit: ['criaturas y entidades/jugador/ataca crit'],
+  },
+  VOL: { click: 0.35, step: 0.3, pop: 0.3, xp: 0.25, swim: 0.3 },
+  named(name, v) {
+    let keys = this.NAMED[name];
+    if (!keys) {
+      const m = name.match(/^([a-z_]+?)(_hurt|_death|_step|_jump)?$/); const mob = m && this.MOB[m[1]];
+      if (mob) { const suf = m[2]; keys = suf === '_hurt' ? ['recibe dano', 'hurt small', 'squish small', 'sonido normal'] : suf === '_death' ? ['muere', 'squish', 'sonido normal'] : suf === '_step' ? ['pasos'] : suf === '_jump' ? ['salta', 'squish'] : ['sonido normal', 'squish', 'salta', 'ataca']; keys = keys.map(k => 'criaturas y entidades/' + mob + '/' + k); }
+    }
+    if (!keys) return false;
+    return this.play(keys, (this.VOL[name] ?? 1) * v, 1);
+  },
+};
+// ---- ambiente: cuevas, bajo el agua y los biomas del Nether (bucle + sonidos sueltos) ----
+const Ambience = {
+  loop: null, loopKey: null, nextExtra: 0, nextCave: 0, wasUnder: false,
+  setLoop(key) {
+    if (key === this.loopKey) return; const c = Sound.ctx; const old = this.loop; this.loop = null; this.loopKey = key;
+    if (old) { try { old.g.gain.setTargetAtTime(0, c.currentTime, 0.6); old.s.stop(c.currentTime + 3); } catch (e) { } }
+    if (!key || !SoundPack.has(key)) return;
+    SoundPack.play(key, 0.0001, 1, { loop: true, vary: false, onStart: (r) => { if (!r) return; if (this.loopKey !== key) { try { r.s.stop(); } catch (e) { } return; } this.loop = r; r.g.gain.setTargetAtTime(0.55, c.currentTime, 0.8); } });
+  },
+  tick() {
+    if (!Sound.ctx || !SoundPack.count || Game.state !== 'play' || !Game.player) { if (this.loopKey) this.setLoop(null); return; }
+    const P = Game.player, t = Sound.ctx.currentTime;
+    const x = Math.floor(P.x), y = Math.floor(P.y + P.eye), z = Math.floor(P.z);
+    const under = P.eyeInWater || (LIQUID[World.get(x, y, z)] === 1);
+    if (under !== this.wasUnder) { SoundPack.play(under ? 'ambiente/bajo el agua/enter' : 'ambiente/bajo el agua/exit', 0.6); this.wasUnder = under; }
+    let biomeDir = null;
+    if (under) biomeDir = 'ambiente/bajo el agua';
+    else if (World.dim === 'n') biomeDir = 'ambiente/' + ['nether wastes', 'soul sand valley', 'crimson forest', 'warped forest', 'basalt deltas'][Gen.local.netherBiomeAt(World.seed, x, z)];
+    this.setLoop(biomeDir ? biomeDir + '/bucle' : null);
+    if (biomeDir && t > this.nextExtra) {
+      this.nextExtra = t + 6 + Math.random() * 14;
+      const extras = under ? [biomeDir + '/bucle extras', biomeDir + '/bucle extras rare', biomeDir + '/bucle extras ultra rare'][Math.random() < 0.7 ? 0 : Math.random() < 0.8 ? 1 : 2] : (Math.random() < 0.75 ? biomeDir + '/extras' : biomeDir + '/ambiente de cueva');
+      SoundPack.play(extras, 0.45);
+    }
+    // cuevas: de vez en cuando, a oscuras y bajo tierra
+    if (!under && World.dim === 'o' && t > this.nextCave) {
+      this.nextCave = t + 20 + Math.random() * 40;
+      if (World.sky(x, y, z) < 4 && World.lightAt(x, y, z) < 6 && y < 62 && Math.random() < 0.6) SoundPack.play('ambiente/cueva/sonido', 0.6);
+    }
+  },
+};
+
 const Sound = {
   ctx: null, master: null, noise: null, musicGain: null, nextMusic: 0,
   init() {
@@ -5767,6 +5929,8 @@ const Sound = {
   },
   dig(mat, kind, x, y, z) {
     if (!this.ctx) return; const v = this.vol(x, y, z); if (v <= 0) return;
+    const blk = typeof mat === 'object' && mat ? mat : null; if (blk) mat = blk.sound;
+    if (SoundPack.count && SoundPack.dig(blk || { sound: mat }, kind, v)) return;
     const t = this.ctx.currentTime; const M = this.MAT[mat] || this.MAT.stone; const [ty, f, q, d, g] = M[0];
     const k = kind === 'break' ? 1.3 : kind === 'hit' ? 0.45 : kind === 'step' ? 0.35 : 0.9;
     this.nz(t, d * (kind === 'break' ? 1.5 : 1), ty, f * (0.9 + Math.random() * 0.2), q, g * k * v);
@@ -5777,6 +5941,10 @@ const Sound = {
   step(mat) { this.dig(mat, 'step'); },
   play(name, x, y, z) {
     if (!this.ctx) return; const v = this.vol(x, y, z); if (v <= 0) return; const t = this.ctx.currentTime; const T = this;
+    if (SoundPack.count && SoundPack.named(name, v)) return;
+    // nombres sin sonido sintetizado propio: usar uno parecido
+    const ALIAS = { door_open: 'chest_open', door_close: 'chest_close', iron_door_open: 'chest_open', iron_door_close: 'chest_close', trapdoor_open: 'chest_open', trapdoor_close: 'chest_close', iron_trapdoor_open: 'chest_open', iron_trapdoor_close: 'chest_close', gate_open: 'chest_open', gate_close: 'chest_close', husk: 'zombie', drowned: 'zombie', stray: 'skeleton', wither_skeleton: 'skeleton', cave_spider: 'spider', slime: 'pop', magma_cube: 'pop', portal_travel: 'portal', piston_in: 'piston' };
+    const base = name.replace(/_(hurt|death)$/, ''), suf = name.slice(base.length); if (ALIAS[base] && !ALIAS[name]) name = ALIAS[base] + suf; else if (ALIAS[name]) name = ALIAS[name];
     switch (name) {
       case 'pop': T.tone(t, 0.07, 'sine', 500 + Math.random() * 300, 1300, 0.25 * v); break;
       case 'click': T.tone(t, 0.04, 'square', 1500, 900, 0.08); break;
@@ -5985,6 +6153,7 @@ const Game = {
       // no simular si el chunk del jugador no existe
       if (World.loaded(Math.floor(P.x), Math.floor(P.z))) P.tick(inp); else P.savePrev();
       if (B.nether_portal !== undefined && !Net.active) Dims.portalTick(P);
+      if (World.tickCount % 10 === 0) { try { Ambience.tick(); } catch (e) { } }
       Net.track(() => this.interactTick());
       World.runTicks();
       RS.touch(P); for (const e of Entities.list) if (e.mob || e.type === 'item') RS.touch(e);
@@ -6104,7 +6273,7 @@ const Game = {
             const harvest = this.canHarvest(d, P.held);
             const dmg = d.hardness === 0 ? 1 : this.digSpeed(d, P.held) / d.hardness / (harvest ? 30 : 100);
             this.mining.p += dmg; this.mining.t++;
-            if (this.mining.t % 4 === 1) { Sound.dig(d.sound, 'hit', T.x, T.y, T.z); Particles.hit(T.x, T.y, T.z, T.id, T.face); }
+            if (this.mining.t % 4 === 1) { Sound.dig(d, 'hit', T.x, T.y, T.z); Particles.hit(T.x, T.y, T.z, T.id, T.face); }
             if (this.mining.p >= 1) {
               P.addExh(0.005);
               this.breakBlock(T.x, T.y, T.z, true, P.held);
@@ -6291,14 +6460,14 @@ const Game = {
     this.afterPlace(d, x, y, z);
   },
   afterPlace(d, x, y, z) {
-    const P = this.player; Sound.dig(d.sound, 'place', x, y, z); P.swinging = true; P.swingTime = 0;
+    const P = this.player; Sound.dig(d, 'place', x, y, z); P.swinging = true; P.swingTime = 0;
     if (P.mode !== 1) { const h = P.held; h.n--; if (!h.n) P.inv[P.sel] = null; }
   },
   breakBlock(x, y, z, drop, tool, decay) {
     const id = World.get(x, y, z); if (!id) return;
     const d = BLOCKS[id]; const meta = World.getMeta(x, y, z);
     if (d.hardness < 0 && this.player.mode !== 1) return;
-    Sound.dig(d.sound, 'break', x, y, z);
+    Sound.dig(d, 'break', x, y, z);
     if (Settings.particles) Particles.block(x, y, z, id, 64);
     // contenido del bloque
     const pk = x + ',' + y + ',' + z; const be = World.blockEnts.get(pk);
@@ -6659,7 +6828,7 @@ const Dims = {
     P.x = tx + 0.5; P.z = tz + 0.5; P.y = 70; P.vx = P.vy = P.vz = 0; P.fall = 0; P.savePrev();
     P.portalT = 0; P.portalCooldown = true;
     this.arrival = { x: tx, z: tz, t: 0 };
-    Sound.play('portal');
+    Sound.play('portal_travel');
     Chat.add('§d' + (to === 'n' ? 'Has entrado en el Nether.' : 'Has vuelto al mundo normal.'));
   },
   // mientras se genera el terreno de llegada, el jugador espera quieto
@@ -7660,6 +7829,7 @@ const UI = {
     $('texNoticeGo').onclick = () => { Sound.play('click'); this.show('textures'); $('texZip').click(); };
     $('texNoticeNo').onclick = () => { Sound.play('click'); $('texNotice').hidden = true; Store.put('kv', 'texpack:noticeOff', TexturePack.sig()).catch(() => { }); };
     $('texOpenDir').onclick = () => { Sound.play('click'); TexturePack.openLauncherFolder(); $('texMsg').textContent = 'Deja tu .zip en esa carpeta y vuelve a abrir el juego: se cargará solo.'; };
+    $('btnSndClear').onclick = async () => { await SoundPack.clear(); Ambience.setLoop(null); $('texMsg').textContent = 'Se han quitado los sonidos del paquete: vuelven los sonidos de siempre.'; };
     $('btnTexClear').onclick = async () => { await TexturePack.clear(); Game.reloadTextures(); this.renderTexList(); $('texMsg').textContent = 'Se han quitado todas las texturas: vuelven los colores lisos.'; };
     $('btnTexCopy').onclick = () => { const t = TEX_NAMES.filter(n => n !== 'white').map(n => n + '.png').join('\n'); try { navigator.clipboard.writeText(t).then(() => $('texMsg').textContent = '¡Lista copiada! (' + (TEX_NAMES.length - 1) + ' nombres)', () => $('texMsg').textContent = 'No se pudo copiar.'); } catch (e) { } };
     // avatar
@@ -7702,7 +7872,7 @@ const UI = {
     this.$('rName').value = n; this.$('rSub').value = sub; this.previewName();
   },
   previewName() { this.$('rPrevName').textContent = this.$('rName').value || 'Picaterra'; this.$('rPrevSub').textContent = this.$('rSub').value; },
-  texMsg(n) { this.$('texMsg').textContent = n ? `¡${n} textura${n > 1 ? 's' : ''} cargada${n > 1 ? 's' : ''}!` : 'No se reconoció ningún nombre de archivo. Mira la lista de abajo.'; Game.reloadTextures(); this.renderTexList(); },
+  texMsg(n) { const sn = TexturePack.lastSounds || 0; TexturePack.lastSounds = 0; if (sn) { this.$('texMsg').textContent = '¡' + sn + ' sonidos cargados!' + (n ? ' Y ' + n + ' texturas.' : ''); Game.reloadTextures(); this.renderTexList(); return; } this.$('texMsg').textContent = n ? `¡${n} textura${n > 1 ? 's' : ''} cargada${n > 1 ? 's' : ''}!` : 'No se reconoció ningún nombre de archivo. Mira la lista de abajo.'; Game.reloadTextures(); this.renderTexList(); },
   renderTexList() {
     const box = this.$('texList'); box.innerHTML = '';
     for (const n of TEX_NAMES) {
@@ -8554,6 +8724,7 @@ async function boot() {
     RS.init();
     await FaceTex.load(); await MobTex.load(); await Music.load();
     await TexturePack.restore();
+    await SoundPack.restore();
     await TexturePack.fromLauncher();
     await TexturePack.refreshStored();
     FaceTex.apply();
@@ -9454,8 +9625,8 @@ const RS = {
       case 14: { const p = this.powered(x, y, z); if (p !== !!(m & 8)) World.set(x, y, z, id, p ? m | 8 : m & ~8, 1); if (!p) World.schedule(x, y, z, 8); break; }
       case 15: { const p = this.powered(x, y, z); if (p && !(m & 32)) { World.set(x, y, z, id, m | 32, 1); Sound.note(m & 31, this.instrument(x, y - 1, z), x, y, z); } else if (!p && (m & 32)) World.set(x, y, z, id, m & 31, 1); break; }
       case 16: this.doorPower(x, y, z, id, m); break;
-      case 17: { const p = this.powered(x, y, z); if (p !== !!(m & 16)) { World.set(x, y, z, id, p ? (m | 16 | 4) : (m & ~16 & ~4), 1); Sound.play('chest_close', x, y, z); } break; }
-      case 18: { const p = this.powered(x, y, z); if (p !== !!(m & 8)) { World.set(x, y, z, id, p ? (m | 8 | 4) : (m & ~8 & ~4), 1); Sound.play('chest_close', x, y, z); } break; }
+      case 17: { const p = this.powered(x, y, z); if (p !== !!(m & 16)) { World.set(x, y, z, id, p ? (m | 16 | 4) : (m & ~16 & ~4), 1); Sound.play((BLOCKS[id].iron ? 'iron_' : '') + (p ? 'trapdoor_open' : 'trapdoor_close'), x, y, z); } break; }
+      case 18: { const p = this.powered(x, y, z); if (p !== !!(m & 8)) { World.set(x, y, z, id, p ? (m | 8 | 4) : (m & ~8 & ~4), 1); Sound.play(p ? 'gate_open' : 'gate_close', x, y, z); } break; }
       case 19: if (this.powered(x, y, z)) { World.set(x, y, z, 0); Entities.add(new PrimedTNT(x, y, z, 80)); Sound.play('fuse', x, y, z); } break;
       case 11: World.schedule(x, y, z, 20); break;
     }
@@ -9463,7 +9634,7 @@ const RS = {
   doorPower(x, y, z, id, m) {
     const by = (m & 8) ? y - 1 : y; const bm = this.meta(x, by, z); if (this.get(x, by, z) !== id) return;
     const p = this.powered(x, by, z) || this.powered(x, by + 1, z);
-    if (p !== !!(bm & 32)) { this.setDoor(x, by, z, id, p ? (bm | 32 | 4) : (bm & ~32 & ~4)); Sound.play(p ? 'chest_open' : 'chest_close', x, y, z); }
+    if (p !== !!(bm & 32)) { this.setDoor(x, by, z, id, p ? (bm | 32 | 4) : (bm & ~32 & ~4)); Sound.play((BLOCKS[id].iron ? 'iron_' : '') + (p ? 'door_open' : 'door_close'), x, y, z); }
   },
   setDoor(x, y, z, id, m) { World.set(x, y, z, id, m & ~8, 1); if (this.get(x, y + 1, z) === id) World.set(x, y + 1, z, id, (m & ~8) | 8, 1); },
   repeaterIn(x, y, z, m) { const back = HFACE[((m & 3) + 2) & 3]; return this.inputFrom(x, y, z, back); },
@@ -9536,9 +9707,9 @@ const RS = {
       case 7: World.set(T.x, T.y, T.z, id, m ^ 4, 1); World.schedule(T.x, T.y, T.z, 2); Sound.play('click', T.x, T.y, T.z); return true;
       case 11: World.set(T.x, T.y, T.z, id, m ^ 1, 1); World.schedule(T.x, T.y, T.z, 1); return true;
       case 15: { const p = ((m & 31) + 1) % 25; World.set(T.x, T.y, T.z, id, (m & 32) | p, 1); Sound.note(p, this.instrument(T.x, T.y - 1, T.z), T.x, T.y, T.z); Particles.color(T.x + 0.5, T.y + 1.2, T.z + 0.5, 0.2 + p / 30, 0.8 - p / 40, 0.3, 1, 0.02, 15, 0, 0.04); return true; }
-      case 16: if (d.iron) return false; { const by = (m & 8) ? T.y - 1 : T.y; const bm = this.meta(T.x, by, T.z); this.setDoor(T.x, by, T.z, id, bm ^ 4); Sound.play((bm & 4) ? 'chest_close' : 'chest_open', T.x, T.y, T.z); return true; }
-      case 17: if (d.iron) return false; World.set(T.x, T.y, T.z, id, m ^ 4); Sound.play((m & 4) ? 'chest_close' : 'chest_open', T.x, T.y, T.z); return true;
-      case 18: { let nm = m ^ 4; if (!(m & 4)) { const yd = facingFromYaw(Game.player.yaw); if (((yd ^ m) & 1) === 0) nm = (nm & ~3) | yd; } World.set(T.x, T.y, T.z, id, nm); Sound.play((m & 4) ? 'chest_close' : 'chest_open', T.x, T.y, T.z); return true; }
+      case 16: if (d.iron) return false; { const by = (m & 8) ? T.y - 1 : T.y; const bm = this.meta(T.x, by, T.z); this.setDoor(T.x, by, T.z, id, bm ^ 4); Sound.play((bm & 4) ? 'door_close' : 'door_open', T.x, T.y, T.z); return true; }
+      case 17: if (d.iron) return false; World.set(T.x, T.y, T.z, id, m ^ 4); Sound.play((m & 4) ? 'trapdoor_close' : 'trapdoor_open', T.x, T.y, T.z); return true;
+      case 18: { let nm = m ^ 4; if (!(m & 4)) { const yd = facingFromYaw(Game.player.yaw); if (((yd ^ m) & 1) === 0) nm = (nm & ~3) | yd; } World.set(T.x, T.y, T.z, id, nm); Sound.play((m & 4) ? 'gate_close' : 'gate_open', T.x, T.y, T.z); return true; }
     }
     return false;
   },

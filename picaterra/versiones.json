@@ -1,8 +1,20 @@
 {
-  "latest": "1.6.1",
+  "latest": "1.7.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.7.0",
+      "date": "2026-11-15",
+      "title": "Sonidos de tu paquete",
+      "notes": [
+        "Carga paquetes de sonidos (.zip): pasos, romper y poner por bloque, puertas, cofres, criaturas, jugador, portal",
+        "Ambiente: cuevas, bajo el agua y los 5 biomas del Nether",
+        "Botón para quitar los sonidos"
+      ],
+      "size": 212684,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.7.0.zip"
+    },
     {
       "id": "1.6.1",
       "date": "2026-11-15",
