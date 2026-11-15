@@ -1,8 +1,21 @@
 {
-  "latest": "1.3",
+  "latest": "1.4",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.4",
+      "date": "2026-11-15",
+      "title": "Iconos, césped y encantamientos",
+      "notes": [
+        "Los iconos del inventario se ven bien con el paquete de texturas: vallas, muros, escaleras, paneles, puertas, palancas, faroles, repetidores…",
+        "Los lados del césped cambian de color según el bioma, igual que la parte de arriba",
+        "Mesa de encantamientos: 15 encantamientos con efecto real (eficiencia, fortuna, toque de seda, filo, protección, poder, infinidad…)",
+        "El paquete de texturas se guarda y se vuelve a aplicar solo cuando una versión nueva trae bloques nuevos"
+      ],
+      "size": 174781,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.4.zip"
+    },
     {
       "id": "1.3",
       "date": "2026-11-15",

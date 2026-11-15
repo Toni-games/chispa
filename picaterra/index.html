@@ -289,7 +289,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.3';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.4';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -1574,7 +1574,7 @@ def13('cartography_table', 'Mesa de cartografía', { tex: { top: 'cartography_ta
 def13('loom', 'Telar', { tex: { top: 'loom_top', bottom: 'loom_bottom', side: 'loom_side', front: 'loom_front' }, facing: true, hardness: 2.5, tool: 'axe', sound: 'wood', interact: 'craft', color: '#a88a60', cat: 'func', fuel: 300 });
 def13('stonecutter', 'Cortapiedras', BOX({ tex: { top: 'stonecutter_top', bottom: 'stonecutter_bottom', side: 'stonecutter_side' }, shape: 'stonecutter', hardness: 3.5, tool: 'pickaxe', interact: 'craft', color: '#7a7a7a', cat: 'func' }));
 def13('cauldron', 'Caldero', BOX({ tex: { top: 'cauldron_top', bottom: 'cauldron_bottom', side: 'cauldron_side' }, shape: 'cauldron', hardness: 2, tool: 'pickaxe', needsTool: true, sound: 'metal', color: '#3a3a3a', cat: 'func' }));
-def13('enchanting_table', 'Mesa de encantamientos', BOX({ tex: { top: 'enchanting_table_top', bottom: 'enchanting_table_bottom', side: 'enchanting_table_side' }, shape: 'enchant', hardness: 5, tool: 'pickaxe', needsTool: true, emit: 7, color: '#6a2030', cat: 'func', resist: 1200 }));
+def13('enchanting_table', 'Mesa de encantamientos', BOX({ tex: { top: 'enchanting_table_top', bottom: 'enchanting_table_bottom', side: 'enchanting_table_side' }, shape: 'enchant', interact: 'enchant', hardness: 5, tool: 'pickaxe', needsTool: true, emit: 7, color: '#6a2030', cat: 'func', resist: 1200 }));
 def13('jukebox', 'Tocadiscos', { tex: { top: 'jukebox_top', side: 'jukebox_side' }, hardness: 2, tool: 'axe', sound: 'wood', color: '#6a4a3a', cat: 'func', fuel: 300 });
 def13('honey_block', 'Bloque de miel', { tex: { top: 'honey_block_top', bottom: 'honey_block_bottom', side: 'honey_block_side' }, hardness: 0, opaque: false, translucent: true, cullSelf: true, filter: 1, sound: 'wool', color: '#f8b030', cat: 'func', sticky: true });
 
@@ -1601,6 +1601,14 @@ def13('dropper', 'Soltador', { tex: { front: 'dropper_front', side: 'furnace_sid
 def13('hopper', 'Tolva', BOX({ tex: { top: 'hopper_top', side: 'hopper_outside', bottom: 'hopper_outside' }, shape: 'hopper', hardness: 3, tool: 'pickaxe', needsTool: true, sound: 'metal', rs: 'hopper', interact: 'chest', slots: 5, color: '#4a4a4a', cat: 'redstone', icon: 'hopper' }));
 def13('note_block', 'Bloque musical', { tex: 'note_block', hardness: 0.8, tool: 'axe', sound: 'wood', rs: 'note', interact: 'cycle', color: '#6a4a3a', cat: 'redstone', fuel: 300 });
 def13('target', 'Diana', { tex: { top: 'target_top', side: 'target_side' }, hardness: 0.5, tool: 'hoe', sound: 'grass', color: '#e8d8c8', cat: 'redstone' });
+
+// ---------- iconos de inventario: como en el juego original, algunos bloques se ven planos ----------
+for (const d of BLOCKS) {
+  if (d.pane) d.icon = typeof d.tex === 'object' ? d.tex.side : d.tex;          // paneles y barrotes
+  if (d.shape === 'rod') d.icon = d.tex;                                         // vara del End, pararrayos
+  if (d.tall2) d.icon = d.key === 'sunflower' ? 'sunflower_front' : (typeof d.texAlt === 'string' ? d.texAlt : d.key + '_top');
+}
+if (B.lily_pad !== undefined) BLOCKS[B.lily_pad].icon = 'lily_pad';
 
 const NB = BLOCKS.length;
 if (NB > 4095) throw new Error('Demasiados bloques: ' + NB);
@@ -2046,7 +2054,9 @@ addTex('diorite', fill('#bcbcbc'));
 addTex('andesite', fill('#888a88'));
 addTex('dirt', fill('#866043'));
 addTex('grass_block_top', fill('#b4b4b4'));
-addTex('grass_block_side', (c) => { P(c, 0, 0, '#866043', 16, 16); P(c, 0, 0, '#6a9a3c', 16, 3); P(c, 2, 3, '#6a9a3c', 2, 1); P(c, 7, 3, '#6a9a3c', 3, 1); P(c, 13, 3, '#6a9a3c', 2, 1); });
+// el borde de césped es gris con alfa 250: el juego lo tiñe con el color del bioma (como la parte de arriba)
+const GRASS_FRINGE = 'rgba(158,158,158,0.981)';
+addTex('grass_block_side', (c) => { P(c, 0, 0, '#866043', 16, 16); for (const [x, y, w, h] of [[0, 0, 16, 3], [2, 3, 2, 1], [7, 3, 3, 1], [13, 3, 2, 1]]) { c.clearRect(x, y, w, h); P(c, x, y, GRASS_FRINGE, w, h); } });
 addTex('grass_block_snow', (c) => { P(c, 0, 0, '#866043', 16, 16); P(c, 0, 0, '#f4f8fa', 16, 4); P(c, 3, 4, '#f4f8fa', 3, 1); P(c, 10, 4, '#f4f8fa', 2, 1); });
 addTex('cobblestone', (c) => { P(c, 0, 0, '#6a6a6a', 16, 16); for (const [x, y] of [[0, 5], [5, 0], [11, 6], [6, 11], [3, 13], [13, 1]]) P(c, x, y, '#575757', 3, 1); });
 addTex('mossy_cobblestone', (c) => { P(c, 0, 0, '#6a6a6a', 16, 16); P(c, 0, 0, '#5a7a3a', 7, 5); P(c, 9, 8, '#5a7a3a', 7, 6); P(c, 2, 11, '#5a7a3a', 4, 3); });
@@ -2266,7 +2276,9 @@ function autoItemTex(it) {
   if (k === 'melon_slice') return (c) => { c.clearRect(0, 0, 16, 16); for (let y = 4; y < 14; y++) { const w = (y - 3) * 1.2 | 0; P(c, 3, y, '#e2453b', w, 1); P(c, 3 + w, y, '#3e8a1e', 2, 1); } P(c, 5, 9, '#222'); P(c, 6, 12, '#222'); };
   return blob(it.color || '#999999', shade(it.color || '#999999', -0.4));
 }
+const ITEM_ALIAS = ['lantern', 'iron_chain', 'repeater', 'comparator', 'hopper', 'cauldron'];
 function autoTextures() {
+  for (const k of ITEM_ALIAS) { if (B[k] === undefined) continue; addTex('item:' + k, () => { }, 'item'); BLOCKS[B[k]].iconAlias = 'item:' + k; }
   if (!TEX.redstone_wire) addTex('redstone_wire', (c) => { for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) P(c, x, y, shade('#d8d8d8', (hash2('rw', x, y) - 0.5) * 0.3)); });
   for (const d of BLOCKS) {
     const names = new Set(T6(d.tex || 'stone')); if (d.texAlt) for (const n of T6(d.texAlt)) names.add(n);
@@ -2281,7 +2293,9 @@ function autoTextures() {
     else if (it.block) { const d = BLOCKS[B[it.block]]; addTex(n, autoItemTex({ key: n, color: d.color }), 'item'); }
     else addTex(n, autoItemTex(it), 'item');
   }
-  for (const n of ['jungle_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'fern']) TINTED_TEX.add(n);
+  for (const n of ['jungle_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'fern', 'lily_pad', 'tall_grass_top', 'tall_grass_bottom', 'large_fern_top', 'large_fern_bottom']) if (TEX[n]) TINTED_TEX.add(n);
+  // iconos que no son casillas de ningún bloque (p. ej. la cara del girasol)
+  for (const d of BLOCKS) if (d.icon && !TEX[d.icon]) addTex(d.icon, autoBlockTex(d.icon, d));
 }
 autoTextures();
 
@@ -2320,6 +2334,9 @@ const Atlas = {
     // ¿las hojas tienen transparencia? (para el modo de hojas detalladas)
     this.leavesAlpha = !!this.custom.oak_leaves;
     this.tileCanvas = {};
+    // casillas con «partes teñibles» (píxeles con alfa 240..254): el borde de césped de los lados
+    this.partial = new Uint8Array(TEX_NAMES.length);
+    for (const n of ['grass_block_side']) { const i = this.index[n]; if (i === undefined) continue; const px = this.pixels(n); for (let k = 3; k < px.length; k += 4) if (px[k] >= 240 && px[k] <= 254) { this.partial[i] = 1; break; } }
   },
   uv(name) { const i = this.index[name] ?? 0; return [(i % this.cols) * this.T, Math.floor(i / this.cols) * this.T]; },
   tile(name) { // canvas 16x16 (o T) con la casilla
@@ -2333,18 +2350,52 @@ const Atlas = {
 
 // ---------- iconos de inventario ----------
 const ICON_CACHE = {};
-function biomeTintFor(name) { return name === 'birch_leaves' ? '#80a755' : name === 'spruce_leaves' ? '#619961' : name.includes('leaves') ? '#59ae30' : '#79c05a'; }
+function biomeTintFor(name) { return name === 'lily_pad' ? '#208030' : name === 'birch_leaves' ? '#80a755' : name === 'spruce_leaves' ? '#619961' : name.includes('leaves') ? '#59ae30' : '#79c05a'; }
 function tintCanvas(src, col) {
   const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const g = c.getContext('2d');
   g.drawImage(src, 0, 0); g.globalCompositeOperation = 'multiply'; g.fillStyle = col; g.fillRect(0, 0, c.width, c.height);
   g.globalCompositeOperation = 'destination-in'; g.drawImage(src, 0, 0); return c;
 }
-function texCanvasFor(name) { const t = Atlas.tile(name); return TINTED_TEX.has(name) ? tintCanvas(t, biomeTintFor(name)) : t; }
+function texCanvasFor(name) { const t = Atlas.tile(name); if (Atlas.partial && Atlas.partial[Atlas.index[name]]) return partialTint(t, [121, 192, 90]); return TINTED_TEX.has(name) ? tintCanvas(t, biomeTintFor(name)) : t; }
+function partialTint(src, [r, g, b]) {
+  const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const x = c.getContext('2d'); x.drawImage(src, 0, 0);
+  const d = x.getImageData(0, 0, c.width, c.height); const p = d.data;
+  for (let k = 0; k < p.length; k += 4) if (p[k + 3] >= 240 && p[k + 3] <= 254) { p[k] = p[k] * r / 255; p[k + 1] = p[k + 1] * g / 255; p[k + 2] = p[k + 2] * b / 255; p[k + 3] = 255; }
+  x.putImageData(d, 0, 0); return c;
+}
+// icono isométrico de un bloque hecho de cajas (vallas, muros, escaleras, paneles, botones…)
+const SHADED = {};
+function shadedTile(name, k) { const key = name + '|' + k + '|' + Atlas.version; if (SHADED[key]) return SHADED[key]; const src = texCanvasFor(name); if (!k) return (SHADED[key] = src); const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const g = c.getContext('2d'); g.drawImage(src, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = `rgba(0,0,0,${k})`; g.fillRect(0, 0, c.width, c.height); return (SHADED[key] = c); }
+const ICON_META = { stairs: 3, fence: 0, wall: 0, gate: 0, door: 1, trapdoor: 0, button: 3, lever: 3, repeater: 1, comparator: 1, rod: 2, piston: 2, piston_head: 2 };
+function boxIcon(g, d) {
+  const a = 14 / 16, b = 7 / 16; const Pp = (x, y, z) => [16 + a * (x - z), 2 + b * (x + z) + a * (16 - y)];
+  let meta = d.stairs ? ICON_META.stairs : (ICON_META[d.shape] || 0); if (d.facing6) meta = 2;
+  let boxes = (blockBoxes(d.id, meta, null) || [[0, 0, 0, 16, 16, 16]]).map(bx => bx.slice());
+  // centrar la figura en el icono si es bajita o estrecha
+  const minY = Math.min(...boxes.map(bx => bx[1])), maxY = Math.max(...boxes.map(bx => bx[4]));
+  if (maxY - minY < 9) { const dy = (16 - (maxY - minY)) / 2 - minY; for (const bx of boxes) { bx[1] += dy; bx[4] += dy; } }
+  boxes.sort((p, q) => (p[0] + p[3] + p[2] + p[5] + p[1] + p[4]) - (q[0] + q[3] + q[2] + q[5] + q[1] + q[4]));
+  const T = Atlas.T, k = T / 16;
+  const face = (name, shade, sx, sy, sw, sh, O, U, V) => {
+    if (sw <= 0 || sh <= 0) return; const t = shadedTile(name, shade);
+    g.save(); g.setTransform((U[0] - O[0]) / (sw * k), (U[1] - O[1]) / (sw * k), (V[0] - O[0]) / (sh * k), (V[1] - O[1]) / (sh * k), O[0], O[1]);
+    g.drawImage(t, sx * k, sy * k, sw * k, sh * k, 0, 0, sw * k, sh * k); g.restore();
+  };
+  for (const [x0, y0, z0, x1, y1, z1, bt] of boxes) {
+    const top = bt || (d.faceTex6 ? d.faceTex6.top : d.faceTex[2]), south = bt || d.faceTex[4], east = bt || d.faceTex[0];
+    face(south, 0.2, x0, 16 - y1, x1 - x0, y1 - y0, Pp(x0, y1, z1), Pp(x1, y1, z1), Pp(x0, y0, z1));
+    face(east, 0.4, 16 - z1, 16 - y1, z1 - z0, y1 - y0, Pp(x1, y1, z1), Pp(x1, y1, z0), Pp(x1, y0, z1));
+    face(top, 0, x0, z0, x1 - x0, z1 - z0, Pp(x0, y1, z0), Pp(x1, y1, z0), Pp(x0, y1, z1));
+  }
+}
 function itemIcon(id) { // canvas 32x32
   const key = id + '@' + Atlas.version;
   if (ICON_CACHE[key]) return ICON_CACHE[key];
   const it = ITEMS[id]; const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
   if (!it) { ICON_CACHE[key] = c; return c; }
+  const bd = it.block ? BLOCKS[B[it.block]] : null;
+  if (bd && bd.iconAlias && Atlas.custom[bd.iconAlias]) { const src = Atlas.tile(bd.iconAlias); g.drawImage(src, 0, 0, src.width, src.height, 0, 0, 32, 32); ICON_CACHE[key] = c; return c; }
+  if (it.iconBlock && bd && RENDER[bd.id] === 5 && !bd.slab && bd.key !== 'bed' && bd.key !== 'chest') { boxIcon(g, bd); ICON_CACHE[key] = c; return c; }
   if (it.iconBlock) {
     const d = BLOCKS[B[it.block]];
     const tt = texCanvasFor(d.faceTex6 ? d.faceTex6.front : d.faceTex[2]), tl = texCanvasFor(d.faceTex[d.facing ? 5 : 4]), tr = texCanvasFor(d.faceTex[0]);
@@ -2398,6 +2449,7 @@ const TexturePack = {
     for (const path of paths) {
       if (!/\.png$/i.test(path)) continue;
       const base = path.split('/').pop().replace(/\.png$/i, '').toLowerCase().trim();
+      if (TEX['item:' + base] && /\/(items?|objetos)\//.test('/' + path.toLowerCase())) want.set('item:' + base, { path, score: 3 });
       if (!TEX[base] || base === 'white') continue;
       const p = '/' + path.toLowerCase(); const item = TEX_INFO[base].kind === 'item';
       const isItem = /\/(items?|objetos)\//.test(p), isBlock = /\/(bloques|blocks?)\//.test(p);
@@ -2429,10 +2481,24 @@ const TexturePack = {
       const res = await Promise.all(want.slice(i, i + 32).map(async ([name, { path }]) => { const url = await blobToURL(byPath.get(path)); return url && await this.add(name, await this.prepare(name, url)); }));
       n += res.filter(Boolean).length; if (onProgress) onProgress(Math.min(1, (i + 32) / want.length));
     }
+    const ov = [...byPath.keys()].find(p => /(^|\/)grass_block_side_overlay\.png$/i.test(p)), base = want.find(([nm]) => nm === 'grass_block_side');
+    if (ov && base) await this.grassSide(await blobToURL(byPath.get(base[1].path)), await blobToURL(byPath.get(ov)));
     return n;
   },
-  async loadZip(file, onProgress) {
+  // lado del bloque de césped: el borde se toma de grass_block_side_overlay (gris) y se marca para teñirlo
+  // con el color de cada bioma, igual que la parte de arriba
+  async grassSide(baseUrl, overlayUrl) {
+    const [a, b] = await Promise.all([loadImg(baseUrl), loadImg(overlayUrl)]); if (!a || !b) return false;
+    const w = a.width, h = a.width; const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+    g.drawImage(a, 0, 0, w, h, 0, 0, w, h); const d = g.getImageData(0, 0, w, h);
+    const o = document.createElement('canvas'); o.width = w; o.height = h; const og = o.getContext('2d'); og.imageSmoothingEnabled = false; og.drawImage(b, 0, 0, b.width, b.width, 0, 0, w, h);
+    const od = og.getImageData(0, 0, w, h).data; const p = d.data;
+    for (let k = 0; k < p.length; k += 4) { p[k + 3] = 255; if (od[k + 3] > 20) { p[k] = od[k]; p[k + 1] = od[k + 1]; p[k + 2] = od[k + 2]; p[k + 3] = 250; } }
+    g.putImageData(d, 0, 0); return this.add('grass_block_side', c.toDataURL());
+  },
+  async loadZip(file, onProgress, keep = true) {
     const z = await readZip(await file.arrayBuffer());
+    if (keep) { try { await Store.put('kv', 'texpack:zip', file); await Store.put('kv', 'texpack:sig', this.sig()); } catch (e) { } }
     const want = [...this.pick(z.names)]; let n = 0;
     // de 32 en 32 a la vez, para que vaya rápido
     for (let i = 0; i < want.length; i += 32) {
@@ -2441,6 +2507,8 @@ const TexturePack = {
       }));
       n += res.filter(Boolean).length; if (onProgress) onProgress(Math.min(1, (i + 32) / want.length));
     }
+    const ov = z.names.find(p => /(^|\/)grass_block_side_overlay\.png$/i.test(p)), base = want.find(([nm]) => nm === 'grass_block_side');
+    if (ov && base) { try { await this.grassSide(await blobToURL(new Blob([await z.get(base[1].path)], { type: 'image/png' })), await blobToURL(new Blob([await z.get(ov)], { type: 'image/png' }))); } catch (e) { } }
     // el cofre, en los paquetes modernos, es una textura de criatura: recortarlo
     const chest = z.names.find(p => /(^|\/)chest\/normal\.png$/i.test(p));
     if (chest && !FaceTex.data.chest) { try { n += await this.chestFrom(await blobToURL(new Blob([await z.get(chest)], { type: 'image/png' }))); } catch (e) { } }
@@ -2452,12 +2520,12 @@ const TexturePack = {
     try {
       const r = await fetch('/__texturas/lista.json', { cache: 'no-store' }); if (!r.ok) return 0;
       const list = (await r.json()).filter(f => f && typeof f.file === 'string');
-      const sig = JSON.stringify(list.map(f => [f.file, f.size, f.mtime]));
+      const sig = JSON.stringify([this.sig(), list.map(f => [f.file, f.size, f.mtime])]);
       if (sig === (await Store.get('kv', 'launcherTexSig').catch(() => null))) return 0;
       let n = 0;
       for (const f of list) {
         const b = await (await fetch('/__texturas/' + encodeURIComponent(f.file))).blob();
-        n += /\.zip$/i.test(f.file) ? await this.loadZip(b) : await this.loadFiles([new File([b], f.file)]);
+        n += /\.zip$/i.test(f.file) ? await this.loadZip(b, null, false) : await this.loadFiles([new File([b], f.file)]);
       }
       await Store.put('kv', 'launcherTexSig', sig).catch(() => { });
       return n;
@@ -2488,7 +2556,18 @@ const TexturePack = {
     // texturas incluidas en el propio archivo (las que mande el jugador)
     for (const name in EMBEDDED_TEXTURES) if (!Atlas.custom[name] && TEX[name]) await new Promise(r => { const im = new Image(); im.onload = () => { Atlas.custom[name] = im; r(); }; im.onerror = r; im.src = EMBEDDED_TEXTURES[name]; });
   },
-  async clear() { Atlas.custom = {}; await Store.clearTex(); FaceTex.data = {}; FaceTex.save(); FaceTex.apply(); },
+  // firma de las casillas del juego: si cambia (versión nueva con bloques nuevos), el paquete guardado se vuelve a aplicar
+  sig() { return GAME_VERSION + ':' + TEX_NAMES.length; },
+  async refreshStored() {
+    try {
+      const zip = await Store.get('kv', 'texpack:zip'); if (!zip || !zip.size) return 0;
+      if ((await Store.get('kv', 'texpack:sig')) === this.sig()) return 0;
+      const have = new Set(Object.keys(Atlas.custom));
+      const n = await this.loadZip(zip, null, false); await Store.put('kv', 'texpack:sig', this.sig());
+      void have; return n;
+    } catch (e) { return 0; }
+  },
+  async clear() { Atlas.custom = {}; await Store.clearTex(); try { await Store.del('kv', 'texpack:zip'); await Store.del('kv', 'texpack:sig'); } catch (e) { } FaceTex.data = {}; FaceTex.save(); FaceTex.apply(); },
 };
 
 // ---------- texturas por bloque (arriba / lados / abajo / frente) y por objeto ----------
@@ -2543,7 +2622,7 @@ const FaceTex = {
       if (it.defIcon === undefined) it.defIcon = it.icon;
       if (it.iconBlock) continue;
       const o = this.data[it.key];
-      it.icon = o && o.icon ? o.icon : (it.block ? BLOCKS[B[it.block]].faceTex[0] : it.defIcon);
+      it.icon = o && o.icon ? o.icon : (it.block ? (BLOCKS[B[it.block]].icon || BLOCKS[B[it.block]].faceTex[0]) : it.defIcon);
     }
   },
 };
@@ -3151,7 +3230,8 @@ const Mesher = {
       if (d.leaves && BLOCKS[n].leaves && !fancy) continue;
       const [ti, rot] = this.texFor(d, f, meta);
       const tx = (ti % Atlas.cols) * Atlas.T, ty = Math.floor(ti / Atlas.cols) * Atlas.T, TS = Atlas.T;
-      const useTint = tint && Atlas.tinted[ti] && (tintAll || (d.tintFaces && d.tintFaces.includes(f)));
+      const part = tint && d.tintFaces && f !== 3 && Atlas.partial[ti]; // borde de césped de los lados
+      const useTint = part || (tint && Atlas.tinted[ti] && (tintAll || (d.tintFaces && d.tintFaces.includes(f))));
       const r = useTint ? tint[0] : 255, g = useTint ? tint[1] : 255, b = useTint ? tint[2] : 255;
       const aoT = this.AO[f]; const FV = this.FV[f];
       const sh = this.SHADE[f];
@@ -3172,7 +3252,7 @@ const Mesher = {
         let [u, vv] = this.uvOf(f, v[0] * 16, v[1] * 16, v[2] * 16);
         if (rot) { const t = u; u = vv; vv = 16 - t; }
         buf.v(kk, (x + v[0]) * POS_UNIT, (y + v[1]) * POS_UNIT, (z + v[2]) * POS_UNIT,
-          tx * 16 + u * TS, ty * 16 + vv * TS, r, g, b, Math.round(255 * sh * this.AOF[ao[k]]), ls[k], lb[k], d.fullbright ? 2 : 0);
+          tx * 16 + u * TS, ty * 16 + vv * TS, r, g, b, Math.round(255 * sh * this.AOF[ao[k]]), ls[k], lb[k], d.fullbright ? 2 : part ? 4 : 0);
       }
       buf.end();
     }
@@ -3341,8 +3421,9 @@ const Mesher = {
       for (let f = 0; f < 6; f++) {
         const [ti0, rot] = this.texFor(d, f, meta); const ti = btex ? (Atlas.index[btex] ?? ti0) : ti0;
         const uvs = fv[f].map(v => this.uvOf(f, v[0], Math.max(0, Math.min(16, v[1])), v[2]));
-        const useT = d.tint && Atlas.tinted[ti] && (!d.tintFaces || d.tintFaces.includes(f));
-        this.quad(buf, -0.5, -0.5, -0.5, fv[f], uvs, ti, useT ? t : [255, 255, 255], this.SHADE[f], full[0], full[1], d.fullbright ? 2 : 0);
+        const partI = d.tintFaces && f !== 3 && Atlas.partial[ti];
+        const useT = partI || (d.tint && Atlas.tinted[ti] && (!d.tintFaces || d.tintFaces.includes(f)));
+        this.quad(buf, -0.5, -0.5, -0.5, fv[f], uvs, ti, useT ? t : [255, 255, 255], this.SHADE[f], full[0], full[1], d.fullbright ? 2 : partI ? 4 : 0);
       }
     }
     return buf;
@@ -3395,12 +3476,15 @@ float br(float x){ float c = cv(x); float d = 1.0 - c; return mix(c, 1.0 - d * d
 void main(){
   vec4 t = texture(uTex, vUV);
   if (t.a < uAlphaTest) discard;
-  vec3 c = t.rgb * vCol.rgb;
+  // vFl = 4: solo se tiñen los píxeles marcados con alfa 240..254 (borde de césped)
+  bool part = vFl > 3.5;
+  vec3 c = (part && t.a > 0.997) ? t.rgb : t.rgb * vCol.rgb;
+  if (part) t.a = 1.0;
   float s = clamp(vSky, 0.0, 1.0) * uDay, b = clamp(vBlk, 0.0, 1.0);
   float bs = br(s), bb = br(b);
   vec3 L = max(uSkyTint * bs, vec3(1.0, 0.92, 0.78) * bb);
   L = 0.02 + L * 0.98;
-  if (vFl > 1.5) L = vec3(1.0);
+  if (vFl > 1.5 && vFl < 3.5) L = vec3(1.0);
   c *= L * vCol.a;
   c = mix(c, uTint.rgb, uTint.a);
   float f = clamp((vDist - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
@@ -4233,24 +4317,25 @@ class Player extends Entity {
     if (!bypassArmor) {
       const ar = this.armorPoints(), t = this.armorTough();
       amt = amt * (1 - Math.min(20, Math.max(ar / 5, ar - 4 * amt / (t + 8))) / 25);
-      if (src && amt > 0) for (let i = 0; i < 4; i++) if (this.armor[i]) { this.armor[i].d = (this.armor[i].d || 0) + Math.max(1, Math.floor(amt / 4)); if (this.armor[i].d >= ITEMS[this.armor[i].id].dur) { this.armor[i] = null; Sound.play('break_tool'); } }
+      amt = Ench.protect(amt, false);
+      if (src && amt > 0) for (let i = 0; i < 4; i++) if (this.armor[i] && !Ench.keepDurability(this.armor[i])) { this.armor[i].d = (this.armor[i].d || 0) + Math.max(1, Math.floor(amt / 4)); if (this.armor[i].d >= ITEMS[this.armor[i].id].dur) { this.armor[i] = null; Sound.play('break_tool'); } }
     }
     const was = this.health; const ok = this.damage(amt, src);
     if (ok && this.health < was) { this.exh += 0.1; Sound.play('hurt'); this.dmgTilt = 1; HUD.flash = 1; }
     return ok;
   }
-  onLand(dmg) { if (this.mode === 0) this.hurtBy(dmg, null, true); Sound.play(dmg > 4 ? 'land_big' : 'land', this.x, this.y, this.z); Particles.landing(this.x, this.y, this.z, dmg); }
+  onLand(dmg) { if (this.mode === 0) this.hurtBy(Math.round(Ench.protect(dmg, true)), null, true); Sound.play(dmg > 4 ? 'land_big' : 'land', this.x, this.y, this.z); Particles.landing(this.x, this.y, this.z, dmg); }
   die() {
     this.dead = true; this.deathTime = 0; Game.onPlayerDeath();
   }
-  give(id, n, d) { // devuelve los que sobran
+  give(id, n, d, e) { // devuelve los que sobran
     const ms = maxStack(id);
     for (let pass = 0; pass < 2 && n > 0; pass++) {
       const order = []; for (let i = 0; i < 36; i++) order.push(i);
       for (const i of order) {
         const s = this.inv[i];
-        if (pass === 0 && s && s.id === id && s.n < ms && !d) { const k = Math.min(ms - s.n, n); s.n += k; n -= k; }
-        else if (pass === 1 && !s) { const k = Math.min(ms, n); this.inv[i] = { id, n: k, d: d || 0 }; n -= k; }
+        if (pass === 0 && s && s.id === id && s.n < ms && !d && !e && !s.e) { const k = Math.min(ms - s.n, n); s.n += k; n -= k; }
+        else if (pass === 1 && !s) { const k = Math.min(ms, n); this.inv[i] = { id, n: k, d: d || 0 }; if (e) this.inv[i].e = e; n -= k; }
         if (n <= 0) break;
       }
     }
@@ -4260,6 +4345,7 @@ class Player extends Entity {
   take(id, n) { for (let i = 35; i >= 0 && n > 0; i--) { const s = this.inv[i]; if (s && s.id === id) { const k = Math.min(s.n, n); s.n -= k; n -= k; if (!s.n) this.inv[i] = null; } } }
   useDurability(k = 1) {
     if (this.mode === 1) return; const s = this.held; if (!s) return; const it = ITEMS[s.id]; if (!it.dur) return;
+    if (Ench.keepDurability(s)) return;
     s.d = (s.d || 0) + k; if (s.d >= it.dur) { this.inv[this.sel] = null; Sound.play('break_tool'); Particles.itemBreak(this, s.id); }
   }
   addExh(v) { if (this.mode === 0 && Game.difficulty > 0) this.exh += v; }
@@ -4392,7 +4478,8 @@ class Mob extends Entity {
     if (this.dead) return; this.dead = true; this.deathTime = 0;
     Sound.play(this.def.sound + '_death', this.x, this.y, this.z);
     if (src && src.player) {
-      const r = Math.random; for (const [id, n] of this.def.drops(r, this.fire > 0)) if (n > 0) Entities.dropItem(this.x, this.y + 0.5, this.z, { id, n }, true);
+      const r = Math.random; const loot = this.playerHit && performance.now() - this.playerHit < 5000 ? Ench.held('looting') : 0;
+      for (const [id, n] of this.def.drops(r, this.fire > 0)) if (n > 0) Entities.dropItem(this.x, this.y + 0.5, this.z, { id, n: n + (loot ? Math.floor(r() * (loot + 1)) : 0) }, true);
       const [a, b] = this.def.xp; Game.player.addXP(a + Math.floor(Math.random() * (b - a + 1)));
       Game.player.score += this.def.hostile ? 2 : 1;
     }
@@ -4466,6 +4553,7 @@ class Mob extends Entity {
     if (--this.soundT <= 0) { this.soundT = 200 + Math.random() * 400 | 0; if (dist < 24) Sound.play(d.sound, this.x, this.y, this.z); }
   }
   hurtByPlayer(dmg, P, crit) {
+    this.playerHit = performance.now();
     const ok = this.damage(dmg, { x: P.x, z: P.z, player: true, kb: P.sprinting ? 0.8 : 0.4 });
     if (ok) { Sound.play(this.def.sound + '_hurt', this.x, this.y, this.z); if (this.def.passive) { this.panic = 100; this.goalYaw = Math.atan2(this.x - P.x, this.z - P.z) * -1; } else { this.provoked = true; this.target = P; } if (crit) Particles.crit(this); }
     return ok;
@@ -4508,6 +4596,7 @@ class Arrow extends Entity {
           const dmg = Math.ceil(Math.hypot(this.vx, this.vy, this.vz) * this.dmgK);
           if (e.type === 'player') e.hurtBy(dmg, { x: this.x, z: this.z, mob: !!(this.shooter && this.shooter.mob), kb: 0.3 });
           else if (this.shooter && this.shooter.type === 'player') e.hurtByPlayer(dmg, this.shooter, false); else e.damage(dmg, { x: this.x, z: this.z });
+          if (this.flame && e.mob) e.fire = Math.max(e.fire || 0, 100); if (this.punch && e.mob) { const h = Math.hypot(this.vx, this.vz) || 1; e.vx += this.vx / h * 0.6 * this.punch; e.vz += this.vz / h * 0.6 * this.punch; }
           Sound.play('arrow_hit'); this.remove = true; return;
         }
       }
@@ -5076,7 +5165,7 @@ const Game = {
   },
   digSpeed(d, stack) {
     const it = stack && ITEMS[stack.id]; let s = 1;
-    if (it && it.tool) { if (it.tool.type === d.tool) s = it.tool.speed; else if (it.tool.type === 'sword' && (d.leaves || d.key === 'cactus' || d.render === 'cross' || d.key === 'pumpkin')) s = 1.5; }
+    if (it && it.tool) { if (it.tool.type === d.tool) s = it.tool.speed + Ench.digBonus(stack, d); else if (it.tool.type === 'sword' && (d.leaves || d.key === 'cactus' || d.render === 'cross' || d.key === 'pumpkin')) s = 1.5; }
     const P = this.player; if (P.eyeInWater) s /= 5; if (!P.onGround && !P.flying) s /= 5;
     return s;
   },
@@ -5129,17 +5218,18 @@ const Game = {
   },
   attack(e) {
     const P = this.player; const it = P.held && ITEMS[P.held.id];
-    const str = P.attackStrength(); let dmg = (it && it.tool ? it.tool.dmg : 1) * (0.2 + str * str * 0.8);
+    const str = P.attackStrength(); let dmg = ((it && it.tool ? it.tool.dmg : 1) + Ench.damageBonus(P.held)) * (0.2 + str * str * 0.8);
     const crit = str > 0.9 && P.fall > 0 && !P.onGround && !P.inWater && !P.climbing();
     if (crit) dmg *= 1.5;
     P.swinging = true; P.swingTime = 0; P.attackCD = 0;
-    if (e.hurtByPlayer(dmg, P, crit)) { P.addExh(0.1); if (it && it.tool) P.useDurability(it.tool.type === 'sword' ? 1 : 2); if (P.sprinting) P.sprinting = false; }
+    if (e.hurtByPlayer(dmg, P, crit)) { const fa = Ench.held('fire_aspect'); if (fa) e.fire = Math.max(e.fire || 0, 80 * fa); const kb = Ench.held('knockback'); if (kb) { const a = Math.atan2(e.x - P.x, e.z - P.z); e.vx += Math.sin(a) * 0.5 * kb; e.vz += Math.cos(a) * 0.5 * kb; e.vy = Math.max(e.vy, 0.2); } P.addExh(0.1); if (it && it.tool) P.useDurability(it.tool.type === 'sword' ? 1 : 2); if (P.sprinting) P.sprinting = false; }
   },
   shootBow() {
     const P = this.player; const t = P.bowCharge / 20; let f = (t * t + t * 2) / 3; if (f > 1) f = 1; if (f < 0.1) return;
     const [ex, ey, ez] = this.eyePos(1); const [dx, dy, dz] = lookDir(P.yaw, P.pitch);
-    const a = Entities.add(new Arrow(ex + dx * 0.3, ey - 0.1 + dy * 0.3, ez + dz * 0.3, dx * f * 3 + P.vx, dy * f * 3, dz * f * 3 + P.vz, P, f >= 1 ? 2.4 : 2));
-    if (P.mode !== 1) { P.take('arrow', 1); P.useDurability(1); }
+    const pw = Ench.held('power'); const a = Entities.add(new Arrow(ex + dx * 0.3, ey - 0.1 + dy * 0.3, ez + dz * 0.3, dx * f * 3 + P.vx, dy * f * 3, dz * f * 3 + P.vz, P, (f >= 1 ? 2.4 : 2) * (pw ? 1 + 0.25 * (pw + 1) : 1)));
+    if (a && Ench.held('flame')) a.flame = true; if (a && Ench.held('punch')) a.punch = Ench.held('punch');
+    if (P.mode !== 1) { if (!Ench.held('infinity')) P.take('arrow', 1); P.useDurability(1); }
     Sound.play('bow'); P.bowCharge = 0;
   },
   use() {
@@ -5149,6 +5239,7 @@ const Game = {
       const d = BLOCKS[T.id];
       if (d.interact === 'craft') { UI.openContainer('craft', T); P.swinging = true; P.swingTime = 0; return; }
       if (d.interact === 'furnace') { UI.openContainer('furnace', T); return; }
+      if (d.interact === 'enchant') { UI.openContainer('enchant', T); return; }
       if (d.interact === 'chest') { UI.openContainer('chest', T); Sound.play('chest_open', T.x, T.y, T.z); return; }
       if ((d.interact === 'toggle' || d.interact === 'press' || d.interact === 'cycle') && RS.use(T)) { P.swinging = true; P.swingTime = 0; return; }
       if (d.interact === 'bed') { this.trySleep(T); return; }
@@ -5307,6 +5398,7 @@ const Game = {
         else if (typeof d.drops === 'string') drops = [[d.drops, 1]];
         else drops = d.noItem ? [] : [[d.key, 1]];
         if (d.slab) drops = [[d.key, 1]];
+        if (tool && tool.e) drops = Ench.drops(d, tool, drops);
         for (const [k, n] of drops) if (n > 0 && ITEMS[k]) Entities.dropItem(x + 0.5, y + 0.4, z + 0.5, { id: k, n });
         if (d.xp && !decay) { const [a, b] = d.xp; const v = a + Math.floor(Math.random() * (b - a + 1)); if (v) this.player.addXP(v); }
       }
@@ -5609,6 +5701,7 @@ const HUD = {
     if (!st) return; const g = this.g;
     g.imageSmoothingEnabled = false;
     g.drawImage(itemIcon(st.id), x, y, 16 * s, 16 * s);
+    if (st.e) g.drawImage(glintIcon(st.id), x, y, 16 * s, 16 * s);
     const it = ITEMS[st.id];
     if (it && it.dur && st.d > 0) {
       const f = 1 - st.d / it.dur; g.fillStyle = '#000'; g.fillRect(x + 2 * s, y + 13 * s, 13 * s, 2 * s);
@@ -5734,6 +5827,14 @@ const CREATIVE_TABS = [
   { id: 'redstone', name: 'Redstone', icon: 'redstone' }, { id: 'food', name: 'Comida', icon: 'apple' }, { id: 'misc', name: 'Ingredientes', icon: 'iron_ingot' },
   { id: 'search', name: 'Buscar objetos', icon: 'compass' }, { id: 'inv', name: 'Inventario', icon: 'chest' },
 ];
+// brillo morado de los objetos encantados (solo sobre los píxeles del objeto)
+const GLINT = {};
+function glintIcon(id) {
+  if (GLINT[id]) return GLINT[id]; const src = itemIcon(id); const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const g = c.getContext('2d');
+  g.drawImage(src, 0, 0); g.globalCompositeOperation = 'source-in'; const gr = g.createLinearGradient(0, 0, c.width, c.height);
+  gr.addColorStop(0, 'rgba(160,90,255,0.15)'); gr.addColorStop(0.45, 'rgba(200,140,255,0.55)'); gr.addColorStop(0.6, 'rgba(160,90,255,0.2)'); gr.addColorStop(1, 'rgba(120,60,220,0.35)');
+  g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height); return (GLINT[id] = c);
+}
 const GUI = {
   open: null, cursor: null, slots: [], hover: null, mx: 0, my: 0, ox: 0, oy: 0, s: 2, craft: null, be: null, pos: null,
   creativeTab: 'build', scroll: 0, search: '', drag: null,
@@ -5742,6 +5843,7 @@ const GUI = {
     const P = Game.player; this.open = type; this.pos = T ? [T.x, T.y, T.z] : null; this.scroll = 0;
     if (type === 'inv') this.craft = new Array(4).fill(null);
     if (type === 'craft') this.craft = new Array(9).fill(null);
+    if (type === 'enchant') { this.ench = [null, null]; this.shelves = Ench.shelves(T.x, T.y, T.z); this.offers = null; }
     if (type === 'furnace' || type === 'chest') {
       const k = T.x + ',' + T.y + ',' + T.z; let be = World.blockEnts.get(k);
       const bd = BLOCKS[World.get(T.x, T.y, T.z)]; this.title = bd ? bd.name : 'Cofre';
@@ -5773,7 +5875,8 @@ const GUI = {
     if (this.craft) for (const s of this.craft) if (s) { const left = P.give(s.id, s.n, s.d); if (left) Game.throwStack({ id: s.id, n: left, d: s.d }); }
     if (this.cursor) { const left = P.give(this.cursor.id, this.cursor.n, this.cursor.d); if (left) Game.throwStack({ id: this.cursor.id, n: left, d: this.cursor.d }); this.cursor = null; }
     if (this.open === 'chest' && this.pos) Sound.play('chest_close', ...this.pos);
-    this.open = null; this.craft = null; this.be = null; this.drag = null;
+    if (this.ench) for (const s of this.ench) if (s) { const left = P.give(s.id, s.n, s.d, s.e); if (left) Game.throwStack(Object.assign({}, s, { n: left })); }
+    this.open = null; this.craft = null; this.be = null; this.drag = null; this.ench = null; this.offers = null;
   },
   // ---- layout ----
   layout() {
@@ -5787,6 +5890,9 @@ const GUI = {
     } else if (this.open === 'craft') {
       for (let i = 0; i < 9; i++) add(this.craft, i, 30 + (i % 3) * 18, 17 + Math.floor(i / 3) * 18);
       add(null, 0, 124, 35, 'result'); inv(84);
+    } else if (this.open === 'enchant') {
+      add(this.ench, 0, 15, 47, 'enchItem'); add(this.ench, 1, 35, 47, 'lapis'); inv(84);
+      this.offers = Ench.offers(this.ench[0], this.shelves);
     } else if (this.open === 'furnace') {
       add(this.be.slots, 0, 56, 17, 'in'); add(this.be.slots, 1, 56, 53, 'fuel'); add(this.be.slots, 2, 116, 35, 'out'); inv(84);
     } else if (this.open === 'chest') {
@@ -5830,6 +5936,8 @@ const GUI = {
     if (sl.kind && sl.kind.startsWith('armor')) { const it = ITEMS[st.id]; return !!(it.armor && it.armor.slot === +sl.kind.slice(5)); }
     if (sl.kind === 'out' || sl.kind === 'result') return false;
     if (sl.kind === 'fuel') return fuelOf(st.id) > 0;
+    if (sl.kind === 'lapis') return st.id === 'lapis_lazuli';
+    if (sl.kind === 'enchItem') return !!Ench.kind(st.id) && st.n === 1;
     return true;
   },
   click(btn, shift) {
@@ -5837,6 +5945,7 @@ const GUI = {
     if (this.open === 'inv' && P.mode === 1) { // pestañas
       const tab = this.tabAt(this.mx, this.my); if (tab) { this.creativeTab = tab; this.scroll = 0; Sound.play('click'); return; }
     }
+    if (this.open === 'enchant' && !this.cursor && btn === 0) { const i = this.offerAt(this.mx, this.my); if (i >= 0) { Ench.apply(i); return; } }
     if (!sl) {
       // fuera de la ventana: tirar
       if (this.cursor && !this.inside(this.mx, this.my)) { if (btn === 0) { Game.throwStack(this.cursor); this.cursor = null; } else { Game.throwStack({ id: this.cursor.id, n: 1, d: this.cursor.d }); this.cursor.n--; if (!this.cursor.n) this.cursor = null; } }
@@ -5894,8 +6003,8 @@ const GUI = {
     const into = (targets) => {
       for (const pass of [0, 1]) for (const t of targets) {
         if (!st.n) break; const cur = t.arr[t.i];
-        if (pass === 0 && cur && cur.id === st.id && !cur.d && !st.d && cur.n < maxStack(st.id)) { const k = Math.min(maxStack(st.id) - cur.n, st.n); cur.n += k; st.n -= k; }
-        if (pass === 1 && !cur && this.accepts(t, st)) { t.arr[t.i] = { id: st.id, n: st.n, d: st.d }; st.n = 0; }
+        if (pass === 0 && cur && cur.id === st.id && !cur.d && !st.d && !cur.e && !st.e && cur.n < maxStack(st.id)) { const k = Math.min(maxStack(st.id) - cur.n, st.n); cur.n += k; st.n -= k; }
+        if (pass === 1 && !cur && this.accepts(t, st)) { t.arr[t.i] = { id: st.id, n: st.n, d: st.d }; if (st.e) t.arr[t.i].e = st.e; st.n = 0; }
       }
       if (!st.n) this.slotSet(sl, null);
     };
@@ -5905,6 +6014,7 @@ const GUI = {
     if (sl.arr === P.inv) {
       if (this.open === 'furnace') { const t = SMELT[st.id] ? [this.slots[0]] : fuelOf(st.id) ? [this.slots[1]] : (sl.i < 9 ? main : hot); into(t); }
       else if (this.open === 'chest') into(this.slots.filter(s => s.arr === this.be.slots));
+      else if (this.open === 'enchant') into(this.slots.filter(s => s.arr === this.ench && this.accepts(s, st)).concat(sl.i < 9 ? main : hot));
       else if (this.open === 'inv' && it.armor && !P.armor[it.armor.slot]) { P.armor[it.armor.slot] = st; this.slotSet(sl, null); }
       else into(sl.i < 9 ? main : hot);
     } else into([...hot.slice().reverse(), ...main.slice().reverse()].reverse());
@@ -5953,6 +6063,7 @@ const GUI = {
       const fl = be.burnMax ? be.burn / be.burnMax : 0; this.flame(ox + 56 * s, oy + 36 * s, s, fl);
       this.arrow(ox + 79 * s, oy + 34 * s, s, be.cook / 200, true);
     } else if (this.open === 'chest') T(this.title || 'Cofre', 8, 6);
+    else if (this.open === 'enchant') { T('Encantar', 8, 6); this.drawOffers(ox, oy, s); }
     if (this.open !== 'inv') T('Inventario', 8, this.open === 'chest' ? 75 : 73);
     if (this.open === 'inv' && P.mode === 1) {
       const tab = CREATIVE_TABS.find(t => t.id === this.creativeTab); T(tab.name, 8, 6);
@@ -5979,6 +6090,7 @@ const GUI = {
       const st = this.hover.kind === 'result' ? this.result : this.hover.kind === 'creative' ? { id: this.hover.item, n: 1 } : this.slotGet(this.hover);
       if (st) this.tooltip(st, this.mx, this.my, s);
     }
+    if (this._tip) { this._tip(); this._tip = null; }
     if (this.open === 'inv' && P.mode === 1) { const t = this.tabAt(this.mx, this.my); if (t) this.tooltipText(CREATIVE_TABS.find(x => x.id === t).name, this.mx, this.my, s); }
   },
   drawTabs(ox, oy, s) {
@@ -6001,6 +6113,34 @@ const GUI = {
     const g = HUD.g; g.fillStyle = '#8b8b8b'; g.fillRect(x + 2 * s, y + 2 * s, 10 * s, 12 * s);
     if (f > 0) { const h = Math.ceil(12 * f); g.fillStyle = '#ff8a20'; g.fillRect(x + 2 * s, y + (14 - h) * s, 10 * s, h * s); g.fillStyle = '#ffd84a'; g.fillRect(x + 4 * s, y + (14 - h * 0.7) * s, 6 * s, h * 0.7 * s); }
   },
+  // botones de la mesa de encantamientos
+  offerAt(mx, my) { const s = this.s; for (let i = 0; i < 3; i++) { const x = this.ox + 60 * s, y = this.oy + (14 + i * 19) * s; if (mx >= x && mx < x + 108 * s && my >= y && my < y + 19 * s) return i; } return -1; },
+  drawOffers(ox, oy, s) {
+    const g = HUD.g, P = Game.player; const lap = this.ench[1] ? this.ench[1].n : 0;
+    // libro abierto
+    g.fillStyle = '#5a2a1a'; g.fillRect(ox + 12 * s, oy + 18 * s, 32 * s, 22 * s); g.fillStyle = '#f0e6c8'; g.fillRect(ox + 14 * s, oy + 19 * s, 13 * s, 19 * s); g.fillRect(ox + 29 * s, oy + 19 * s, 13 * s, 19 * s);
+    g.fillStyle = '#b0a080'; for (let k = 0; k < 5; k++) { g.fillRect(ox + 16 * s, oy + (22 + k * 3) * s, 9 * s, s); g.fillRect(ox + 31 * s, oy + (22 + k * 3) * s, 9 * s, s); }
+    HUD.text('Librerías: ' + this.shelves, ox + 8 * s, oy + 64 * s, '#404040', s * 0.7, false);
+    for (let i = 0; i < 3; i++) {
+      const x = ox + 60 * s, y = oy + (14 + i * 19) * s; const o = this.offers && this.offers[i];
+      const can = o && (P.mode === 1 || (P.level >= o.cost && lap >= o.need)); const hov = o && this.offerAt(this.mx, this.my) === i;
+      g.fillStyle = !o ? '#8b8b8b' : can ? (hov ? '#9a7ad0' : '#8a6ab8') : '#6b5a6b'; g.fillRect(x, y, 108 * s, 19 * s);
+      g.fillStyle = '#2a2030'; g.fillRect(x, y + 18 * s, 108 * s, s); g.fillRect(x + 107 * s, y, s, 19 * s);
+      if (!o) continue;
+      const first = Object.keys(o.list)[0]; const more = Object.keys(o.list).length > 1;
+      const t = first ? ENCH[first].name + (ENCH[first].max > 1 ? ' ' + ROMAN[o.list[first]] : '') + (more ? '…' : '') : '';
+      HUD.text(t, x + 20 * s, y + 6 * s, can ? '#fff8d0' : '#a090a0', s * 0.75, false);
+      // coste: niveles (verde si te llega) y lapislázuli
+      g.fillStyle = '#2a2a2a'; g.fillRect(x + 2 * s, y + 2 * s, 15 * s, 15 * s);
+      HUD.text(String(o.need), x + 7 * s, y + 5 * s, can ? '#80ff20' : '#407020', s, false);
+      const lv = String(o.cost); HUD.text(lv, x + 105 * s - HUD.textW(lv, s * 0.75), y + 11 * s, can ? '#80ff20' : '#407020', s * 0.75, false);
+    }
+    if (this.offers && !this.cursor) { const i = this.offerAt(this.mx, this.my); const o = i >= 0 && this.offers[i]; if (o) {
+      const lines = Ench.names({ e: o.list }).map(n => n + '…').slice(0, 1).concat(['§7Necesitas nivel ' + o.cost, '§7Cuesta ' + o.need + ' nivel' + (o.need > 1 ? 'es' : '') + ' y ' + o.need + ' lapislázuli']);
+      const w = Math.max(...lines.map(l => HUD.textW(l, s))) + 8 * s, h = (lines.length * 10 + 3) * s; let tx = this.mx + 10 * s, ty = this.my - 14 * s; if (tx + w > HUD.cv.width) tx = this.mx - w - 8 * s;
+      this._tip = () => { g.fillStyle = 'rgba(18,8,30,0.94)'; g.fillRect(tx, ty, w, h); lines.forEach((l, k) => HUD.text(l, tx + 4 * s, ty + (2.5 + k * 10) * s, '#ffffff', s)); };
+    } }
+  },
   tooltipText(t, mx, my, s) {
     const g = HUD.g; const w = HUD.textW(t, s) + 8 * s; const x = mx + 10 * s, y = my - 14 * s;
     g.fillStyle = 'rgba(18,8,30,0.94)'; g.fillRect(x, y, w, 13 * s); g.fillStyle = '#3a2a7a'; g.fillRect(x, y, w, s); g.fillRect(x, y + 12 * s, w, s); g.fillRect(x, y, s, 13 * s); g.fillRect(x + w - s, y, s, 13 * s);
@@ -6011,6 +6151,7 @@ const GUI = {
     if (it.tool) lines.push('§9+' + it.tool.dmg + ' de daño · velocidad ' + it.tool.aspd);
     if (it.armor) lines.push('§9+' + it.armor.pts + ' de armadura');
     if (it.food) lines.push('§7Alimenta ' + it.food.h / 2 + ' muslos');
+    for (const n of Ench.names(st)) lines.push('§7' + n);
     if (it.dur) lines.push('§7Durabilidad: ' + (it.dur - (st.d || 0)) + ' / ' + it.dur);
     if (Game.debug) lines.push('§8' + it.key);
     const g = HUD.g; const w = Math.max(...lines.map(l => HUD.textW(l, s))) + 8 * s; const h = (lines.length * 10 + 3) * s;
@@ -6571,7 +6712,7 @@ const Chunks = {
 };
 Game.remeshAll = () => { for (const c of World.chunks.values()) c.dirty = true; };
 Game.unloadFar = () => { };
-Game.reloadTextures = () => { FaceTex.apply(); Atlas.build(); Renderer.uploadAtlas(); ItemMeshes.clear(); Game.remeshAll(); for (const k in ICON_CACHE) delete ICON_CACHE[k]; };
+Game.reloadTextures = () => { FaceTex.apply(); Atlas.build(); Renderer.uploadAtlas(); ItemMeshes.clear(); Game.remeshAll(); for (const k in ICON_CACHE) delete ICON_CACHE[k]; for (const k in GLINT) delete GLINT[k]; };
 
 // ---------------- mallas de objetos ----------------
 const ItemMeshes = {
@@ -6953,6 +7094,7 @@ async function boot() {
     await FaceTex.load(); await MobTex.load(); await Music.load();
     await TexturePack.restore();
     await TexturePack.fromLauncher();
+    await TexturePack.refreshStored();
     FaceTex.apply();
     Atlas.build();
     Renderer.init(document.getElementById('gl')); Renderer.uploadAtlas(); Mesher.init();
@@ -8053,6 +8195,116 @@ const RS = {
     }
     // recoger objetos sueltos que caen encima
     for (const e of Entities.list) if (e.type === 'item' && !e.remove && Math.floor(e.x) === x && Math.floor(e.z) === z && e.y >= y + 0.5 && e.y < y + 1.6) { while (e.item.n > 0 && this.insert(be.slots, e.item)) e.item.n--; if (e.item.n <= 0) e.remove = true; }
+  },
+};
+
+// ---- 13d_enchant.js ----
+// ============================================================
+//  Encantamientos y mesa de encantamientos
+//  · Pon una herramienta, arma, armadura o arco y lapislázuli: salen 3 opciones.
+//  · Cuestan 1, 2 o 3 niveles de experiencia (y otros tantos lapislázulis);
+//    las librerías alrededor de la mesa (a 2 bloques) dan opciones más fuertes.
+//  · Los encantamientos se guardan en el objeto como st.e = { clave: nivel }.
+// ============================================================
+const ENCH = {
+  efficiency: { name: 'Eficiencia', max: 5, on: ['pickaxe', 'axe', 'shovel', 'hoe'] },
+  unbreaking: { name: 'Irrompibilidad', max: 3, on: ['pickaxe', 'axe', 'shovel', 'hoe', 'sword', 'bow', 'armor', 'shears'] },
+  fortune: { name: 'Fortuna', max: 3, on: ['pickaxe', 'axe', 'shovel', 'hoe'], not: 'silk_touch' },
+  silk_touch: { name: 'Toque de seda', max: 1, on: ['pickaxe', 'axe', 'shovel', 'hoe'], not: 'fortune', rare: true },
+  sharpness: { name: 'Filo', max: 5, on: ['sword', 'axe'] },
+  knockback: { name: 'Empuje', max: 2, on: ['sword'] },
+  fire_aspect: { name: 'Aspecto ígneo', max: 2, on: ['sword'], rare: true },
+  looting: { name: 'Saqueo', max: 3, on: ['sword'] },
+  protection: { name: 'Protección', max: 4, on: ['armor'] },
+  feather_falling: { name: 'Caída de pluma', max: 4, on: ['armor3'] },
+  respiration: { name: 'Respiración', max: 3, on: ['armor0'] },
+  power: { name: 'Poder', max: 5, on: ['bow'] },
+  punch: { name: 'Retroceso', max: 2, on: ['bow'] },
+  flame: { name: 'Fuego', max: 1, on: ['bow'], rare: true },
+  infinity: { name: 'Infinidad', max: 1, on: ['bow'], rare: true },
+};
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
+const Ench = {
+  // tipo de objeto a efectos de encantar
+  kind(id) {
+    const it = ITEMS[id]; if (!it) return null;
+    if (it.tool) return it.tool.type; if (it.armor) return 'armor' + it.armor.slot;
+    if (id === 'bow') return 'bow'; if (id === 'shears') return 'shears'; return null;
+  },
+  fits(key, id) {
+    const k = this.kind(id); if (!k) return false; const on = ENCH[key].on;
+    return on.includes(k) || (k.startsWith('armor') && on.includes('armor'));
+  },
+  lvl(st, key) { return st && st.e && st.e[key] ? st.e[key] : 0; },
+  held(key) { const P = Game.player; return P ? this.lvl(P.held, key) : 0; },
+  armor(key) { const P = Game.player; let n = 0; if (P) for (const s of P.armor) n += this.lvl(s, key); return n; },
+  // cuánto se deja encantar según el material
+  enchantability(id) {
+    const it = ITEMS[id]; const k = id.split('_')[0];
+    if (it.armor) return { leather: 15, chainmail: 12, iron: 9, golden: 25, gold: 25, diamond: 10, netherite: 15, copper: 12, turtle: 9 }[k] || 10;
+    return { wooden: 15, stone: 5, iron: 14, golden: 22, gold: 22, diamond: 10, netherite: 15, copper: 13 }[k] || 1;
+  },
+  names(st) { return st && st.e ? Object.entries(st.e).map(([k, v]) => ENCH[k] ? ENCH[k].name + (ENCH[k].max > 1 ? ' ' + ROMAN[v] : '') : k) : []; },
+  // librerías alrededor de la mesa (a dos bloques, con aire entre medias)
+  shelves(x, y, z) {
+    let n = 0;
+    for (let dy = 0; dy <= 1; dy++) for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== 2) continue;
+      if (World.get(x + dx, y + dy, z + dz) !== B.bookshelf) continue;
+      const mx = x + Math.sign(dx) * (Math.abs(dx) === 2 ? 1 : 0), mz = z + Math.sign(dz) * (Math.abs(dz) === 2 ? 1 : 0);
+      if (!World.get(mx, y + dy, mz) || REPLACE[World.get(mx, y + dy, mz)]) n++;
+    }
+    return Math.min(15, n);
+  },
+  rng(seed) { return mulberry32(seed | 0); },
+  // las 3 opciones de la mesa para este objeto (siempre las mismas hasta que encantes algo)
+  offers(st, shelves) {
+    if (!st || !this.kind(st.id) || (st.e && Object.keys(st.e).length) || st.n !== 1) return null;
+    const P = Game.player; if (!P.enchSeed) P.enchSeed = (Math.random() * 2147483647) | 0;
+    const r = this.rng(P.enchSeed + shelves * 7);
+    const base = 1 + Math.floor(r() * 8) + Math.floor(shelves / 2) + Math.floor(r() * (shelves + 1));
+    const costs = [Math.max(Math.floor(base / 3), 1), Math.floor(base * 2 / 3) + 1, Math.max(base, shelves * 2)];
+    return costs.map((cost, i) => { const list = this.pick(st.id, cost, this.rng(P.enchSeed + i * 131 + shelves)); return { cost, need: i + 1, list }; });
+  },
+  pick(id, cost, r) {
+    const ench = this.enchantability(id);
+    let power = cost + 1 + Math.floor(r() * (Math.floor(ench / 4) + 1)) + Math.floor(r() * (Math.floor(ench / 4) + 1));
+    power = Math.max(1, Math.round(power * (1 + (r() + r() - 1) * 0.15)));
+    const pool = Object.keys(ENCH).filter(k => this.fits(k, id));
+    const out = {}; let tries = 0;
+    while (pool.length && tries++ < 6) {
+      const cands = pool.filter(k => !Object.keys(out).some(o => ENCH[o].not === k || ENCH[k].not === o));
+      if (!cands.length) break;
+      const w = cands.map(k => ENCH[k].rare ? 1 : 5); let t = r() * w.reduce((a, b) => a + b, 0); let k = cands[0];
+      for (let j = 0; j < cands.length; j++) { t -= w[j]; if (t < 0) { k = cands[j]; break; } }
+      const lv = Math.max(1, Math.min(ENCH[k].max, Math.round(power / 30 * ENCH[k].max + (r() - 0.3))));
+      out[k] = lv; pool.splice(pool.indexOf(k), 1);
+      if (r() > (power + 1) / 50) break; power = Math.floor(power / 2);
+    }
+    return out;
+  },
+  apply(i) {
+    const G = GUI, P = Game.player; const o = G.offers && G.offers[i]; const st = G.ench[0]; const lap = G.ench[1];
+    if (!o || !st) return;
+    const creative = P.mode === 1;
+    if (!creative && (P.level < o.cost || !lap || lap.n < o.need)) { Sound.play('click'); return; }
+    st.e = Object.assign({}, o.list);
+    if (!creative) { P.level -= o.need; lap.n -= o.need; if (!lap.n) G.ench[1] = null; }
+    P.enchSeed = (Math.random() * 2147483647) | 0; G.offers = null;
+    Sound.play('levelup'); Particles.color && Particles.color(G.pos[0] + 0.5, G.pos[1] + 1.2, G.pos[2] + 0.5, 0.6, 0.3, 1, 20, 0.05, 20, 0, 0);
+  },
+  // ---- efectos ----
+  digBonus(stack, d) { const e = this.lvl(stack, 'efficiency'); const it = stack && ITEMS[stack.id]; return e && it && it.tool && it.tool.type === d.tool ? e * e + 1 : 0; },
+  keepDurability(st) { const u = this.lvl(st, 'unbreaking'); return u > 0 && Math.random() < u / (u + 1); },
+  damageBonus(st) { const s = this.lvl(st, 'sharpness'); return s ? 0.5 * s + 0.5 : 0; },
+  protect(amt, fall) { let p = this.armor('protection'); if (fall) p += this.armor('feather_falling') * 3; return amt * (1 - Math.min(20, p) * 0.04); },
+  // fortuna y toque de seda al romper bloques
+  drops(d, tool, drops) {
+    if (this.lvl(tool, 'silk_touch') && d.id && !d.noItem && ITEMS[d.key] && (d.key.endsWith('_ore') || ['stone', 'grass_block', 'glass', 'glass_pane', 'ice', 'packed_ice', 'blue_ice', 'bookshelf', 'clay', 'gravel', 'glowstone', 'melon', 'podzol', 'mycelium', 'snow_block', 'sea_lantern', 'deepslate', 'cobweb'].includes(d.key) || d.key.endsWith('_leaves') || d.key.includes('stained_glass') || d.key.endsWith('mushroom_block')))
+      return [[d.key, 1]];
+    const f = this.lvl(tool, 'fortune');
+    if (f && (d.key.endsWith('_ore') || d.key === 'glowstone' || d.key === 'melon')) return drops.map(([k, n]) => [k, k === d.key ? n : n * Math.max(1, Math.floor(Math.random() * (f + 2)))]);
+    return drops;
   },
 };
 
