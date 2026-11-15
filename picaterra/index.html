@@ -33,6 +33,10 @@
   #logoSub { font-size: clamp(16px, 2.6vw, 26px); color: #ffe9a8; letter-spacing: 6px; margin-top: 6px; text-shadow: 2px 2px 0 #4a3510; }
   #splash { position: absolute; right: -40px; bottom: -6px; color: #ffff55; font-size: 20px; transform: rotate(-18deg); text-shadow: 2px 2px 0 #3f3f00; animation: pulse 0.5s ease-in-out infinite alternate; white-space: nowrap; }
   @keyframes pulse { from { transform: rotate(-18deg) scale(0.94); } to { transform: rotate(-18deg) scale(1.06); } }
+  #exitMsg { max-width: 420px; text-align: center; color: #ffe08a; text-shadow: 2px 2px #000; font-size: 16px; margin-top: 4px; }
+  #texNotice { position: fixed; right: 10px; top: 10px; max-width: 330px; background: rgba(20,14,0,0.88); border: 2px solid #e8b030; padding: 10px 12px; color: #fff; font-size: 15px; line-height: 1.3; z-index: 5; }
+  #texNotice b { color: #ffd060; }
+  #texNotice .row { margin-top: 8px; gap: 6px; }
   #titleFoot { position: fixed; left: 6px; right: 6px; bottom: 4px; display: flex; justify-content: space-between; font-size: 15px; color: #eee; }
   .panel { width: min(720px, 96vw); max-height: 62vh; overflow: auto; background: rgba(0, 0, 0, 0.45); border: 2px solid #000; box-shadow: inset 0 0 0 2px #3a3a3a; padding: 8px; margin-bottom: 10px; }
   .world { display: flex; align-items: center; gap: 10px; padding: 6px; border: 2px solid transparent; }
@@ -121,6 +125,9 @@
   <div class="row"><button class="btn half" data-go="avatar">Avatar y aspecto</button><button class="btn half" data-go="textures">Texturas…</button></div>
   <div class="row"><button class="btn half" data-go="options">Opciones…</button><button class="btn half" data-go="rename">Nombre del juego…</button></div>
   <div class="row"><button class="btn half" data-go="music">Música…</button><button class="btn half" data-go="controls">Controles</button></div>
+  <button class="btn" id="btnExitGame">Salir del juego</button>
+  <div id="exitMsg" hidden>El navegador no deja que una página cierre su propia pestaña: ciérrala tú con Ctrl+W (o la X de la pestaña).</div>
+  <div id="texNotice" hidden><b>Tu paquete de texturas se cargó con una versión anterior del juego.</b><br>Vuelve a cargar el .zip una sola vez para que se use en absolutamente todo: objetos nuevos, criaturas, interfaz y el borde del césped de cada bioma.<div class="row"><button class="btn small" id="texNoticeGo">Cargar el .zip…</button><button class="btn small" id="texNoticeNo">Ahora no</button></div></div>
   <div id="titleFoot"><span id="verText">Picaterra HTML Edition 1.0</span><span>Juego original hecho en HTML</span></div>
 </div>
 
@@ -184,7 +191,7 @@
 <!-- Texturas -->
 <div class="screen dim" id="s_textures">
   <h2>Paquetes de texturas</h2>
-  <div class="txt">Carga un paquete de texturas y cada imagen se pone sola en su bloque u objeto si el archivo se llama como su casilla, por ejemplo <b>stone.png</b>, <b>oak_log_top.png</b> o <b>diamond_pickaxe.png</b>. Sirve un <b>.zip</b> entero, una carpeta o imágenes sueltas. Se guarda en este navegador: solo hay que cargarlo una vez. Las marcadas como <i>(gris)</i> se tiñen con el color del bioma.</div>
+  <div class="txt">Carga un paquete de texturas y cada imagen se pone sola en su bloque u objeto si el archivo se llama como su casilla, por ejemplo <b>stone.png</b>, <b>oak_log_top.png</b> o <b>diamond_pickaxe.png</b>. Sirve un <b>.zip</b> entero, una carpeta o imágenes sueltas. Con un <b>.zip</b> o una carpeta se cambia todo: bloques, objetos, criaturas, la interfaz (corazones, barra rápida, inventarios), el sol, la luna, las nubes y las partículas. Se guarda en este navegador: solo hay que cargarlo una vez. Las marcadas como <i>(gris)</i> se tiñen con el color del bioma.</div>
   <div class="row"><span class="btn third file">Cargar paquete (.zip)…<input type="file" id="texZip" accept=".zip,application/zip"></span><span class="btn third file">Cargar carpeta…<input type="file" id="texDir" webkitdirectory multiple></span><span class="btn third file">Cargar imágenes…<input type="file" id="texFiles" accept="image/*" multiple></span></div>
   <div class="row" id="texLauncherRow" style="display:none"><button class="btn" id="texOpenDir">Abrir la carpeta de texturas del launcher</button></div>
   <div class="txt" id="texMsg" style="text-align:center;color:#ffff88;min-height:22px"></div>
@@ -289,7 +296,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.4';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.5';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2131,6 +2138,11 @@ addTex('pumpkin_side', (c) => { P(c, 0, 0, '#c07615', 16, 16); for (const x of [
 addTex('pumpkin_top', (c) => { P(c, 0, 0, '#c07615', 16, 16); P(c, 7, 7, '#5a7a2a', 2, 2); });
 addTex('lamp', (c) => { P(c, 0, 0, '#f8d878', 16, 16); P(c, 0, 0, '#c8a040', 16, 1); P(c, 0, 15, '#c8a040', 16, 1); P(c, 0, 0, '#c8a040', 1, 16); P(c, 15, 0, '#c8a040', 1, 16); P(c, 7, 2, '#fff6c8', 2, 12); P(c, 2, 7, '#fff6c8', 12, 2); });
 addTex('ladder', (c) => { c.clearRect(0, 0, 16, 16); P(c, 2, 0, '#9a7a4a', 2, 16); P(c, 12, 0, '#9a7a4a', 2, 16); for (const y of [1, 5, 9, 13]) P(c, 4, y, '#b08a58', 8, 2); });
+// partículas (un paquete de texturas las puede cambiar: flame.png, generic_0..7.png, bubble.png, critical_hit.png)
+addTex('flame', (c) => { c.clearRect(0, 0, 16, 16); P(c, 6, 5, '#ffd84a', 4, 7); P(c, 7, 3, '#ffb020', 2, 3); P(c, 5, 8, '#ff9a20', 6, 4); P(c, 7, 9, '#fff6c0', 2, 3); }, 'particle');
+for (let k = 0; k < 8; k++) addTex('generic_' + k, (c) => { c.clearRect(0, 0, 16, 16); const r = Math.max(1, 7 - k * 0.8); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < r) P(c, x, y, d < r - 1.5 ? '#ffffff' : '#d8d8d8'); } }, 'particle');
+addTex('bubble', (c) => { c.clearRect(0, 0, 16, 16); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d < 5 && d > 3.6) P(c, x, y, '#cfe6ff'); } P(c, 5, 5, '#ffffff', 2, 2); }, 'particle');
+addTex('critical_hit', (c) => { c.clearRect(0, 0, 16, 16); P(c, 7, 2, '#ffffff', 2, 12); P(c, 2, 7, '#ffffff', 12, 2); P(c, 5, 5, '#ffffff', 6, 6); }, 'particle');
 for (let s = 0; s < 10; s++) addTex('destroy_stage_' + s, (c) => {
   c.clearRect(0, 0, 16, 16); const r = mulberry32(99); const n = 2 + s * 2;
   for (let k = 0; k < n; k++) {
@@ -2266,16 +2278,234 @@ function autoBlockTex(name, d) {
   if (name === 'melon_side') return (c) => { for (let x = 0; x < 16; x++) for (let y = 0; y < 16; y++) P(c, x, y, x % 4 < 2 ? '#6f9d23' : '#4f7a13'); };
   return noiseTex(name, col, name.includes('copper') || name.includes('prismarine') ? 0.16 : 0.1);
 }
+
+// ---- extra/icons15.js ----
+// ============================================================
+//  Iconos propios (de reserva) para objetos que antes salían como
+//  una bola de color. Son dibujos originales de 16x16; con un paquete
+//  de texturas cargado se usan las imágenes del paquete.
+// ============================================================
+// dibujo por filas: cada carácter es un color de la paleta ('.' = vacío)
+const pixArt = (rows, pal) => (c) => {
+  c.clearRect(0, 0, 16, 16);
+  rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) { const col = pal[r[x]]; if (col) P(c, x, y, col); } });
+};
+// bola sombreada (luz arriba a la izquierda) con contorno
+const shadedBall = (base, opts = {}) => (c) => {
+  const cx = opts.cx ?? 7.5, cy = opts.cy ?? 8, rx = opts.rx ?? 4.6, ry = opts.ry ?? 4.6, out = opts.out || shade(base, -0.55);
+  c.clearRect(0, 0, 16, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry, d = dx * dx + dy * dy;
+    if (d > 1) continue;
+    const edge = d > 0.72; const lit = -(dx + dy) * 0.5;
+    P(c, x, y, edge ? out : shade(base, lit * 0.35 + (hash2(base, x, y) - 0.5) * (opts.noise ?? 0.12)));
+  }
+  if (opts.hi !== false) P(c, Math.round(cx - rx * 0.45), Math.round(cy - ry * 0.45), opts.hiCol || shade(base, 0.45));
+  if (opts.after) opts.after(c);
+};
+function doorIcon(wood, iron) {
+  const w = wood, d = shade(wood, -0.22), o = shade(wood, -0.55), g = iron ? shade(wood, 0.25) : '#cfe3e8', h = iron ? '#5a5a5a' : '#3a2a1a';
+  return pixArt([
+    '....oooooooo....',
+    '....owwwwwwo....',
+    '....owggwggo....',
+    '....owggwggo....',
+    '....owggwggo....',
+    '....owwwwwwo....',
+    '....owddddwo....',
+    '....owdwwdwo....',
+    '....owdwwdho....',
+    '....owdwwdwo....',
+    '....owddddwo....',
+    '....owwwwwwo....',
+    '....owddddwo....',
+    '....owdwwdwo....',
+    '....owddddwo....',
+    '....oooooooo....',
+  ], { o, w, d, g, h });
+}
+function eggIcon(base, spot) {
+  return pixArt([
+    '................',
+    '......oooo......',
+    '.....obbbbo.....',
+    '....obhbbbbo....',
+    '....ohbbsbbo....',
+    '...obbbbbbbbo...',
+    '...obsbbbbsbo...',
+    '...obbbbbbbbo...',
+    '..obbbbsbbbbbo..',
+    '..obbsbbbbbsbo..',
+    '..obbbbbbbbbbo..',
+    '..obbbbbsbbbdo..',
+    '...obsbbbbbdo...',
+    '....obbbbbdo....',
+    '.....oooooo.....',
+    '................',
+  ], { o: shade(base, -0.6), b: base, h: shade(base, 0.35), s: spot, d: shade(base, -0.2) });
+}
+const EGG_COLORS = { pig: ['#f0a5a2', '#db6e6e'], cow: ['#4a3828', '#b8b0a8'], sheep: ['#e8e6e0', '#f2b8b6'], chicken: ['#e8e8e0', '#d83a2a'], zombie: ['#2e9a9a', '#6e9a4e'], skeleton: ['#c8c8c4', '#5a5a5a'], spider: ['#3a2f26', '#b02020'] };
+const bowlRows = (top) => [
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  top ? '..tttttttttttt..' : '..oooooooooooo..',
+  top ? '.otTTTTTTTTTTto.' : '.obiiiiiiiiiibo.',
+  top ? '.obtttttttttbbo.' : '.obbbiiiiiibbbo.',
+  '.obbbbbbbbbbbbo.',
+  '..obbbbbbbbbbo..',
+  '..odbbbbbbbbdo..',
+  '...oddbbbbddo...',
+  '....oooooooo....',
+  '................',
+  '................',
+];
+const FALLBACK_ICONS = {
+  lever: pixArt([
+    '................', '................', '................',
+    '...........rr...', '..........rr....', '.........ss.....', '........ss......', '.......ss.......', '......ss........',
+    '...bbbbsbbbb....', '...bcbbbbcbb....', '...bbcbbbbcb....', '...cccccccccc...', '................', '................', '................',
+  ], { r: '#5a3c1c', s: '#8a6234', b: '#8f8f8f', c: '#5e5e5e' }),
+  hopper: pixArt([
+    '................',
+    'oooooooooooooooo',
+    'oggggggggggggggo',
+    'ogkkkkkkkkkkkkgo',
+    'ogkkkkkkkkkkkkgo',
+    'oggggggggggggggo',
+    '.oggggdggggggo..',
+    '..ogggdgggggo...',
+    '...ogggggggo....',
+    '....ogggggo.....',
+    '.....oggdo......',
+    '......ogo.......',
+    '......ogo.......',
+    '.......o........',
+    '................',
+    '................',
+  ], { o: '#262626', g: '#6c6c6c', d: '#545454', k: '#353535' }),
+  snowball: shadedBall('#f4f8fb', { out: '#9fb7c9', noise: 0.05 }),
+  slime_ball: shadedBall('#7fc96a', { out: '#3f7a32', noise: 0.08, hiCol: '#d8f7c8' }),
+  potato: shadedBall('#c99a52', { rx: 5.2, ry: 3.8, cy: 8.5, out: '#6e4f22', after: (c) => { P(c, 6, 9, '#7d5a2a'); P(c, 9, 7, '#7d5a2a'); P(c, 10, 10, '#7d5a2a'); } }),
+  baked_potato: shadedBall('#e6b85a', { rx: 5.2, ry: 3.8, cy: 8.5, out: '#8a5a1c', after: (c) => { P(c, 6, 8, '#fff0b0', 3, 1); P(c, 7, 9, '#fff6c8', 2, 1); P(c, 10, 10, '#a06a28'); } }),
+  cookie: shadedBall('#c48a4a', { out: '#7a4f22', noise: 0.08, hi: false, after: (c) => { for (const [x, y] of [[5, 6], [9, 5], [7, 9], [10, 10], [4, 10]]) P(c, x, y, '#4a2a14'); } }),
+  compass: shadedBall('#8a8a8a', { out: '#3a3a3a', noise: 0.04, hi: false, after: (c) => { for (let y = 5; y < 12; y++) for (let x = 5; x < 11; x++) if ((x - 7.5) ** 2 + (y - 8) ** 2 < 9) P(c, x, y, '#d8d4c8'); P(c, 8, 6, '#d02020'); P(c, 7, 7, '#d02020'); P(c, 7, 8, '#505050'); P(c, 6, 9, '#505050'); } }),
+  clock: shadedBall('#e2b23a', { out: '#7a5a10', noise: 0.05, hi: false, after: (c) => { for (let y = 5; y < 12; y++) for (let x = 5; x < 11; x++) if ((x - 7.5) ** 2 + (y - 8) ** 2 < 9) P(c, x, y, y < 8 ? '#6fb6e8' : '#3a7a2a'); P(c, 7, 5, '#fff2a0'); P(c, 7, 6, '#2a2a2a'); P(c, 7, 7, '#2a2a2a'); P(c, 8, 8, '#2a2a2a'); } }),
+  sugar: pixArt([
+    '................', '................', '................', '................', '................', '................', '................',
+    '.......w........', '......wsw.......', '.....wwsww......', '....wswwwsw.....', '...wwwswwwww....', '..wswwwwswwsw...', '..ssssssssssss..', '................', '................',
+  ], { w: '#fbfbfb', s: '#cfd6dc' }),
+  bowl: pixArt(bowlRows(false), { o: '#3e2a12', b: '#8a5e2c', d: '#6a461e', i: '#5a3c18' }),
+  mushroom_stew: pixArt(bowlRows(true), { o: '#3e2a12', b: '#8a5e2c', d: '#6a461e', t: '#a0784e', T: '#c49a6c' }),
+  beetroot_soup: pixArt(bowlRows(true), { o: '#3e2a12', b: '#8a5e2c', d: '#6a461e', t: '#8a1a26', T: '#b8303e' }),
+  carrot: pixArt([
+    '................',
+    '...........g.g..',
+    '..........gGgg..',
+    '...........gG...',
+    '..........oo....',
+    '.........ooOo...',
+    '........oOooo...',
+    '.......oooOo....',
+    '......ooOoo.....',
+    '.....oOooo......',
+    '....oooOo.......',
+    '...ooOoo........',
+    '...ooo..........',
+    '..oo............',
+    '................',
+    '................',
+  ], { g: '#3f8a2a', G: '#62b83e', o: '#e8862a', O: '#c45f12' }),
+  beetroot: pixArt([
+    '........g.......',
+    '.......gGg......',
+    '......gGgGg.....',
+    '........g.......',
+    '......rrrr......',
+    '.....rRrrrr.....',
+    '....rRrrrrrr....',
+    '....rrrrrrRr....',
+    '....rrrrrRrr....',
+    '.....rrrrrr.....',
+    '......rrrr......',
+    '.......rr.......',
+    '........r.......',
+    '........r.......',
+    '................',
+    '................',
+  ], { g: '#3f8a2a', G: '#62b83e', r: '#9a1f36', R: '#d0485e' }),
+  beetroot_seeds: pixArt([
+    '................', '................', '................', '................', '................',
+    '.......aa.......', '......abba......', '...aa..aa.......', '..abba.....aa...', '...aa.....abba..', '......aa...aa...', '.....abba.......', '......aa........', '................', '................', '................',
+  ], { a: '#6e5a3a', b: '#a08a5e' }),
+  shears: pixArt([
+    '................',
+    '..........oo....',
+    '.........owwo...',
+    '........owwo....',
+    '.......owwo.....',
+    '......owwoo.....',
+    '.....owwowwo....',
+    '....owwo.oww....',
+    '....oo...oww....',
+    '...rr.....oo....',
+    '..rrrr...rr.....',
+    '..r..r..rrrr....',
+    '..rrrr..r..r....',
+    '...rr...rrrr....',
+    '.........rr.....',
+    '................',
+  ], { o: '#5a5a5a', w: '#dcdcdc', r: '#a02a20' }),
+  name_tag: pixArt([
+    '................', '................', '..s.............', '...s............', '....s...........',
+    '.....oooooooooo.', '....oPPPPPPPPPo.', '...oPhPPPPPPPPo.', '...oPPPdddddPPo.', '....oPPPPPPPPPo.', '.....oooooooooo.', '................', '................', '................', '................', '................',
+  ], { s: '#8a8a8a', o: '#6a4a26', P: '#d8c8a0', h: '#3a3a3a', d: '#9a8a68' }),
+  milk_bucket: pixArt([
+    '................',
+    '................',
+    '...oooooooooo...',
+    '..owwwwwwwwwwo..',
+    '..omWWWWWWWWmo..',
+    '..ommmmmmmmmmo..',
+    '..ogggggggggdo..',
+    '...ogggggggdo...',
+    '...ogLggggddo...',
+    '...ogLggggddo...',
+    '....ogggggdo....',
+    '....ogggggdo....',
+    '....ogggggdo....',
+    '.....oooooo.....',
+    '................',
+    '................',
+  ], { o: '#3a3a3a', w: '#9a9a9a', m: '#e8e8e8', W: '#ffffff', g: '#a8a8a8', d: '#7a7a7a', L: '#d0d0d0' }),
+  sunflower_front: (c) => {
+    c.clearRect(0, 0, 16, 16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot(x - 7.5, y - 7.5), a = Math.atan2(y - 7.5, x - 7.5); if (d < 7.5 && d > 3.2 && Math.cos(a * 8) > -0.3) P(c, x, y, d > 6 ? '#e8a818' : '#f8d030'); }
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const d = Math.hypot(x - 7.5, y - 7.5); if (d <= 3.4) P(c, x, y, (x + y) % 2 ? '#5a3a1a' : '#7a5228'); }
+  },
+};
+function fallbackIcon(k, it) {
+  if (FALLBACK_ICONS[k]) return FALLBACK_ICONS[k];
+  const m = k.match(/^(.*)_spawn_egg$/); if (m && EGG_COLORS[m[1]]) return eggIcon(...EGG_COLORS[m[1]]);
+  if (k.endsWith('_door')) { const d = BLOCKS[B[k]]; return doorIcon(k === 'iron_door' ? '#c8c8c8' : (d && d.color) || '#9a7a4a', k === 'iron_door'); }
+  return null;
+}
+
 function autoItemTex(it) {
   const k = it.key;
+  const fb = fallbackIcon(k, it); if (fb) return fb;
   if (/dust|^redstone$/.test(k)) { const col = k === 'redstone' ? '#c4150b' : '#f8d778'; return (c) => { c.clearRect(0, 0, 16, 16); for (let i = 0; i < 14; i++) P(c, 3 + hash2(k, i, 0) * 10 | 0, 6 + hash2(k, i, 1) * 7 | 0, i % 3 ? col : shade(col, -0.35), 2, 2); }; }
   if (k.endsWith('nugget')) return blob(k.startsWith('gold') ? '#f8d040' : '#d8d8d8', k.startsWith('gold') ? '#b08a10' : '#8a8a8a', 8, 9, 3.5, 3);
   if (k.endsWith('ingot')) return ingot(k.startsWith('netherite') ? '#4a4245' : '#888888');
   if (k === 'nether_brick') return ingot('#4a1f22');
   if (k === 'quartz' || k === 'amethyst_shard') { const col = k === 'quartz' ? '#ebe4da' : '#a77fe6'; return (c) => { c.clearRect(0, 0, 16, 16); for (let y = 2; y < 14; y++) { const w = y < 8 ? (y - 1) : (14 - y); P(c, 8 - w / 2 | 0, y, y < 6 ? shade(col, 0.25) : col, Math.max(1, w), 1); } }; }
   if (k === 'melon_slice') return (c) => { c.clearRect(0, 0, 16, 16); for (let y = 4; y < 14; y++) { const w = (y - 3) * 1.2 | 0; P(c, 3, y, '#e2453b', w, 1); P(c, 3 + w, y, '#3e8a1e', 2, 1); } P(c, 5, 9, '#222'); P(c, 6, 12, '#222'); };
-  return blob(it.color || '#999999', shade(it.color || '#999999', -0.4));
+  AUTO_BLOB.add(k); return blob(it.color || '#999999', shade(it.color || '#999999', -0.4));
 }
+const AUTO_BLOB = new Set();
 const ITEM_ALIAS = ['lantern', 'iron_chain', 'repeater', 'comparator', 'hopper', 'cauldron'];
 function autoTextures() {
   for (const k of ITEM_ALIAS) { if (B[k] === undefined) continue; addTex('item:' + k, () => { }, 'item'); BLOCKS[B[k]].iconAlias = 'item:' + k; }
@@ -2304,6 +2534,7 @@ autoTextures();
 // ============================================================
 const Atlas = {
   T: 16, cols: 32, canvas: null, index: {}, size: 512, version: 0, leavesAlpha: false,
+  gui: {},     // sprites de la interfaz tomados del paquete (corazones, barra rápida...)
   custom: {},  // nombre -> HTMLImageElement / canvas de la textura del jugador
   tileCanvas: {},
   build() {
@@ -2367,25 +2598,31 @@ function partialTint(src, [r, g, b]) {
 const SHADED = {};
 function shadedTile(name, k) { const key = name + '|' + k + '|' + Atlas.version; if (SHADED[key]) return SHADED[key]; const src = texCanvasFor(name); if (!k) return (SHADED[key] = src); const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; const g = c.getContext('2d'); g.drawImage(src, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = `rgba(0,0,0,${k})`; g.fillRect(0, 0, c.width, c.height); return (SHADED[key] = c); }
 const ICON_META = { stairs: 3, fence: 0, wall: 0, gate: 0, door: 1, trapdoor: 0, button: 3, lever: 3, repeater: 1, comparator: 1, rod: 2, piston: 2, piston_head: 2 };
+// proyección de los iconos de bloque, como en el inventario original (giro 30°/225°, escala 0,625):
+// el cubo ocupa casi toda la casilla y es algo más alto que ancho
+const ICO_A = 0.8839, ICO_B = 0.4419, ICO_C = 1.0825, ICO_Y0 = 0.27;
+const isoP = (x, y, z) => [16 + ICO_A * (x - z), ICO_Y0 + ICO_B * (x + z) + ICO_C * (16 - y)];
+function isoFace(g, name, shade, sx, sy, sw, sh, O, U, V) {
+  if (!name || sw <= 0 || sh <= 0) return; const t = shadedTile(name, shade); const k = Atlas.T / 16;
+  g.save(); g.setTransform((U[0] - O[0]) / (sw * k), (U[1] - O[1]) / (sw * k), (V[0] - O[0]) / (sh * k), (V[1] - O[1]) / (sh * k), O[0], O[1]);
+  g.drawImage(t, sx * k, sy * k, sw * k, sh * k, 0, 0, sw * k, sh * k); g.restore();
+}
+function isoBox(g, x0, y0, z0, x1, y1, z1, top, south, east) {
+  const Pp = isoP;
+  isoFace(g, south, 0.2, x0, 16 - y1, x1 - x0, y1 - y0, Pp(x0, y1, z1), Pp(x1, y1, z1), Pp(x0, y0, z1));
+  isoFace(g, east, 0.4, 16 - z1, 16 - y1, z1 - z0, y1 - y0, Pp(x1, y1, z1), Pp(x1, y1, z0), Pp(x1, y0, z1));
+  isoFace(g, top, 0, x0, z0, x1 - x0, z1 - z0, Pp(x0, y1, z0), Pp(x1, y1, z0), Pp(x0, y1, z1));
+}
 function boxIcon(g, d) {
-  const a = 14 / 16, b = 7 / 16; const Pp = (x, y, z) => [16 + a * (x - z), 2 + b * (x + z) + a * (16 - y)];
   let meta = d.stairs ? ICON_META.stairs : (ICON_META[d.shape] || 0); if (d.facing6) meta = 2;
   let boxes = (blockBoxes(d.id, meta, null) || [[0, 0, 0, 16, 16, 16]]).map(bx => bx.slice());
   // centrar la figura en el icono si es bajita o estrecha
   const minY = Math.min(...boxes.map(bx => bx[1])), maxY = Math.max(...boxes.map(bx => bx[4]));
   if (maxY - minY < 9) { const dy = (16 - (maxY - minY)) / 2 - minY; for (const bx of boxes) { bx[1] += dy; bx[4] += dy; } }
   boxes.sort((p, q) => (p[0] + p[3] + p[2] + p[5] + p[1] + p[4]) - (q[0] + q[3] + q[2] + q[5] + q[1] + q[4]));
-  const T = Atlas.T, k = T / 16;
-  const face = (name, shade, sx, sy, sw, sh, O, U, V) => {
-    if (sw <= 0 || sh <= 0) return; const t = shadedTile(name, shade);
-    g.save(); g.setTransform((U[0] - O[0]) / (sw * k), (U[1] - O[1]) / (sw * k), (V[0] - O[0]) / (sh * k), (V[1] - O[1]) / (sh * k), O[0], O[1]);
-    g.drawImage(t, sx * k, sy * k, sw * k, sh * k, 0, 0, sw * k, sh * k); g.restore();
-  };
   for (const [x0, y0, z0, x1, y1, z1, bt] of boxes) {
     const top = bt || (d.faceTex6 ? d.faceTex6.top : d.faceTex[2]), south = bt || d.faceTex[4], east = bt || d.faceTex[0];
-    face(south, 0.2, x0, 16 - y1, x1 - x0, y1 - y0, Pp(x0, y1, z1), Pp(x1, y1, z1), Pp(x0, y0, z1));
-    face(east, 0.4, 16 - z1, 16 - y1, z1 - z0, y1 - y0, Pp(x1, y1, z1), Pp(x1, y1, z0), Pp(x1, y0, z1));
-    face(top, 0, x0, z0, x1 - x0, z1 - z0, Pp(x0, y1, z0), Pp(x1, y1, z0), Pp(x0, y1, z1));
+    isoBox(g, x0, y0, z0, x1, y1, z1, top, south, east);
   }
 }
 function itemIcon(id) { // canvas 32x32
@@ -2398,15 +2635,12 @@ function itemIcon(id) { // canvas 32x32
   if (it.iconBlock && bd && RENDER[bd.id] === 5 && !bd.slab && bd.key !== 'bed' && bd.key !== 'chest') { boxIcon(g, bd); ICON_CACHE[key] = c; return c; }
   if (it.iconBlock) {
     const d = BLOCKS[B[it.block]];
-    const tt = texCanvasFor(d.faceTex6 ? d.faceTex6.front : d.faceTex[2]), tl = texCanvasFor(d.faceTex[d.facing ? 5 : 4]), tr = texCanvasFor(d.faceTex[0]);
-    const T = Atlas.T;
+    const tt = d.faceTex6 ? d.faceTex6.front : d.faceTex[2], tl = d.faceTex[d.facing ? 5 : 4], tr = d.faceTex[0];
     // proyección isométrica: arriba, izquierda (sur), derecha (este)
     let hgt = 1; if (d.slab) hgt = 0.5;
-    if (d.shape && ['carpet', 'plate', 'snow', 'lilypad', 'daylight', 'stonecutter', 'enchant', 'repeater', 'comparator'].includes(d.shape)) { const bb = blockBoxes(d.id, 0, null); hgt = Math.max(1, ...bb.map(b => b[4])) / 16; } if (d.key === 'bed') hgt = 9 / 16; if (d.key === 'farmland') hgt = 15 / 16; if (d.key === 'chest') hgt = 14 / 16;
-    const yo = (1 - hgt) * 14, a = 14 / T, b = 7 / T;
-    g.save(); g.setTransform(a, b, -a, b, 16, 2 + yo); g.drawImage(tt, 0, 0); g.restore();
-    g.save(); g.setTransform(a, b, 0, a, 2, 9 + yo); g.drawImage(tl, 0, T * (1 - hgt), T, T * hgt, 0, 0, T, T * hgt); g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(0, 0, T, T * hgt); g.restore();
-    g.save(); g.setTransform(a, -b, 0, a, 16, 16 + yo); g.drawImage(tr, 0, T * (1 - hgt), T, T * hgt, 0, 0, T, T * hgt); g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(0, 0, T, T * hgt); g.restore();
+    if (d.shape && ['carpet', 'plate', 'snow', 'lilypad', 'daylight', 'stonecutter', 'enchant', 'repeater', 'comparator'].includes(d.shape)) { const bb = blockBoxes(d.id, 0, null); hgt = Math.max(1, ...bb.map(b => b[4])) / 16; } if (d.key === 'bed') hgt = 9 / 16; if (d.key === 'farmland') hgt = 15 / 16;
+    if (d.key === 'chest') isoBox(g, 1, 0, 1, 15, 14, 15, tt, tl, tr);
+    else isoBox(g, 0, 0, 0, 16, hgt * 16, 16, tt, tl, tr);
   } else {
     const name = it.icon || id;
     const src = Atlas.index[name] !== undefined ? texCanvasFor(name) : null;
@@ -2442,6 +2676,8 @@ async function readZip(buf) {
 const blobToURL = (blob) => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.onerror = () => r(null); fr.readAsDataURL(blob); });
 const loadImg = (url) => new Promise(r => { const im = new Image(); im.onload = () => r(im); im.onerror = () => r(null); im.src = url; });
 
+// fases de la luna en el orden del ciclo (0 = llena)
+const MOON_PHASES = ['full_moon', 'waning_gibbous', 'third_quarter', 'waning_crescent', 'new_moon', 'waxing_crescent', 'first_quarter', 'waxing_gibbous'];
 const TexturePack = {
   // elige, para cada casilla del juego, el mejor archivo del paquete (bloque o objeto según la casilla)
   pick(paths) {
@@ -2483,6 +2719,94 @@ const TexturePack = {
     }
     const ov = [...byPath.keys()].find(p => /(^|\/)grass_block_side_overlay\.png$/i.test(p)), base = want.find(([nm]) => nm === 'grass_block_side');
     if (ov && base) await this.grassSide(await blobToURL(byPath.get(base[1].path)), await blobToURL(byPath.get(ov)));
+    const names = [...byPath.keys()], url = (p) => blobToURL(byPath.get(p));
+    try { n += await this.entities(names, url); n += await this.gui(names, url); } catch (e) { }
+    const chest = names.find(p => /(^|\/)chest\/normal\.png$/i.test(p));
+    if (chest && !FaceTex.data.chest) { try { n += await this.chestFrom(await url(chest)); } catch (e) { } }
+    await Store.flushTex();
+    return n;
+  },
+  // texturas de criatura del paquete: misma distribución de UV que nuestros modelos
+  ENT: [
+    ['pig', /(^|\/)(pig_temperate|temperate_pig|pig)\.png$/],
+    ['cow', /(^|\/)(cow_temperate|temperate_cow|cow)\.png$/],
+    ['chicken', /(^|\/)(chicken_temperate|temperate_chicken|chicken)\.png$/],
+    ['sheep', /(^|\/)sheep\.png$/],
+    ['sheep_wool', /(^|\/)(sheep_wool|sheep_fur)\.png$/],
+    ['spider', /(^|\/)spider\.png$/],
+    ['zombie', /(^|\/)zombie\.png$/],
+    ['skeleton', /(^|\/)skeleton\.png$/],
+  ],
+  async entities(names, getURL) {
+    let n = 0; const done = [];
+    const ok = (p) => !/(^|\/)(gui|interfaz|items?|objetos|bloques|blocks?|textures\/item|particle)/i.test(p);
+    const rank = (p) => (/temperate/i.test(p) ? 0 : 1) + (/entit|entidad/i.test(p) ? 0 : 2) + (/baby/i.test(p) ? 9 : 0);
+    for (const [k, re] of this.ENT) {
+      const c = names.filter(p => re.test(p.toLowerCase()) && ok(p)).sort((a, b) => rank(a) - rank(b));
+      if (!c.length) continue;
+      const im = await loadImg(await getURL(c[0])); if (!im || im.width < 32) continue;
+      const cv = MobTex.toCanvas(im);
+      if (k === 'spider') { // los ojos brillan: van en una capa aparte en el paquete
+        const ep = names.find(p => /(^|\/)spider_eyes\.png$/i.test(p));
+        if (ep) { const ei = await loadImg(await getURL(ep)); if (ei) { const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(ei, 0, 0, cv.width, Math.round(cv.width * ei.height / ei.width)); } }
+      }
+      await MobTex.save(k, cv); done.push(k); n++;
+    }
+    if (done.length) { const prev = (await Store.get('kv', 'texpack:mobs').catch(() => null)) || []; await Store.put('kv', 'texpack:mobs', [...new Set([...prev, ...done])]).catch(() => { }); }
+    return n;
+  },
+  // sprites e imágenes de la interfaz del paquete (se guardan como 'gui:nombre')
+  GUI_SPRITES: (() => {
+    const m = {
+      heart_container: 'sprites/hud/heart/container', heart_container_blink: 'sprites/hud/heart/container_blinking', heart_full: 'sprites/hud/heart/full', heart_half: 'sprites/hud/heart/half',
+      food_empty: 'sprites/hud/food_empty', food_full: 'sprites/hud/food_full', food_half: 'sprites/hud/food_half',
+      armor_empty: 'sprites/hud/armor_empty', armor_full: 'sprites/hud/armor_full', armor_half: 'sprites/hud/armor_half',
+      air: 'sprites/hud/air', air_empty: 'sprites/hud/air_empty',
+      hotbar: 'sprites/hud/hotbar', hotbar_selection: 'sprites/hud/hotbar_selection', crosshair: 'sprites/hud/crosshair',
+      xp_bg: 'sprites/hud/experience_bar_background', xp_fill: 'sprites/hud/experience_bar_progress',
+      c_inventory: 'container/inventory', c_crafting: 'container/crafting_table', c_furnace: 'container/furnace', c_chest: 'container/generic_54',
+      c_dispenser: 'container/dispenser', c_hopper: 'container/hopper', c_enchant: 'container/enchanting_table',
+      c_tab_items: 'container/creative_inventory/tab_items', c_tab_search: 'container/creative_inventory/tab_item_search', c_tab_inv: 'container/creative_inventory/tab_inventory',
+      furnace_burn: 'sprites/container/furnace/burn_progress', furnace_lit: 'sprites/container/furnace/lit_progress',
+      scroller: 'sprites/container/creative_inventory/scroller', scroller_off: 'sprites/container/creative_inventory/scroller_disabled',
+      ench_slot: 'sprites/container/enchanting_table/enchantment_slot', ench_slot_off: 'sprites/container/enchanting_table/enchantment_slot_disabled', ench_slot_hi: 'sprites/container/enchanting_table/enchantment_slot_highlighted',
+    };
+    // cielo: sol, fases de la luna y nubes (paquetes nuevos y antiguos)
+    m.sky_sun = 'celestial/sun'; m.sky_sun_old = 'environment/sun'; m.sky_moon_phases = 'environment/moon_phases'; m.sky_clouds = 'clouds';
+    for (const ph of MOON_PHASES) m['sky_moon_' + ph] = 'celestial/moon/' + ph;
+    for (let i = 1; i <= 3; i++) { m['ench_l' + i] = 'sprites/container/enchanting_table/level_' + i; m['ench_l' + i + '_off'] = 'sprites/container/enchanting_table/level_' + i + '_disabled'; }
+    for (let i = 1; i <= 7; i++) for (const [a, b] of [['ts', 'top_selected'], ['tu', 'top_unselected'], ['bs', 'bottom_selected'], ['bu', 'bottom_unselected']]) m['tab_' + a + i] = 'sprites/container/creative_inventory/tab_' + b + '_' + i;
+    return m;
+  })(),
+  async gui(names, getURL) {
+    let n = 0;
+    for (const k in this.GUI_SPRITES) {
+      const want = '/' + this.GUI_SPRITES[k] + '.png';
+      const p = names.find(x => ('/' + x.toLowerCase().replace(/\\/g, '/')).endsWith(want)); if (!p) continue;
+      const url = await getURL(p); if (!url) continue;
+      const im = await loadImg(url); if (!im) continue;
+      Atlas.gui[k] = im; Store.putTex('gui:' + k, url); n++;
+    }
+    if (n) Atlas.version++;
+    n += await this.extras(names, getURL);
+    return n;
+  },
+  // texturas que hay que componer: polvo de redstone (punto + dos líneas, gris para teñirlo) y el farol
+  async extras(names, getURL) {
+    let n = 0; const find = (re) => names.find(p => re.test(p.toLowerCase()) && !/(gui|interfaz|items?\/|objetos)/i.test(p));
+    const dot = find(/(^|\/)redstone_dust_dot\.png$/), l0 = find(/(^|\/)redstone_dust_line0\.png$/), l1 = find(/(^|\/)redstone_dust_line1\.png$/);
+    if (dot && l0) {
+      const [a, b, c] = await Promise.all([dot, l0, l1 || l0].map(async p => loadImg(await getURL(p))));
+      if (a && b) {
+        const w = a.width, cv = document.createElement('canvas'); cv.width = cv.height = w; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+        g.drawImage(b, 0, 0, w, w, 0, 0, w, w); if (c) { g.save(); g.translate(w / 2, w / 2); g.rotate(Math.PI / 2); g.drawImage(c, 0, 0, w, w, -w / 2, -w / 2, w, w); g.restore(); }
+        g.drawImage(a, 0, 0, w, w, 0, 0, w, w);
+        if (await this.add('redstone_wire', cv.toDataURL())) n++;
+      }
+    }
+    // «Farol de cristal» (bloque propio): se usa el farol marino del paquete o, si no, la piedra luminosa
+    const lamp = find(/(^|\/)sea_lantern\.png$/) || find(/(^|\/)glowstone\.png$/);
+    if (lamp && !Atlas.custom.lamp) { const u = await getURL(lamp); if (u && await this.add('lamp', u)) n++; }
     return n;
   },
   // lado del bloque de césped: el borde se toma de grass_block_side_overlay (gris) y se marca para teñirlo
@@ -2509,9 +2833,14 @@ const TexturePack = {
     }
     const ov = z.names.find(p => /(^|\/)grass_block_side_overlay\.png$/i.test(p)), base = want.find(([nm]) => nm === 'grass_block_side');
     if (ov && base) { try { await this.grassSide(await blobToURL(new Blob([await z.get(base[1].path)], { type: 'image/png' })), await blobToURL(new Blob([await z.get(ov)], { type: 'image/png' }))); } catch (e) { } }
+    // criaturas (cerdo, vaca, oveja y su lana, gallina, araña, zombi, esqueleto)
+    try { n += await this.entities(z.names, async (p) => blobToURL(new Blob([await z.get(p)], { type: 'image/png' }))); } catch (e) { }
+    // interfaz (corazones, comida, barra rápida, experiencia, mira...)
+    try { n += await this.gui(z.names, async (p) => blobToURL(new Blob([await z.get(p)], { type: 'image/png' }))); } catch (e) { }
     // el cofre, en los paquetes modernos, es una textura de criatura: recortarlo
     const chest = z.names.find(p => /(^|\/)chest\/normal\.png$/i.test(p));
     if (chest && !FaceTex.data.chest) { try { n += await this.chestFrom(await blobToURL(new Blob([await z.get(chest)], { type: 'image/png' }))); } catch (e) { } }
+    await Store.flushTex();
     return n;
   },
   // carpeta «texturas» del launcher: los .zip que haya se cargan solos (solo si han cambiado)
@@ -2552,7 +2881,10 @@ const TexturePack = {
   },
   async restore() {
     const all = await Store.allTex();
-    await Promise.all(Object.entries(all).map(([name, url]) => new Promise(r => { if (!TEX[name]) return r(); const im = new Image(); im.onload = () => { Atlas.custom[name] = im; r(); }; im.onerror = r; im.src = url; })));
+    await Promise.all(Object.entries(all).map(([name, url]) => new Promise(r => {
+      const gui = name.startsWith('gui:'); if (!TEX[name] && !gui) return r();
+      const im = new Image(); im.onload = () => { if (gui) Atlas.gui[name.slice(4)] = im; else Atlas.custom[name] = im; r(); }; im.onerror = r; im.src = url;
+    })));
     // texturas incluidas en el propio archivo (las que mande el jugador)
     for (const name in EMBEDDED_TEXTURES) if (!Atlas.custom[name] && TEX[name]) await new Promise(r => { const im = new Image(); im.onload = () => { Atlas.custom[name] = im; r(); }; im.onerror = r; im.src = EMBEDDED_TEXTURES[name]; });
   },
@@ -2567,7 +2899,21 @@ const TexturePack = {
       void have; return n;
     } catch (e) { return 0; }
   },
-  async clear() { Atlas.custom = {}; await Store.clearTex(); try { await Store.del('kv', 'texpack:zip'); await Store.del('kv', 'texpack:sig'); } catch (e) { } FaceTex.data = {}; FaceTex.save(); FaceTex.apply(); },
+  // ¿hay texturas de un paquete guardadas sin el .zip (versiones antiguas)? entonces no se pueden recomponer solas
+  async stale() {
+    try {
+      if (Object.keys(Atlas.custom).length < 24) return false;
+      const zip = await Store.get('kv', 'texpack:zip'); if (zip && zip.size) return false;
+      if (await Store.get('kv', 'launcherTexSig')) return false;
+      return (await Store.get('kv', 'texpack:noticeOff')) !== this.sig();
+    } catch (e) { return false; }
+  },
+  async clear() {
+    Atlas.custom = {}; Atlas.gui = {}; await Store.clearTex();
+    try { for (const k of (await Store.get('kv', 'texpack:mobs')) || []) MobTex.reset(k); await Store.del('kv', 'texpack:mobs'); } catch (e) { }
+    try { await Store.del('kv', 'texpack:zip'); await Store.del('kv', 'texpack:sig'); await Store.del('kv', 'launcherTexSig'); } catch (e) { }
+    FaceTex.data = {}; FaceTex.save(); FaceTex.apply();
+  },
 };
 
 // ---------- texturas por bloque (arriba / lados / abajo / frente) y por objeto ----------
@@ -3637,6 +3983,18 @@ const Renderer = {
       const k = ph <= 4 ? ph / 4 : (8 - ph) / 4; const w = Math.round(12 * k);
       if (ph > 0 && ph <= 4) g.fillRect(ox + 10, 10, w, 12); else if (ph > 4) g.fillRect(ox + 22 - w, 10, w, 12);
     }
+    // con un paquete de texturas: su sol y sus lunas (se dibujan con mezcla aditiva, el fondo negro no se ve)
+    const GU = Atlas.gui; this.packSky = !!(GU.sky_sun || GU.sky_sun_old);
+    if (this.packSky) {
+      g.clearRect(0, 0, 64, 32); g.imageSmoothingEnabled = false; g.drawImage(GU.sky_sun || GU.sky_sun_old, 0, 0, 32, 32);
+      const mp = GU.sky_moon_phases;
+      for (let ph = 0; ph < 8; ph++) {
+        const im = GU['sky_moon_' + MOON_PHASES[ph]]; const ox = 64 + ph * 32;
+        if (im) { g.clearRect(ox, 0, 32, 32); g.drawImage(im, ox, 0, 32, 32); }
+        else if (mp) { const q = mp.width / 4; g.clearRect(ox, 0, 32, 32); g.drawImage(mp, (ph % 4) * q, Math.floor(ph / 4) * q, q, q, ox, 0, 32, 32); }
+      }
+    }
+    if (this.celTex) this.gl.deleteTexture(this.celTex);
     this.celTex = this.texFromCanvas(c);
   },
   makeClouds() {
@@ -3652,6 +4010,14 @@ const Renderer = {
       img.data[i] = img.data[i + 1] = img.data[i + 2] = 255; img.data[i + 3] = on ? 210 : 0;
     }
     g.putImageData(img, 0, 0);
+    // nubes del paquete: blancas donde hay nube (semitransparentes, como en el original)
+    const pc = Atlas.gui.sky_clouds;
+    if (pc) {
+      g.clearRect(0, 0, N, N); g.imageSmoothingEnabled = false; g.drawImage(pc, 0, 0, N, N); const d = g.getImageData(0, 0, N, N);
+      for (let i = 0; i < d.data.length; i += 4) { const on = d.data[i + 3] > 30; d.data[i] = d.data[i + 1] = d.data[i + 2] = 255; d.data[i + 3] = on ? 210 : 0; }
+      g.putImageData(d, 0, 0);
+    }
+    if (this.cloudTex) this.gl.deleteTexture(this.cloudTex);
     this.cloudTex = this.texFromCanvas(c, true);
   },
   makeStars() {
@@ -3727,7 +4093,7 @@ const Renderer = {
     const toW = (x, y, z) => { // rotación alrededor de Z (sol sale por el este +X)
       const c = Math.cos(a), s = Math.sin(a); return [x * c - y * s, x * s + y * c, z];
     };
-    gl.enable(gl.BLEND);
+    gl.enable(gl.BLEND); gl.disable(gl.CULL_FACE); // los billboards del cielo se ven por las dos caras
     if (Sky.starK > 0.01) {
       this.dBegin();
       for (const st of this.stars) {
@@ -3752,11 +4118,12 @@ const Renderer = {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
     this.dBegin();
     const sun = toW(100, 0, 0), moon = toW(-100, 0, 0);
-    bill(sun, 44, 1); bill(sun, 30, 0);
+    if (this.packSky) bill(sun, 30, 0); else { bill(sun, 44, 1); bill(sun, 30, 0); }
     this.dFlush('tri', this.celTex, rot, rot, 0.01, 0);
+    if (!this.packSky) gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    this.dBegin(); bill(moon, this.packSky ? 20 : 22, 2 + (World.day % 8)); this.dFlush('tri', this.celTex, rot, rot, 0.01, 0);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    this.dBegin(); bill(moon, 22, 2 + (World.day % 8)); this.dFlush('tri', this.celTex, rot, rot, 0.01, 0);
-    gl.disable(gl.BLEND); gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
+    gl.disable(gl.BLEND); gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.enable(gl.CULL_FACE);
   },
   drawClouds(cam, mvp, mv) {
     if (!Settings.clouds) return;
@@ -3946,60 +4313,80 @@ function legacySkinFix(img) { // 64x32 -> 64x64
 }
 
 // ---------- pieles de criaturas (diseños propios, sin texturas externas) ----------
+// Las cajas usan la misma distribución de UV que los modelos clásicos, así un paquete de texturas
+// (cargado por el jugador) encaja tal cual; estas pieles son solo las de reserva.
+function mobNoise(g, r, base, amt, seed) {
+  const rnd = mulberry32(seed | 0);
+  for (let y = 0; y < r[3]; y++) for (let x = 0; x < r[2]; x++) { const k = (rnd() - 0.5) * amt; if (Math.abs(k) > amt * 0.18) px(g, r[0] + x, r[1] + y, shade(base, k)); }
+}
+function furBox(g, u, v, w, h, d, col, amt, seed) { const R = paintBox(g, u, v, w, h, d, col); let i = 0; for (const k in R) mobNoise(g, R[k], typeof col === 'string' ? col : (col[k] || col.all), amt, seed + (i++) * 97); return R; }
 function mobSkin(kind) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
   if (kind === 'pig') {
-    const H = paintBox(g, 0, 0, 8, 8, 8, '#f0a7a0');
-    px(g, H.front[0] + 1, H.front[1] + 2, '#ffffff', 2, 1); px(g, H.front[0] + 1, H.front[1] + 3, '#2a1a1a'); px(g, H.front[0] + 2, H.front[1] + 3, '#ffffff');
-    px(g, H.front[0] + 5, H.front[1] + 2, '#ffffff', 2, 1); px(g, H.front[0] + 6, H.front[1] + 3, '#2a1a1a'); px(g, H.front[0] + 5, H.front[1] + 3, '#ffffff');
-    const S = paintBox(g, 32, 0, 4, 3, 1, '#e6889a'); px(g, S.front[0] + 1, S.front[1] + 1, '#8a3a4a'); px(g, S.front[0] + 2, S.front[1] + 1, '#8a3a4a');
-    paintBox(g, 0, 16, 10, 8, 14, '#f0a7a0'); paintBox(g, 0, 40, 4, 6, 4, { all: '#e8969a', bottom: '#8a5a50' });
-    const R = boxRects(0, 40, 4, 6, 4); for (const k of ['front', 'right', 'left', 'back']) px(g, R[k][0], R[k][1] + 5, '#8a5a50', R[k][2], 1);
+    const pk = '#eea29c';
+    const H = furBox(g, 0, 0, 8, 8, 8, pk, 0.08, 11); const F = H.front;
+    px(g, F[0] + 1, F[1] + 2, '#ffffff', 2, 1); px(g, F[0] + 1, F[1] + 3, '#2a1a1a'); px(g, F[0] + 2, F[1] + 3, '#ffffff');
+    px(g, F[0] + 5, F[1] + 2, '#ffffff', 2, 1); px(g, F[0] + 6, F[1] + 3, '#2a1a1a'); px(g, F[0] + 5, F[1] + 3, '#ffffff');
+    px(g, F[0] + 1, F[1] + 1, shade(pk, -0.18), 2, 1); px(g, F[0] + 5, F[1] + 1, shade(pk, -0.18), 2, 1);
+    const S = furBox(g, 16, 16, 4, 3, 1, '#e5899a', 0.05, 12); px(g, S.front[0] + 1, S.front[1] + 1, '#8a3a4a'); px(g, S.front[0] + 2, S.front[1] + 1, '#8a3a4a');
+    const Bd = furBox(g, 28, 8, 10, 16, 8, pk, 0.09, 13);
+    px(g, Bd.bottom[0] + 4, Bd.bottom[1] + 2, '#d07a80', 2, 1); px(g, Bd.bottom[0] + 5, Bd.bottom[1] + 3, '#d07a80', 1, 2); px(g, Bd.bottom[0] + 4, Bd.bottom[1] + 4, '#d07a80');
+    px(g, Bd.front[0] + 3, Bd.front[1] + 3, shade(pk, -0.08), 4, 10);
+    const L = furBox(g, 0, 16, 4, 6, 4, '#e8969a', 0.06, 14); for (const k of ['front', 'right', 'left', 'back']) px(g, L[k][0], L[k][1] + 5, '#8a5a50', L[k][2], 1); px(g, L.bottom[0], L.bottom[1], '#6a4038', 4, 4);
   } else if (kind === 'cow') {
-    const H = paintBox(g, 0, 0, 8, 8, 6, '#3c2a1e');
-    px(g, H.front[0] + 2, H.front[1] + 5, '#d8c8b8', 4, 3); px(g, H.front[0] + 3, H.front[1] + 6, '#6a4a3a', 1, 1); px(g, H.front[0] + 4, H.front[1] + 6, '#6a4a3a', 1, 1);
-    px(g, H.front[0] + 1, H.front[1] + 3, '#ffffff'); px(g, H.front[0] + 2, H.front[1] + 3, '#111'); px(g, H.front[0] + 5, H.front[1] + 3, '#111'); px(g, H.front[0] + 6, H.front[1] + 3, '#ffffff');
-    px(g, H.front[0] + 3, H.front[1], '#f0f0f0', 2, 3);
-    paintBox(g, 30, 0, 1, 3, 1, '#d8d0b8');
-    const Bd = paintBox(g, 0, 16, 12, 10, 18, '#3c2a1e');
-    for (const [k, x, y, w, h] of [['top', 2, 3, 5, 6], ['top', 7, 11, 4, 5], ['right', 4, 2, 7, 5], ['left', 6, 3, 8, 5], ['back', 3, 2, 5, 4], ['bottom', 3, 5, 6, 8]]) px(g, Bd[k][0] + x, Bd[k][1] + y, '#efe9e0', w, h);
-    paintBox(g, 0, 46, 4, 8, 4, '#3c2a1e'); const R = boxRects(0, 46, 4, 8, 4); for (const k of ['front', 'right', 'left', 'back']) px(g, R[k][0], R[k][1] + 6, '#1e140e', R[k][2], 2);
+    const br = '#4a3426', wh = '#efe9e0';
+    const H = furBox(g, 0, 0, 8, 8, 6, br, 0.08, 21); const F = H.front;
+    px(g, F[0] + 3, F[1], wh, 2, 4); px(g, F[0], F[1] + 3, '#ffffff'); px(g, F[0] + 1, F[1] + 3, '#111'); px(g, F[0] + 6, F[1] + 3, '#111'); px(g, F[0] + 7, F[1] + 3, '#ffffff');
+    px(g, F[0] + 1, F[1] + 5, wh, 6, 3);
+    const M = paintBox(g, 1, 33, 6, 3, 1, '#d8c8b8'); px(g, M.front[0] + 1, M.front[1] + 1, '#6a4a3a'); px(g, M.front[0] + 4, M.front[1] + 1, '#6a4a3a');
+    paintBox(g, 22, 0, 1, 3, 1, '#d8d0b8');
+    const Bd = furBox(g, 18, 4, 12, 18, 10, br, 0.08, 22);
+    for (const [k, x, y, w, h] of [['back', 2, 2, 5, 6], ['back', 6, 11, 4, 5], ['right', 2, 4, 5, 7], ['left', 3, 9, 6, 5], ['top', 3, 2, 5, 4], ['front', 3, 3, 6, 8], ['bottom', 2, 3, 5, 4]]) { const r = Bd[k]; mobNoise(g, [r[0] + x, r[1] + y, w, h], wh, 0.06, x * 7 + y); px(g, r[0] + x, r[1] + y, wh, w, h); }
+    paintBox(g, 52, 0, 4, 6, 1, '#e8a0a4');
+    const L = furBox(g, 0, 16, 4, 12, 4, br, 0.08, 23); for (const k of ['front', 'right', 'left', 'back']) px(g, L[k][0], L[k][1] + 10, '#1e140e', L[k][2], 2); px(g, L.front[0], L.front[1] + 3, wh, 4, 3);
   } else if (kind === 'sheep') {
-    const H = paintBox(g, 0, 0, 6, 6, 8, '#d9cbb8'); px(g, H.front[0], H.front[1], '#f2f0ea', 6, 1);
-    px(g, H.front[0] + 1, H.front[1] + 2, '#ffffff'); px(g, H.front[0] + 1, H.front[1] + 3, '#222'); px(g, H.front[0] + 4, H.front[1] + 2, '#ffffff'); px(g, H.front[0] + 4, H.front[1] + 3, '#222'); px(g, H.front[0] + 2, H.front[1] + 4, '#b8a898', 2, 1);
-    px(g, H.top[0], H.top[1], '#f2f0ea', 6, 8);
-    paintBox(g, 0, 16, 10, 9, 15, '#f2f0ea');
-    paintBox(g, 0, 42, 4, 8, 4, '#d9cbb8'); const R = boxRects(0, 42, 4, 8, 4); for (const k of ['front', 'right', 'left', 'back']) px(g, R[k][0], R[k][1], '#f2f0ea', R[k][2], 3);
+    const sk = '#d9c4ae';
+    const H = furBox(g, 0, 0, 6, 6, 8, sk, 0.06, 31); const F = H.front;
+    px(g, F[0] + 1, F[1] + 2, '#ffffff'); px(g, F[0] + 1, F[1] + 3, '#222'); px(g, F[0] + 4, F[1] + 2, '#ffffff'); px(g, F[0] + 4, F[1] + 3, '#222'); px(g, F[0] + 2, F[1] + 4, '#e2a0a0', 2, 1);
+    furBox(g, 28, 8, 8, 16, 6, sk, 0.08, 32);
+    const L = furBox(g, 0, 16, 4, 12, 4, sk, 0.06, 33); for (const k of ['front', 'right', 'left', 'back']) px(g, L[k][0], L[k][1] + 11, '#8a7464', L[k][2], 1);
+  } else if (kind === 'sheep_wool') {
+    const wl = '#f1efe8';
+    furBox(g, 0, 0, 6, 6, 6, wl, 0.1, 41); furBox(g, 28, 8, 8, 16, 6, wl, 0.12, 42); furBox(g, 0, 16, 4, 6, 4, wl, 0.1, 43);
+    const H = boxRects(0, 0, 6, 6, 6); g.clearRect(H.front[0] + 1, H.front[1] + 2, 4, 4); g.clearRect(H.bottom[0], H.bottom[1], 6, 6);
   } else if (kind === 'chicken') {
-    const H = paintBox(g, 0, 0, 4, 6, 3, '#f8f8f4'); px(g, H.front[0], H.front[1] + 1, '#111'); px(g, H.front[0] + 3, H.front[1] + 1, '#111');
-    paintBox(g, 16, 0, 4, 2, 2, '#f0b030'); paintBox(g, 30, 0, 2, 2, 2, '#d02020');
-    paintBox(g, 0, 10, 6, 6, 8, '#f8f8f4'); paintBox(g, 30, 10, 1, 4, 6, '#ecece6'); paintBox(g, 46, 10, 1, 5, 1, '#f0b030');
+    const wh = '#f6f5ef';
+    const H = furBox(g, 0, 0, 4, 6, 3, wh, 0.05, 51); px(g, H.front[0], H.front[1] + 1, '#111'); px(g, H.front[0] + 3, H.front[1] + 1, '#111');
+    paintBox(g, 14, 0, 4, 2, 2, '#f0b030'); paintBox(g, 14, 4, 2, 2, 2, '#d02020');
+    furBox(g, 0, 9, 6, 8, 6, wh, 0.06, 52); furBox(g, 24, 13, 1, 4, 6, '#ebeae2', 0.05, 53);
+    const L = boxRects(26, 0, 3, 5, 3); for (const k of ['front', 'right', 'left', 'back']) px(g, L[k][0] + 1, L[k][1], '#e8a020', 1, 5); px(g, L.bottom[0], L.bottom[1], '#e8a020', 3, 3);
   } else if (kind === 'zombie') {
     const skin = '#6f8f5c';
-    const H = paintBox(g, 0, 0, 8, 8, 8, skin);
+    const H = furBox(g, 0, 0, 8, 8, 8, skin, 0.06, 61);
     px(g, H.top[0], H.top[1], '#3a4a2e', 8, 8); px(g, H.front[0], H.front[1], '#3a4a2e', 8, 1); px(g, H.back[0], H.back[1], '#3a4a2e', 8, 3);
     px(g, H.front[0] + 1, H.front[1] + 3, '#1a1a10', 2, 2); px(g, H.front[0] + 5, H.front[1] + 3, '#1a1a10', 2, 2); px(g, H.front[0] + 2, H.front[1] + 3, '#c8d040');
     px(g, H.front[0] + 6, H.front[1] + 3, '#c8d040'); px(g, H.front[0] + 2, H.front[1] + 6, '#2a3020', 4, 1);
-    const Bd = paintBox(g, 16, 16, 8, 12, 4, '#7a5a3a');
+    const Bd = furBox(g, 16, 16, 8, 12, 4, '#7a5a3a', 0.06, 62);
     px(g, Bd.front[0] + 1, Bd.front[1] + 9, skin, 2, 3); px(g, Bd.front[0] + 5, Bd.front[1] + 4, '#5a4028', 2, 2); px(g, Bd.front[0], Bd.front[1] + 11, '#3a3a40', 8, 1);
-    for (const [u, v] of [[40, 16], [32, 48]]) { const A = paintBox(g, u, v, 4, 12, 4, skin); for (const k of ['front', 'right', 'left', 'back']) px(g, A[k][0], A[k][1], '#7a5a3a', A[k][2], 4); }
-    for (const [u, v] of [[0, 16], [16, 48]]) { const L = paintBox(g, u, v, 4, 12, 4, '#3a3a40'); for (const k of ['front', 'right', 'left', 'back']) px(g, L[k][0], L[k][1] + 10, '#2a2a2e', L[k][2], 2); px(g, L.front[0] + 1, L.front[1] + 6, skin, 2, 2); }
+    for (const [u, v] of [[40, 16], [32, 48]]) { const A = furBox(g, u, v, 4, 12, 4, skin, 0.06, u + v); for (const k of ['front', 'right', 'left', 'back']) px(g, A[k][0], A[k][1], '#7a5a3a', A[k][2], 4); }
+    for (const [u, v] of [[0, 16], [16, 48]]) { const L = furBox(g, u, v, 4, 12, 4, '#3a3a40', 0.05, u + v); for (const k of ['front', 'right', 'left', 'back']) px(g, L[k][0], L[k][1] + 10, '#2a2a2e', L[k][2], 2); px(g, L.front[0] + 1, L.front[1] + 6, skin, 2, 2); }
   } else if (kind === 'skeleton') {
     const bone = '#d8d6cc', dark = '#a8a69c';
-    const H = paintBox(g, 0, 0, 8, 8, 8, bone);
+    const H = furBox(g, 0, 0, 8, 8, 8, bone, 0.05, 71);
     px(g, H.front[0] + 1, H.front[1] + 3, '#202020', 2, 2); px(g, H.front[0] + 5, H.front[1] + 3, '#202020', 2, 2); px(g, H.front[0] + 3, H.front[1] + 5, '#505050', 2, 1);
     for (let i = 0; i < 4; i++) px(g, H.front[0] + 2 + i, H.front[1] + 6, i % 2 ? '#303030' : bone);
-    const Bd = paintBox(g, 16, 16, 8, 12, 4, 'rgba(0,0,0,0)');
+    const Bd = boxRects(16, 16, 8, 12, 4);
     for (const k in Bd) { const r = Bd[k]; px(g, r[0] + (r[2] >> 1) - 1, r[1], dark, 2, r[3]); }
     for (let y = 1; y < 8; y += 2) px(g, Bd.front[0], Bd.front[1] + y, bone, 8, 1);
-    px(g, Bd.front[0] + 1, Bd.front[1] + 10, bone, 6, 2);
-    for (const [u, v] of [[40, 16], [32, 48], [0, 16], [16, 48]]) paintBox(g, u, v, 2, 12, 2, bone);
+    px(g, Bd.front[0] + 1, Bd.front[1] + 10, bone, 6, 2); px(g, Bd.back[0], Bd.back[1] + 10, bone, 8, 2);
+    paintBox(g, 40, 16, 2, 12, 2, bone); paintBox(g, 0, 16, 2, 12, 2, bone);
   } else if (kind === 'spider') {
-    const H = paintBox(g, 0, 0, 8, 8, 8, '#2e2620');
+    const dk = '#2e2620';
+    furBox(g, 0, 0, 6, 6, 6, '#3a3028', 0.1, 81);
+    const H = furBox(g, 32, 4, 8, 8, 8, dk, 0.1, 82);
     for (const [x, y] of [[1, 3], [6, 3], [2, 2], [5, 2], [3, 4], [4, 4], [1, 5], [6, 5]]) px(g, H.front[0] + x, H.front[1] + y, '#e02020');
-    paintBox(g, 32, 0, 6, 6, 6, '#3a3028');
-    const A = paintBox(g, 0, 16, 10, 8, 12, '#2e2620'); px(g, A.top[0] + 3, A.top[1] + 3, '#4a3e30', 4, 6); px(g, A.back[0] + 3, A.back[1] + 2, '#4a1e18', 4, 4);
-    paintBox(g, 0, 40, 16, 2, 2, '#2e2620');
+    const A = furBox(g, 0, 12, 10, 8, 12, dk, 0.12, 83); px(g, A.top[0] + 3, A.top[1] + 3, '#4a3e30', 4, 6); px(g, A.back[0] + 3, A.back[1] + 2, '#4a1e18', 4, 4);
+    furBox(g, 18, 0, 16, 2, 2, dk, 0.1, 84);
   } else if (kind === 'armor') {
     // genera piel de armadura sólida (se colorea con tinte)
     paintBox(g, 0, 0, 8, 8, 8, '#ffffff'); paintBox(g, 16, 16, 8, 12, 4, '#ffffff'); paintBox(g, 40, 16, 4, 12, 4, '#ffffff'); paintBox(g, 0, 16, 4, 12, 4, '#ffffff');
@@ -4009,67 +4396,103 @@ function mobSkin(kind) {
 }
 
 // ---------- definición de modelos ----------
-// parte: {n, s:[w,h,d], p:[pivote], o:[desplazamiento de la esquina mínima], uv:[u,v], inf, mirror, parent}
-const HUMANOID = (arm = 4, slim = false) => [
+// parte: {n, s:[w,h,d], p:[pivote], o:[esquina mínima], uv:[u,v], inf, mirror, follow, brx/bry/brz (giro de base)}
+// MCB convierte una caja escrita como en los modelos clásicos (y hacia abajo, origen 24 px sobre el suelo)
+// a nuestras coordenadas (y hacia arriba): mismo despliegue de UV, así cualquier paquete encaja.
+function MCB(n, uv, box, pivot, extra) {
+  const [ox, oy, oz, w, h, d] = box, [qx, qy, qz] = pivot;
+  return Object.assign({ n, uv, s: [w, h, d], p: [-qx, 24 - qy, qz], o: [-(ox + w), -(oy + h), oz] }, extra || {});
+}
+const HALF_PI = Math.PI / 2;
+const HUMANOID = (arm = 4) => [
   { n: 'body', s: [8, 12, 4], p: [0, 24, 0], o: [-4, -12, -2], uv: [16, 16] },
   { n: 'head', s: [8, 8, 8], p: [0, 24, 0], o: [-4, 0, -4], uv: [0, 0] },
   { n: 'hat', s: [8, 8, 8], p: [0, 24, 0], o: [-4, 0, -4], uv: [32, 0], inf: 0.5, follow: 'head' },
-  { n: 'rarm', s: [arm, 12, arm], p: [5, 22, 0], o: [arm === 4 ? -1 : 0, -10, -arm / 2], uv: [40, 16] },
-  { n: 'larm', s: [arm, 12, arm], p: [-5, 22, 0], o: [arm === 4 ? -3 : -2, -10, -arm / 2], uv: [32, 48] },
-  { n: 'rleg', s: [arm === 4 ? 4 : 2, 12, arm === 4 ? 4 : 2], p: [1.9, 12, 0], o: [arm === 4 ? -2 : -1, -12, arm === 4 ? -2 : -1], uv: [0, 16] },
-  { n: 'lleg', s: [arm === 4 ? 4 : 2, 12, arm === 4 ? 4 : 2], p: [-1.9, 12, 0], o: [arm === 4 ? -2 : -1, -12, arm === 4 ? -2 : -1], uv: [16, 48] },
+  { n: 'rarm', s: [arm, 12, 4], p: [5, 22, 0], o: [arm === 4 ? -1 : 0, -10, -2], uv: [40, 16] },
+  { n: 'larm', s: [arm, 12, 4], p: [-5, 22, 0], o: [arm === 4 ? -3 : -2, -10, -2], uv: [32, 48] },
+  { n: 'rleg', s: [4, 12, 4], p: [1.9, 12, 0], o: [-2, -12, -2], uv: [0, 16] },
+  { n: 'lleg', s: [4, 12, 4], p: [-1.9, 12, 0], o: [-2, -12, -2], uv: [16, 48] },
 ];
+// capas exteriores de las pieles de 64x64 (chaqueta, mangas y perneras)
+const OUTER = [
+  { n: 'jacket', s: [8, 12, 4], p: [0, 24, 0], o: [-4, -12, -2], uv: [16, 32], inf: 0.25, follow: 'body' },
+  { n: 'rsleeve', s: [4, 12, 4], p: [5, 22, 0], o: [-1, -10, -2], uv: [40, 32], inf: 0.25, follow: 'rarm' },
+  { n: 'lsleeve', s: [4, 12, 4], p: [-5, 22, 0], o: [-3, -10, -2], uv: [48, 48], inf: 0.25, follow: 'larm' },
+  { n: 'rpants', s: [4, 12, 4], p: [1.9, 12, 0], o: [-2, -12, -2], uv: [0, 32], inf: 0.25, follow: 'rleg' },
+  { n: 'lpants', s: [4, 12, 4], p: [-1.9, 12, 0], o: [-2, -12, -2], uv: [0, 48], inf: 0.25, follow: 'lleg' },
+];
+const QUAD_LEGS = (uv, box, y, fx, fz, hx, hz, mirrorLeft) => [
+  MCB('leg0', uv, box, [-fx, y, fz]), MCB('leg1', uv, box, [fx, y, fz], { mirror: mirrorLeft }),
+  MCB('leg2', uv, box, [-hx, y, hz]), MCB('leg3', uv, box, [hx, y, hz], { mirror: mirrorLeft }),
+];
+const SPIDER_LEGS = [-1, 0, 1, 2].flatMap((z, i) => [
+  MCB('legR' + i, [18, 0], [-15, -1, -1, 16, 2, 2], [-4, 15, z]),
+  MCB('legL' + i, [18, 0], [-1, -1, -1, 16, 2, 2], [4, 15, z], { mirror: true }),
+]);
 const MODELS = {
-  player: HUMANOID(4), zombie: HUMANOID(4).filter(p => p.n !== 'hat'), skeleton: HUMANOID(2).filter(p => p.n !== 'hat'),
+  player: [...HUMANOID(4), ...OUTER],
+  zombie: HUMANOID(4),
+  skeleton: [
+    { n: 'body', s: [8, 12, 4], p: [0, 24, 0], o: [-4, -12, -2], uv: [16, 16] },
+    { n: 'head', s: [8, 8, 8], p: [0, 24, 0], o: [-4, 0, -4], uv: [0, 0] },
+    { n: 'hat', s: [8, 8, 8], p: [0, 24, 0], o: [-4, 0, -4], uv: [32, 0], inf: 0.5, follow: 'head' },
+    MCB('rarm', [40, 16], [-1, -2, -1, 2, 12, 2], [-5, 2, 0]), MCB('larm', [40, 16], [-1, -2, -1, 2, 12, 2], [5, 2, 0], { mirror: true }),
+    MCB('rleg', [0, 16], [-1, 0, -1, 2, 12, 2], [-2, 12, 0]), MCB('lleg', [0, 16], [-1, 0, -1, 2, 12, 2], [2, 12, 0], { mirror: true }),
+  ],
   pig: [
-    { n: 'body', s: [10, 8, 14], p: [0, 10, 0], o: [-5, -4, -7], uv: [0, 16] },
-    { n: 'head', s: [8, 8, 8], p: [0, 12, -7], o: [-4, -4, -8], uv: [0, 0] },
-    { n: 'snout', s: [4, 3, 1], p: [0, 12, -7], o: [-2, -3, -9], uv: [32, 0], follow: 'head' },
-    { n: 'leg0', s: [4, 6, 4], p: [3, 6, -5], o: [-2, -6, -2], uv: [0, 40] }, { n: 'leg1', s: [4, 6, 4], p: [-3, 6, -5], o: [-2, -6, -2], uv: [0, 40] },
-    { n: 'leg2', s: [4, 6, 4], p: [3, 6, 5], o: [-2, -6, -2], uv: [0, 40] }, { n: 'leg3', s: [4, 6, 4], p: [-3, 6, 5], o: [-2, -6, -2], uv: [0, 40] },
+    MCB('head', [0, 0], [-4, -4, -8, 8, 8, 8], [0, 12, -6]),
+    MCB('snout', [16, 16], [-2, 0, -9, 4, 3, 1], [0, 12, -6], { follow: 'head' }),
+    MCB('body', [28, 8], [-5, -10, -7, 10, 16, 8], [0, 11, 2], { brx: -HALF_PI }),
+    ...QUAD_LEGS([0, 16], [-2, 0, -2, 4, 6, 4], 18, 3, -5, 3, 7, false),
   ],
   cow: [
-    { n: 'body', s: [12, 10, 18], p: [0, 13, 0], o: [-6, -5, -9], uv: [0, 16] },
-    { n: 'head', s: [8, 8, 6], p: [0, 16, -9], o: [-4, -4, -6], uv: [0, 0] },
-    { n: 'horn1', s: [1, 3, 1], p: [0, 16, -9], o: [-5, 2, -4], uv: [30, 0], follow: 'head' }, { n: 'horn2', s: [1, 3, 1], p: [0, 16, -9], o: [4, 2, -4], uv: [30, 0], follow: 'head' },
-    { n: 'leg0', s: [4, 8, 4], p: [4, 8, -6], o: [-2, -8, -2], uv: [0, 46] }, { n: 'leg1', s: [4, 8, 4], p: [-4, 8, -6], o: [-2, -8, -2], uv: [0, 46] },
-    { n: 'leg2', s: [4, 8, 4], p: [4, 8, 7], o: [-2, -8, -2], uv: [0, 46] }, { n: 'leg3', s: [4, 8, 4], p: [-4, 8, 7], o: [-2, -8, -2], uv: [0, 46] },
+    MCB('head', [0, 0], [-4, -4, -6, 8, 8, 6], [0, 4, -8]),
+    MCB('muzzle', [1, 33], [-3, 1, -7, 6, 3, 1], [0, 4, -8], { follow: 'head' }),
+    MCB('horn1', [22, 0], [-5, -5, -5, 1, 3, 1], [0, 4, -8], { follow: 'head' }),
+    MCB('horn2', [22, 0], [4, -5, -5, 1, 3, 1], [0, 4, -8], { follow: 'head' }),
+    MCB('body', [18, 4], [-6, -10, -7, 12, 18, 10], [0, 5, 2], { brx: -HALF_PI }),
+    MCB('udder', [52, 0], [-2, 2, -8, 4, 6, 1], [0, 5, 2], { follow: 'body' }),
+    ...QUAD_LEGS([0, 16], [-2, 0, -2, 4, 12, 4], 12, 4, -6, 4, 7, true),
   ],
   sheep: [
-    { n: 'body', s: [10, 9, 15], p: [0, 13, 0], o: [-5, -4.5, -7.5], uv: [0, 16] },
-    { n: 'head', s: [6, 6, 8], p: [0, 15, -7], o: [-3, -3, -6], uv: [0, 0] },
-    { n: 'leg0', s: [4, 8, 4], p: [3, 8, -5], o: [-2, -8, -2], uv: [0, 42] }, { n: 'leg1', s: [4, 8, 4], p: [-3, 8, -5], o: [-2, -8, -2], uv: [0, 42] },
-    { n: 'leg2', s: [4, 8, 4], p: [3, 8, 6], o: [-2, -8, -2], uv: [0, 42] }, { n: 'leg3', s: [4, 8, 4], p: [-3, 8, 6], o: [-2, -8, -2], uv: [0, 42] },
+    MCB('head', [0, 0], [-3, -4, -6, 6, 6, 8], [0, 6, -8]),
+    MCB('body', [28, 8], [-4, -10, -7, 8, 16, 6], [0, 5, 2], { brx: -HALF_PI }),
+    ...QUAD_LEGS([0, 16], [-2, 0, -2, 4, 12, 4], 12, 3, -5, 3, 7, false),
+  ],
+  sheep_wool: [
+    MCB('head', [0, 0], [-3, -4, -4, 6, 6, 6], [0, 6, -8], { inf: 0.6 }),
+    MCB('body', [28, 8], [-4, -10, -7, 8, 16, 6], [0, 5, 2], { brx: -HALF_PI, inf: 1.75 }),
+    ...QUAD_LEGS([0, 16], [-2, 0, -2, 4, 6, 4], 12, 3, -5, 3, 7, false).map(p => Object.assign(p, { inf: 0.5 })),
   ],
   chicken: [
-    { n: 'body', s: [6, 6, 8], p: [0, 8, 0], o: [-3, -3, -4], uv: [0, 10] },
-    { n: 'head', s: [4, 6, 3], p: [0, 9, -4], o: [-2, 0, -2], uv: [0, 0] },
-    { n: 'beak', s: [4, 2, 2], p: [0, 9, -4], o: [-2, 2, -4], uv: [16, 0], follow: 'head' },
-    { n: 'wattle', s: [2, 2, 2], p: [0, 9, -4], o: [-1, 0, -3], uv: [30, 0], follow: 'head' },
-    { n: 'rwing', s: [1, 4, 6], p: [3, 10, 0], o: [0, -4, -3], uv: [30, 10] }, { n: 'lwing', s: [1, 4, 6], p: [-3, 10, 0], o: [-1, -4, -3], uv: [30, 10] },
-    { n: 'rleg', s: [1, 5, 1], p: [1.5, 5, 1], o: [-0.5, -5, -0.5], uv: [46, 10] }, { n: 'lleg', s: [1, 5, 1], p: [-1.5, 5, 1], o: [-0.5, -5, -0.5], uv: [46, 10] },
+    MCB('head', [0, 0], [-2, -6, -2, 4, 6, 3], [0, 15, -4]),
+    MCB('beak', [14, 0], [-2, -4, -4, 4, 2, 2], [0, 15, -4], { follow: 'head' }),
+    MCB('wattle', [14, 4], [-1, -2, -3, 2, 2, 2], [0, 15, -4], { follow: 'head' }),
+    MCB('body', [0, 9], [-3, -4, -3, 6, 8, 6], [0, 16, 0], { brx: -HALF_PI }),
+    MCB('rleg', [26, 0], [-1, 0, -3, 3, 5, 3], [-2, 19, 1]), MCB('lleg', [26, 0], [-1, 0, -3, 3, 5, 3], [1, 19, 1]),
+    MCB('rwing', [24, 13], [0, 0, -3, 1, 4, 6], [-4, 13, 0]), MCB('lwing', [24, 13], [-1, 0, -3, 1, 4, 6], [4, 13, 0]),
   ],
   spider: [
-    { n: 'neck', s: [6, 6, 6], p: [0, 9, 0], o: [-3, -3, -3], uv: [32, 0] },
-    { n: 'head', s: [8, 8, 8], p: [0, 9, -3], o: [-4, -4, -8], uv: [0, 0] },
-    { n: 'body', s: [10, 8, 12], p: [0, 9, 3], o: [-5, -4, 0], uv: [0, 16] },
-    ...[0, 1, 2, 3].flatMap(i => [
-      { n: 'legR' + i, s: [16, 2, 2], p: [3, 9, -1.5 + i], o: [0, -1, -1], uv: [0, 40] },
-      { n: 'legL' + i, s: [16, 2, 2], p: [-3, 9, -1.5 + i], o: [-16, -1, -1], uv: [0, 40] },
-    ]),
+    MCB('head', [32, 4], [-4, -4, -8, 8, 8, 8], [0, 15, -3]),
+    MCB('neck', [0, 0], [-3, -3, -3, 6, 6, 6], [0, 15, 0]),
+    MCB('body', [0, 12], [-5, -4, -6, 10, 8, 12], [0, 15, 9]),
+    ...SPIDER_LEGS,
   ],
 };
 const MODEL_SCALE = { player: 0.9375, zombie: 0.9375, skeleton: 0.9375 };
+// texturas de criatura que se pueden cambiar (incluye capas)
+const MOB_SKIN_KINDS = () => [...Object.keys(MOBS), 'sheep_wool'];
 
 // ---------- construcción de mallas de caja con UV de piel ----------
 function boxMesh(buf, s, o, uv, inf, texW, mirror) {
   const [w, h, d] = s; const [u, v] = uv; const i = inf || 0;
   const x0 = o[0] - i, y0 = o[1] - i, z0 = o[2] - i, x1 = o[0] + w + i, y1 = o[1] + h + i, z1 = o[2] + d + i;
   const R = boxRects(u, v, w, h, d);
+  if (mirror) { const t = R.right; R.right = R.left; R.left = t; }
   const U = 8; // unidades por píxel (128 por bloque / 16)
   const face = (verts, rect, map, sh) => {
     for (let k = 0; k < 4; k++) {
-      const [vx, vy, vz] = verts[k]; const [iu, iv] = map(vx, vy, vz);
+      const [vx, vy, vz] = verts[k]; let [iu, iv] = map(vx, vy, vz); if (mirror) iu = rect[2] - iu;
       buf.v(k, Math.round(vx * U), Math.round(vy * U), Math.round(vz * U), Math.round((rect[0] + iu) * 16), Math.round((rect[1] + iv) * 16), 255, 255, 255, Math.round(255 * sh), 240, 240, 0);
     }
     buf.end();
@@ -4087,8 +4510,8 @@ const ModelCache = {};
 function getModel(kind) {
   if (ModelCache[kind]) return ModelCache[kind];
   const parts = (MODELS[kind] || MODELS.player).map(p => {
-    const vb = new VB(8); boxMesh(vb, p.s, p.o, p.uv, p.inf, 64);
-    return Object.assign({}, p, { mesh: Renderer.meshFromVB(vb), rx: 0, ry: 0, rz: 0 });
+    const vb = new VB(8); boxMesh(vb, p.s, p.o, p.uv, p.inf, 64, p.mirror);
+    return Object.assign({}, p, { mesh: Renderer.meshFromVB(vb), rx: p.brx || 0, ry: p.bry || 0, rz: p.brz || 0 });
   });
   const m = { parts, by: {} }; for (const p of parts) m.by[p.n] = p;
   ModelCache[kind] = m; return m;
@@ -4107,7 +4530,7 @@ function armorModel() {
 
 // ---------- animación ----------
 function animate(kind, m, e, pt) {
-  const P = m.by; for (const p of m.parts) { p.rx = p.ry = p.rz = 0; p.dx = p.dy = p.dz = 0; }
+  const P = m.by; for (const p of m.parts) { p.rx = p.brx || 0; p.ry = p.bry || 0; p.rz = p.brz || 0; p.dx = p.dy = p.dz = 0; }
   const ls = lerp(e.prevLimb || 0, e.limb || 0, pt), la = Math.min(1, lerp(e.prevLimbAmt || 0, e.limbAmt || 0, pt));
   const headYaw = lerpAngle(e.prevHeadYaw ?? e.headYaw, e.headYaw, pt) - lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt);
   const pitch = lerp(e.prevPitch ?? e.pitch, e.pitch, pt);
@@ -4137,15 +4560,20 @@ function animate(kind, m, e, pt) {
     if (e.flying && kind === 'player') { P.rleg.rx *= 0.3; P.lleg.rx *= 0.3; }
   } else if (kind === 'pig' || kind === 'cow' || kind === 'sheep') {
     P.leg0.rx = sw; P.leg1.rx = -sw; P.leg2.rx = -sw; P.leg3.rx = sw;
-    if (kind === 'sheep' && e.eating > 0) { P.head.rx = 1.0; P.head.dy = -3; }
+    if (kind === 'sheep' && e.eating > 0) { P.head.rx = 1.0; P.head.dy = -6; }
   } else if (kind === 'chicken') {
     P.rleg.rx = sw; P.lleg.rx = -sw;
-    const flap = e.onGround ? 0 : Math.sin(age * 1.8) * 0.8 + 0.8; P.rwing.rz = -flap; P.lwing.rz = flap;
+    const flap = e.onGround ? 0 : (Math.sin(age * 1.8) + 1) * 0.9; P.rwing.rz = flap; P.lwing.rz = -flap;
   } else if (kind === 'spider') {
+    // giros de base y paso de las patas como en el modelo clásico (z igual, y con el signo cambiado)
+    const q = Math.PI / 4, m2 = 0.58119464, f2 = 0.3926991, LS = ls * 0.6662;
+    const zb = [-q, -m2, -m2, -q], yb = [-f2 * 2, -f2, f2, f2 * 2]; // delanteras -> traseras
+    const ph = [Math.PI * 1.5, Math.PI / 2, Math.PI, 0];
     for (let i = 0; i < 4; i++) {
-      const sp = [-0.7, -0.25, 0.25, 0.7][i];
-      const a1 = Math.cos(ls * 1.3324 + (i % 2) * Math.PI) * 0.4 * la, a2 = Math.abs(Math.sin(ls * 0.6662 + (i % 2) * Math.PI)) * 0.4 * la;
-      P['legR' + i].ry = sp + a1; P['legL' + i].ry = -sp - a1; P['legR' + i].rz = 0.6 - a2; P['legL' + i].rz = -0.6 + a2;
+      const fy = -(Math.cos(LS * 2 + ph[i]) * 0.4) * la, fz = Math.abs(Math.sin(LS + ph[i]) * 0.4) * la;
+      const R = P['legR' + i], L = P['legL' + i];
+      R.rz = zb[i] + fz; L.rz = -zb[i] - fz;
+      R.ry = -(yb[i] + fy); L.ry = yb[i] + fy;
     }
   }
   for (const p of m.parts) if (p.follow) { const f = P[p.follow]; p.rx = f.rx; p.ry = f.ry; p.rz = f.rz; p.dx = f.dx; p.dy = f.dy; p.dz = f.dz; }
@@ -4716,16 +5144,16 @@ const Particles = {
     const px = x + 0.5 + D[0] * 0.52 + (D[0] ? 0 : (Math.random() - 0.5) * 0.9), py = y + 0.5 + D[1] * 0.52 + (D[1] ? 0 : (Math.random() - 0.5) * 0.9), pz = z + 0.5 + D[2] * 0.52 + (D[2] ? 0 : (Math.random() - 0.5) * 0.9);
     this.add({ x: px, y: py, z: pz, vx: D[0] * 0.04, vy: 0.04, vz: D[2] * 0.04, life: 12, s: 0.07, tex: d.faceTex[0], u: Math.random() * 12 | 0, v: Math.random() * 12 | 0, g: 0.04, tint: d.tint ? [121, 192, 90] : null });
   },
-  color(x, y, z, r, g, b, n, spd, life, grav, size) {
-    for (let i = 0; i < n; i++) this.add({ x: x + (Math.random() - 0.5) * 0.4, y: y + (Math.random() - 0.5) * 0.4, z: z + (Math.random() - 0.5) * 0.4, vx: (Math.random() - 0.5) * spd, vy: Math.random() * spd, vz: (Math.random() - 0.5) * spd, life: life + (Math.random() * life * 0.5 | 0), s: size || 0.1, col: [r, g, b], g: grav ?? 0.0 });
+  color(x, y, z, r, g, b, n, spd, life, grav, size, look) {
+    for (let i = 0; i < n; i++) this.add(Object.assign({ x: x + (Math.random() - 0.5) * 0.4, y: y + (Math.random() - 0.5) * 0.4, z: z + (Math.random() - 0.5) * 0.4, vx: (Math.random() - 0.5) * spd, vy: Math.random() * spd, vz: (Math.random() - 0.5) * spd, life: life + (Math.random() * life * 0.5 | 0), s: size || 0.1, col: [r, g, b], g: grav ?? 0.0 }, look || {}));
   },
-  smoke(x, y, z) { this.add({ x, y, z, vx: (Math.random() - 0.5) * 0.02, vy: 0.03, vz: (Math.random() - 0.5) * 0.02, life: 25, s: 0.12, col: [0.35, 0.35, 0.35], g: -0.002, grow: 1 }); },
-  flame(x, y, z) { this.add({ x, y, z, vx: 0, vy: 0.005, vz: 0, life: 12, s: 0.07, col: [1, 0.7, 0.2], g: 0, glow: 1 }); },
-  poof(e) { this.color(e.x, e.y + e.h / 2, e.z, 0.9, 0.9, 0.9, 18, 0.15, 14, -0.003, 0.18); },
-  crit(e) { this.color(e.x, e.y + e.h * 0.7, e.z, 0.95, 0.9, 0.7, 14, 0.4, 10, 0.02, 0.07); },
+  smoke(x, y, z) { const c = Math.random() * 0.3; this.add({ x, y, z, vx: (Math.random() - 0.5) * 0.02, vy: 0.03, vz: (Math.random() - 0.5) * 0.02, life: 25, s: 0.12, col: [c, c, c], g: -0.002, grow: 1, anim: 'generic_' }); },
+  flame(x, y, z) { this.add({ x, y, z, vx: 0, vy: 0.005, vz: 0, life: 12, s: 0.07, col: [1, 1, 1], g: 0, glow: 1, sprite: 'flame' }); },
+  poof(e) { this.color(e.x, e.y + e.h / 2, e.z, 0.9, 0.9, 0.9, 18, 0.15, 14, -0.003, 0.18, { anim: 'generic_' }); },
+  crit(e) { this.color(e.x, e.y + e.h * 0.7, e.z, 0.95, 0.9, 0.7, 14, 0.4, 10, 0.02, 0.1, { sprite: 'critical_hit' }); },
   landing(x, y, z, dmg) { const id = World.get(Math.floor(x), Math.floor(y - 0.2), Math.floor(z)); if (id && dmg > 0) for (let k = 0; k < Math.min(30, 6 + dmg * 3); k++) this.hit(Math.floor(x), Math.floor(y - 0.2), Math.floor(z), id, 2); },
   sprint(p) { const id = World.get(Math.floor(p.x), Math.floor(p.y - 0.2), Math.floor(p.z)); if (id) this.add({ x: p.x + (Math.random() - 0.5) * 0.6, y: p.y + 0.1, z: p.z + (Math.random() - 0.5) * 0.6, vx: -p.vx * 4, vy: 0.08, vz: -p.vz * 4, life: 12, s: 0.07, tex: BLOCKS[id].faceTex[2], u: 4, v: 4, g: 0.04, tint: BLOCKS[id].tint ? [121, 192, 90] : null }); },
-  bubbles(p) { this.color(p.x, p.y + p.eye, p.z, 0.7, 0.8, 1, 6, 0.1, 12, -0.01, 0.06); },
+  bubbles(p) { this.color(p.x, p.y + p.eye, p.z, 1, 1, 1, 6, 0.1, 12, -0.01, 0.08, { sprite: 'bubble' }); },
   pickup(e, p) { },
   itemBreak(p, id) { },
   explosion(x, y, z) { for (let i = 0; i < 40; i++) this.add({ x: x + (Math.random() - 0.5) * 4, y: y + (Math.random() - 0.5) * 4, z: z + (Math.random() - 0.5) * 4, vx: (Math.random() - 0.5) * 0.1, vy: Math.random() * 0.1, vz: (Math.random() - 0.5) * 0.1, life: 20 + Math.random() * 20 | 0, s: 0.6 + Math.random() * 0.4, col: [0.85, 0.85, 0.8], g: -0.002, grow: 1 }); },
@@ -4785,7 +5213,19 @@ const Store = {
     if (!this.db) { for (const k of [...this.mem[store].keys()]) if (String(k).startsWith(prefix)) this.mem[store].delete(k); return; }
     return this.req(store, 'readwrite', st => st.delete(IDBKeyRange.bound(prefix, prefix + '￿')));
   },
-  putTex(name, url) { return this.put('tex', name, url).catch(() => { }); },
+  // las texturas se guardan por lotes (una sola transacción) y se puede esperar a que acaben
+  _texQ: [], _texP: null,
+  putTex(name, url) {
+    this._texQ.push([name, url]);
+    if (!this._texP) this._texP = new Promise(r => setTimeout(r, 40)).then(() => this._flushTex());
+    return this._texP;
+  },
+  async _flushTex() {
+    const q = this._texQ; this._texQ = []; this._texP = null; if (!q.length) return;
+    if (!this.db) { for (const [k, v] of q) this.mem.tex.set(k, v); return; }
+    try { await this.req('tex', 'readwrite', st => { for (const [k, v] of q) st.put(v, k); }); } catch (e) { console.warn('No se pudieron guardar texturas', e); }
+  },
+  async flushTex() { while (this._texP) await this._texP; },
   allTex() { return this.all('tex').catch(() => ({})); },
   clearTex() { return this.delPrefix('tex', '').catch(() => { }); },
 };
@@ -5646,6 +6086,7 @@ function iconCanvas(rows, pal, half) {
   return c;
 }
 const HUDI = {};
+const GI = new Proxy({}, { get: (t, k) => Atlas.gui[k] }); // sprites de interfaz del paquete (si hay)
 function buildIcons() {
   const E = (rows, pal) => iconCanvas(rows, Object.assign({}, pal), null);
   HUDI.heartEmpty = E(ICONS.heart, { o: '#1a0a0a', r: '#3a1818', w: '#3a1818' });
@@ -5726,19 +6167,27 @@ const HUD = {
     if (!GUI.open && Game.cam === 0) {
       g.save(); g.globalCompositeOperation = 'difference'; g.fillStyle = '#fff';
       const cx = Math.floor(W / 2), cy = Math.floor(H / 2), L = 5 * s, T = Math.max(1, s);
-      g.fillRect(cx - L, cy - T / 2 | 0, L * 2, T); g.fillRect(cx - T / 2 | 0, cy - L, T, L * 2); g.restore();
+      if (GI.crosshair) g.drawImage(GI.crosshair, cx - Math.floor(7.5 * s), cy - Math.floor(7.5 * s), 15 * s, 15 * s);
+      else { g.fillRect(cx - L, cy - T / 2 | 0, L * 2, T); g.fillRect(cx - T / 2 | 0, cy - L, T, L * 2); }
+      g.restore();
       const str = P.attackStrength();
       if (str < 1 && P.mode !== 3) { const w = 16 * s; g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(cx - w / 2, cy + 8 * s, w, 2 * s); g.fillStyle = '#e8e8e8'; g.fillRect(cx - w / 2, cy + 8 * s, w * str, 2 * s); }
     }
     if (P.mode === 3) { this.drawChat(s); if (Game.debug) this.drawDebug(s); return; }
     // barra rápida
     const hbW = 182 * s, hbX = Math.floor(W / 2 - hbW / 2), hbY = H - 22 * s - 2 * s;
-    g.fillStyle = 'rgba(30,30,30,0.55)'; g.fillRect(hbX, hbY, hbW, 22 * s);
-    g.fillStyle = '#5a5a5a'; g.fillRect(hbX, hbY, hbW, s); g.fillRect(hbX, hbY + 21 * s, hbW, s); g.fillRect(hbX, hbY, s, 22 * s); g.fillRect(hbX + hbW - s, hbY, s, 22 * s);
-    for (let i = 0; i < 9; i++) { const x = hbX + (1 + i * 20) * s; g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x + 2 * s, hbY + 2 * s, 18 * s, 18 * s); g.fillStyle = 'rgba(120,120,120,0.35)'; g.fillRect(x + 2 * s, hbY + 19 * s, 18 * s, s); }
     const sx = hbX + (P.sel * 20 - 1) * s;
-    g.fillStyle = '#ffffff'; g.fillRect(sx, hbY - s, 24 * s, 2 * s); g.fillRect(sx, hbY + 21 * s, 24 * s, 2 * s); g.fillRect(sx, hbY - s, 2 * s, 24 * s); g.fillRect(sx + 22 * s, hbY - s, 2 * s, 24 * s);
-    g.fillStyle = '#9a9a9a'; g.fillRect(sx + 2 * s, hbY + s, 20 * s, s); g.fillRect(sx + 2 * s, hbY + 20 * s, 20 * s, s);
+    if (GI.hotbar) g.drawImage(GI.hotbar, hbX, hbY, hbW, 22 * s);
+    else {
+      g.fillStyle = 'rgba(30,30,30,0.55)'; g.fillRect(hbX, hbY, hbW, 22 * s);
+      g.fillStyle = '#5a5a5a'; g.fillRect(hbX, hbY, hbW, s); g.fillRect(hbX, hbY + 21 * s, hbW, s); g.fillRect(hbX, hbY, s, 22 * s); g.fillRect(hbX + hbW - s, hbY, s, 22 * s);
+      for (let i = 0; i < 9; i++) { const x = hbX + (1 + i * 20) * s; g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(x + 2 * s, hbY + 2 * s, 18 * s, 18 * s); g.fillStyle = 'rgba(120,120,120,0.35)'; g.fillRect(x + 2 * s, hbY + 19 * s, 18 * s, s); }
+    }
+    if (GI.hotbar_selection) g.drawImage(GI.hotbar_selection, sx, hbY - s, 24 * s, 23 * s);
+    else {
+      g.fillStyle = '#ffffff'; g.fillRect(sx, hbY - s, 24 * s, 2 * s); g.fillRect(sx, hbY + 21 * s, 24 * s, 2 * s); g.fillRect(sx, hbY - s, 2 * s, 24 * s); g.fillRect(sx + 22 * s, hbY - s, 2 * s, 24 * s);
+      g.fillStyle = '#9a9a9a'; g.fillRect(sx + 2 * s, hbY + s, 20 * s, s); g.fillRect(sx + 2 * s, hbY + 20 * s, 20 * s, s);
+    }
     for (let i = 0; i < 9; i++) this.drawItem(P.inv[i], hbX + (3 + i * 20) * s, hbY + 3 * s, s);
     // nombre del objeto
     const held = P.held;
@@ -5749,30 +6198,35 @@ const HUD = {
     }
     if (P.mode === 0) {
       // experiencia
-      const xy = hbY - 7 * s; g.fillStyle = '#1a1a1a'; g.fillRect(hbX, xy, hbW, 5 * s); g.fillStyle = '#3a5a1a'; g.fillRect(hbX + s, xy + s, hbW - 2 * s, 3 * s);
-      g.fillStyle = '#80ff20'; g.fillRect(hbX + s, xy + s, (hbW - 2 * s) * P.xp, 3 * s);
+      const xy = hbY - 7 * s;
+      if (GI.xp_bg) { g.drawImage(GI.xp_bg, hbX, xy, hbW, 5 * s); if (GI.xp_fill) { const fw = Math.floor(182 * P.xp); if (fw > 0) g.drawImage(GI.xp_fill, 0, 0, fw * GI.xp_fill.width / 182, GI.xp_fill.height, hbX, xy, fw * s, 5 * s); } }
+      else {
+        g.fillStyle = '#1a1a1a'; g.fillRect(hbX, xy, hbW, 5 * s); g.fillStyle = '#3a5a1a'; g.fillRect(hbX + s, xy + s, hbW - 2 * s, 3 * s);
+        g.fillStyle = '#80ff20'; g.fillRect(hbX + s, xy + s, (hbW - 2 * s) * P.xp, 3 * s);
+      }
       if (P.level > 0) { const t = String(P.level); const w = this.textW(t, s); g.font = `${8 * s}px ${FONT}`; g.fillStyle = '#000'; for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) g.fillText(t, W / 2 - w / 2 + ox * s, xy - 6 * s + oy * s); g.fillStyle = '#80ff20'; g.fillText(t, W / 2 - w / 2, xy - 6 * s); }
       // vida
       const hy = hbY - 17 * s; const hp = Math.ceil(P.health); const shake = P.health <= 4;
       for (let i = 0; i < 10; i++) {
         const x = hbX + i * 8 * s; const y = hy + (shake ? (Math.random() * 2 | 0) * s : 0) + (P.regenAnim === i ? -s : 0);
-        g.drawImage(P.hurt > 0 && (P.hurt / 3 | 0) % 2 ? HUDI.heartFlash : HUDI.heartEmpty, x, y, 9 * s, 9 * s);
-        if (hp >= i * 2 + 2) g.drawImage(HUDI.heartFull, x, y, 9 * s, 9 * s); else if (hp === i * 2 + 1) g.drawImage(HUDI.heartHalf, x, y, 9 * s, 9 * s);
+        const flash = P.hurt > 0 && (P.hurt / 3 | 0) % 2;
+        g.drawImage(flash ? (GI.heart_container_blink || HUDI.heartFlash) : (GI.heart_container || HUDI.heartEmpty), x, y, 9 * s, 9 * s);
+        if (hp >= i * 2 + 2) g.drawImage(GI.heart_full || HUDI.heartFull, x, y, 9 * s, 9 * s); else if (hp === i * 2 + 1) g.drawImage(GI.heart_half || HUDI.heartHalf, x, y, 9 * s, 9 * s);
       }
       // armadura
       const ar = P.armorPoints();
-      if (ar > 0) for (let i = 0; i < 10; i++) { const x = hbX + i * 8 * s, y = hy - 10 * s; g.drawImage(ar >= i * 2 + 2 ? HUDI.armorFull : ar === i * 2 + 1 ? HUDI.armorHalf : HUDI.armorEmpty, x, y, 9 * s, 9 * s); }
+      if (ar > 0) for (let i = 0; i < 10; i++) { const x = hbX + i * 8 * s, y = hy - 10 * s; g.drawImage(ar >= i * 2 + 2 ? (GI.armor_full || HUDI.armorFull) : ar === i * 2 + 1 ? (GI.armor_half || HUDI.armorHalf) : (GI.armor_empty || HUDI.armorEmpty), x, y, 9 * s, 9 * s); }
       // hambre
       const shakeF = P.sat <= 0 && World.tickCount % ((P.food * 3 | 0) + 1) === 0;
       for (let i = 0; i < 10; i++) {
         const x = hbX + hbW - 9 * s - i * 8 * s; const y = hy + (shakeF ? (Math.random() * 3 - 1 | 0) * s : 0);
-        g.drawImage(HUDI.foodEmpty, x, y, 9 * s, 9 * s);
-        if (P.food >= i * 2 + 2) g.drawImage(HUDI.foodFull, x, y, 9 * s, 9 * s); else if (P.food === i * 2 + 1) g.drawImage(HUDI.foodHalf, x, y, 9 * s, 9 * s);
+        g.drawImage(GI.food_empty || HUDI.foodEmpty, x, y, 9 * s, 9 * s);
+        if (P.food >= i * 2 + 2) g.drawImage(GI.food_full || HUDI.foodFull, x, y, 9 * s, 9 * s); else if (P.food === i * 2 + 1) g.drawImage(GI.food_half || HUDI.foodHalf, x, y, 9 * s, 9 * s);
       }
       // aire
       if (P.eyeInWater || P.air < 300) {
         const n = Math.ceil(Math.max(0, P.air) / 300 * 10);
-        for (let i = 0; i < n; i++) g.drawImage(HUDI.bubble, hbX + hbW - 9 * s - i * 8 * s, hy - 10 * s, 9 * s, 9 * s);
+        for (let i = 0; i < n; i++) g.drawImage(GI.air || HUDI.bubble, hbX + hbW - 9 * s - i * 8 * s, hy - 10 * s, 9 * s, 9 * s);
       }
     }
     this.drawChat(s);
@@ -5820,6 +6274,7 @@ const HUD = {
 };
 
 // ---------------- inventarios (dibujados en el lienzo) ----------------
+const TAB_ROWS = { top: ['build', 'color', 'nature', 'func', 'redstone', 'search'], bottom: ['tools', 'combat', 'food', 'misc', 'inv'] };
 const CREATIVE_TABS = [
   { id: 'build', name: 'Bloques de construcción', icon: 'bricks' }, { id: 'color', name: 'Bloques de colores', icon: 'red_wool' },
   { id: 'nature', name: 'Bloques naturales', icon: 'grass_block' }, { id: 'func', name: 'Bloques funcionales', icon: 'crafting_table' },
@@ -5896,15 +6351,14 @@ const GUI = {
     } else if (this.open === 'furnace') {
       add(this.be.slots, 0, 56, 17, 'in'); add(this.be.slots, 1, 56, 53, 'fuel'); add(this.be.slots, 2, 116, 35, 'out'); inv(84);
     } else if (this.open === 'chest') {
-      h = 168; const n = this.be.slots.length;
-      if (n === 9) for (let i = 0; i < 9; i++) add(this.be.slots, i, 62 + (i % 3) * 18, 17 + Math.floor(i / 3) * 18);
-      else if (n < 9) for (let i = 0; i < n; i++) add(this.be.slots, i, 80 - (n - 1) * 9 + i * 18, 35);
-      else for (let i = 0; i < 27; i++) add(this.be.slots, i, 8 + (i % 9) * 18, 18 + Math.floor(i / 9) * 18);
-      inv(86);
+      const n = this.be.slots.length;
+      if (n === 9) { for (let i = 0; i < 9; i++) add(this.be.slots, i, 62 + (i % 3) * 18, 17 + Math.floor(i / 3) * 18); inv(84); }
+      else if (n < 9) { h = 133; for (let i = 0; i < n; i++) add(this.be.slots, i, 80 - (n - 1) * 9 + i * 18, 20); inv(51); }
+      else { h = 168; for (let i = 0; i < 27; i++) add(this.be.slots, i, 8 + (i % 9) * 18, 18 + Math.floor(i / 9) * 18); inv(85); }
     } else if (this.open === 'inv' && P.mode === 1) {
       w = 195; h = 136;
       if (this.creativeTab === 'inv') {
-        for (let i = 0; i < 4; i++) add(P.armor, i, 54 + (i % 2) * 54, 6 + (i >> 1) * 27, 'armor' + i);
+        for (let i = 0; i < 4; i++) add(P.armor, i, 54 + (i >> 1) * 54, 6 + (i % 2) * 27, 'armor' + i);
         for (let r = 0; r < 3; r++) for (let c = 0; c < 9; c++) add(P.inv, 9 + r * 9 + c, 9 + c * 18, 54 + r * 18);
         add(null, 0, 173, 112, 'trash');
       } else {
@@ -6023,9 +6477,16 @@ const GUI = {
   numberKey(n) { const sl = this.hover; const P = Game.player; if (!sl || !sl.arr || sl.kind === 'result') return; const a = this.slotGet(sl); const b = P.inv[n]; if (sl.arr === P.inv && sl.i === n) return; if (b && !this.accepts(sl, b)) return; this.slotSet(sl, b); P.inv[n] = a; if (this.craft) this.updateResult(); },
   dropHover(all) { const sl = this.hover; if (!sl || !sl.arr) return; const s = this.slotGet(sl); if (!s) return; const n = all ? s.n : 1; Game.throwStack({ id: s.id, n, d: s.d }); s.n -= n; if (!s.n) this.slotSet(sl, null); },
   inside(mx, my) { return mx >= this.ox && my >= this.oy && mx < this.ox + this.w * this.s && my < this.oy + this.h * this.s; },
+  // pestañas del modo creativo en dos filas (arriba y abajo), cada una de 26x32
+  tabRect(i) {
+    const t = CREATIVE_TABS[i]; const top = TAB_ROWS.top.includes(t.id); const row = top ? TAB_ROWS.top : TAB_ROWS.bottom;
+    const right = t.id === 'search' || t.id === 'inv'; const col = right ? 6 : row.indexOf(t.id);
+    const x = right ? 195 - 27 + 1 : col * 27; const y = top ? -28 : this.h - 4;
+    return { x, y, w: 26, h: 32, top, col };
+  },
   tabAt(mx, my) {
-    const s = this.s; const n = CREATIVE_TABS.length; const tw = 22;
-    for (let i = 0; i < n; i++) { const x = this.ox + i * (tw - 2) * s * (195 / (n * (tw - 2))), y = this.oy - 24 * s; if (mx >= x && mx < x + 20 * s && my >= y && my < y + 24 * s) return CREATIVE_TABS[i].id; }
+    const s = this.s;
+    for (let i = 0; i < CREATIVE_TABS.length; i++) { const r = this.tabRect(i); const x = this.ox + r.x * s, y = this.oy + (r.top ? r.y : r.y + 4) * s; if (mx >= x && mx < x + r.w * s && my >= y && my < y + 28 * s) return CREATIVE_TABS[i].id; }
     return null;
   },
   // ---- dibujo ----
@@ -6047,39 +6508,48 @@ const GUI = {
     const g = HUD.g, W = HUD.cv.width, H = HUD.cv.height; const s = this.s = HUD.scale();
     this.layout();
     g.fillStyle = 'rgba(16,16,16,0.6)'; g.fillRect(0, 0, W, H);
-    const ox = this.ox = Math.floor(W / 2 - this.w * s / 2), oy = this.oy = Math.floor(H / 2 - this.h * s / 2) + (this.open === 'inv' && P.mode === 1 ? 12 * s : 0);
-    if (this.open === 'inv' && P.mode === 1) this.drawTabs(ox, oy, s);
-    this.panel(ox, oy, this.w, this.h, s);
+    const creative = this.open === 'inv' && P.mode === 1;
+    const ox = this.ox = Math.floor(W / 2 - this.w * s / 2), oy = this.oy = Math.floor(H / 2 - this.h * s / 2);
+    if (creative) this.drawTabs(ox, oy, s, false);
+    const bg = this.background();
+    if (bg) for (const [sx, sy, sw, sh, dy] of bg.parts) g.drawImage(bg.img, sx * bg.k, sy * bg.k, sw * bg.k, sh * bg.k, ox, oy + (dy || sy) * s, sw * s, sh * s);
+    else this.panel(ox, oy, this.w, this.h, s);
+    if (creative) this.drawTabs(ox, oy, s, true);
     const T = (t, x, y) => HUD.text(t, ox + x * s, oy + y * s, '#404040', s, false);
     if (this.open === 'inv' && P.mode !== 1) {
       T('Fabricación', 97, 6);
       // vista previa del avatar
-      g.fillStyle = '#000'; g.fillRect(ox + 25 * s, oy + 7 * s, 52 * s, 72 * s); g.fillStyle = '#2a2a2a'; g.fillRect(ox + 26 * s, oy + 8 * s, 50 * s, 70 * s);
+      if (!bg) { g.fillStyle = '#000'; g.fillRect(ox + 25 * s, oy + 7 * s, 52 * s, 72 * s); g.fillStyle = '#2a2a2a'; g.fillRect(ox + 26 * s, oy + 8 * s, 50 * s, 70 * s); }
       Skins.drawFront(g, ox + 35 * s, oy + 12 * s, s * 1.0, this.mx, this.my);
-      this.arrow(ox + 132 * s, oy + 31 * s, s * 0.7, 1);
-    } else if (this.open === 'craft') { T('Fabricación', 28, 6); this.arrow(ox + 90 * s, oy + 35 * s, s, 1); }
+      if (!bg) this.arrow(ox + 132 * s, oy + 31 * s, s * 0.7, 1);
+    } else if (this.open === 'craft') { T('Fabricación', 28, 6); if (!bg) this.arrow(ox + 90 * s, oy + 35 * s, s, 1); }
     else if (this.open === 'furnace') {
       T('Horno', 76, 6); const be = this.be;
-      const fl = be.burnMax ? be.burn / be.burnMax : 0; this.flame(ox + 56 * s, oy + 36 * s, s, fl);
-      this.arrow(ox + 79 * s, oy + 34 * s, s, be.cook / 200, true);
+      const fl = be.burnMax ? be.burn / be.burnMax : 0, ck = be.cook / 200;
+      if (bg && GI.furnace_lit) { if (fl > 0) { const k = Math.ceil(fl * 13) + 1, im = GI.furnace_lit, q = im.width / 14; g.drawImage(im, 0, (14 - k) * q, 14 * q, k * q, ox + 56 * s, oy + (36 + 14 - k) * s, 14 * s, k * s); } }
+      else this.flame(ox + 56 * s, oy + 36 * s, s, fl);
+      if (bg && GI.furnace_burn) { const w = Math.ceil(ck * 24), im = GI.furnace_burn, q = im.width / 24; if (w > 0) g.drawImage(im, 0, 0, w * q, 16 * q, ox + 79 * s, oy + 34 * s, w * s, 16 * s); }
+      else this.arrow(ox + 79 * s, oy + 34 * s, s, ck, true);
     } else if (this.open === 'chest') T(this.title || 'Cofre', 8, 6);
     else if (this.open === 'enchant') { T('Encantar', 8, 6); this.drawOffers(ox, oy, s); }
-    if (this.open !== 'inv') T('Inventario', 8, this.open === 'chest' ? 75 : 73);
-    if (this.open === 'inv' && P.mode === 1) {
-      const tab = CREATIVE_TABS.find(t => t.id === this.creativeTab); T(tab.name, 8, 6);
+    if (this.open !== 'inv') T('Inventario', 8, this.h - 93);
+    if (creative) {
+      const tab = CREATIVE_TABS.find(t => t.id === this.creativeTab); if (tab.id !== 'inv' || !bg) T(tab.name, 8, 6);
       if (this.creativeTab === 'search') { g.fillStyle = '#000'; g.fillRect(ox + 80 * s, oy + 4 * s, 89 * s, 11 * s); HUD.text(this.search + (performance.now() % 1000 < 500 ? '_' : ''), ox + 82 * s, oy + 5.5 * s, '#ffffff', s * 0.9); }
       if (this.creativeTab !== 'inv') {
-        g.fillStyle = '#8b8b8b'; g.fillRect(ox + 175 * s, oy + 18 * s, 12 * s, 88 * s);
-        const k = this.maxScroll ? this.scroll / this.maxScroll : 0; g.fillStyle = this.maxScroll ? '#e0e0e0' : '#a0a0a0'; g.fillRect(ox + 175 * s, oy + (18 + k * 73) * s, 12 * s, 15 * s);
+        const k = this.maxScroll ? this.scroll / this.maxScroll : 0, sy = oy + (18 + Math.round(k * 95)) * s;
+        const sc = this.maxScroll ? GI.scroller : (GI.scroller_off || GI.scroller);
+        if (bg && sc) g.drawImage(sc, ox + 175 * s, sy, 12 * s, 15 * s);
+        else { if (!bg) { g.fillStyle = '#8b8b8b'; g.fillRect(ox + 175 * s, oy + 18 * s, 12 * s, 112 * s); } g.fillStyle = this.maxScroll ? '#e0e0e0' : '#a0a0a0'; g.fillRect(ox + 175 * s, sy, 12 * s, 15 * s); }
       } else { Skins.drawFront(g, ox + 74 * s, oy + 6 * s, s * 0.55); }
     }
     // ranuras
     this.hover = null;
     for (const sl of this.slots) {
       const x = ox + sl.x * s, y = oy + sl.y * s; const big = sl.kind === 'result' || sl.kind === 'out';
-      this.slotBg(x, y, s, big && sl.kind === 'result');
+      if (!bg) this.slotBg(x, y, s, sl.kind === 'result' && this.open === 'craft');
       if (sl.kind && sl.kind.startsWith('armor') && !this.slotGet(sl)) { g.globalAlpha = 0.25; g.drawImage(itemIcon(['iron_helmet', 'iron_chestplate', 'iron_leggings', 'iron_boots'][+sl.kind.slice(5)]), x, y, 16 * s, 16 * s); g.globalAlpha = 1; }
-      if (sl.kind === 'trash') { g.fillStyle = '#a03030'; g.fillRect(x + 3 * s, y + 3 * s, 10 * s, 10 * s); HUD.text('×', x + 5 * s, y + 3 * s, '#fff', s); }
+      if (sl.kind === 'trash' && !bg) { g.fillStyle = '#a03030'; g.fillRect(x + 3 * s, y + 3 * s, 10 * s, 10 * s); HUD.text('×', x + 5 * s, y + 3 * s, '#fff', s); }
       const st = sl.kind === 'result' ? this.result : sl.kind === 'creative' ? { id: sl.item, n: 1 } : this.slotGet(sl);
       HUD.drawItem(st, x, y, s);
       if (this.mx >= x - s && this.mx < x + 17 * s && this.my >= y - s && this.my < y + 17 * s) { this.hover = sl; g.fillStyle = 'rgba(255,255,255,0.45)'; g.fillRect(x, y, 16 * s, 16 * s); }
@@ -6093,15 +6563,38 @@ const GUI = {
     if (this._tip) { this._tip(); this._tip = null; }
     if (this.open === 'inv' && P.mode === 1) { const t = this.tabAt(this.mx, this.my); if (t) this.tooltipText(CREATIVE_TABS.find(x => x.id === t).name, this.mx, this.my, s); }
   },
-  drawTabs(ox, oy, s) {
-    const g = HUD.g; const n = CREATIVE_TABS.length; const k = 195 / (n * 20);
+  // fondo del paquete de texturas para la ventana abierta: { img, k (escala), parts: [sx, sy, sw, sh, dy] }
+  background() {
+    const P = Game.player, o = this.open; let key = null, parts = null;
+    if (o === 'inv' && P.mode === 1) { key = this.creativeTab === 'inv' ? 'c_tab_inv' : this.creativeTab === 'search' ? 'c_tab_search' : 'c_tab_items'; parts = [[0, 0, 195, 136]]; }
+    else if (o === 'inv') { key = 'c_inventory'; parts = [[0, 0, 176, 166]]; }
+    else if (o === 'craft') { key = 'c_crafting'; parts = [[0, 0, 176, 166]]; }
+    else if (o === 'furnace') { key = 'c_furnace'; parts = [[0, 0, 176, 166]]; }
+    else if (o === 'enchant') { key = 'c_enchant'; parts = [[0, 0, 176, 166]]; }
+    else if (o === 'chest') {
+      const n = this.be.slots.length;
+      if (n === 9) { key = 'c_dispenser'; parts = [[0, 0, 176, 166]]; }
+      else if (n < 9) { key = n === 5 ? 'c_hopper' : null; parts = [[0, 0, 176, 133]]; }
+      else { key = 'c_chest'; parts = [[0, 0, 176, 71], [0, 126, 176, 96, 71]]; }
+    }
+    const img = key && GI[key]; if (!img) return null;
+    return { img, k: img.width / 256, parts };
+  },
+  drawTabs(ox, oy, s, selectedPass) {
+    const g = HUD.g;
     CREATIVE_TABS.forEach((t, i) => {
-      const x = ox + i * 20 * k * s, y = oy - 24 * s; const sel = t.id === this.creativeTab;
-      g.fillStyle = sel ? '#c6c6c6' : '#9a9a9a'; g.fillRect(x, y, 19 * s * k, (sel ? 26 : 22) * s);
-      g.fillStyle = '#ffffff'; g.fillRect(x, y, 19 * s * k, s); g.fillStyle = '#000'; g.fillRect(x - s, y, s, 22 * s);
-      const icon = t.id === 'search' ? null : itemIcon(t.icon);
-      if (icon) g.drawImage(icon, x + (19 * k - 16) / 2 * s, y + 4 * s, 16 * s, 16 * s);
-      else { HUD.text('?', x + 7 * s, y + 6 * s, '#404040', s, false); g.strokeStyle = '#404040'; g.lineWidth = s; g.beginPath(); g.arc(x + 9 * s, y + 10 * s, 4 * s, 0, 6.3); g.stroke(); g.fillStyle = '#404040'; g.fillRect(x + 12 * s, y + 13 * s, 4 * s, 2 * s); }
+      const sel = t.id === this.creativeTab; if (sel !== selectedPass) return;
+      const r = this.tabRect(i); const x = ox + r.x * s, y = oy + r.y * s;
+      const spr = GI['tab_' + (r.top ? 't' : 'b') + (sel ? 's' : 'u') + (r.col + 1)];
+      if (spr) g.drawImage(spr, x, y, 26 * s, 32 * s);
+      else {
+        const yy = r.top ? y : y + (sel ? 0 : 4) * s, hh = (sel ? 32 : 28) * s;
+        g.fillStyle = sel ? '#c6c6c6' : '#9a9a9a'; g.fillRect(x, r.top ? y + (sel ? 0 : 4) * s : yy, 26 * s, hh);
+        g.fillStyle = '#000'; g.fillRect(x - s, r.top ? y + (sel ? 0 : 4) * s : yy, s, hh); g.fillRect(x + 26 * s, r.top ? y + (sel ? 0 : 4) * s : yy, s, hh);
+        g.fillStyle = '#ffffff'; if (r.top) g.fillRect(x, y + (sel ? 0 : 4) * s, 26 * s, s); else g.fillRect(x, yy + hh - s, 26 * s, s);
+      }
+      const ix = x + 5 * s, iy = y + (r.top ? 9 : 7) * s;
+      const icon = itemIcon(t.icon); if (icon) g.drawImage(icon, ix, iy, 16 * s, 16 * s);
     });
   },
   arrow(x, y, s, f, fill) {
@@ -6120,19 +6613,21 @@ const GUI = {
     // libro abierto
     g.fillStyle = '#5a2a1a'; g.fillRect(ox + 12 * s, oy + 18 * s, 32 * s, 22 * s); g.fillStyle = '#f0e6c8'; g.fillRect(ox + 14 * s, oy + 19 * s, 13 * s, 19 * s); g.fillRect(ox + 29 * s, oy + 19 * s, 13 * s, 19 * s);
     g.fillStyle = '#b0a080'; for (let k = 0; k < 5; k++) { g.fillRect(ox + 16 * s, oy + (22 + k * 3) * s, 9 * s, s); g.fillRect(ox + 31 * s, oy + (22 + k * 3) * s, 9 * s, s); }
-    HUD.text('Librerías: ' + this.shelves, ox + 8 * s, oy + 64 * s, '#404040', s * 0.7, false);
+    if (!GI.c_enchant) HUD.text('Librerías: ' + this.shelves, ox + 8 * s, oy + 64 * s, '#404040', s * 0.7, false);
     for (let i = 0; i < 3; i++) {
       const x = ox + 60 * s, y = oy + (14 + i * 19) * s; const o = this.offers && this.offers[i];
       const can = o && (P.mode === 1 || (P.level >= o.cost && lap >= o.need)); const hov = o && this.offerAt(this.mx, this.my) === i;
-      g.fillStyle = !o ? '#8b8b8b' : can ? (hov ? '#9a7ad0' : '#8a6ab8') : '#6b5a6b'; g.fillRect(x, y, 108 * s, 19 * s);
-      g.fillStyle = '#2a2030'; g.fillRect(x, y + 18 * s, 108 * s, s); g.fillRect(x + 107 * s, y, s, 19 * s);
+      const spr = GI.ench_slot ? (!o || !can ? GI.ench_slot_off || GI.ench_slot : hov ? GI.ench_slot_hi || GI.ench_slot : GI.ench_slot) : null;
+      if (spr) g.drawImage(spr, x, y, 108 * s, 19 * s);
+      else { g.fillStyle = !o ? '#8b8b8b' : can ? (hov ? '#9a7ad0' : '#8a6ab8') : '#6b5a6b'; g.fillRect(x, y, 108 * s, 19 * s); g.fillStyle = '#2a2030'; g.fillRect(x, y + 18 * s, 108 * s, s); g.fillRect(x + 107 * s, y, s, 19 * s); }
       if (!o) continue;
       const first = Object.keys(o.list)[0]; const more = Object.keys(o.list).length > 1;
       const t = first ? ENCH[first].name + (ENCH[first].max > 1 ? ' ' + ROMAN[o.list[first]] : '') + (more ? '…' : '') : '';
       HUD.text(t, x + 20 * s, y + 6 * s, can ? '#fff8d0' : '#a090a0', s * 0.75, false);
       // coste: niveles (verde si te llega) y lapislázuli
-      g.fillStyle = '#2a2a2a'; g.fillRect(x + 2 * s, y + 2 * s, 15 * s, 15 * s);
-      HUD.text(String(o.need), x + 7 * s, y + 5 * s, can ? '#80ff20' : '#407020', s, false);
+      const lvSpr = GI['ench_l' + Math.min(3, o.need) + (can ? '' : '_off')];
+      if (lvSpr) g.drawImage(lvSpr, x + s, y + s, 16 * s, 16 * s);
+      else { g.fillStyle = '#2a2a2a'; g.fillRect(x + 2 * s, y + 2 * s, 15 * s, 15 * s); HUD.text(String(o.need), x + 7 * s, y + 5 * s, can ? '#80ff20' : '#407020', s, false); }
       const lv = String(o.cost); HUD.text(lv, x + 105 * s - HUD.textW(lv, s * 0.75), y + 11 * s, can ? '#80ff20' : '#407020', s * 0.75, false);
     }
     if (this.offers && !this.cursor) { const i = this.offerAt(this.mx, this.my); const o = i >= 0 && this.offers[i]; if (o) {
@@ -6224,7 +6719,16 @@ const UI = {
       let n = 0; try { n = await TexturePack.loadFiles(files, prog); } catch (err) { $('texMsg').textContent = 'No se pudo leer: ' + (err && err.message || err); e.target.value = ''; return; }
       this.texMsg(n); e.target.value = '';
     };
-    $('texFiles').onchange = texLoad; $('texDir').onchange = texLoad; $('texZip').onchange = texLoad;
+    $('texFiles').onchange = texLoad; $('texDir').onchange = texLoad; $('texZip').onchange = async (e) => { await texLoad(e); $('texNotice').hidden = true; };
+    // salir del juego: en el launcher cierra la ventana; en un navegador solo se puede si la abrió un script
+    $('btnExitGame').onclick = () => {
+      Sound.play('click'); try { Music.stop && Music.stop(); } catch (e) { }
+      try { window.close(); } catch (e) { }
+      setTimeout(() => { if (!window.closed) $('exitMsg').hidden = false; }, 400);
+    };
+    // aviso: texturas guardadas con una versión antigua (sin el .zip guardado)
+    $('texNoticeGo').onclick = () => { Sound.play('click'); this.show('textures'); $('texZip').click(); };
+    $('texNoticeNo').onclick = () => { Sound.play('click'); $('texNotice').hidden = true; Store.put('kv', 'texpack:noticeOff', TexturePack.sig()).catch(() => { }); };
     $('texOpenDir').onclick = () => { Sound.play('click'); TexturePack.openLauncherFolder(); $('texMsg').textContent = 'Deja tu .zip en esa carpeta y vuelve a abrir el juego: se cargará solo.'; };
     $('btnTexClear').onclick = async () => { await TexturePack.clear(); Game.reloadTextures(); this.renderTexList(); $('texMsg').textContent = 'Se han quitado todas las texturas: vuelven los colores lisos.'; };
     $('btnTexCopy').onclick = () => { const t = TEX_NAMES.filter(n => n !== 'white').map(n => n + '.png').join('\n'); try { navigator.clipboard.writeText(t).then(() => $('texMsg').textContent = '¡Lista copiada! (' + (TEX_NAMES.length - 1) + ' nombres)', () => $('texMsg').textContent = 'No se pudo copiar.'); } catch (e) { } };
@@ -6369,10 +6873,10 @@ const UI = {
   mtSel: 'pig',
   renderMobTex() {
     const list = this.$('mtList'); list.innerHTML = '';
-    for (const k in MOBS) {
+    for (const k of MOB_SKIN_KINDS()) {
       const b = document.createElement('button'); b.className = 'mtm' + (this.mtSel === k ? ' sel' : '');
-      const c = document.createElement('canvas'); c.width = c.height = 64; c.getContext('2d').drawImage(MobTex.get(k), 0, 0); b.appendChild(c);
-      const t = document.createElement('span'); t.textContent = MOBS[k].name + (MobTex.custom[k] ? ' ●' : ''); b.appendChild(t);
+      const c = document.createElement('canvas'); c.width = c.height = 64; const cg = c.getContext('2d'); cg.imageSmoothingEnabled = false; cg.drawImage(MobTex.get(k), 0, 0, 64, 64); b.appendChild(c);
+      const t = document.createElement('span'); t.textContent = mobSkinName(k) + (MobTex.custom[k] ? ' ●' : ''); b.appendChild(t);
       b.onclick = () => { this.mtSel = k; Sound.play('click'); this.renderMobTex(); };
       list.appendChild(b);
     }
@@ -6383,7 +6887,7 @@ const UI = {
     const skin = MobTex.get(k);
     const head = document.createElement('div'); head.className = 'btHead';
     const tpl = document.createElement('img'); tpl.id = 'mtTpl'; tpl.src = skin.toDataURL(); tpl.title = 'Plantilla: clic derecho → Guardar imagen'; head.appendChild(tpl);
-    const ht = document.createElement('div'); ht.innerHTML = '<b></b><small>Esta es su piel de 64×64. Haz clic derecho sobre ella y «Guardar imagen» para usarla de plantilla.</small>'; ht.querySelector('b').textContent = MOBS[k].name; head.appendChild(ht); box.appendChild(head);
+    const ht = document.createElement('div'); ht.innerHTML = '<b></b><small>Esta es su piel de 64×64. Haz clic derecho sobre ella y «Guardar imagen» para usarla de plantilla.</small>'; ht.querySelector('b').textContent = mobSkinName(k); head.appendChild(ht); box.appendChild(head);
     const row = document.createElement('div'); row.className = 'row'; row.style.margin = '6px 0 12px';
     const up = document.createElement('span'); up.className = 'btn small file'; up.textContent = 'Subir piel completa 64×64…'; const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; up.appendChild(inp); row.appendChild(up);
     inp.onchange = async () => { if (inp.files[0] && await MobTex.whole(k, inp.files[0])) this.renderMobTex(); };
@@ -6712,7 +7216,7 @@ const Chunks = {
 };
 Game.remeshAll = () => { for (const c of World.chunks.values()) c.dirty = true; };
 Game.unloadFar = () => { };
-Game.reloadTextures = () => { FaceTex.apply(); Atlas.build(); Renderer.uploadAtlas(); ItemMeshes.clear(); Game.remeshAll(); for (const k in ICON_CACHE) delete ICON_CACHE[k]; for (const k in GLINT) delete GLINT[k]; };
+Game.reloadTextures = () => { FaceTex.apply(); Atlas.build(); Renderer.uploadAtlas(); Renderer.makeCelestial(); Renderer.makeClouds(); ItemMeshes.clear(); Game.remeshAll(); for (const k in ICON_CACHE) delete ICON_CACHE[k]; for (const k in GLINT) delete GLINT[k]; };
 
 // ---------------- mallas de objetos ----------------
 const ItemMeshes = {
@@ -6809,8 +7313,8 @@ function renderFrame() {
 }
 
 function entLight(x, y, z) { const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z); return [World.sky(bx, by, bz) / 15, World.blk(bx, by, bz) / 15]; }
-function drawModel(kind, e, skinTex, base, Pw, light, tint) {
-  const R = Renderer, gl = R.gl; const m = getModel(kind); animate(kind, m, e, Game.partial);
+function drawModel(kind, e, skinTex, base, Pw, light, tint, animKind) {
+  const R = Renderer, gl = R.gl; const m = getModel(kind); animate(animKind || kind, m, e, Game.partial);
   gl.uniform2f(Pw.u.uAtlas, 64 * 16, 64 * 16); gl.bindTexture(gl.TEXTURE_2D, skinTex);
   gl.uniform2f(Pw.u.uLightMul, light[0], light[1]);
   if (tint) gl.uniform4fv(Pw.u.uTint, tint); else gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
@@ -6833,6 +7337,7 @@ function drawEntities(Pw, cam) {
       const sc = MODEL_SCALE[e.kind] || 1; M4.scale(_m, sc, sc, sc);
       const tint = e.hurt > 0 || e.dead ? [1, 0, 0, 0.45] : e.fire > 0 ? [1, 0.5, 0.1, 0.3 + 0.2 * Math.sin(performance.now() / 60)] : null;
       const m = drawModel(e.kind, e, tex, _m, Pw, L, tint);
+      if (e.kind === 'sheep' && !e.sheared) drawModel('sheep_wool', e, R.skinTexture('mob_sheep_wool', MobSkins.get('sheep_wool')), _m, Pw, L, tint, 'sheep');
       if (e.def.holds) { // arco en la mano
         gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex);
         partMatrix(_m2, _m, m.by.rarm); M4.translate(_m2, 0.06, -0.62, 0); M4.rotX(_m2, -Math.PI / 2); M4.rotY(_m2, Math.PI / 2); M4.scale(_m2, 0.55, 0.55, 0.55);
@@ -6844,8 +7349,8 @@ function drawEntities(Pw, cam) {
       gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
       let ey = y; if (e.pickedBy) { const t = Math.min(1, (e.pickT + pt) / 3); ey = lerp(y, P.y + 0.8, t); }
       for (let i = 0; i < n; i++) {
-        M4.identity(_m); M4.translate(_m, x + (i ? Math.sin(i * 7.1) * 0.08 : 0), ey + bob + 0.12 + i * 0.03, z + (i ? Math.cos(i * 5.3) * 0.08 : 0)); M4.rotY(_m, (e.age + pt) / 20 + e.spin);
-        const sc = mesh.sprite ? 0.45 : 0.25; M4.scale(_m, sc, sc, sc); R.drawMesh(mesh, _m, Pw);
+        M4.identity(_m); M4.translate(_m, x + (i ? Math.sin(i * 7.1) * 0.08 : 0), ey + bob + 0.25 + i * 0.03, z + (i ? Math.cos(i * 5.3) * 0.08 : 0)); M4.rotY(_m, (e.age + pt) / 20 + e.spin);
+        const sc = mesh.sprite ? 0.5 : 0.25; // como en el original: objetos planos a la mitad, bloques a un cuarto M4.scale(_m, sc, sc, sc); R.drawMesh(mesh, _m, Pw);
       }
     } else if (e.type === 'arrow') {
       gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
@@ -6937,37 +7442,52 @@ function drawHand() {
   if (Settings.bobbing) { const wd = lerp(P.prevWalkDist, P.walkDist, pt), b = lerp(P.prevBob, P.bob, pt); M4.translate(M, Math.sin(wd * Math.PI) * b * 0.5, -Math.abs(Math.cos(wd * Math.PI) * b), 0); M4.rotZ(M, Math.sin(wd * Math.PI) * b * 3 * DEG); M4.rotX(M, Math.abs(Math.cos(wd * Math.PI - 0.2) * b) * 5 * DEG); }
   // retardo de cámara (la mano se queda un poco atrás al girar)
   M4.rotX(M, (Input.handLagY || 0)); M4.rotY(M, (Input.handLagX || 0));
-  const sq = Math.sqrt(swing);
-  const sA = Math.sin(sq * Math.PI), sB = Math.sin(swing * Math.PI), sC = Math.sin(sq * Math.PI * 2);
+  // misma cadena de transformaciones que el juego original (mano derecha, campo de visión fijo de 70°)
+  const sq = Math.sqrt(swing), PI = Math.PI;
   if (!st) {
-    // brazo vacío: hombro fuera de pantalla abajo a la derecha, mano apuntando hacia delante
+    // brazo vacío
     gl.disable(gl.CULL_FACE);
-    M4.translate(M, H_ARM.x - sA * 0.25, H_ARM.y + sC * 0.1 - eq * 0.6 - sB * 0.05, H_ARM.z - sB * 0.2);
-    M4.rotY(M, (H_ARM.ry + sA * 28) * DEG); M4.rotX(M, (H_ARM.rx - sB * 35) * DEG); M4.rotY(M, H_ARM.roll * DEG);
-    const m = getModel('player'); const tex = R.skinTexture('player', Skins.canvas);
+    const f2 = -0.3 * Math.sin(sq * PI), f3 = 0.4 * Math.sin(sq * PI * 2), f4 = -0.4 * Math.sin(swing * PI);
+    M4.translate(M, f2 + 0.64, f3 - 0.6 - eq * 0.6, f4 - 0.72);
+    M4.rotY(M, 45 * DEG);
+    const f5 = Math.sin(swing * swing * PI), f6 = Math.sin(sq * PI);
+    M4.rotY(M, f6 * 70 * DEG); M4.rotZ(M, f5 * -20 * DEG);
+    M4.translate(M, -1, 3.6, 3.5); M4.rotZ(M, 120 * DEG); M4.rotX(M, 200 * DEG); M4.rotY(M, -135 * DEG); M4.translate(M, 5.6, 0, 0);
+    // espacio del modelo original (y hacia abajo) -> el nuestro (y hacia arriba)
+    const m = getModel('player'); const arm = m.by.rarm;
+    M4.translate(M, 0, 24 / 16, 0); M4.scale(M, -1, -1, 1); M4.translate(M, arm.p[0] / 16, arm.p[1] / 16, arm.p[2] / 16);
+    const tex = R.skinTexture('player', Skins.canvas);
     gl.uniform2f(Pw.u.uAtlas, 64 * 16, 64 * 16); gl.bindTexture(gl.TEXTURE_2D, tex);
-    R.drawMesh(m.by.rarm.mesh, M, Pw);
+    R.drawMesh(arm.mesh, M, Pw); if (m.by.rsleeve) R.drawMesh(m.by.rsleeve.mesh, M, Pw);
     gl.enable(gl.CULL_FACE);
     return;
   }
   const mesh = ItemMeshes.get(st.id); const it = ITEMS[st.id];
   gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex);
-  const tool = !!(it.tool || st.id === 'stick' || st.id === 'bow' || st.id === 'flint_and_steel' || st.id === 'arrow' || st.id === 'bone');
-  const pose = !mesh.sprite ? H_BLOCK : tool ? H_TOOL : H_FLAT;
-  let px = pose.x, py = pose.y - eq * 0.6, pz = pose.z;
-  if (P.usingItem && it.food) { const t = P.useTime + pt; const f = Math.min(1, t / 6); px = lerp(px, 0.06, f); py = lerp(py, -0.3, f) + (t > 6 ? Math.abs(Math.cos(t / 4 * Math.PI)) * 0.06 : 0); pz = lerp(pz, -0.6, f); }
-  if (P.usingItem && st.id === 'bow') { const k = Math.min(1, (P.bowCharge + pt) / 20); px = 0.28; py = -0.32; pz = -0.75 + k * 0.12; }
-  M4.translate(M, px - sA * 0.32, py + sC * 0.12, pz - sB * 0.22);
-  M4.rotY(M, -sB * 0.35); M4.rotX(M, -sA * 0.9);
-  M4.rotY(M, pose.ry * DEG); M4.rotX(M, pose.rx * DEG); M4.rotZ(M, pose.rz * DEG);
-  if (P.usingItem && st.id === 'bow') M4.rotZ(M, -40 * DEG);
-  M4.scale(M, pose.s, pose.s, pose.s);
+  const eating = P.usingItem && it.food, bow = P.usingItem && st.id === 'bow';
+  if (eating) {
+    const left = Math.max(0, 32 - (P.useTime + pt)) + 1, f1 = left / 32;
+    if (f1 < 0.8) M4.translate(M, 0, Math.abs(Math.cos(left / 4 * PI) * 0.1), 0);
+    const f3 = 1 - Math.pow(f1, 27);
+    M4.translate(M, f3 * 0.6, f3 * -0.5, 0); M4.rotY(M, f3 * 90 * DEG); M4.rotX(M, f3 * 10 * DEG); M4.rotZ(M, f3 * 30 * DEG);
+    M4.translate(M, 0.56, -0.52 - eq * 0.6, -0.72);
+  } else if (bow) {
+    M4.translate(M, 0.56, -0.52 - eq * 0.6, -0.72);
+    M4.translate(M, -0.2785682, 0.18344387, 0.15731531); M4.rotX(M, -13.935 * DEG); M4.rotY(M, 35.3 * DEG); M4.rotZ(M, -9.785 * DEG);
+    const f8 = P.bowCharge + pt; let f12 = f8 / 20; f12 = (f12 * f12 + f12 * 2) / 3; if (f12 > 1) f12 = 1;
+    if (f12 > 0.1) { const f20 = Math.sin((f8 - 0.1) * 1.3) * (f12 - 0.1); M4.translate(M, 0, f20 * 0.004, 0); }
+    M4.translate(M, 0, 0, f12 * 0.04); M4.scale(M, 1, 1, 1 + f12 * 0.2); M4.rotY(M, -45 * DEG);
+  } else {
+    M4.translate(M, -0.4 * Math.sin(sq * PI), 0.2 * Math.sin(sq * PI * 2), -0.2 * Math.sin(swing * PI));
+    M4.translate(M, 0.56, -0.52 - eq * 0.6, -0.72);
+    const f = Math.sin(swing * swing * PI), f1 = Math.sin(sq * PI);
+    M4.rotY(M, (45 - f * 20) * DEG); M4.rotZ(M, f1 * -20 * DEG); M4.rotX(M, f1 * -80 * DEG); M4.rotY(M, -45 * DEG);
+  }
+  // transformación de presentación del modelo en la mano
+  if (!mesh.sprite) { M4.rotY(M, 45 * DEG); M4.scale(M, 0.4, 0.4, 0.4); }
+  else { M4.translate(M, 1.13 / 16, 3.2 / 16, 1.13 / 16); M4.rotY(M, -90 * DEG); M4.rotZ(M, 25 * DEG); M4.scale(M, 0.68, 0.68, 0.68); }
   gl.disable(gl.CULL_FACE); R.drawMesh(mesh, M, Pw); gl.enable(gl.CULL_FACE);
 }
-const H_ARM = { x: 0.68, y: -0.66, z: -0.36, ry: 18, rx: 120, roll: -35 };
-const H_BLOCK = { x: 0.48, y: -0.43, z: -0.8, ry: 45, rx: 16, rz: 0, s: 0.32 };
-const H_TOOL = { x: 0.52, y: -0.34, z: -0.8, ry: -62, rx: 0, rz: 52, s: 0.55 };
-const H_FLAT = { x: 0.5, y: -0.46, z: -0.8, ry: -20, rx: 0, rz: 0, s: 0.4 };
 function drawSelection() {
   const R = Renderer, gl = R.gl; const T = Game.target; if (!T || Game.hideHud) return;
   const P = Game.player; const boxes = Game.shapeOf(T.id, World.getMeta(T.x, T.y, T.z), T.x, T.y, T.z);
@@ -7019,7 +7539,11 @@ function drawParticles(cam) {
     const x = lerp(p.px ?? p.x, p.x, pt), y = lerp(p.py ?? p.y, p.y, pt), z = lerp(p.pz ?? p.z, p.z, pt);
     const s = p.s; const L = p.glow ? 1 : (() => { const l = Math.max(World.sky(Math.floor(x), Math.floor(y), Math.floor(z)) / 15 * Sky.skyFactor, World.blk(Math.floor(x), Math.floor(y), Math.floor(z)) / 15); const cc = l / (4 - 3 * l), d = 1 - cc; return 0.05 + 0.95 * lerp(cc, 1 - d * d * d * d, Settings.gamma); })();
     let u0, v0, u1, v1, r = 1, g = 1, b = 1;
-    if (p.tex) { const [tu, tv] = Atlas.uv(p.tex); const k = T / 16; u0 = (tu + p.u * k) / aw; v0 = (tv + p.v * k) / ah; u1 = u0 + 4 * k / aw; v1 = v0 + 4 * k / ah; if (p.tint) { r = p.tint[0] / 255; g = p.tint[1] / 255; b = p.tint[2] / 255; } }
+    if (p.sprite || p.anim) { // partícula con su propia imagen (animada según la vida que le queda)
+      if (p.life0 === undefined) p.life0 = p.life;
+      const nm = p.anim ? p.anim + Math.min(7, Math.max(0, Math.floor((1 - p.life / p.life0) * 8))) : p.sprite;
+      const [tu, tv] = Atlas.uv(nm); u0 = tu / aw; v0 = tv / ah; u1 = (tu + T) / aw; v1 = (tv + T) / ah; [r, g, b] = p.col || [1, 1, 1];
+    } else if (p.tex) { const [tu, tv] = Atlas.uv(p.tex); const k = T / 16; u0 = (tu + p.u * k) / aw; v0 = (tv + p.v * k) / ah; u1 = u0 + 4 * k / aw; v1 = v0 + 4 * k / ah; if (p.tint) { r = p.tint[0] / 255; g = p.tint[1] / 255; b = p.tint[2] / 255; } }
     else { u0 = (wu + 1) / aw; v0 = (wv + 1) / ah; u1 = u0 + 1 / aw; v1 = v0 + 1 / ah; [r, g, b] = p.col; }
     r *= L; g *= L; b *= L;
     const q = (a, c) => [x + (rx[0] * a + uy[0] * c) * s, y + (rx[1] * a + uy[1] * c) * s, z + (rx[2] * a + uy[2] * c) * s];
@@ -7102,6 +7626,7 @@ async function boot() {
     if (document.fonts && document.fonts.load) { try { await Promise.race([document.fonts.load('16px "Pixelify Sans"'), new Promise(r => setTimeout(r, 1500))]); } catch (e) { } }
     status.remove();
     Title.start();
+    if (await TexturePack.stale()) document.getElementById('texNotice').hidden = false;
     Net.init();
     if (!Store.db) setTimeout(() => Chat.add('§cAviso: este navegador no deja guardar datos; los mundos se perderán al cerrar.'), 100);
     requestAnimationFrame(frame);
@@ -7772,26 +8297,29 @@ const Music = {
 };
 
 // ---------------- pieles personalizadas de las criaturas ----------------
-const MOB_PART_NAMES = { head: 'Cabeza', body: 'Cuerpo', snout: 'Hocico', leg0: 'Patas', horn1: 'Cuernos', rarm: 'Brazo derecho', larm: 'Brazo izquierdo', rleg: 'Pierna derecha', lleg: 'Pierna izquierda', beak: 'Pico', wattle: 'Barba', rwing: 'Alas', neck: 'Cuello', legR0: 'Patas' };
+const MOB_PART_NAMES = { muzzle: 'Morro', udder: 'Ubre', legL0: 'Patas', jacket: 'Chaqueta', head: 'Cabeza', body: 'Cuerpo', snout: 'Hocico', leg0: 'Patas', horn1: 'Cuernos', rarm: 'Brazo derecho', larm: 'Brazo izquierdo', rleg: 'Pierna derecha', lleg: 'Pierna izquierda', beak: 'Pico', wattle: 'Barba', rwing: 'Alas', neck: 'Cuello', legR0: 'Patas' };
+const mobSkinName = (k) => k === 'sheep_wool' ? 'Lana de oveja' : (MOBS[k] ? MOBS[k].name : k);
 const MOB_FACES = [['front', 'Frente'], ['back', 'Detrás'], ['left', 'Izquierda'], ['right', 'Derecha'], ['top', 'Arriba'], ['bottom', 'Abajo']];
 const MobTex = {
   custom: {},
   async load() {
-    for (const k in MOBS) {
+    for (const k of MOB_SKIN_KINDS()) {
       try { const url = await Store.get('kv', 'mobskin:' + k); if (url) await new Promise(r => { const im = new Image(); im.onload = () => { this.custom[k] = this.toCanvas(im); r(); }; im.onerror = r; im.src = url; }); } catch (e) { }
     }
   },
-  toCanvas(im) { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(im, 0, 0, 64, Math.round(64 * im.height / im.width)); return c; },
+  // la piel se guarda en un lienzo cuadrado: las de 64x32 ocupan la mitad de arriba (misma UV);
+  // las de más resolución (128x64, 256x256...) conservan su detalle
+  toCanvas(im) { const k = Math.max(1, Math.round(im.width / 64)); const c = document.createElement('canvas'); c.width = c.height = 64 * k; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(im, 0, 0, 64 * k, Math.round(64 * k * im.height / im.width)); return c; },
   get(k) { return this.custom[k] || MobSkins.base(k); },
   parts(kind) {
     const out = [], seen = new Set();
     for (const p of MODELS[kind] || []) { const key = p.uv + '|' + p.s; if (seen.has(key)) continue; seen.add(key); out.push({ n: MOB_PART_NAMES[p.n] || p.n, uv: p.uv, s: p.s }); }
     return out;
   },
-  save(kind, cv) { this.custom[kind] = cv; Store.put('kv', 'mobskin:' + kind, cv.toDataURL('image/png')).catch(() => { }); },
+  save(kind, cv) { this.custom[kind] = cv; return Store.put('kv', 'mobskin:' + kind, cv.toDataURL('image/png')).catch(() => { }); },
   async paint(kind, part, face, file) {
     const im = await loadImageFile(file); if (!im) return false;
-    const src = this.get(kind); const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(src, 0, 0);
+    const src = this.get(kind); const k = src.width / 64; const c = document.createElement('canvas'); c.width = c.height = src.width; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(src, 0, 0); g.scale(k, k);
     const R = boxRects(part.uv[0], part.uv[1], part.s[0], part.s[1], part.s[2]);
     const faces = face === 'all' ? Object.keys(R) : [face];
     for (const f of faces) { const r = R[f]; g.clearRect(r[0], r[1], r[2], r[3]); g.drawImage(im, 0, 0, im.width, im.height, r[0], r[1], r[2], r[3]); }

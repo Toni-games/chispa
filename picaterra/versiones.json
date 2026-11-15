@@ -1,8 +1,23 @@
 {
-  "latest": "1.4",
+  "latest": "1.5",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.5",
+      "date": "2026-11-15",
+      "title": "Paquete de texturas en todo",
+      "notes": [
+        "Criaturas con el modelo clásico: el paquete cambia cerdos, vacas, ovejas (y su lana), gallinas, arañas, zombis y esqueletos",
+        "La interfaz del paquete: corazones, comida, barra rápida, experiencia, inventarios, horno, cofres y modo creativo",
+        "Sol, luna, nubes y partículas del paquete (y ahora se ven el sol, la luna y las estrellas)",
+        "Iconos de bloque como en el original y objetos en la mano y en el suelo colocados igual",
+        "Botón Salir del juego en el menú principal",
+        "Aviso para volver a cargar el .zip si se cargó con una versión antigua"
+      ],
+      "size": 184735,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.5.zip"
+    },
     {
       "id": "1.4",
       "date": "2026-11-15",
