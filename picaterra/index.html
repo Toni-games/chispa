@@ -289,7 +289,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.2';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -753,9 +753,512 @@ function GEN_MODULE(B) {
         if (water && blocks[I(x, y, z)] === 0) { const hh = 1 + Math.floor(rnd() * 3); for (let k = 0; k < hh; k++) blocks[I(x, y + k, z)] = B.sugar_cane; }
       }
     }
+    // ---- estructuras ----
+    stamp(N, blocks, meta, cx, cz, I);
     return { blocks, meta, biomes, heights };
   }
-  return { genChunk, column: (seed, x, z) => column(setup(seed), x, z), BI, treeList };
+
+  // ============================================================
+  //  Estructuras (diseños propios de Picaterra)
+  //  Cada tipo se reparte en una rejilla de «regiones» de chunks: como mucho una por región,
+  //  en un sitio que depende solo de la semilla. Al generar un chunk se miran las cercanas y
+  //  se dibuja la parte que cae dentro. Toda la aleatoriedad sale de la semilla de la
+  //  estructura, así cada chunk dibuja exactamente lo mismo.
+  // ============================================================
+  const LAND_ANY = null;
+  const STRUCTS = [
+    { k: 'village', region: 26, sep: 8, chance: 0.9, r: 46, biomes: [BI.PLAINS, BI.SAVANNA, BI.DESERT, BI.TAIGA, BI.SNOWY, BI.FLOWER], salt: 11 },
+    { k: 'desert_temple', region: 22, sep: 6, chance: 0.75, r: 12, biomes: [BI.DESERT], salt: 12 },
+    { k: 'forest_temple', region: 24, sep: 6, chance: 0.6, r: 9, biomes: [BI.FOREST, BI.BIRCH], salt: 13 },
+    { k: 'swamp_hut', region: 18, sep: 5, chance: 0.8, r: 6, biomes: [BI.SWAMP], salt: 14 },
+    { k: 'igloo', region: 18, sep: 5, chance: 0.7, r: 5, biomes: [BI.SNOWY], salt: 15 },
+    { k: 'well', region: 10, sep: 3, chance: 0.4, r: 3, biomes: [BI.DESERT], salt: 16 },
+    { k: 'mineshaft', region: 14, sep: 4, chance: 0.5, r: 72, biomes: LAND_ANY, salt: 17, under: true },
+    { k: 'shipwreck', region: 14, sep: 4, chance: 0.6, r: 10, biomes: [BI.OCEAN, BI.FROZEN_OCEAN, BI.BEACH], salt: 18 },
+    { k: 'ocean_ruins', region: 12, sep: 4, chance: 0.55, r: 7, biomes: [BI.OCEAN, BI.FROZEN_OCEAN], salt: 19 },
+    { k: 'treasure', region: 8, sep: 2, chance: 0.4, r: 1, biomes: [BI.BEACH], salt: 20 },
+    { k: 'fossil', region: 10, sep: 3, chance: 0.4, r: 7, biomes: [BI.DESERT, BI.SWAMP], salt: 21, under: true },
+    { k: 'watchtower', region: 26, sep: 8, chance: 0.55, r: 6, biomes: [BI.PLAINS, BI.SAVANNA, BI.TAIGA, BI.DESERT, BI.FLOWER, BI.SNOWY], salt: 22 },
+    { k: 'ocean_temple', region: 32, sep: 8, chance: 0.85, r: 16, biomes: [BI.OCEAN], salt: 23 },
+    { k: 'mansion', region: 48, sep: 14, chance: 1, r: 18, biomes: [BI.FOREST, BI.BIRCH], salt: 24 },
+    { k: 'obsidian_ruins', region: 16, sep: 4, chance: 0.4, r: 6, biomes: LAND_ANY, salt: 25 },
+    { k: 'stronghold', region: 64, sep: 20, chance: 1, r: 34, biomes: LAND_ANY, salt: 26, under: true },
+    { k: 'buried_ruins', region: 18, sep: 5, chance: 0.45, r: 8, biomes: [BI.TAIGA, BI.FOREST, BI.BIRCH, BI.PLAINS, BI.SAVANNA], salt: 27 },
+  ];
+  const STRUCT_BY = {}; for (const d of STRUCTS) STRUCT_BY[d.k] = d;
+  const STRUCT_ERRS = [];
+
+  function structStart(N, def, rx, rz) {
+    const key = def.k + ',' + rx + ',' + rz;
+    if (!N.sc) N.sc = new Map();
+    if (N.sc.has(key)) return N.sc.get(key);
+    const r = mulberry32((N.seedInt * 1013 + rx * 92837111 + rz * 689287499 + def.salt * 7919) | 0);
+    const span = def.region - def.sep;
+    const cx = rx * def.region + Math.floor(r() * span), cz = rz * def.region + Math.floor(r() * span);
+    const wx = cx * 16 + Math.floor(r() * 16), wz = cz * 16 + Math.floor(r() * 16);
+    const roll = r(), seed = Math.floor(r() * 2147483647), rot = Math.floor(r() * 4), extra = r();
+    let s = null;
+    if (roll < def.chance) {
+      const c = column(N, wx, wz);
+      let ok = !def.biomes || def.biomes.includes(c.b);
+      if (ok) switch (def.k) {
+        case 'village': case 'watchtower': case 'mansion': case 'desert_temple': case 'forest_temple': case 'igloo': case 'well': case 'buried_ruins': {
+          ok = c.h > SEA && c.h < SEA + 34;
+          if (ok && (def.k === 'village' || def.k === 'mansion')) for (const [ax, az] of [[12, 0], [-12, 0], [0, 12], [0, -12]]) { const h2 = column(N, wx + ax, wz + az).h; if (Math.abs(h2 - c.h) > 7 || h2 < SEA) { ok = false; break; } }
+          break;
+        }
+        case 'swamp_hut': ok = c.h >= SEA - 2; break;
+        case 'ocean_temple': ok = c.h < SEA - 12; break;
+        case 'ocean_ruins': ok = c.h < SEA - 4; break;
+        case 'shipwreck': ok = c.h < SEA - 3 || c.b === BI.BEACH; break;
+        case 'obsidian_ruins': ok = c.h > 20 && c.h < WH - 16; break;
+        case 'treasure': ok = c.h >= SEA - 1; break;
+        case 'mineshaft': ok = c.h > 40; break;
+        case 'stronghold': ok = c.h > 44; break;
+        case 'fossil': ok = c.h > 50; break;
+      }
+      if (ok) {
+        let y = c.h + 1;
+        if (def.k === 'mineshaft') y = 18 + Math.floor(extra * 18);
+        if (def.k === 'stronghold') y = 16 + Math.floor(extra * 10);
+        if (def.k === 'fossil') y = Math.min(c.h - 12, 34 + Math.floor(extra * 12));
+        s = { k: def.k, wx, wz, y, h: c.h, b: c.b, seed, rot };
+      }
+    }
+    N.sc.set(key, s); return s;
+  }
+  function structsNear(N, cx, cz) {
+    const out = [];
+    for (const def of STRUCTS) {
+      const R = def.r + 8, size = def.region * 16;
+      const rx0 = Math.floor((cx * 16 - R) / size), rx1 = Math.floor((cx * 16 + 15 + R) / size);
+      const rz0 = Math.floor((cz * 16 - R) / size), rz1 = Math.floor((cz * 16 + 15 + R) / size);
+      for (let rz = rz0; rz <= rz1; rz++) for (let rx = rx0; rx <= rx1; rx++) {
+        const s = structStart(N, def, rx, rz);
+        if (s && s.wx + R >= cx * 16 && s.wx - R <= cx * 16 + 15 && s.wz + R >= cz * 16 && s.wz - R <= cz * 16 + 15) out.push(s);
+      }
+    }
+    return out;
+  }
+  // la estructura más cercana de un tipo (para /locate)
+  function findStruct(seed, k, px, pz) {
+    const N = setup(seed); const def = STRUCT_BY[k]; if (!def) return null;
+    const size = def.region * 16, rx = Math.floor(px / size), rz = Math.floor(pz / size);
+    let best = null, bd = Infinity;
+    for (let ring = 0; ring < 14; ring++) {
+      for (let dz = -ring; dz <= ring; dz++) for (let dx = -ring; dx <= ring; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== ring) continue;
+        const s = structStart(N, def, rx + dx, rz + dz); if (!s) continue;
+        const d = Math.hypot(s.wx - px, s.wz - pz); if (d < bd) { bd = d; best = s; }
+      }
+      if (best && bd < (ring - 1) * size) break;
+    }
+    return best;
+  }
+
+  // ---- herramientas para dibujar ----
+  function makeBuilder(N, blocks, meta, ox, oz, I) {
+    const hc = new Map();
+    const P = {
+      col(x, z) { const k = x * 100003 + z; let h = hc.get(k); if (h === undefined) { h = column(N, x, z).h; hc.set(k, h); } return h; },
+      inside(x, z) { return x >= ox && x < ox + 16 && z >= oz && z < oz + 16; },
+      set(x, y, z, id, m) { if (y < 1 || y >= WH || !P.inside(x, z)) return; const i = I(x - ox, y, z - oz); blocks[i] = id; meta[i] = m || 0; },
+      get(x, y, z) { if (y < 0 || y >= WH || !P.inside(x, z)) return -1; return blocks[I(x - ox, y, z - oz)]; },
+      h(x, y, z, s) { return hash3(x, y, z, N.seedInt + (s || 0)); },
+    };
+    return P;
+  }
+  // coordenadas locales (u, v) con giro; los cofres, escaleras de mano y camas giran con la estructura
+  function local(P, x0, z0, rot) {
+    const W = (u, v) => rot === 0 ? [x0 + u, z0 + v] : rot === 1 ? [x0 - v, z0 + u] : rot === 2 ? [x0 - u, z0 - v] : [x0 + v, z0 - u];
+    const L = {
+      rot, W,
+      set(u, y, v, id, m) { const [x, z] = W(u, v); P.set(x, y, z, id, m); },
+      get(u, y, v) { const [x, z] = W(u, v); return P.get(x, y, z); },
+      col(u, v) { const [x, z] = W(u, v); return P.col(x, z); },
+      fill(u0, y0, v0, u1, y1, v1, id, m) {
+        const [ua, ub] = u0 < u1 ? [u0, u1] : [u1, u0], [va, vb] = v0 < v1 ? [v0, v1] : [v1, v0], [ya, yb] = y0 < y1 ? [y0, y1] : [y1, y0];
+        for (let v = va; v <= vb; v++) for (let u = ua; u <= ub; u++) { const [x, z] = W(u, v); if (!P.inside(x, z)) continue; for (let y = ya; y <= yb; y++) P.set(x, y, z, id, m); }
+      },
+      clear(u0, y0, v0, u1, y1, v1, fluid) { L.fill(u0, y0, v0, u1, y1, v1, fluid || 0); },
+      // relleno bajo el suelo hasta el terreno, para que nada quede flotando
+      found(u0, v0, u1, v1, y, id) {
+        for (let v = Math.min(v0, v1); v <= Math.max(v0, v1); v++) for (let u = Math.min(u0, u1); u <= Math.max(u0, u1); u++) {
+          const [x, z] = W(u, v); if (!P.inside(x, z)) continue;
+          const h = P.col(x, z); for (let yy = Math.max(1, Math.min(h, y - 12)); yy < y; yy++) { const cur = P.get(x, yy, z); if (cur === 0 || cur === B.water || cur === B.short_grass || cur === B.fern || yy > h) P.set(x, yy, z, id); }
+        }
+      },
+      // facing: 0 = hacia -v (hacia la puerta), ...
+      face(f) { return (f + rot) & 3; },
+      chest(u, y, v, table, f) { L.set(u, y, v, B.chest, ((f + rot) & 3) | 0x10 | (table << 5)); },
+      ladder(u, y, v, f) { L.set(u, y, v, B.ladder, (f + rot) & 3); },
+      bed(u, y, v, f) { L.set(u, y, v, B.bed, (f + rot) & 3); },
+      torch(u, y, v) { L.set(u, y, v, B.torch, 0); },
+      // eje de troncos/huesos tumbados a lo largo de u o de v
+      axisU() { return rot & 1 ? 8 : 4; }, axisV() { return rot & 1 ? 4 : 8; },
+    };
+    return L;
+  }
+  const mix = (P, x, y, z, a, b, c, pb, pc) => { const r = P.h(x, y, z, 77); return r < pc ? c : r < pc + pb ? b : a; };
+
+  // ---- paletas de aldea por bioma ----
+  function villagePal(b) {
+    if (b === BI.DESERT) return { wall: B.cut_sandstone, frame: B.smooth_sandstone, found: B.sandstone, floor: B.smooth_sandstone, roof: B.smooth_sandstone, path: B.smooth_sandstone, flat: true };
+    if (b === BI.SAVANNA) return { wall: B.acacia_planks, frame: B.acacia_log, found: B.cobblestone, floor: B.acacia_planks, roof: B.orange_terracotta, path: B.coarse_dirt };
+    if (b === BI.TAIGA) return { wall: B.spruce_planks, frame: B.spruce_log, found: B.cobblestone, floor: B.spruce_planks, roof: B.dark_oak_planks, path: B.gravel };
+    if (b === BI.SNOWY) return { wall: B.spruce_planks, frame: B.stripped_spruce_log, found: B.cobblestone, floor: B.spruce_planks, roof: B.snow_block, path: B.gravel };
+    return { wall: B.oak_planks, frame: B.oak_log, found: B.cobblestone, floor: B.oak_planks, roof: B.dark_oak_planks, path: B.gravel };
+  }
+
+  // ---- piezas ----
+  function house(P, x0, z0, rot, pal, big, rr) {
+    const L = local(P, x0, z0, rot); const gy = P.col(x0, z0) + 1;
+    const hw = big ? 3 : 2, hd = big ? 3 : 2;
+    const hasChest = rr() < 0.45, bedSide = rr() < 0.5 ? 1 : -1, table = rr() < 0.5;
+    L.clear(-hw - 1, gy, -hd - 1, hw + 1, gy + 9, hd + 1);
+    L.found(-hw, -hd, hw, hd, gy - 1, pal.found);
+    L.fill(-hw, gy - 1, -hd, hw, gy - 1, hd, pal.found); L.fill(-hw + 1, gy - 1, -hd + 1, hw - 1, gy - 1, hd - 1, pal.floor);
+    L.fill(-hw, gy, -hd, hw, gy + 3, hd, pal.wall); L.clear(-hw + 1, gy, -hd + 1, hw - 1, gy + 3, hd - 1);
+    for (const [cu, cv] of [[-hw, -hd], [hw, -hd], [-hw, hd], [hw, hd]]) L.fill(cu, gy, cv, cu, gy + 3, cv, pal.frame);
+    L.clear(0, gy, -hd, 0, gy + 1, -hd); // puerta
+    L.set(-hw, gy + 1, 0, B.glass); L.set(hw, gy + 1, 0, B.glass); L.set(0, gy + 1, hd, B.glass); if (big) { L.set(-hw, gy + 1, -1, B.glass); L.set(hw, gy + 1, 1, B.glass); }
+    if (pal.flat) { L.fill(-hw - 1, gy + 4, -hd - 1, hw + 1, gy + 4, hd + 1, pal.roof); L.fill(-hw, gy + 5, -hd, hw, gy + 5, hd, pal.wall); L.clear(-hw + 1, gy + 5, -hd + 1, hw - 1, gy + 5, hd - 1); }
+    else for (let k = 0; ; k++) {
+      const a = -hd - 1 + k, b = hd + 1 - k; if (a > b) break; const y = gy + 3 + k;
+      L.fill(-hw - 1, y, a, hw + 1, y, a, pal.roof); L.fill(-hw - 1, y, b, hw + 1, y, b, pal.roof);
+      if (b - a >= 2 && k > 0) { L.fill(-hw, y, a + 1, -hw, y, b - 1, pal.wall); L.fill(hw, y, a + 1, hw, y, b - 1, pal.wall); }
+    }
+    // dentro
+    L.bed(bedSide * (hw - 1), gy, hd - 1, 2);
+    if (table) L.set(-bedSide * (hw - 1), gy, hd - 1, B.crafting_table); else L.set(-bedSide * (hw - 1), gy, hd - 1, B.furnace, L.face(2));
+    if (hasChest) L.chest(-bedSide * (hw - 1), gy, -hd + 1, 1, 0);
+    L.torch(bedSide * (hw - 1), gy, -hd + 1);
+    L.set(0, gy - 1, -hd - 1, pal.path); L.clear(0, gy, -hd - 1, 0, gy + 1, -hd - 1);
+  }
+  function farm(P, x0, z0, rot, pal, rr) {
+    const L = local(P, x0, z0, rot); const gy = P.col(x0, z0) + 1;
+    const crops = rr() < 0.3 ? 'pumpkin' : 'wheat';
+    L.clear(-4, gy, -3, 4, gy + 3, 3);
+    L.found(-4, -3, 4, 3, gy - 1, B.dirt);
+    L.fill(-4, gy - 1, -3, 4, gy - 1, 3, pal.frame === B.smooth_sandstone ? B.sandstone : B.oak_log, L.axisU());
+    L.fill(-3, gy - 1, -2, 3, gy - 1, 2, B.farmland); L.fill(-3, gy - 1, 0, 3, gy - 1, 0, B.water);
+    for (let v = -2; v <= 2; v++) for (let u = -3; u <= 3; u++) {
+      if (v === 0) continue; const [x, z] = L.W(u, v);
+      if (crops === 'wheat') L.set(u, gy, v, B.wheat, Math.floor(P.h(x, gy, z) * 8)); else if (P.h(x, gy, z) < 0.18) L.set(u, gy, v, B.pumpkin);
+    }
+  }
+  function well(P, x0, z0, pal) {
+    const L = local(P, x0, z0, 0); const gy = P.col(x0, z0) + 1;
+    L.clear(-3, gy, -3, 2, gy + 4, 2);
+    L.found(-2, -2, 1, 1, gy - 1, pal.found);
+    L.fill(-3, gy - 1, -3, 2, gy - 1, 2, pal.path);
+    L.fill(-2, gy - 4, -2, 1, gy, 1, pal.found); L.fill(-1, gy - 3, -1, 0, gy - 1, 0, B.water); L.clear(-1, gy, -1, 0, gy, 0);
+    for (const [u, v] of [[-2, -2], [1, -2], [-2, 1], [1, 1]]) L.fill(u, gy + 1, v, u, gy + 2, v, pal.frame);
+    L.fill(-2, gy + 3, -2, 1, gy + 3, 1, pal.roof);
+  }
+  function lamp(P, x0, z0, pal) {
+    const gy = P.col(x0, z0) + 1; for (let y = gy; y < gy + 6; y++) P.set(x0, y, z0, 0);
+    P.set(x0, gy, z0, pal.frame); P.set(x0, gy + 1, z0, pal.frame); P.set(x0, gy + 2, z0, B.glowstone);
+  }
+  function path(P, x0, z0, x1, z1, pal) {
+    const put = (x, z) => { if (!P.inside(x, z)) return; const h = P.col(x, z); if (h < SEA) { P.set(x, SEA, z, B.oak_planks); return; } P.set(x, h, z, pal.path); for (let y = h + 1; y < h + 4; y++) { const c = P.get(x, y, z); if (c !== 0 && c !== B.chest && c !== B.torch) P.set(x, y, z, 0); } };
+    let x = x0, z = z0; const sx = Math.sign(x1 - x0), sz = Math.sign(z1 - z0);
+    while (x !== x1) { put(x, z); put(x, z + 1); x += sx; }
+    while (z !== z1) { put(x, z); put(x + 1, z); z += sz; }
+  }
+
+  const BUILD = {
+    village(s, P) {
+      const r = mulberry32(s.seed); const pal = villagePal(s.b);
+      const n = 6 + Math.floor(r() * 5); const parts = []; const used = [];
+      for (let i = 0; i < n; i++) {
+        const ang = (i / n) * Math.PI * 2 + r() * 0.6, dist = 13 + r() * 18;
+        const hx = s.wx + Math.round(Math.cos(ang) * dist), hz = s.wz + Math.round(Math.sin(ang) * dist);
+        const t = r(); const type = t < 0.42 ? 'house' : t < 0.62 ? 'big' : t < 0.88 ? 'farm' : 'lamp';
+        const dx = s.wx - hx, dz = s.wz - hz;
+        const rot = Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 3 : 1) : (dz > 0 ? 0 : 2); // la puerta mira al centro
+        const seed = Math.floor(r() * 1e9);
+        if (used.some(([ux, uz]) => Math.abs(ux - hx) < 10 && Math.abs(uz - hz) < 10)) continue;
+        used.push([hx, hz]); parts.push({ type, hx, hz, rot, seed });
+      }
+      for (const p of parts) { const h = P.col(p.hx, p.hz); if (h < SEA || Math.abs(h - s.h) > 9) p.skip = true; }
+      for (const p of parts) if (!p.skip && p.type !== 'lamp') path(P, s.wx, s.wz, p.hx, p.hz, pal);
+      well(P, s.wx, s.wz, pal);
+      for (const p of parts) {
+        if (p.skip) continue; const rr = mulberry32(p.seed);
+        // frente de la casa hacia el centro: con giro 0 la puerta está en -v
+        if (p.type === 'house' || p.type === 'big') house(P, p.hx, p.hz, (p.rot + 2) & 3, pal, p.type === 'big', rr);
+        else if (p.type === 'farm') farm(P, p.hx, p.hz, p.rot, pal, rr);
+        else lamp(P, p.hx, p.hz, pal);
+      }
+    },
+    desert_temple(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const gy = s.h + 1;
+      L.found(-10, -10, 10, 10, gy, B.sandstone);
+      for (let k = 0; k <= 9; k++) L.fill(-10 + k, gy + k, -10 + k, 10 - k, gy + k, 10 - k, B.sandstone);
+      L.clear(-6, gy + 1, -6, 6, gy + 3, 6);
+      L.fill(-6, gy, -6, 6, gy, 6, B.cut_sandstone);
+      L.fill(-2, gy, -2, 2, gy, 2, B.blue_terracotta); L.fill(-2, gy, 0, 2, gy, 0, B.orange_terracotta); L.fill(0, gy, -2, 0, gy, 2, B.orange_terracotta);
+      // torres de la entrada
+      for (const u of [-9, 6]) { L.fill(u, gy, -10, u + 3, gy + 11, -7, B.sandstone); L.clear(u + 1, gy + 1, -9, u + 2, gy + 10, -8); L.fill(u, gy + 9, -10, u + 3, gy + 9, -7, B.orange_terracotta); L.fill(u, gy + 12, -10, u + 3, gy + 12, -7, B.cut_sandstone); }
+      L.clear(-1, gy + 1, -10, 1, gy + 3, -6); // entrada
+      L.fill(-1, gy + 4, -10, 1, gy + 4, -10, B.orange_terracotta);
+      // cámara del tesoro escondida
+      L.fill(-5, gy - 14, -5, 5, gy - 7, 5, B.sandstone); L.clear(-4, gy - 13, -4, 4, gy - 9, 4);
+      L.fill(-4, gy - 14, -4, 4, gy - 14, 4, B.cut_sandstone); L.set(0, gy - 14, 0, B.blue_terracotta);
+      L.clear(0, gy - 8, 0, 0, gy, 0); // agujero en el centro del suelo
+      L.chest(0, gy - 13, 4, 2, 0); L.chest(0, gy - 13, -4, 2, 2); L.chest(4, gy - 13, 0, 2, 1); L.chest(-4, gy - 13, 0, 2, 3);
+      L.fill(-1, gy - 15, -1, 1, gy - 15, 1, B.tnt); // ¡cuidado al picar el suelo!
+    },
+    forest_temple(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const gy = s.h + 1;
+      const W = (u, y, v) => { const [x, z] = L.W(u, v); return mix(P, x, y, z, B.cobblestone, B.mossy_cobblestone, B.mossy_stone_bricks, 0.35, 0.15); };
+      L.clear(-6, gy, -7, 6, gy + 11, 7); L.found(-6, -7, 6, 7, gy, B.cobblestone);
+      for (let v = -7; v <= 7; v++) for (let u = -6; u <= 6; u++) for (let y = gy - 1; y <= gy + 9; y++) {
+        const edge = Math.abs(u) === 6 || Math.abs(v) === 7, floor = y === gy - 1 || y === gy + 4 || y === gy + 9;
+        if (edge || floor) L.set(u, y, v, W(u, y, v));
+      }
+      L.clear(-1, gy, -7, 1, gy + 2, -7); L.clear(-1, gy + 5, 7, 1, gy + 6, 7);
+      for (const v of [-4, 0, 4]) { L.set(-6, gy + 2, v, B.glass); L.set(6, gy + 2, v, B.glass); L.set(-6, gy + 7, v, B.glass); L.set(6, gy + 7, v, B.glass); }
+      // tejado escalonado
+      for (let k = 0; k < 4; k++) L.fill(-6 + k * 2, gy + 10 + k, -7 + k * 2, 6 - k * 2, gy + 10 + k, 7 - k * 2, B.mossy_cobblestone);
+      // escalera de mano entre pisos
+      L.clear(4, gy + 4, 6, 4, gy + 4, 6); for (let y = gy; y <= gy + 5; y++) L.ladder(4, y, 6, 0);
+      L.chest(-4, gy, 5, 2, 2); L.chest(0, gy + 5, 5, 2, 2); L.torch(-4, gy, -5); L.torch(4, gy, -5); L.torch(-4, gy + 5, -5);
+      L.set(0, gy + 5, 0, B.gold_block);
+    },
+    swamp_hut(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const fy = Math.max(s.h, SEA) + 3;
+      for (const [u, v] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) { const h = L.col(u, v); L.fill(u, Math.max(1, h - 1), v, u, fy - 1, v, B.oak_log); }
+      L.fill(-3, fy, -4, 3, fy, 3, B.spruce_planks);
+      L.fill(-3, fy + 1, -3, 3, fy + 3, 3, B.spruce_planks); L.clear(-2, fy + 1, -2, 2, fy + 3, 2);
+      for (const [u, v] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) L.fill(u, fy + 1, v, u, fy + 3, v, B.oak_log);
+      L.clear(0, fy + 1, -3, 0, fy + 2, -3); L.set(-3, fy + 2, 0, B.glass); L.set(3, fy + 2, 0, B.glass);
+      L.fill(-4, fy + 4, -4, 4, fy + 4, 4, B.spruce_planks); L.fill(-2, fy + 5, -2, 2, fy + 5, 2, B.spruce_planks);
+      L.set(-2, fy + 1, 2, B.crafting_table); L.chest(2, fy + 1, 2, 6, 2); L.set(-2, fy + 1, -2, B.brown_mushroom); L.torch(2, fy + 1, -2);
+    },
+    igloo(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const gy = s.h + 1;
+      L.found(-4, -4, 4, 4, gy - 1, B.snow_block);
+      for (let v = -4; v <= 4; v++) for (let u = -4; u <= 4; u++) for (let y = 0; y <= 4; y++) {
+        const d = Math.hypot(u, v, y * 1.25);
+        if (d <= 4.3) L.set(u, gy + y, v, d > 3.3 ? B.snow_block : 0);
+      }
+      L.fill(-3, gy - 1, -3, 3, gy - 1, 3, B.white_wool);
+      L.clear(0, gy, -4, 0, gy + 1, -4); L.set(0, gy, -5, 0); L.set(-3, gy + 1, 0, B.ice); L.set(3, gy + 1, 0, B.ice);
+      L.bed(-2, gy, 1, 2); L.set(2, gy, 1, B.furnace, L.face(3)); L.set(2, gy, -1, B.crafting_table); L.chest(-2, gy, -1, 6, 1); L.torch(0, gy, 2);
+    },
+    well(s, P) { well(P, s.wx, s.wz, villagePal(BI.DESERT)); },
+    mineshaft(s, P) {
+      const r = mulberry32(s.seed); const y0 = s.y;
+      // trazado de túneles: se calcula entero con la semilla (igual en todos los chunks)
+      const segs = []; const queue = [[s.wx, s.wz, Math.floor(r() * 4), 0]];
+      while (queue.length && segs.length < 34) {
+        const [x, z, d, depth] = queue.shift(); const len = 8 + Math.floor(r() * 4) * 4;
+        const dx = [0, 1, 0, -1][d], dz = [-1, 0, 1, 0][d];
+        const ex = x + dx * len, ez = z + dz * len;
+        if (Math.hypot(ex - s.wx, ez - s.wz) > 64) continue;
+        segs.push({ x, z, dx, dz, len });
+        if (depth < 6) { const nb = 1 + Math.floor(r() * 3); for (let b = 0; b < nb; b++) { const nd = b === 0 ? d : (d + (r() < 0.5 ? 1 : 3)) & 3; queue.push([ex, ez, nd, depth + 1]); } }
+      }
+      // sala de inicio
+      for (let z = s.wz - 3; z <= s.wz + 3; z++) for (let x = s.wx - 3; x <= s.wx + 3; x++) { if (!P.inside(x, z) || P.col(x, z) < y0 + 7) continue; for (let y = y0; y <= y0 + 3; y++) P.set(x, y, z, 0); P.set(x, y0 - 1, z, B.dirt); if (Math.abs(x - s.wx) === 3 && Math.abs(z - s.wz) === 3) P.set(x, y0, z, B.torch); }
+      for (const g of segs) for (let i = 0; i <= g.len; i++) {
+        const cx = g.x + g.dx * i, cz = g.z + g.dz * i; const support = i % 4 === 2;
+        for (let w = -1; w <= 1; w++) {
+          const x = cx + (g.dz !== 0 ? w : 0), z = cz + (g.dx !== 0 ? w : 0);
+          if (!P.inside(x, z) || P.col(x, z) < y0 + 6) continue;
+          for (let y = y0; y <= y0 + 2; y++) P.set(x, y, z, 0);
+          if (P.get(x, y0 - 1, z) === 0 || P.get(x, y0 - 1, z) === B.lava || P.get(x, y0 - 1, z) === B.water) P.set(x, y0 - 1, z, B.oak_planks);
+          if (support) { if (w !== 0) { P.set(x, y0, z, B.oak_planks); P.set(x, y0 + 1, z, B.oak_planks); } P.set(x, y0 + 2, z, B.oak_planks); }
+          const hh = P.h(x, y0, z, 5);
+          if (w !== 0 && !support && hh < 0.006) P.set(x, y0, z, B.chest, 0x10 | (3 << 5));
+          else if (w === 0 && i % 4 === 0 && hh < 0.12) P.set(x, y0, z, B.torch);
+        }
+      }
+    },
+    shipwreck(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const y0 = Math.max(s.h, 3) + 1; const r = mulberry32(s.seed);
+      const wood = r() < 0.5 ? B.spruce_planks : B.oak_planks, log = wood === B.spruce_planks ? B.spruce_log : B.oak_log;
+      const mast = 4 + Math.floor(r() * 5), broken = r() < 0.5;
+      const fl = (y) => (y <= SEA ? B.water : 0);
+      for (let v = -7; v <= 7; v++) {
+        const hw = Math.abs(v) >= 6 ? 1 : 2; if (broken && v > 4) continue;
+        for (let u = -hw; u <= hw; u++) for (let y = y0; y <= y0 + 3; y++) {
+          const [x, z] = L.W(u, v); const side = Math.abs(u) === hw || Math.abs(v) === 7 || y === y0;
+          if (side) { if (P.h(x, y, z, 9) > 0.18) L.set(u, y, v, wood); else L.set(u, y, v, fl(y)); }
+          else L.set(u, y, v, fl(y));
+        }
+        if (Math.abs(v) < 6) for (let u = -hw + 1; u <= hw - 1; u++) { const [x, z] = L.W(u, v); if (P.h(x, y0 + 3, z, 10) > 0.3) L.set(u, y0 + 3, v, wood); }
+      }
+      for (let y = y0 + 1; y <= y0 + 3 + mast; y++) L.set(0, y, 0, log);
+      L.fill(-2, y0 + 3 + mast - 1, 0, 2, y0 + 3 + mast - 1, 0, log, L.axisU());
+      L.chest(0, y0 + 1, 5, 4, 2); if (!broken) L.chest(0, y0 + 1, -5, 4, 0);
+    },
+    ocean_ruins(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const y0 = s.h + 1; const r = mulberry32(s.seed); const warm = r() < 0.4;
+      const stone = (x, y, z) => warm ? mix(P, x, y, z, B.prismarine_bricks, B.prismarine, B.dark_prismarine, 0.3, 0.15) : mix(P, x, y, z, B.stone_bricks, B.mossy_stone_bricks, B.cracked_stone_bricks, 0.35, 0.2);
+      L.found(-3, -3, 3, 3, y0 - 1, B.gravel);
+      for (let v = -3; v <= 3; v++) for (let u = -3; u <= 3; u++) {
+        const [x, z] = L.W(u, v); L.set(u, y0 - 1, v, stone(x, y0 - 1, z));
+        if (Math.abs(u) === 3 || Math.abs(v) === 3) { const hh = 1 + Math.floor(P.h(x, 0, z, 3) * 4); for (let y = y0; y < y0 + hh; y++) L.set(u, y, v, stone(x, y, z)); for (let y = y0 + hh; y < y0 + 5; y++) L.set(u, y, v, y <= SEA ? B.water : 0); }
+        else for (let y = y0; y < y0 + 5; y++) L.set(u, y, v, y <= SEA ? B.water : 0);
+      }
+      L.clear(0, y0, -3, 0, y0 + 2, -3, B.water); L.chest(1, y0, 1, 7, 2);
+    },
+    treasure(s, P) { P.set(s.wx, s.h - 2, s.wz, B.chest, 0x10 | (4 << 5)); },
+    fossil(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const y = s.y; const ax = L.axisU();
+      for (let u = -5; u <= 4; u++) L.set(u, y, 0, B.bone_block, ax);
+      for (let u = -3; u <= 3; u += 2) for (const sd of [-1, 1]) { L.set(u, y, sd, B.bone_block, L.axisV()); L.set(u, y, sd * 2, B.bone_block, 0); L.set(u, y + 1, sd * 2, B.bone_block, 0); L.set(u, y + 2, sd, B.bone_block, L.axisV()); }
+      L.fill(5, y - 1, -1, 7, y + 1, 1, B.bone_block); L.set(6, y, 0, B.coal_ore); L.set(7, y, -1, 0);
+    },
+    watchtower(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const gy = s.h + 1;
+      L.clear(-4, gy, -4, 4, gy + 18, 4); L.found(-3, -3, 3, 3, gy - 1, B.cobblestone);
+      L.fill(-3, gy - 1, -3, 3, gy - 1, 3, B.cobblestone);
+      L.fill(-3, gy, -3, 3, gy + 12, 3, B.dark_oak_planks); L.clear(-2, gy, -2, 2, gy + 12, 2);
+      for (const [u, v] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) L.fill(u, gy, v, u, gy + 13, v, B.dark_oak_log);
+      for (const y of [gy + 4, gy + 8, gy + 12]) { L.fill(-2, y, -2, 2, y, 2, B.dark_oak_planks); L.set(1, y, 2, 0); }
+      for (let y = gy; y <= gy + 12; y++) L.ladder(1, y, 2, 0);
+      L.clear(0, gy, -3, 0, gy + 1, -3);
+      for (const y of [gy + 2, gy + 6, gy + 10]) { L.set(-3, y, 0, B.glass); L.set(3, y, 0, B.glass); L.set(0, y, -3, B.glass); }
+      L.fill(-4, gy + 13, -4, 4, gy + 13, 4, B.dark_oak_planks); L.set(1, gy + 13, 2, 0); L.ladder(1, gy + 13, 2, 0);
+      for (let u = -4; u <= 4; u++) for (const v of [-4, 4]) { L.set(u, gy + 14, v, B.dark_oak_planks); L.set(v, gy + 14, u, B.dark_oak_planks); }
+      for (const [u, v] of [[-4, -4], [4, -4], [-4, 4], [4, 4]]) { L.fill(u, gy + 14, v, u, gy + 16, v, B.dark_oak_log); }
+      L.fill(-4, gy + 17, -4, 4, gy + 17, 4, B.dark_oak_planks); L.fill(-3, gy + 18, -3, 3, gy + 18, 3, B.dark_oak_planks);
+      L.chest(-2, gy + 13, -2, 6, 0); L.torch(2, gy + 13, -2); L.torch(-2, gy, -2); L.torch(-2, gy + 5, -2); L.torch(-2, gy + 9, -2);
+    },
+    ocean_temple(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const y0 = s.h + 1;
+      const wf = (y) => (y <= SEA ? B.water : 0);
+      L.found(-11, -11, 11, 11, y0 - 1, B.prismarine);
+      for (let v = -11; v <= 11; v++) for (let u = -11; u <= 11; u++) {
+        const au = Math.abs(u), av = Math.abs(v), m = Math.max(au, av);
+        for (let y = y0 - 1; y <= y0 + 17; y++) {
+          let id = wf(y);
+          const lvl = y - y0;
+          if (lvl === -1) id = B.prismarine_bricks;
+          else if (lvl <= 8 && m === 11) id = B.prismarine_bricks;
+          else if (lvl === 8 && m <= 11) id = B.prismarine_bricks;
+          else if (lvl > 8 && lvl <= 13 && m === 7) id = B.dark_prismarine;
+          else if (lvl === 13 && m <= 7) id = B.dark_prismarine;
+          else if (lvl > 13 && lvl <= 16 && m === 3) id = B.prismarine;
+          else if (lvl === 17 && m <= 3) id = B.prismarine_bricks;
+          else if (m > 11 || (lvl > 8 && m > 7) || (lvl > 13 && m > 3)) continue;
+          if ((au === 11 && av === 11) || (au === 7 && av === 7 && lvl > 8)) id = lvl % 4 === 2 ? B.sea_lantern : B.dark_prismarine;
+          L.set(u, y, v, id);
+        }
+      }
+      for (const [u, v] of [[-6, -6], [6, -6], [-6, 6], [6, 6]]) for (let y = y0; y < y0 + 8; y++) L.set(u, y, v, y === y0 + 4 ? B.sea_lantern : B.prismarine_bricks);
+      L.clear(-2, y0, -11, 2, y0 + 4, -11, B.water); L.fill(-2, y0 + 5, -11, 2, y0 + 5, -11, B.sea_lantern);
+      L.fill(-3, y0 + 2, -3, 3, y0 + 6, 3, B.dark_prismarine); L.clear(-2, y0 + 3, -2, 2, y0 + 5, 2, B.water); L.clear(0, y0 + 3, -3, 0, y0 + 4, -3, B.water);
+      L.fill(-1, y0 + 3, -1, 0, y0 + 4, 0, B.gold_block);
+      L.chest(2, y0 + 3, 2, 7, 2);
+    },
+    mansion(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const gy = s.h + 1; const r = mulberry32(s.seed);
+      const HU = 12, HV = 9;
+      L.clear(-HU - 1, gy, -HV - 1, HU + 1, gy + 16, HV + 1);
+      L.found(-HU, -HV, HU, HV, gy - 1, B.cobblestone);
+      L.fill(-HU, gy - 1, -HV, HU, gy - 1, HV, B.cobblestone);
+      for (const fy of [gy, gy + 5]) {
+        L.fill(-HU, fy, -HV, HU, fy + 4, HV, B.dark_oak_planks); L.clear(-HU + 1, fy, -HV + 1, HU - 1, fy + 3, HV - 1);
+        L.fill(-HU + 1, fy - 1, -HV + 1, HU - 1, fy - 1, HV - 1, fy === gy ? B.oak_planks : B.dark_oak_planks);
+        for (let u = -HU; u <= HU; u += 4) for (const v of [-HV, HV]) L.fill(u, fy, v, u, fy + 4, v, B.dark_oak_log);
+        for (const u of [-HU, HU]) for (let v = -HV; v <= HV; v += 3) L.fill(u, fy, v, u, fy + 4, v, B.dark_oak_log);
+        for (let u = -HU + 2; u <= HU - 2; u += 4) for (const v of [-HV, HV]) L.fill(u, fy + 1, v, u, fy + 2, v, B.glass);
+        for (let v = -HV + 2; v <= HV - 2; v += 3) for (const u of [-HU, HU]) L.fill(u, fy + 1, v, u, fy + 2, v, B.glass);
+        // paredes interiores: 3 x 2 habitaciones
+        for (const u of [-4, 4]) L.fill(u, fy, -HV + 1, u, fy + 3, HV - 1, B.birch_planks || B.oak_planks);
+        L.fill(-HU + 1, fy, 0, HU - 1, fy + 3, 0, B.birch_planks || B.oak_planks);
+        for (const u of [-8, 0, 8]) for (const v of [-1, 1]) L.clear(u, fy, v * 0, u, fy + 1, v * 0);
+        for (const u of [-4, 4]) for (const v of [-5, 5]) L.clear(u, fy, v, u, fy + 1, v);
+      }
+      L.clear(0, gy, -HV, 1, gy + 2, -HV); L.fill(0, gy + 3, -HV, 1, gy + 3, -HV, B.dark_oak_log, L.axisU());
+      // tejado
+      // tejado poco inclinado: cada escalón entra dos bloques
+      for (let k = 0; ; k++) {
+        const a = -HV - 1 + 2 * k, b = HV + 1 - 2 * k; if (a > b) break; const y = gy + 10 + k;
+        L.fill(-HU - 1, y, a, HU + 1, y, Math.min(a + 1, b), B.dark_oak_planks); L.fill(-HU - 1, y, Math.max(b - 1, a), HU + 1, y, b, B.dark_oak_planks);
+        if (b - a >= 4) { L.fill(-HU, y, a + 2, -HU, y, b - 2, B.dark_oak_planks); L.fill(HU, y, a + 2, HU, y, b - 2, B.dark_oak_planks); for (let u = -HU + 4; u <= HU - 4; u += 8) L.set(u, y, a + 2, B.glass); }
+        if (b - a < 4) L.fill(-HU - 1, y, a, HU + 1, y, b, B.dark_oak_planks);
+      }
+      // habitaciones: biblioteca, dormitorios, almacén, comedor
+      const rooms = [[-8, -5], [0, -5], [8, -5], [-8, 5], [0, 5], [8, 5]];
+      const kinds = ['library', 'bed', 'store', 'dining', 'bed', 'library', 'store', 'bed', 'wool', 'dining', 'bed', 'store'];
+      for (let f = 0; f < 2; f++) for (let i = 0; i < 6; i++) {
+        const [cu, cv] = rooms[i]; const fy = f ? gy + 5 : gy; const kind = kinds[(i + f * 6 + Math.floor(r() * 3)) % kinds.length];
+        if (kind === 'library') { L.fill(cu - 3, fy, cv + (cv > 0 ? 3 : -3), cu + 3, fy + 2, cv + (cv > 0 ? 3 : -3), B.bookshelf); L.set(cu, fy, cv, B.crafting_table); }
+        else if (kind === 'bed') { L.bed(cu - 2, fy, cv + (cv > 0 ? 2 : -2), cv > 0 ? 2 : 0); L.bed(cu + 2, fy, cv + (cv > 0 ? 2 : -2), cv > 0 ? 2 : 0); }
+        else if (kind === 'store') { L.chest(cu - 1, fy, cv + (cv > 0 ? 3 : -3), 5, cv > 0 ? 2 : 0); L.chest(cu + 1, fy, cv + (cv > 0 ? 3 : -3), 5, cv > 0 ? 2 : 0); }
+        else if (kind === 'wool') L.fill(cu - 2, fy - 1, cv - 2, cu + 2, fy - 1, cv + 2, B.red_wool);
+        else { L.fill(cu - 1, fy - 1, cv - 1, cu + 1, fy - 1, cv + 1, B.gray_wool); L.set(cu, fy, cv, B.oak_planks); }
+        L.torch(cu + 2, fy, cv);
+      }
+      // escaleras de mano entre pisos
+      L.clear(-1, gy + 4, -1, -1, gy + 4, -1); for (let y = gy; y <= gy + 5; y++) L.ladder(-1, y, -1, 0);
+    },
+    obsidian_ruins(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const gy = s.h + 1;
+      for (let v = -4; v <= 4; v++) for (let u = -4; u <= 4; u++) {
+        const [x, z] = L.W(u, v); const d = Math.hypot(u, v); const hh = P.h(x, 1, z, 4);
+        if (d < 4.5 && hh < 0.75) { const h = P.col(x, z); if (h >= 1) L.set(u, h, v, hh < 0.15 ? B.magma_block : B.netherrack); }
+      }
+      for (let y = 0; y < 5; y++) for (let u = -1; u <= 2; u++) {
+        const frame = u === -1 || u === 2 || y === 0 || y === 4; if (!frame) { L.set(u, gy + y, 0, 0); continue; }
+        const [x, z] = L.W(u, 0); const hh = P.h(x, gy + y, z, 6);
+        if (hh < 0.72) L.set(u, gy + y, 0, hh < 0.18 ? B.crying_obsidian : B.obsidian);
+      }
+      L.set(3, gy, 2, B.gold_block); L.chest(-2, gy, 2, 7, 0);
+    },
+    stronghold(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const y0 = s.y;
+      const sb = (x, y, z) => mix(P, x, y, z, B.stone_bricks, B.mossy_stone_bricks, B.cracked_stone_bricks, 0.25, 0.15);
+      const room = (cu, cv, hu, hv, hgt) => {
+        for (let v = cv - hv; v <= cv + hv; v++) for (let u = cu - hu; u <= cu + hu; u++) for (let y = y0 - 1; y <= y0 + hgt; y++) {
+          const [x, z] = L.W(u, v); const shell = Math.abs(u - cu) === hu || Math.abs(v - cv) === hv || y === y0 - 1 || y === y0 + hgt;
+          L.set(u, y, v, shell ? sb(x, y, z) : 0);
+        }
+      };
+      const hall = (u0, v0, u1, v1) => { const along = u0 === u1; const n = along ? Math.abs(v1 - v0) : Math.abs(u1 - u0); for (let i = 0; i <= n; i++) { const u = along ? u0 : Math.min(u0, u1) + i, v = along ? Math.min(v0, v1) + i : v0; for (let w = -2; w <= 2; w++) for (let y = y0 - 1; y <= y0 + 4; y++) { const uu = along ? u + w : u, vv = along ? v : v + w; const [x, z] = L.W(uu, vv); const shell = Math.abs(w) === 2 || y === y0 - 1 || y === y0 + 4; L.set(uu, y, vv, shell ? sb(x, y, z) : 0); } if (i % 6 === 3) L.torch(along ? u + 1 : u, y0, along ? v : v + 1); } };
+      hall(0, -6, 0, -18); hall(0, 6, 0, 18); hall(-6, 0, -18, 0); hall(6, 0, 18, 0);
+      // sala central con fuente
+      room(0, 0, 6, 6, 7); L.fill(-2, y0 - 1, -2, 2, y0 - 1, 2, B.stone_bricks); L.fill(-1, y0 - 1, -1, 1, y0 - 1, 1, B.water); L.set(0, y0, 0, B.stone_bricks); L.set(0, y0 + 1, 0, B.water);
+      for (const [u, v] of [[-5, -5], [5, -5], [-5, 5], [5, 5]]) L.torch(u, y0, v);
+      for (const [u, v] of [[0, -6], [0, 6], [-6, 0], [6, 0]]) L.clear(u - 1, y0, v - 1 * 0, u + 1, y0 + 2, v);
+      // biblioteca
+      room(0, -24, 7, 5, 8);
+      for (let u = -6; u <= 6; u += 3) L.fill(u, y0, -28, u, y0 + 4, -21, B.bookshelf);
+      L.clear(-1, y0, -19, 1, y0 + 2, -19); L.chest(-6, y0, -20, 5, 2); L.chest(6, y0, -28, 5, 0); L.torch(0, y0, -24);
+      // almacén
+      room(0, 24, 5, 5, 5); L.clear(-1, y0, 19, 1, y0 + 2, 19);
+      for (const u of [-3, 0, 3]) L.chest(u, y0, 28, 5, 2); L.torch(-4, y0, 24); L.torch(4, y0, 24);
+      // celdas
+      room(-24, 0, 5, 6, 5); L.clear(-19, y0, -1, -19, y0 + 2, 1);
+      for (const v of [-4, 0, 4]) { L.fill(-27, y0, v + 1, -22, y0 + 3, v + 1, B.cobblestone); L.clear(-26, y0, v, -23, y0 + 2, v); } L.torch(-21, y0, 0);
+      // sala de lava
+      room(24, 0, 6, 6, 6); L.clear(19, y0, -1, 19, y0 + 2, 1);
+      L.fill(22, y0 - 1, -3, 28, y0 - 1, 3, B.lava); L.fill(21, y0 - 1, -4, 21, y0 - 1, 4, B.stone_bricks);
+      L.set(25, y0, 0, B.gold_block); L.torch(20, y0, -4); L.torch(20, y0, 4);
+    },
+    buried_ruins(s, P) {
+      const L = local(P, s.wx, s.wz, s.rot); const gy = s.h + 1; const r = mulberry32(s.seed);
+      const cols = [B.terracotta, B.orange_terracotta, B.brown_terracotta, B.light_gray_terracotta, B.red_terracotta, B.bricks];
+      for (let k = 0; k < 4; k++) {
+        const u0 = -6 + Math.floor(r() * 9), v0 = -6 + Math.floor(r() * 9), along = r() < 0.5, len = 3 + Math.floor(r() * 5), mat = cols[Math.floor(r() * cols.length)];
+        for (let i = 0; i < len; i++) { const u = along ? u0 + i : u0, v = along ? v0 : v0 + i; const [x, z] = L.W(u, v); const top = P.col(x, z) - 3 + Math.floor(P.h(x, 0, z, 8) * 5); for (let y = P.col(x, z) - 4; y <= top; y++) L.set(u, y, v, mat); }
+      }
+      L.chest(0, gy - 3, 0, 7, 0);
+    },
+  };
+  function stamp(N, blocks, meta, cx, cz, I) {
+    const list = structsNear(N, cx, cz); if (!list.length) return;
+    const P = makeBuilder(N, blocks, meta, cx * 16, cz * 16, I);
+    for (const s of list) { try { BUILD[s.k](s, P); } catch (e) { if (STRUCT_ERRS.length < 20) STRUCT_ERRS.push(s.k + ': ' + (e && e.message)); } }
+  }
+
+  return { genChunk, column: (seed, x, z) => column(setup(seed), x, z), BI, treeList, findStruct, STRUCTS, STRUCT_ERRS };
 }
 
 // ---- 02_registry.js ----
@@ -2139,6 +2642,7 @@ function columnHeight(x, z) { // altura del terreno generado (sin ediciones)
 // ============================================================
 //  Generación de mallas (chunks, objetos en mano, bloques sueltos)
 // ============================================================
+const STRUCT_NAMES = { village: 'Aldea', desert_temple: 'Templo del desierto', forest_temple: 'Templo del bosque', swamp_hut: 'Cabaña del pantano', igloo: 'Iglú', well: 'Pozo del desierto', mineshaft: 'Mina abandonada', shipwreck: 'Barco hundido', ocean_ruins: 'Ruinas oceánicas', treasure: 'Tesoro enterrado', fossil: 'Fósil', watchtower: 'Torre de vigía', ocean_temple: 'Templo oceánico', mansion: 'Mansión del bosque', obsidian_ruins: 'Ruinas de obsidiana', stronghold: 'Fortaleza subterránea', buried_ruins: 'Ruinas enterradas' };
 const BIOME_NAMES = ['Océano', 'Playa', 'Llanura', 'Bosque', 'Bosque de abedules', 'Taiga', 'Llanura nevada', 'Desierto', 'Sabana', 'Pantano', 'Montañas', 'Océano helado', 'Picos nevados', 'Pradera de flores'];
 const hexRGB = (h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
 const GRASS_C = ['#8eb971', '#91bd59', '#91bd59', '#79c05a', '#88bb67', '#86b783', '#80b497', '#bfb755', '#bfb755', '#6a7039', '#8ab689', '#80b497', '#80b497', '#79c05a'].map(hexRGB);
@@ -4535,6 +5039,7 @@ const Game = {
     switch (c) {
       case 'ayuda': case 'help':
         say('§eComandos: /gamemode, /time, /tp, /give, /kill, /seed, /difficulty, /summon, /setblock, /fill, /clear, /spawnpoint, /xp, /weather, /keepinventory, /locate');
+        say('§7/locate sirve para biomas y estructuras: aldea, templo del desierto, templo del bosque, cabaña, iglú, pozo, mina, barco, ruinas oceánicas, tesoro, fósil, torre, templo oceánico, mansión, ruinas de obsidiana, fortaleza, ruinas enterradas.');
         break;
       case 'gamemode': case 'gm': case 'modo': {
         const m = { survival: 0, supervivencia: 0, s: 0, '0': 0, creative: 1, creativo: 1, c: 1, '1': 1, spectator: 3, espectador: 3, sp: 3, '3': 3 }[(a[1] || '').toLowerCase()];
@@ -4585,7 +5090,10 @@ const Game = {
       case 'xp': { const n = parseInt(a[1]); if (isNaN(n)) { say('§cUso: /xp cantidad'); break; } if (/l$/i.test(a[1])) P.level += n; else P.addXP(n); break; }
       case 'weather': case 'clima': this.thunder = a[1] === 'thunder' || a[1] === 'tormenta'; say('§7Clima: ' + (this.thunder ? 'tormenta' : 'despejado')); break;
       case 'keepinventory': this.keepInv = !this.keepInv; say('§7Mantener inventario: ' + (this.keepInv ? 'sí' : 'no')); break;
-      case 'locate': { const G = Gen.local; const want = (a[1] || '').toLowerCase(); const idx = BIOME_NAMES.findIndex(n => n.toLowerCase().startsWith(want)); if (idx < 0) { say('§cBioma desconocido. Ej.: /locate desierto'); break; }
+      case 'locate': { const G = Gen.local; const want = (a.slice(1).join(' ') || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const SN = { aldea: 'village', pueblo: 'village', 'templo del desierto': 'desert_temple', piramide: 'desert_temple', 'templo del bosque': 'forest_temple', templo: 'desert_temple', cabana: 'swamp_hut', bruja: 'swamp_hut', iglu: 'igloo', pozo: 'well', mina: 'mineshaft', barco: 'shipwreck', 'barco hundido': 'shipwreck', 'ruinas oceanicas': 'ocean_ruins', 'ruinas del oceano': 'ocean_ruins', tesoro: 'treasure', fosil: 'fossil', torre: 'watchtower', 'templo oceanico': 'ocean_temple', monumento: 'ocean_temple', mansion: 'mansion', 'ruinas de obsidiana': 'obsidian_ruins', portal: 'obsidian_ruins', fortaleza: 'stronghold', 'ruinas enterradas': 'buried_ruins' };
+        const sk = SN[want] || Object.entries(SN).find(([n]) => want.length >= 3 && n.startsWith(want))?.[1];
+        if (sk && !World.flat) { say('§7Buscando…'); const s = G.findStruct(World.seed, sk, Math.floor(P.x), Math.floor(P.z)); if (s) say(`§7${STRUCT_NAMES[sk]} más ${/^(Templo|Pozo|Barco|Tesoro|Fósil|Iglú)/.test(STRUCT_NAMES[sk]) ? 'cercano' : 'cercana'}: ${s.wx}, ${s.k === 'mineshaft' || s.k === 'stronghold' || s.k === 'fossil' ? s.y : '~'}, ${s.wz} (a ${Math.round(Math.hypot(s.wx - P.x, s.wz - P.z))} bloques)`); else say('§cNo hay ninguna cerca.'); break; } const idx = want ? BIOME_NAMES.findIndex(n => n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').startsWith(want)) : -1; if (idx < 0) { say('§cNo conozco eso. Ej.: /locate desierto, /locate aldea, /locate templo del desierto, /locate barco, /locate fortaleza'); break; }
         for (let r = 1; r < 80; r++) for (let k = 0; k < r * 8; k++) { const ang = k / (r * 8) * Math.PI * 2; const x = Math.round(P.x + Math.cos(ang) * r * 32), z = Math.round(P.z + Math.sin(ang) * r * 32); if (G.column(World.seed, x, z).b === idx) { say(`§7${BIOME_NAMES[idx]} más cercano: ${x}, ~, ${z} (a ${Math.round(Math.hypot(x - P.x, z - P.z))} bloques)`); return; } }
         say('§7No se encontró cerca.'); break; }
       default: say('§cComando desconocido. Escribe /ayuda');
@@ -4823,13 +5331,24 @@ const GUI = {
     if (type === 'furnace' || type === 'chest') {
       const k = T.x + ',' + T.y + ',' + T.z; let be = World.blockEnts.get(k);
       if (!be) { be = type === 'furnace' ? { type: 'furnace', slots: [null, null, null], burn: 0, burnMax: 0, cook: 0, xp: 0 } : { type: 'chest', slots: new Array(27).fill(null) }; World.blockEnts.set(k, be); }
-      if (type === 'chest') { const m = World.getMeta(T.x, T.y, T.z); if (m & 0x10) { this.fillLoot(be); World.set(T.x, T.y, T.z, B.chest, m & 3, 3); } }
+      if (type === 'chest') { const m = World.getMeta(T.x, T.y, T.z); if (m & 0x10) { this.fillLoot(be, (m >> 5) & 7); World.set(T.x, T.y, T.z, B.chest, m & 3, 3); } }
       this.be = be;
     }
     this.result = null; Input.unlock(true);
   },
-  fillLoot(be) {
-    const r = Math.random; const pool = [['bread', 1, 4, 10], ['iron_ingot', 1, 5, 8], ['gold_ingot', 1, 4, 5], ['coal', 3, 12, 10], ['string', 1, 6, 8], ['bone', 1, 6, 8], ['gunpowder', 1, 6, 8], ['wheat', 2, 6, 8], ['bucket', 1, 1, 3], ['diamond', 1, 2, 2], ['golden_apple', 1, 1, 1], ['iron_pickaxe', 1, 1, 2], ['apple', 1, 4, 5], ['arrow', 4, 12, 5], ['lapis_lazuli', 2, 8, 4], ['emerald', 1, 2, 1], ['iron_helmet', 1, 1, 1], ['bow', 1, 1, 1]];
+  // botín de los cofres de las estructuras: [objeto, mín, máx, peso]
+  LOOT: [
+    /* 0 mazmorra */ [['bread', 1, 4, 10], ['iron_ingot', 1, 5, 8], ['gold_ingot', 1, 4, 5], ['coal', 3, 12, 10], ['string', 1, 6, 8], ['bone', 1, 6, 8], ['gunpowder', 1, 6, 8], ['wheat', 2, 6, 8], ['bucket', 1, 1, 3], ['diamond', 1, 2, 2], ['golden_apple', 1, 1, 1], ['iron_pickaxe', 1, 1, 2], ['apple', 1, 4, 5], ['arrow', 4, 12, 5], ['lapis_lazuli', 2, 8, 4], ['emerald', 1, 2, 1], ['iron_helmet', 1, 1, 1], ['bow', 1, 1, 1]],
+    /* 1 aldea */ [['bread', 1, 4, 12], ['apple', 1, 5, 10], ['wheat', 2, 8, 10], ['wheat_seeds', 2, 8, 8], ['oak_sapling', 1, 2, 5], ['iron_ingot', 1, 3, 5], ['emerald', 1, 3, 4], ['coal', 2, 6, 6], ['stick', 2, 6, 5], ['leather', 1, 3, 4], ['stone_pickaxe', 1, 1, 3], ['iron_shovel', 1, 1, 2], ['white_wool', 1, 3, 4], ['torch', 2, 8, 5], ['book', 1, 2, 3]],
+    /* 2 templo */ [['gold_ingot', 2, 7, 10], ['iron_ingot', 1, 5, 10], ['diamond', 1, 3, 4], ['emerald', 1, 3, 6], ['bone', 4, 6, 12], ['rotten_flesh', 3, 7, 12], ['golden_apple', 1, 1, 3], ['gunpowder', 1, 8, 8], ['sand', 1, 8, 6], ['string', 1, 8, 6], ['iron_chestplate', 1, 1, 2], ['diamond_sword', 1, 1, 1], ['gold_block', 1, 1, 1]],
+    /* 3 mina */ [['iron_ingot', 1, 5, 10], ['gold_ingot', 1, 3, 5], ['coal', 3, 8, 10], ['redstone', 4, 9, 6], ['lapis_lazuli', 4, 9, 5], ['diamond', 1, 2, 3], ['bread', 1, 3, 10], ['torch', 4, 12, 8], ['wheat_seeds', 2, 4, 6], ['iron_pickaxe', 1, 1, 2], ['raw_iron', 2, 6, 6], ['raw_gold', 1, 3, 3]],
+    /* 4 barco / tesoro */ [['gold_ingot', 1, 5, 10], ['iron_ingot', 1, 5, 10], ['emerald', 1, 5, 8], ['diamond', 1, 2, 4], ['gold_nugget', 2, 12, 8], ['iron_nugget', 2, 12, 8], ['paper', 1, 8, 6], ['bread', 1, 4, 6], ['coal', 2, 8, 6], ['tnt', 1, 2, 3], ['leather_chestplate', 1, 1, 2], ['golden_apple', 1, 1, 1]],
+    /* 5 fortaleza / mansión */ [['book', 1, 4, 10], ['paper', 2, 8, 8], ['iron_ingot', 1, 5, 10], ['gold_ingot', 1, 3, 6], ['diamond', 1, 3, 4], ['golden_apple', 1, 1, 3], ['bread', 1, 3, 8], ['apple', 1, 3, 6], ['iron_sword', 1, 1, 3], ['iron_chestplate', 1, 1, 2], ['diamond_pickaxe', 1, 1, 1], ['redstone', 4, 9, 4], ['emerald', 1, 3, 4], ['bookshelf', 1, 2, 2]],
+    /* 6 cabaña / iglú / torre */ [['golden_apple', 1, 1, 2], ['coal', 1, 4, 8], ['apple', 1, 3, 10], ['wheat', 2, 5, 8], ['rotten_flesh', 1, 3, 6], ['emerald', 1, 2, 4], ['stone_axe', 1, 1, 4], ['bread', 1, 3, 8], ['arrow', 2, 7, 6], ['bow', 1, 1, 3], ['iron_ingot', 1, 3, 5], ['brown_mushroom', 1, 2, 4]],
+    /* 7 ruinas */ [['gold_nugget', 2, 8, 10], ['coal', 1, 4, 10], ['wheat', 2, 4, 8], ['emerald', 1, 2, 5], ['iron_nugget', 2, 8, 8], ['gold_ingot', 1, 2, 4], ['stone_axe', 1, 1, 4], ['golden_apple', 1, 1, 1], ['leather_helmet', 1, 1, 3], ['prismarine', 1, 4, 3]],
+  ],
+  fillLoot(be, table) {
+    const r = Math.random; const pool = (this.LOOT[table | 0] || this.LOOT[0]).filter(p => ITEMS[p[0]]);
     const tot = pool.reduce((a, p) => a + p[3], 0);
     const n = 4 + (r() * 5 | 0);
     for (let i = 0; i < n; i++) { let k = r() * tot; const p = pool.find(p => (k -= p[3]) < 0) || pool[0]; let slot; do { slot = r() * 27 | 0; } while (be.slots[slot]); be.slots[slot] = { id: p[0], n: p[1] + (r() * (p[2] - p[1] + 1) | 0) }; }

@@ -1,8 +1,20 @@
 {
-  "latest": "1.1",
+  "latest": "1.2",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.2",
+      "date": "2026-11-15",
+      "title": "Estructuras por todo el mundo",
+      "notes": [
+        "17 estructuras nuevas: aldeas (cambian según el bioma), templo del desierto con cámara secreta, templo del bosque, cabaña del pantano, iglú, pozo del desierto, minas abandonadas, barcos hundidos, ruinas oceánicas, tesoros enterrados, fósiles, torres de vigía, templo oceánico, mansión del bosque, ruinas de obsidiana, fortaleza subterránea y ruinas enterradas",
+        "Cofres con botín distinto según la estructura",
+        "/locate encuentra estructuras: /locate aldea, /locate fortaleza, /locate barco…"
+      ],
+      "size": 149191,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.2.zip"
+    },
     {
       "id": "1.1",
       "date": "2026-11-15",
