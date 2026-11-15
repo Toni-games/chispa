@@ -289,7 +289,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.2';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.3';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -300,6 +300,8 @@ const POS_UNIT = 128;     // unidades de vértice por bloque
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+// ediciones guardadas: id (16 bits) | meta << 16
+const EV = (id, meta) => (id & 0xffff) | ((meta & 255) << 16), EID = (v) => v & 0xffff, EMETA = (v) => (v >>> 16) & 255;
 const ckey = (cx, cz) => ((cx + 32768) & 0xffff) * 65536 + ((cz + 32768) & 0xffff);
 const fmod = (a, n) => ((a % n) + n) % n;
 const DEG = Math.PI / 180;
@@ -510,7 +512,7 @@ function GEN_MODULE(B) {
 
   function genChunk(seed, cx, cz, flat) {
     const V = CS * CS * WH;
-    const blocks = new Uint8Array(V), meta = new Uint8Array(V);
+    const blocks = new Uint16Array(V), meta = new Uint8Array(V);
     const biomes = new Uint8Array(256), heights = new Uint8Array(256);
     const I = (x, y, z) => (y << 8) | (z << 4) | x;
     if (flat) {
@@ -1481,21 +1483,242 @@ for (const [k, n, col] of [['allium', 'Allium', '#a875d7'], ['azure_bluet', 'Rub
   defBlock(k, n, Object.assign({ tex: k, color: col, flower: !k.endsWith('mushroom') }, FLOWER));
 defBlock('fern', 'Helecho', Object.assign({}, FLOWER, { tex: 'fern', replaceable: true, tint: 'grass', color: '#5a8a2a', drops: (r) => r() < 0.125 ? [['wheat_seeds', 1]] : [] }));
 
+
+// ---- extra/blocks13.js ----
+
+// ============================================================
+//  1.3: muchísimos bloques nuevos + redstone.
+//  Se añaden siempre AL FINAL para no cambiar los números de los bloques que ya había
+//  (los mundos guardados los usan).
+// ============================================================
+const BOX = (o) => Object.assign({ render: 'box', opaque: false }, o);
+const has = (k) => B[k] !== undefined;
+const def13 = (key, name, o) => { if (!has(key)) defBlock(key, name, o); };
+
+// ---------- conjuntos de madera ----------
+const WOODS13 = [['oak', 'roble', '#a2824e'], ['birch', 'abedul', '#c4b27b'], ['spruce', 'abeto', '#735531'], ['acacia', 'acacia', '#a85a32'], ['jungle', 'jungla', '#a07351'], ['dark_oak', 'roble oscuro', '#432b14'], ['mangrove', 'mangle', '#773636'], ['cherry', 'cerezo', '#e3b3ad'], ['crimson', 'carmesí', '#653147'], ['warped', 'distorsionado', '#2b6963']];
+for (const [w, n, c] of WOODS13) {
+  const pl = w + '_planks', burn = w === 'crimson' || w === 'warped' ? 0 : 300; const de = w === 'crimson' || w === 'warped' ? 'del ' + n : 'de ' + n;
+  const W = { hardness: 2, tool: 'axe', sound: 'wood', color: c, fuel: burn };
+  def13(w + '_stairs', 'Escaleras ' + de, Object.assign(BOX({ tex: pl, stairs: true, facing: true, base: pl }), W));
+  def13(w + '_slab', 'Losa ' + de, Object.assign(BOX({ tex: pl, slab: true, base: pl }), W, { fuel: burn / 2 }));
+  def13(w + '_fence', 'Valla ' + de, Object.assign(BOX({ tex: pl, shape: 'fence', tall: true, fence: true }), W));
+  def13(w + '_fence_gate', 'Puerta de valla ' + de, Object.assign(BOX({ tex: pl, shape: 'gate', tall: true, gate: true, interact: 'toggle', rs: 'gate' }), W));
+  def13(w + '_door', 'Puerta ' + de, Object.assign(BOX({ tex: w + '_door_bottom', texAlt: w + '_door_top', altBit: 8, shape: 'door', door: true, interact: 'toggle', rs: 'door', icon: w + '_door', cat: 'func' }), W, { hardness: 3 }));
+  def13(w + '_trapdoor', 'Trampilla ' + de, Object.assign(BOX({ tex: w + '_trapdoor', shape: 'trapdoor', cutout: true, interact: 'toggle', rs: 'trapdoor', cat: 'func' }), W, { hardness: 3 }));
+  def13(w + '_button', 'Botón ' + de, Object.assign(BOX({ tex: pl, shape: 'button', solid: false, support: 'attached', rs: 'button', interact: 'press', press: 30, cat: 'redstone' }), W, { hardness: 0.5 }));
+  def13(w + '_pressure_plate', 'Placa de presión ' + de, Object.assign(BOX({ tex: pl, shape: 'plate', solid: false, support: 'floor', rs: 'plate', plate: 'all', cat: 'redstone' }), W, { hardness: 0.5 }));
+}
+for (const [w, n, c] of [['jungle', 'jungla', '#2f6a1b'], ['dark_oak', 'roble oscuro', '#2c5a14'], ['cherry', 'cerezo', '#e8a6c0']])
+  def13(w + '_sapling', 'Brote de ' + n, { tex: w + '_sapling', render: 'cross', solid: false, opaque: false, cutout: true, hardness: 0, sound: 'grass', support: 'soil', cat: 'nature', fuel: 100, sapling: w, color: c });
+
+// ---------- piedras: escaleras, losas y muros ----------
+const STONES13 = [ // prefijo, bloque base, nombre, [escaleras, losa, muro]
+  ['stone', 'stone', 'de piedra', 1, 1, 0], ['cobblestone', 'cobblestone', 'de roca', 1, 1, 1], ['mossy_cobblestone', 'mossy_cobblestone', 'de roca musgosa', 1, 1, 1],
+  ['stone_brick', 'stone_bricks', 'de ladrillos de piedra', 1, 1, 1], ['mossy_stone_brick', 'mossy_stone_bricks', 'de ladrillos de piedra musgosos', 1, 1, 1],
+  ['granite', 'granite', 'de granito', 1, 1, 1], ['polished_granite', 'polished_granite', 'de granito pulido', 1, 1, 0], ['diorite', 'diorite', 'de diorita', 1, 1, 1], ['polished_diorite', 'polished_diorite', 'de diorita pulida', 1, 1, 0],
+  ['andesite', 'andesite', 'de andesita', 1, 1, 1], ['polished_andesite', 'polished_andesite', 'de andesita pulida', 1, 1, 0],
+  ['sandstone', 'sandstone', 'de arenisca', 1, 1, 1], ['smooth_sandstone', 'smooth_sandstone', 'de arenisca lisa', 1, 1, 0], ['red_sandstone', 'red_sandstone', 'de arenisca roja', 1, 1, 1], ['cut_sandstone', 'cut_sandstone', 'de arenisca cortada', 0, 1, 0],
+  ['brick', 'bricks', 'de ladrillos', 1, 1, 1], ['nether_brick', 'nether_bricks', 'de ladrillos del Nether', 1, 1, 1], ['red_nether_brick', 'red_nether_bricks', 'de ladrillos rojos del Nether', 1, 1, 1],
+  ['cobbled_deepslate', 'cobbled_deepslate', 'de pizarra abismal rocosa', 1, 1, 1], ['polished_deepslate', 'polished_deepslate', 'de pizarra abismal pulida', 1, 1, 1], ['deepslate_brick', 'deepslate_bricks', 'de ladrillos de pizarra abismal', 1, 1, 1], ['deepslate_tile', 'deepslate_tiles', 'de baldosas de pizarra abismal', 1, 1, 1],
+  ['blackstone', 'blackstone', 'de piedra negra', 1, 1, 1], ['polished_blackstone', 'polished_blackstone', 'de piedra negra pulida', 1, 1, 1], ['quartz', 'quartz_block', 'de cuarzo', 1, 1, 0], ['purpur', 'purpur_block', 'de púrpur', 1, 1, 0],
+  ['prismarine', 'prismarine', 'de prismarina', 1, 1, 1], ['prismarine_brick', 'prismarine_bricks', 'de ladrillos de prismarina', 1, 1, 0], ['dark_prismarine', 'dark_prismarine', 'de prismarina oscura', 1, 1, 0],
+  ['end_stone_brick', 'end_stone_bricks', 'de ladrillos de piedra del End', 1, 1, 1], ['tuff', 'tuff', 'de toba', 1, 1, 1], ['smooth_stone', 'smooth_stone', 'de piedra lisa', 0, 1, 0],
+  ['cut_copper', 'cut_copper', 'de cobre cortado', 1, 1, 0], ['exposed_cut_copper', 'exposed_cut_copper', 'de cobre cortado expuesto', 1, 1, 0], ['weathered_cut_copper', 'weathered_cut_copper', 'de cobre cortado desgastado', 1, 1, 0], ['oxidized_cut_copper', 'oxidized_cut_copper', 'de cobre cortado oxidado', 1, 1, 0],
+];
+for (const [p, base, n, st, sl, wa] of STONES13) {
+  const bd = BLOCKS[B[base]]; if (!bd) continue;
+  const S = { hardness: bd.hardness, tool: 'pickaxe', tier: 1, needsTool: true, sound: bd.sound === 'metal' ? 'metal' : 'stone', color: bd.color, resist: 6 };
+  if (st) def13(p + '_stairs', 'Escaleras ' + n, Object.assign(BOX({ tex: bd.tex, stairs: true, facing: true, base }), S));
+  if (sl) def13(p + '_slab', 'Losa ' + n, Object.assign(BOX({ tex: p === 'smooth_stone' ? { top: 'smooth_stone', side: 'smooth_stone_slab_side' } : bd.tex, slab: true, base }), S));
+  if (wa) def13(p + '_wall', 'Muro ' + n, Object.assign(BOX({ tex: T6(bd.tex)[0], shape: 'wall', tall: true, wall: true }), S));
+}
+
+// ---------- colores: cristal tintado, paneles, alfombras, cemento en polvo, terracota esmaltada ----------
+def13('glass_pane', 'Panel de cristal', BOX({ tex: { top: 'glass_pane_top', side: 'glass' }, shape: 'pane', pane: true, cutout: true, hardness: 0.3, drops: [], sound: 'glass', color: '#c8e6f0' }));
+def13('iron_bars', 'Barrotes de hierro', BOX({ tex: 'iron_bars', shape: 'pane', pane: true, cutout: true, hardness: 5, tool: 'pickaxe', needsTool: true, sound: 'metal', color: '#9a9a9a' }));
+for (const [c, n, col] of WOOL) {
+  const m = MASC(n);
+  def13(c + '_stained_glass', 'Cristal tintado ' + m, { tex: c + '_stained_glass', hardness: 0.3, opaque: false, translucent: true, cullSelf: true, filter: 1, drops: [], sound: 'glass', color: col, cat: 'color' });
+  def13(c + '_stained_glass_pane', 'Panel de cristal tintado ' + m, BOX({ tex: { top: c + '_stained_glass_pane_top', side: c + '_stained_glass' }, shape: 'pane', pane: true, translucent: true, hardness: 0.3, drops: [], sound: 'glass', color: col, cat: 'color' }));
+  def13(c + '_carpet', 'Alfombra ' + n, BOX({ tex: c + '_wool', shape: 'carpet', hardness: 0.1, sound: 'wool', color: col, cat: 'color', support: 'any', fuel: 67 }));
+  def13(c + '_concrete_powder', 'Cemento en polvo ' + m, { tex: c + '_concrete_powder', hardness: 0.5, tool: 'shovel', sound: 'sand', gravity: true, color: col, cat: 'color', powder: c + '_concrete' });
+  def13(c + '_glazed_terracotta', 'Terracota esmaltada ' + n, { tex: c + '_glazed_terracotta', hardness: 1.4, tool: 'pickaxe', tier: 1, needsTool: true, color: col, cat: 'color' });
+}
+
+// ---------- plantas ----------
+def13('lily_pad', 'Nenúfar', BOX({ tex: 'lily_pad', shape: 'lilypad', solid: true, cutout: true, hardness: 0, sound: 'grass', tint: '#208030', color: '#208030', cat: 'nature', support: 'water' }));
+def13('cobweb', 'Telaraña', { tex: 'cobweb', render: 'cross', solid: false, opaque: false, cutout: true, hardness: 4, tool: 'sword', drops: [['string', 1]], color: '#e8e8e8', cat: 'nature', web: true });
+def13('snow', 'Capa de nieve', BOX({ tex: 'snow', shape: 'snow', hardness: 0.1, tool: 'shovel', sound: 'wool', color: '#f0f8fa', cat: 'nature', replaceable: false, drops: [['snowball', 1]] }));
+for (const [k, n, col, top, tint] of [['sunflower', 'Girasol', '#f8d020', 'sunflower_top', null], ['lilac', 'Lila', '#c890d0', 'lilac_top', null], ['rose_bush', 'Rosal', '#c02020', 'rose_bush_top', null], ['peony', 'Peonía', '#e8a0c8', 'peony_top', null], ['tall_grass', 'Hierba alta', '#5a8a2a', 'tall_grass_top', 'grass'], ['large_fern', 'Helecho grande', '#5a8a2a', 'large_fern_top', 'grass']])
+  def13(k, n, { tex: k + '_bottom', texAlt: top, altBit: 8, render: 'cross', solid: false, opaque: false, cutout: true, hardness: 0, sound: 'grass', support: 'soil', tall2: true, tint, color: col, cat: 'nature', replaceable: !!tint, icon: top, drops: tint ? [] : undefined });
+for (const [k, n, seed, item] of [['carrots', 'Zanahorias', 'carrot', 'carrot'], ['potatoes', 'Patatas', 'potato', 'potato'], ['beetroots', 'Remolachas', 'beetroot_seeds', 'beetroot']])
+  def13(k, n, { tex: k + '_stage3', render: 'crop', solid: false, opaque: false, cutout: true, hardness: 0, sound: 'grass', support: 'farmland', noItem: true, crop: true, stages: 4, color: '#5a9a2a',
+    drops: (r, tool, meta) => (meta & 7) >= 7 ? (k === 'beetroots' ? [['beetroot', 1], ['beetroot_seeds', 1 + (r() * 3 | 0)]] : [[item, 2 + (r() * 3 | 0)]]) : [[seed, 1]] });
+def13('carved_pumpkin', 'Calabaza tallada', { tex: { top: 'pumpkin_top', side: 'pumpkin_side', front: 'carved_pumpkin' }, facing: true, hardness: 1, tool: 'axe', sound: 'wood', color: '#c07615', cat: 'nature' });
+def13('jack_o_lantern', 'Calabaza iluminada', { tex: { top: 'pumpkin_top', side: 'pumpkin_side', front: 'jack_o_lantern' }, facing: true, hardness: 1, tool: 'axe', sound: 'wood', emit: 15, color: '#e8a020', cat: 'func' });
+
+// ---------- decoración y bloques útiles ----------
+def13('lantern', 'Farol', BOX({ tex: 'lantern', shape: 'lantern', cutout: true, hardness: 3.5, tool: 'pickaxe', sound: 'metal', emit: 15, color: '#c8a050', cat: 'func', support: 'lantern' }));
+def13('iron_chain', 'Cadena de hierro', BOX({ tex: 'iron_chain', shape: 'chain', cutout: true, hardness: 5, tool: 'pickaxe', sound: 'metal', axis: true, color: '#505050', cat: 'func' }));
+def13('end_rod', 'Vara del End', BOX({ tex: 'end_rod', shape: 'rod', facing6: true, hardness: 0, emit: 14, color: '#f0f0f0', cat: 'func' }));
+def13('lightning_rod', 'Pararrayos', BOX({ tex: 'lightning_rod', shape: 'rod', facing6: true, hardness: 3, tool: 'pickaxe', sound: 'metal', color: '#c06c50', cat: 'func' }));
+def13('iron_door', 'Puerta de hierro', BOX({ tex: 'iron_door_bottom', texAlt: 'iron_door_top', altBit: 8, shape: 'door', door: true, iron: true, rs: 'door', icon: 'iron_door', hardness: 5, tool: 'pickaxe', needsTool: true, sound: 'metal', color: '#c8c8c8', cat: 'redstone' }));
+def13('iron_trapdoor', 'Trampilla de hierro', BOX({ tex: 'iron_trapdoor', shape: 'trapdoor', cutout: true, iron: true, rs: 'trapdoor', hardness: 5, tool: 'pickaxe', needsTool: true, sound: 'metal', color: '#c8c8c8', cat: 'redstone' }));
+def13('barrel', 'Barril', { tex: { top: 'barrel_top', bottom: 'barrel_bottom', side: 'barrel_side' }, facing6: true, hardness: 2.5, tool: 'axe', sound: 'wood', interact: 'chest', color: '#8a6a3e', fuel: 300, cat: 'func' });
+def13('smoker', 'Ahumador', { tex: { top: 'smoker_top', bottom: 'smoker_bottom', side: 'smoker_side', front: 'smoker_front' }, facing: true, hardness: 3.5, tool: 'pickaxe', tier: 1, needsTool: true, interact: 'furnace', oven: 'food', color: '#5a5048', cat: 'func' });
+def13('blast_furnace', 'Alto horno', { tex: { top: 'blast_furnace_top', bottom: 'blast_furnace_top', side: 'blast_furnace_side', front: 'blast_furnace_front' }, facing: true, hardness: 3.5, tool: 'pickaxe', tier: 1, needsTool: true, interact: 'furnace', oven: 'ore', color: '#505058', cat: 'func' });
+def13('smithing_table', 'Mesa de herrería', { tex: { top: 'smithing_table_top', bottom: 'smithing_table_bottom', side: 'smithing_table_side', front: 'smithing_table_front' }, facing: true, hardness: 2.5, tool: 'axe', sound: 'wood', interact: 'craft', color: '#3a3040', cat: 'func' });
+def13('fletching_table', 'Mesa de flechas', { tex: { top: 'fletching_table_top', bottom: 'birch_planks', side: 'fletching_table_side', front: 'fletching_table_front' }, facing: true, hardness: 2.5, tool: 'axe', sound: 'wood', interact: 'craft', color: '#c8b080', cat: 'func', fuel: 300 });
+def13('cartography_table', 'Mesa de cartografía', { tex: { top: 'cartography_table_top', bottom: 'dark_oak_planks', side: 'cartography_table_side1', front: 'cartography_table_side3' }, facing: true, hardness: 2.5, tool: 'axe', sound: 'wood', interact: 'craft', color: '#7a5a3a', cat: 'func', fuel: 300 });
+def13('loom', 'Telar', { tex: { top: 'loom_top', bottom: 'loom_bottom', side: 'loom_side', front: 'loom_front' }, facing: true, hardness: 2.5, tool: 'axe', sound: 'wood', interact: 'craft', color: '#a88a60', cat: 'func', fuel: 300 });
+def13('stonecutter', 'Cortapiedras', BOX({ tex: { top: 'stonecutter_top', bottom: 'stonecutter_bottom', side: 'stonecutter_side' }, shape: 'stonecutter', hardness: 3.5, tool: 'pickaxe', interact: 'craft', color: '#7a7a7a', cat: 'func' }));
+def13('cauldron', 'Caldero', BOX({ tex: { top: 'cauldron_top', bottom: 'cauldron_bottom', side: 'cauldron_side' }, shape: 'cauldron', hardness: 2, tool: 'pickaxe', needsTool: true, sound: 'metal', color: '#3a3a3a', cat: 'func' }));
+def13('enchanting_table', 'Mesa de encantamientos', BOX({ tex: { top: 'enchanting_table_top', bottom: 'enchanting_table_bottom', side: 'enchanting_table_side' }, shape: 'enchant', hardness: 5, tool: 'pickaxe', needsTool: true, emit: 7, color: '#6a2030', cat: 'func', resist: 1200 }));
+def13('jukebox', 'Tocadiscos', { tex: { top: 'jukebox_top', side: 'jukebox_side' }, hardness: 2, tool: 'axe', sound: 'wood', color: '#6a4a3a', cat: 'func', fuel: 300 });
+def13('honey_block', 'Bloque de miel', { tex: { top: 'honey_block_top', bottom: 'honey_block_bottom', side: 'honey_block_side' }, hardness: 0, opaque: false, translucent: true, cullSelf: true, filter: 1, sound: 'wool', color: '#f8b030', cat: 'func', sticky: true });
+
+// ---------- redstone ----------
+def13('redstone_wire', 'Polvo de redstone', BOX({ tex: 'redstone_wire', shape: 'wire', solid: false, cutout: true, hardness: 0, sound: 'stone', support: 'floor', rs: 'wire', noItem: true, drops: [['redstone', 1]], color: '#c01010' }));
+def13('redstone_torch', 'Antorcha de redstone', { tex: 'redstone_torch', render: 'torch', solid: false, opaque: false, cutout: true, hardness: 0, emit: 7, sound: 'wood', support: 'torch', rs: 'torch', color: '#e02020', cat: 'redstone' });
+def13('redstone_torch_off', 'Antorcha de redstone (apagada)', { tex: 'redstone_torch_off', render: 'torch', solid: false, opaque: false, cutout: true, hardness: 0, sound: 'wood', support: 'torch', rs: 'torch', off: true, noItem: true, drops: [['redstone_torch', 1]], color: '#601010' });
+def13('lever', 'Palanca', BOX({ tex: 'cobblestone', shape: 'lever', solid: false, hardness: 0.5, sound: 'wood', support: 'attached', rs: 'lever', interact: 'press', color: '#8a6a3e', cat: 'redstone', icon: 'lever' }));
+def13('stone_button', 'Botón de piedra', BOX({ tex: 'stone', shape: 'button', solid: false, hardness: 0.5, support: 'attached', rs: 'button', interact: 'press', press: 20, color: '#7d7d7d', cat: 'redstone' }));
+def13('stone_pressure_plate', 'Placa de presión de piedra', BOX({ tex: 'stone', shape: 'plate', solid: false, hardness: 0.5, tool: 'pickaxe', support: 'floor', rs: 'plate', plate: 'mobs', color: '#7d7d7d', cat: 'redstone' }));
+def13('light_weighted_pressure_plate', 'Placa de presión de peso ligero', BOX({ tex: 'gold_block', shape: 'plate', solid: false, hardness: 0.5, tool: 'pickaxe', sound: 'metal', support: 'floor', rs: 'plate', plate: 'light', color: '#f7d23b', cat: 'redstone' }));
+def13('heavy_weighted_pressure_plate', 'Placa de presión de peso pesado', BOX({ tex: 'iron_block', shape: 'plate', solid: false, hardness: 0.5, tool: 'pickaxe', sound: 'metal', support: 'floor', rs: 'plate', plate: 'heavy', color: '#dcdcdc', cat: 'redstone' }));
+def13('repeater', 'Repetidor de redstone', BOX({ tex: { top: 'repeater', side: 'smooth_stone', bottom: 'smooth_stone' }, texAlt: { top: 'repeater_on', side: 'smooth_stone', bottom: 'smooth_stone' }, altBit: 16, shape: 'repeater', solid: true, hardness: 0, sound: 'stone', support: 'floor', rs: 'repeater', interact: 'cycle', icon: 'repeater', color: '#a0a0a0', cat: 'redstone' }));
+def13('comparator', 'Comparador de redstone', BOX({ tex: { top: 'comparator', side: 'smooth_stone', bottom: 'smooth_stone' }, texAlt: { top: 'comparator_on', side: 'smooth_stone', bottom: 'smooth_stone' }, altBit: 120, shape: 'comparator', solid: true, hardness: 0, sound: 'stone', support: 'floor', rs: 'comparator', interact: 'cycle', icon: 'comparator', color: '#a0a0a0', cat: 'redstone' }));
+def13('redstone_lamp', 'Lámpara de redstone', { tex: 'redstone_lamp', hardness: 0.3, sound: 'glass', rs: 'lamp', color: '#7a4a2a', cat: 'redstone' });
+def13('redstone_lamp_on', 'Lámpara de redstone (encendida)', { tex: 'redstone_lamp_on', hardness: 0.3, sound: 'glass', rs: 'lamp', on: true, emit: 15, noItem: true, drops: [['redstone_lamp', 1]], color: '#f8c060' });
+def13('piston', 'Pistón', BOX({ tex: { front: 'piston_top', side: 'piston_side', bottom: 'piston_bottom' }, facing6: true, shape: 'piston', opaque: true, hardness: 1.5, tool: 'pickaxe', rs: 'piston', color: '#8a7a5a', cat: 'redstone' }));
+def13('sticky_piston', 'Pistón pegajoso', BOX({ tex: { front: 'piston_top_sticky', side: 'piston_side', bottom: 'piston_bottom' }, facing6: true, shape: 'piston', opaque: true, hardness: 1.5, tool: 'pickaxe', rs: 'piston', sticky: true, color: '#6a8a4a', cat: 'redstone' }));
+def13('piston_head', 'Cabeza de pistón', BOX({ tex: { front: 'piston_top', side: 'piston_side', bottom: 'piston_top' }, facing6: true, shape: 'piston_head', hardness: 1.5, noItem: true, drops: [], color: '#8a7a5a', pistonHead: true }));
+def13('observer', 'Observador', { tex: { front: 'observer_front', side: 'observer_side', top: 'observer_top', bottom: 'observer_back' }, facing6: true, hardness: 3, tool: 'pickaxe', needsTool: true, rs: 'observer', color: '#5a5a5a', cat: 'redstone' });
+def13('daylight_detector', 'Sensor de luz solar', BOX({ tex: { top: 'daylight_detector_top', side: 'daylight_detector_side', bottom: 'daylight_detector_side' }, shape: 'daylight', hardness: 0.2, tool: 'axe', sound: 'wood', rs: 'daylight', interact: 'cycle', color: '#c8b080', cat: 'redstone' }));
+def13('dispenser', 'Dispensador', { tex: { front: 'dispenser_front', side: 'furnace_side', top: 'furnace_top', bottom: 'furnace_top' }, facing6: true, hardness: 3.5, tool: 'pickaxe', needsTool: true, rs: 'dispenser', interact: 'chest', slots: 9, color: '#6e6e6e', cat: 'redstone' });
+def13('dropper', 'Soltador', { tex: { front: 'dropper_front', side: 'furnace_side', top: 'furnace_top', bottom: 'furnace_top' }, facing6: true, hardness: 3.5, tool: 'pickaxe', needsTool: true, rs: 'dropper', interact: 'chest', slots: 9, color: '#6e6e6e', cat: 'redstone' });
+def13('hopper', 'Tolva', BOX({ tex: { top: 'hopper_top', side: 'hopper_outside', bottom: 'hopper_outside' }, shape: 'hopper', hardness: 3, tool: 'pickaxe', needsTool: true, sound: 'metal', rs: 'hopper', interact: 'chest', slots: 5, color: '#4a4a4a', cat: 'redstone', icon: 'hopper' }));
+def13('note_block', 'Bloque musical', { tex: 'note_block', hardness: 0.8, tool: 'axe', sound: 'wood', rs: 'note', interact: 'cycle', color: '#6a4a3a', cat: 'redstone', fuel: 300 });
+def13('target', 'Diana', { tex: { top: 'target_top', side: 'target_side' }, hardness: 0.5, tool: 'hoe', sound: 'grass', color: '#e8d8c8', cat: 'redstone' });
+
 const NB = BLOCKS.length;
-if (NB > 255) throw new Error('Demasiados bloques: ' + NB);
+if (NB > 4095) throw new Error('Demasiados bloques: ' + NB);
 // tablas rápidas
-const OPAQUE = new Uint8Array(256), SOLID = new Uint8Array(256), EMIT = new Uint8Array(256), FILTER = new Uint8Array(256), RENDER = new Uint8Array(256), CULLSELF = new Uint8Array(256), TRANSL = new Uint8Array(256), REPLACE = new Uint8Array(256), LIQUID = new Uint8Array(256);
+const OPAQUE = new Uint8Array(4096), SOLID = new Uint8Array(4096), EMIT = new Uint8Array(4096), FILTER = new Uint8Array(4096), RENDER = new Uint8Array(4096), CULLSELF = new Uint8Array(4096), TRANSL = new Uint8Array(4096), REPLACE = new Uint8Array(4096), LIQUID = new Uint8Array(4096);
 const RT = { none: 0, cube: 1, cross: 2, liquid: 3, torch: 4, box: 5, crop: 6, ladder: 7 };
 for (const d of BLOCKS) {
   OPAQUE[d.id] = d.opaque ? 1 : 0; SOLID[d.id] = d.solid ? 1 : 0; EMIT[d.id] = d.emit;
   FILTER[d.id] = d.opaque ? 15 : d.filter; RENDER[d.id] = RT[d.render]; CULLSELF[d.id] = d.cullSelf ? 1 : 0;
   TRANSL[d.id] = d.translucent ? 1 : 0; REPLACE[d.id] = d.replaceable ? 1 : 0; LIQUID[d.id] = d.liquid === 'water' ? 1 : d.liquid === 'lava' ? 2 : 0;
-  d.faceTex = T6(d.tex || 'stone');
+  d.faceTex = T6(d.tex || 'stone'); if (d.texAlt) d.faceTexAlt = T6(d.texAlt);
+  if (d.facing6 && typeof d.tex === 'object') { const t = d.tex; d.faceTex6 = { front: t.front || t.side, back: t.bottom || t.side, side: t.side, top: t.top || t.side }; }
 }
 
 // cajas de colisión/forma por bloque (en píxeles 0..16)
-function blockBoxes(id, meta) {
+// nb(f) devuelve el bloque vecino en la cara f (0 +X, 1 -X, 2 +Y, 3 -Y, 4 +Z, 5 -Z), para vallas, muros, paneles y redstone
+const FDIR = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+const HFACE = [5, 0, 4, 1]; // dirección horizontal (0 N, 1 E, 2 S, 3 O) -> cara
+// gira una caja definida «mirando al norte» (-Z) hacia la dirección horizontal f
+function rotBoxH(b, f) {
+  const [x0, y0, z0, x1, y1, z1, t] = b;
+  let r;
+  if (f === 0) r = [x0, y0, z0, x1, y1, z1];
+  else if (f === 2) r = [16 - x1, y0, 16 - z1, 16 - x0, y1, 16 - z0];
+  else if (f === 1) r = [16 - z1, y0, x0, 16 - z0, y1, x1];
+  else r = [z0, y0, 16 - x1, z1, y1, 16 - x0];
+  if (t) r.push(t); return r;
+}
+// gira una caja definida «mirando hacia arriba» (+Y) hacia la cara f (0..5)
+function rotBox6(b, f) {
+  const [x0, y0, z0, x1, y1, z1, t] = b; let r;
+  switch (f) {
+    case 2: r = [x0, y0, z0, x1, y1, z1]; break;
+    case 3: r = [x0, 16 - y1, z0, x1, 16 - y0, z1]; break;
+    case 4: r = [x0, z0, y0, x1, z1, y1]; break;
+    case 5: r = [x0, z0, 16 - y1, x1, z1, 16 - y0]; break;
+    case 0: r = [y0, x0, z0, y1, x1, z1]; break;
+    default: r = [16 - y1, x0, z0, 16 - y0, x1, z1];
+  }
+  if (t) r.push(t); return r;
+}
+const fenceLike = (n, self) => { const d = BLOCKS[n]; return !!(d && (n && OPAQUE[n] && d.render === 'cube' || (self === 'fence' && (d.fence || d.gate)) || (self === 'wall' && (d.wall || d.gate || d.pane)) || (self === 'pane' && (d.pane || d.wall)))); };
+const SHAPES = {
+  fence(d, m, nb) {
+    const out = [[6, 0, 6, 10, 16, 10]]; let any = false;
+    for (let h = 0; h < 4; h++) {
+      const f = HFACE[h]; if (!(nb ? fenceLike(nb(f), 'fence') : h === 1 || h === 3)) continue; any = true;
+      for (const [ya, yb] of [[6, 9], [12, 15]]) out.push(rotBoxH([7, ya, 0, 9, yb, 6], h));
+    }
+    return out;
+  },
+  wall(d, m, nb) {
+    const c = [0, 1, 2, 3].map(h => nb ? fenceLike(nb(HFACE[h]), 'wall') : h === 1 || h === 3);
+    const straight = (c[0] && c[2] && !c[1] && !c[3]) || (c[1] && c[3] && !c[0] && !c[2]);
+    const out = straight && !(nb && nb(2)) ? [] : [[4, 0, 4, 12, 16, 12]];
+    for (let h = 0; h < 4; h++) if (c[h]) out.push(rotBoxH([5, 0, 0, 11, 14, 8], h));
+    return out;
+  },
+  pane(d, m, nb) {
+    const c = [0, 1, 2, 3].map(h => nb ? fenceLike(nb(HFACE[h]), 'pane') : h === 1 || h === 3);
+    if (!c.some(Boolean)) c.fill(true);
+    const out = [[7, 0, 7, 9, 16, 9]];
+    for (let h = 0; h < 4; h++) if (c[h]) out.push(rotBoxH([7, 0, 0, 9, 16, 7], h));
+    return out;
+  },
+  door(d, m) {
+    const f = m & 3, open = m & 4, hinge = m & 16;
+    const side = open ? (f + (hinge ? 3 : 1)) & 3 : f;
+    return [rotBoxH([0, 0, 0, 16, 16, 3], side)];
+  },
+  trapdoor(d, m) {
+    if (m & 4) return [rotBoxH([0, 0, 13, 16, 16, 16], m & 3)];
+    return [(m & 8) ? [0, 13, 0, 16, 16, 16] : [0, 0, 0, 16, 3, 16]];
+  },
+  gate(d, m) {
+    const f = m & 3, open = m & 4; const posts = [[0, 5, 7, 2, 16, 9], [14, 5, 7, 16, 16, 9]];
+    const bars = open ? [[0, 6, 9, 2, 15, 15], [14, 6, 9, 16, 15, 15]] : [[2, 6, 7, 14, 9, 9], [2, 12, 7, 14, 15, 9], [6, 9, 7, 10, 12, 9]];
+    return posts.concat(bars).map(b => (f & 1) ? rotBoxH(b, 1) : b);
+  },
+  carpet() { return [[0, 0, 0, 16, 1, 16]]; },
+  snow(d, m) { return [[0, 0, 0, 16, 2 * ((m & 7) + 1), 16]]; },
+  lilypad() { return [[0, 0, 0, 16, 0.25, 16]]; },
+  plate(d, m) { return [(m & 15) ? [1, 0, 1, 15, 0.5, 15] : [1, 0, 1, 15, 1, 15]]; },
+  button(d, m) { const att = m & 7, on = m & 8; return [rotBox6([5, 0, 6, 11, on ? 1 : 2, 10], att ^ 1)]; },
+  lever(d, m) {
+    const att = m & 7, on = m & 8;
+    const base = [5, 0, 4, 11, 3, 12, 'cobblestone'];
+    const stick = on ? [7, 3, 9, 9, 10, 11, 'lever'] : [7, 3, 5, 9, 10, 7, 'lever'];
+    return [rotBox6(base, att ^ 1), rotBox6(stick, att ^ 1)];
+  },
+  wire(d, m, nb) {
+    const out = [[5, 0, 5, 11, 0.25, 11]]; if (!nb) return [[0, 0, 7, 16, 0.25, 9]];
+    const c = RS.wireLinks(nb);
+    for (let h = 0; h < 4; h++) if (c[h]) { out.push(rotBoxH([6, 0, 0, 10, 0.25, 6], h)); if (c[h] === 2) out.push(rotBoxH([6, 0, 0, 10, 16, 0.25], h)); }
+    return out;
+  },
+  repeater(d, m) {
+    const f = m & 3, delay = (m >> 2) & 3, on = m & 16, t = on ? 'redstone_torch' : 'redstone_torch_off';
+    return [[0, 0, 0, 16, 2, 16], rotBoxH([7, 2, 2, 9, 7, 4, t], f), rotBoxH([7, 2, 6 + delay * 2, 9, 7, 8 + delay * 2, t], f)];
+  },
+  comparator(d, m) {
+    const f = m & 3, sub = m & 4, out = (m >> 3) & 15;
+    return [[0, 0, 0, 16, 2, 16], rotBoxH([7, 2, 2, 9, sub ? 6 : 5, 4, sub ? 'redstone_torch' : 'redstone_torch_off'], f), rotBoxH([4, 2, 11, 6, 7, 13, out ? 'redstone_torch' : 'redstone_torch_off'], f), rotBoxH([10, 2, 11, 12, 7, 13, out ? 'redstone_torch' : 'redstone_torch_off'], f)];
+  },
+  piston(d, m) { return (m & 8) ? [rotBox6([0, 0, 0, 16, 12, 16], m & 7)] : [[0, 0, 0, 16, 16, 16]]; },
+  piston_head(d, m) { return [rotBox6([0, 12, 0, 16, 16, 16], m & 7), rotBox6([6, -4, 6, 10, 12, 10, 'piston_side'], m & 7)]; },
+  lantern(d, m) { return (m & 1) ? [[5, 1, 5, 11, 8, 11], [6, 8, 6, 10, 10, 10], [7.5, 10, 7.5, 8.5, 16, 8.5]] : [[5, 0, 5, 11, 7, 11], [6, 7, 6, 10, 9, 10]]; },
+  chain(d, m) { const ax = (m >> 2) & 3; return [ax === 1 ? [0, 6.5, 6.5, 16, 9.5, 9.5] : ax === 2 ? [6.5, 6.5, 0, 9.5, 9.5, 16] : [6.5, 0, 6.5, 9.5, 16, 9.5]]; },
+  rod(d, m) { return [rotBox6([6, 0, 6, 10, 1, 10], m & 7), rotBox6([7, 1, 7, 9, 16, 9], m & 7)]; },
+  cauldron() { return [[0, 0, 0, 16, 3, 16], [0, 3, 0, 2, 16, 16], [14, 3, 0, 16, 16, 16], [2, 3, 0, 14, 16, 2], [2, 3, 14, 14, 16, 16]]; },
+  hopper(d, m) { return [[0, 10, 0, 16, 16, 16], [4, 4, 4, 12, 10, 12], [6, 0, 6, 10, 4, 10]]; },
+  daylight() { return [[0, 0, 0, 16, 6, 16]]; },
+  enchant() { return [[0, 0, 0, 16, 12, 16]]; },
+  stonecutter() { return [[0, 0, 0, 16, 9, 16]]; },
+};
+function blockBoxes(id, meta, nb) {
   const d = BLOCKS[id];
+  if (d.shape) return SHAPES[d.shape](d, meta, nb);
   if (d.slab) return (meta & 1) ? [[0, 8, 0, 16, 16, 16]] : [[0, 0, 0, 16, 8, 16]];
   if (d.stairs) {
     const f = meta & 3; // 0 N,1 E,2 S,3 W : lado alto hacia donde mira el jugador
@@ -1508,6 +1731,8 @@ function blockBoxes(id, meta) {
   }
   return d.box;
 }
+// vecinos de una posición del mundo, para blockBoxes
+const worldNb = (x, y, z) => (f, dy) => { const D = FDIR[f]; return World.get(x + D[0], y + D[1] + (dy || 0), z + D[2]); };
 
 // ============================================================
 //  Objetos
@@ -1520,7 +1745,8 @@ function defItem(key, name, o) {
 }
 for (const d of BLOCKS) {
   if (d.noItem) continue;
-  defItem(d.key, d.name, { block: d.key, icon: (d.render === 'cross' || d.render === 'torch' || d.render === 'ladder') ? d.faceTex[0] : null, iconBlock: !(d.render === 'cross' || d.render === 'torch' || d.render === 'ladder'), fuel: d.fuel, cat: d.cat });
+  const flat = d.render === 'cross' || d.render === 'torch' || d.render === 'ladder';
+  defItem(d.key, d.name, { block: d.key, icon: d.icon || (flat ? d.faceTex[0] : null), iconBlock: !d.icon && !flat, fuel: d.fuel, cat: d.cat });
 }
 const MATS = [
   ['wooden', 'de madera', 1, 2, 59, '#8a6a3e', '#5e4526'],
@@ -1695,6 +1921,100 @@ function matchRecipe(grid, w) { // grid: array w*w de ids o null
 }
 function fuelOf(id) { const it = ITEMS[id]; return it ? (it.fuel || 0) : 0; }
 function maxStack(id) { const it = ITEMS[id]; return it ? it.stack : 64; }
+
+// ---- extra/items13.js ----
+
+// ============================================================
+//  1.3: objetos nuevos
+// ============================================================
+for (const [k, n, o] of [
+  ['snowball', 'Bola de nieve', { stack: 16 }], ['slime_ball', 'Bola de limo'], ['sugar', 'Azúcar'], ['bowl', 'Cuenco', { fuel: 100 }], ['copper_nugget', 'Pepita de cobre'],
+  ['shears', 'Tijeras', { stack: 1, dur: 238, cat: 'tools' }], ['compass', 'Brújula', { stack: 1, cat: 'tools', icon: 'compass_00' }], ['clock', 'Reloj', { stack: 1, cat: 'tools', icon: 'clock_00' }],
+  ['name_tag', 'Etiqueta', { cat: 'tools' }], ['milk_bucket', 'Cubo de leche', { stack: 1, cat: 'food', food: { h: 0, s: 0 }, always: true, returns: 'bucket' }],
+  ['carrot', 'Zanahoria', { food: { h: 3, s: 3.6 }, cat: 'food', places: 'carrots', placeOn: 'farmland' }], ['potato', 'Patata', { food: { h: 1, s: 0.6 }, cat: 'food', places: 'potatoes', placeOn: 'farmland' }],
+  ['baked_potato', 'Patata asada', { food: { h: 5, s: 6 }, cat: 'food' }], ['beetroot', 'Remolacha', { food: { h: 1, s: 1.2 }, cat: 'food' }], ['beetroot_seeds', 'Semillas de remolacha', { places: 'beetroots', placeOn: 'farmland' }],
+  ['beetroot_soup', 'Sopa de remolacha', { food: { h: 6, s: 7.2 }, stack: 1, cat: 'food', bowl: true }], ['mushroom_stew', 'Estofado de champiñones', { food: { h: 6, s: 7.2 }, stack: 1, cat: 'food', bowl: true }],
+  ['cookie', 'Galleta', { food: { h: 2, s: 0.4 }, cat: 'food' }],
+]) if (!ITEMS[k]) defItem(k, n, Object.assign({ cat: 'misc' }, o || {}));
+// la redstone se coloca como polvo
+ITEMS.redstone.places = 'redstone_wire'; ITEMS.redstone.cat = 'redstone';
+// huevos para hacer aparecer criaturas
+const MOBS_LIST13 = { pig: 'cerdo', cow: 'vaca', sheep: 'oveja', chicken: 'gallina', zombie: 'zombi', skeleton: 'esqueleto', spider: 'araña' };
+for (const k of Object.keys(MOBS_LIST13)) defItem(k + '_spawn_egg', 'Huevo generador de ' + MOBS_LIST13[k], { cat: 'misc', egg: k });
+// herramientas y armaduras de cobre y de netherita
+for (const [m, mn, tier, speed, dur, c1, c2, mi] of [['copper', 'de cobre', 2, 5, 190, '#e0734d', '#9a4a2a', 1], ['netherite', 'de netherita', 4, 9, 2031, '#4a4245', '#2a2426', 4]]) {
+  for (const t of ['sword', 'pickaxe', 'axe', 'shovel', 'hoe']) {
+    const dm = { sword: [5, 8], axe: [9, 10], pickaxe: [3, 6], shovel: [3.5, 6.5], hoe: [1, 1] }[t][m === 'copper' ? 0 : 1];
+    defItem(m + '_' + t, TOOL_NAME[t] + ' ' + mn, { stack: 1, tool: { type: t, tier, speed, dmg: dm, aspd: TOOL_SPD[t][mi] }, dur, cat: t === 'sword' ? 'combat' : 'tools', mat: m, colors: [c1, c2] });
+  }
+}
+for (const [m, mn, pts, base, c1, c2] of [['copper', 'de cobre', [2, 4, 3, 1], 11, '#e0734d', '#9a4a2a'], ['chainmail', 'de malla', [2, 5, 4, 1], 15, '#a8a8a8', '#5a5a5a'], ['netherite', 'de netherita', [3, 8, 6, 3], 37, '#4a4245', '#2a2426']])
+  ARMOR_SLOTS.forEach(([s, sn, dmul], si) => defItem(m + '_' + s, sn + ' ' + mn, { stack: 1, armor: { slot: si, pts: pts[si], tough: m === 'netherite' ? 3 : 0 }, dur: base * dmul, cat: 'combat', colors: [c1, c2] }));
+
+// ---------- recetas ----------
+for (const [w] of WOODS13) {
+  const P = w + '_planks';
+  if (ITEMS[w + '_fence']) shaped(['PSP', 'PSP'], { P, S: 'stick' }, w + '_fence', 3);
+  if (ITEMS[w + '_fence_gate']) shaped(['SPS', 'SPS'], { P, S: 'stick' }, w + '_fence_gate');
+  if (ITEMS[w + '_door']) shaped(['PP', 'PP', 'PP'], { P }, w + '_door', 3);
+  if (ITEMS[w + '_trapdoor']) shaped(['PPP', 'PPP'], { P }, w + '_trapdoor', 2);
+  if (ITEMS[w + '_button']) shapeless([P], w + '_button');
+  if (ITEMS[w + '_pressure_plate']) shaped(['PP'], { P }, w + '_pressure_plate');
+  if (w !== 'oak') { if (ITEMS[w + '_stairs']) shaped(['X  ', 'XX ', 'XXX'], { X: P }, w + '_stairs', 4); if (ITEMS[w + '_slab']) shaped(['XXX'], { X: P }, w + '_slab', 6); }
+}
+for (const [p, base, , st, sl, wa] of STONES13) {
+  if (st && ITEMS[p + '_stairs'] && !RECIPES.some(r => r.out === p + '_stairs')) shaped(['X  ', 'XX ', 'XXX'], { X: base }, p + '_stairs', 4);
+  if (sl && ITEMS[p + '_slab'] && !RECIPES.some(r => r.out === p + '_slab')) shaped(['XXX'], { X: base }, p + '_slab', 6);
+  if (wa && ITEMS[p + '_wall']) shaped(['XXX', 'XXX'], { X: base }, p + '_wall', 6);
+}
+shaped(['GGG', 'GGG'], { G: 'glass' }, 'glass_pane', 16); shaped(['III', 'III'], { I: 'iron_ingot' }, 'iron_bars', 16);
+for (const [c] of WOOL) {
+  shaped(['GGG', 'GDG', 'GGG'], { G: 'glass', D: c + '_dye' }, c + '_stained_glass', 8);
+  shaped(['GGG', 'GGG'], { G: c + '_stained_glass' }, c + '_stained_glass_pane', 16);
+  shaped(['WW'], { W: c + '_wool' }, c + '_carpet', 3);
+  SMELT[c + '_terracotta'] = [c + '_glazed_terracotta', 0.1];
+}
+// el cemento: ahora se fabrica en polvo y se endurece con agua
+for (let i = RECIPES.length - 1; i >= 0; i--) if (RECIPES[i].out.endsWith('_concrete')) RECIPES.splice(i, 1);
+for (const [c] of WOOL) shapeless([c + '_dye', 'sand', 'sand', 'sand', 'sand', 'gravel', 'gravel', 'gravel', 'gravel'], c + '_concrete_powder', 8);
+shaped(['NNN', 'NTN', 'NNN'], { N: 'iron_nugget', T: 'torch' }, 'lantern'); shaped(['N', 'I', 'N'], { N: 'iron_nugget', I: 'iron_ingot' }, 'iron_chain');
+shapeless(['iron_ingot'], 'iron_nugget', 9); shapeless(['gold_ingot'], 'gold_nugget', 9); shapeless(['copper_ingot'], 'copper_nugget', 9); shaped(['XXX', 'XXX', 'XXX'], { X: 'copper_nugget' }, 'copper_ingot');
+shaped(['C', 'C', 'C'], { C: 'copper_ingot' }, 'lightning_rod');
+shaped(['II', 'II', 'II'], { I: 'iron_ingot' }, 'iron_door', 3); shaped(['II', 'II'], { I: 'iron_ingot' }, 'iron_trapdoor');
+shaped(['PSP', 'P P', 'PSP'], { P: '#planks', S: 'oak_slab' }, 'barrel');
+shaped([' L ', 'LFL', ' L '], { L: '#logs', F: 'furnace' }, 'smoker'); shaped(['III', 'IFI', 'SSS'], { I: 'iron_ingot', F: 'furnace', S: 'smooth_stone' }, 'blast_furnace');
+shaped(['II', 'PP', 'PP'], { I: 'iron_ingot', P: '#planks' }, 'smithing_table'); shaped(['FF', 'PP', 'PP'], { F: 'flint', P: '#planks' }, 'fletching_table');
+shaped(['AA', 'PP', 'PP'], { A: 'paper', P: '#planks' }, 'cartography_table'); shaped(['SS', 'PP'], { S: 'string', P: '#planks' }, 'loom');
+shaped([' I ', 'SSS'], { I: 'iron_ingot', S: 'stone' }, 'stonecutter'); shaped(['I I', 'I I', 'III'], { I: 'iron_ingot' }, 'cauldron');
+shaped([' B ', 'DOD', 'OOO'], { B: 'book', D: 'diamond', O: 'obsidian' }, 'enchanting_table'); shaped(['PPP', 'PDP', 'PPP'], { P: '#planks', D: 'diamond' }, 'jukebox');
+shaped(['HH', 'HH'], { H: 'sugar' }, 'honey_block');
+shapeless(['carved_pumpkin', 'torch'], 'jack_o_lantern');
+// redstone
+shaped(['R', 'S'], { R: 'redstone', S: 'stick' }, 'redstone_torch'); shaped(['S', 'C'], { S: 'stick', C: 'cobblestone' }, 'lever');
+shapeless(['stone'], 'stone_button'); shaped(['SS'], { S: 'stone' }, 'stone_pressure_plate');
+shaped(['GG'], { G: 'gold_ingot' }, 'light_weighted_pressure_plate'); shaped(['II'], { I: 'iron_ingot' }, 'heavy_weighted_pressure_plate');
+shaped(['TRT', 'SSS'], { T: 'redstone_torch', R: 'redstone', S: 'stone' }, 'repeater'); shaped([' T ', 'TQT', 'SSS'], { T: 'redstone_torch', Q: 'quartz', S: 'stone' }, 'comparator');
+shaped([' R ', 'RGR', ' R '], { R: 'redstone', G: 'glowstone' }, 'redstone_lamp');
+shaped(['PPP', 'CIC', 'CRC'], { P: '#planks', C: 'cobblestone', I: 'iron_ingot', R: 'redstone' }, 'piston'); shapeless(['piston', 'slime_ball'], 'sticky_piston');
+shaped(['CCC', 'RRQ', 'CCC'], { C: 'cobblestone', R: 'redstone', Q: 'quartz' }, 'observer'); shaped(['GGG', 'QQQ', 'SSS'], { G: 'glass', Q: 'quartz', S: 'oak_slab' }, 'daylight_detector');
+shaped(['CCC', 'CBC', 'CRC'], { C: 'cobblestone', B: 'bow', R: 'redstone' }, 'dispenser'); shaped(['CCC', 'C C', 'CRC'], { C: 'cobblestone', R: 'redstone' }, 'dropper');
+shaped(['I I', 'ICI', ' I '], { I: 'iron_ingot', C: 'chest' }, 'hopper'); shaped(['PPP', 'PRP', 'PPP'], { P: '#planks', R: 'redstone' }, 'note_block');
+shaped([' R ', 'RHR', ' R '], { R: 'redstone', H: 'hay_block' }, 'target');
+shapeless(['green_dye', 'bone_meal', 'wheat'], 'slime_ball', 2); shaped(['SSS', 'SSS', 'SSS'], { S: 'slime_ball' }, 'slime_block'); shapeless(['slime_block'], 'slime_ball', 9);
+// varios
+shapeless(['sugar_cane'], 'sugar'); shaped(['P P', ' P '], { P: '#planks' }, 'bowl', 4);
+shapeless(['bowl', 'brown_mushroom', 'red_mushroom'], 'mushroom_stew'); shapeless(['bowl', 'beetroot', 'beetroot', 'beetroot', 'beetroot', 'beetroot', 'beetroot'], 'beetroot_soup');
+shaped(['WCW'], { W: 'wheat', C: 'brown_dye' }, 'cookie', 8);
+shaped([' I', 'I '], { I: 'iron_ingot' }, 'shears'); shaped([' I ', 'IRI', ' I '], { I: 'iron_ingot', R: 'redstone' }, 'compass'); shaped([' G ', 'GRG', ' G '], { G: 'gold_ingot', R: 'redstone' }, 'clock');
+shapeless(['paper', 'iron_nugget'], 'name_tag'); shapeless(['paper', 'gold_nugget'], 'name_tag'); shapeless(['paper', 'copper_nugget'], 'name_tag');
+for (const t of ['sword', 'pickaxe', 'axe', 'shovel', 'hoe']) shapeless(['diamond_' + t, 'netherite_ingot'], 'netherite_' + t);
+for (const [s] of ARMOR_SLOTS) shapeless(['diamond_' + s, 'netherite_ingot'], 'netherite_' + s);
+{ const X = 'copper_ingot', S = 'stick';
+  shaped(['XXX', ' S ', ' S '], { X, S }, 'copper_pickaxe'); shaped(['XX', 'XS', ' S'], { X, S }, 'copper_axe'); shaped(['X', 'S', 'S'], { X, S }, 'copper_shovel'); shaped(['X', 'X', 'S'], { X, S }, 'copper_sword'); shaped(['XX', ' S', ' S'], { X, S }, 'copper_hoe');
+  shaped(['XXX', 'X X'], { X }, 'copper_helmet'); shaped(['X X', 'XXX', 'XXX'], { X }, 'copper_chestplate'); shaped(['XXX', 'X X', 'X X'], { X }, 'copper_leggings'); shaped(['X X', 'X X'], { X }, 'copper_boots'); }
+// el pico de cobre sirve de material de herramientas de piedra en adelante
+TAGS['#stonetool'].push('cobbled_deepslate');
+Object.assign(SMELT, { potato: ['baked_potato', 0.35], stone_bricks: SMELT.stone_bricks, cobbled_deepslate: SMELT.cobbled_deepslate });
 
 // ---- 03_textures.js ----
 // ============================================================
@@ -1947,8 +2267,20 @@ function autoItemTex(it) {
   return blob(it.color || '#999999', shade(it.color || '#999999', -0.4));
 }
 function autoTextures() {
-  for (const d of BLOCKS) { const t = T6(d.tex || 'stone'); for (const n of new Set(t)) if (!TEX[n]) addTex(n, autoBlockTex(n, d)); }
-  for (const it of ITEM_LIST) { if (it.block || it.iconBlock) continue; const n = it.icon || it.key; if (!TEX[n]) addTex(n, autoItemTex(it), 'item'); }
+  if (!TEX.redstone_wire) addTex('redstone_wire', (c) => { for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) P(c, x, y, shade('#d8d8d8', (hash2('rw', x, y) - 0.5) * 0.3)); });
+  for (const d of BLOCKS) {
+    const names = new Set(T6(d.tex || 'stone')); if (d.texAlt) for (const n of T6(d.texAlt)) names.add(n);
+    if (d.faceTex6) for (const k in d.faceTex6) names.add(d.faceTex6[k]);
+    if (d.shape === 'piston') names.add('piston_inner');
+    for (const n of names) if (!TEX[n]) addTex(n, autoBlockTex(n, d));
+  }
+  for (const it of ITEM_LIST) {
+    if (it.iconBlock) continue; const n = it.icon || it.key; if (TEX[n]) continue;
+    if (it.tool && it.colors) addTex(n, toolShape(it.tool.type, it.colors[0], it.colors[1]), 'item');
+    else if (it.armor && it.colors) addTex(n, armorIcon(it.armor.slot, it.colors[0], it.colors[1]), 'item');
+    else if (it.block) { const d = BLOCKS[B[it.block]]; addTex(n, autoItemTex({ key: n, color: d.color }), 'item'); }
+    else addTex(n, autoItemTex(it), 'item');
+  }
   for (const n of ['jungle_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'fern']) TINTED_TEX.add(n);
 }
 autoTextures();
@@ -2015,10 +2347,11 @@ function itemIcon(id) { // canvas 32x32
   if (!it) { ICON_CACHE[key] = c; return c; }
   if (it.iconBlock) {
     const d = BLOCKS[B[it.block]];
-    const tt = texCanvasFor(d.faceTex[2]), tl = texCanvasFor(d.faceTex[d.facing ? 5 : 4]), tr = texCanvasFor(d.faceTex[0]);
+    const tt = texCanvasFor(d.faceTex6 ? d.faceTex6.front : d.faceTex[2]), tl = texCanvasFor(d.faceTex[d.facing ? 5 : 4]), tr = texCanvasFor(d.faceTex[0]);
     const T = Atlas.T;
     // proyección isométrica: arriba, izquierda (sur), derecha (este)
-    let hgt = 1; if (d.slab) hgt = 0.5; if (d.key === 'bed') hgt = 9 / 16; if (d.key === 'farmland') hgt = 15 / 16; if (d.key === 'chest') hgt = 14 / 16;
+    let hgt = 1; if (d.slab) hgt = 0.5;
+    if (d.shape && ['carpet', 'plate', 'snow', 'lilypad', 'daylight', 'stonecutter', 'enchant', 'repeater', 'comparator'].includes(d.shape)) { const bb = blockBoxes(d.id, 0, null); hgt = Math.max(1, ...bb.map(b => b[4])) / 16; } if (d.key === 'bed') hgt = 9 / 16; if (d.key === 'farmland') hgt = 15 / 16; if (d.key === 'chest') hgt = 14 / 16;
     const yo = (1 - hgt) * 14, a = 14 / T, b = 7 / T;
     g.save(); g.setTransform(a, b, -a, b, 16, 2 + yo); g.drawImage(tt, 0, 0); g.restore();
     g.save(); g.setTransform(a, b, 0, a, 2, 9 + yo); g.drawImage(tl, 0, T * (1 - hgt), T, T * hgt, 0, 0, T, T * hgt); g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(0, 0, T, T * hgt); g.restore();
@@ -2406,7 +2739,7 @@ const World = {
     c.blocks[i] = id; c.meta[i] = meta;
     if (!(flags & 2)) {
       let e = this.edits.get(c.key); if (!e) { e = new Map(); this.edits.set(c.key, e); }
-      e.set(i, id | (meta << 8)); this.dirtyEdits.add(c.key);
+      e.set(i, EV(id, meta)); this.dirtyEdits.add(c.key);
     }
     if (y > c.maxY && id) c.maxY = y;
     if (c.state >= 2 && (FILTER[old] !== FILTER[id] || EMIT[old] !== EMIT[id])) this.relight(x, y, z);
@@ -2419,6 +2752,7 @@ const World = {
       if (this.blockEnts.has(pk) && BLOCKS[id].interact !== BLOCKS[old].interact) this.blockEnts.delete(pk);
       if (BLOCKS[old].key.endsWith('_log')) this.markLeavesDecay(x, y, z);
     }
+    RS.changed(x, y, z);
     if (!(flags & 1)) this.updateAround(x, y, z);
     return true;
   },
@@ -2439,9 +2773,14 @@ const World = {
     if (d.gravity) { const b = this.get(x, y - 1, z); if (y > 0 && (b === 0 || LIQUID[b] || REPLACE[b])) this.schedule(x, y, z, 2); return; }
     if (d.support && !this.canStay(id, x, y, z, this.getMeta(x, y, z))) { Game.breakBlock(x, y, z, true, null); return; }
     if (d.key === 'farmland') { const a = this.get(x, y + 1, z); if (SOLID[a] && OPAQUE[a]) this.set(x, y, z, B.dirt); }
+    // el cemento en polvo se endurece al tocar agua
+    if (d.powder) { for (const D of DIRS) if (D[1] <= 0 || true) { if (LIQUID[this.get(x + D[0], y + D[1], z + D[2])] === 1) { this.set(x, y, z, B[d.powder], 0); return; } } }
+    // puertas y plantas altas: si falta la otra mitad, se rompen
+    if (d.door || d.tall2) { const m = this.getMeta(x, y, z); const oy = (m & 8) ? y - 1 : y + 1; if (this.get(x, oy, z) !== id) { this.set(x, y, z, 0, 0); } }
   },
   canStay(id, x, y, z, meta) {
     const d = BLOCKS[id]; const below = this.get(x, y - 1, z);
+    if (d.tall2 && (meta & 8)) return below === id;
     const soil = below === B.grass_block || below === B.dirt || below === B.farmland || below === B.snowy_grass;
     switch (d.support) {
       case 'soil': return soil;
@@ -2464,6 +2803,11 @@ const World = {
         return !!OPAQUE[this.get(x + D[0], y, z + D[2])];
       }
       case 'wall': { const D = [[0, 0, 1], [-1, 0, 0], [0, 0, -1], [1, 0, 0]][meta & 3]; return !!OPAQUE[this.get(x + D[0], y, z + D[2])]; }
+      case 'attached': { const D = FDIR[meta & 7]; const n = this.get(x + D[0], y + D[1], z + D[2]); return !!(SOLID[n] && (OPAQUE[n] || BLOCKS[n].slab || BLOCKS[n].stairs)); }
+      case 'floor': return !!(SOLID[below] && (OPAQUE[below] || BLOCKS[below].slab || BLOCKS[below].stairs || BLOCKS[below].translucent || BLOCKS[below].cutout && BLOCKS[below].render === 'cube' || below === B.piston || below === B.sticky_piston));
+      case 'any': return below !== 0 && !LIQUID[below] && SOLID[below];
+      case 'water': return LIQUID[below] === 1;
+      case 'lantern': { if (meta & 1) { const a = this.get(x, y + 1, z); return !!SOLID[a]; } return !!SOLID[below]; }
     }
     return true;
   },
@@ -2500,6 +2844,7 @@ const World = {
       const [x, y, z] = k.split(',').map(Number);
       const id = this.get(x, y, z); const d = BLOCKS[id];
       if (LIQUID[id]) Fluids.tick(x, y, z, id);
+      else if (RS.ROLE[id]) RS.scheduled(x, y, z, id);
       else if (d.gravity) { const b = this.get(x, y - 1, z); if (y > 0 && (b === 0 || LIQUID[b] || REPLACE[b])) { const m = this.getMeta(x, y, z); this.set(x, y, z, 0, 0); Entities.spawnFalling(x, y, z, id, m); } }
       else if (d.leaves) {
         const m = this.getMeta(x, y, z);
@@ -2536,7 +2881,9 @@ function RandomTick(x, y, z, id, meta) {
     for (let dz = -4; dz <= 4 && !wet; dz++) for (let dx = -4; dx <= 4 && !wet; dx++) for (let dy = 0; dy <= 1; dy++) if (LIQUID[World.get(x + dx, y + dy, z + dz)] === 1) { wet = true; break; }
     if (wet && meta !== 7) World.set(x, y, z, id, 7, 1);
     else if (!wet) { if (meta > 0) World.set(x, y, z, id, meta - 1, 1); else if (World.get(x, y + 1, z) !== B.wheat) World.set(x, y, z, B.dirt); }
-  } else if (id === B.wheat) {
+  } else if (RS.ROLE[id] === 11 || RS.ROLE[id] === 14) {
+    World.schedule(x, y, z, 1); // sensores de luz y tolvas vuelven a funcionar al cargar el mundo
+  } else if (id === B.wheat || d.crop) {
     if ((meta & 7) < 7 && light >= 9) { const wet = World.getMeta(x, y - 1, z) > 0; if (Math.random() < (wet ? 0.33 : 0.12)) World.set(x, y, z, id, (meta & 7) + 1, 1); }
   } else if (d.sapling) {
     if (light >= 9 && Math.random() < 0.15) { if (meta & 1) Game.growTree(x, y, z, d.sapling); else World.set(x, y, z, id, meta | 1, 1); }
@@ -2681,7 +3028,7 @@ const Mesher = {
   AOF: [0.48, 0.64, 0.82, 1.0],
   init() {
     const n = 18 * 18 * (WH + 2);
-    this.pb = new Uint8Array(n); this.pm = new Uint8Array(n); this.pl = new Uint8Array(n);
+    this.pb = new Uint16Array(n); this.pm = new Uint8Array(n); this.pl = new Uint8Array(n);
     this.tg = new Uint8Array(18 * 18 * 3); this.tf = new Uint8Array(18 * 18 * 3);
     // tablas AO por cara/vértice
     const S = [1, 324, 18]; // strides x,y,z
@@ -2771,10 +3118,16 @@ const Mesher = {
   },
 
   texFor(d, f, meta) {
-    let name = d.faceTex[f]; let rot = false;
+    const ft = d.altBit && (meta & d.altBit) ? d.faceTexAlt : d.faceTex;
+    let name = ft[f]; let rot = false;
+    if (d.facing6 && d.faceTex6) {
+      const ff = meta & 7; const T6x = d.faceTex6;
+      if (f === ff) name = (d.shape === 'piston' && (meta & 8)) ? 'piston_inner' : T6x.front; else if (f === (ff ^ 1)) name = T6x.back; else { name = (ff === 2 || ff === 3) ? T6x.side : (f === 2 || f === 3 ? T6x.top : T6x.side); rot = ff !== 2 && ff !== 3 && f !== 2 && f !== 3 ? false : false; }
+      return [Atlas.index[name] ?? 0, rot];
+    }
     if (d.facing && f !== 2 && f !== 3) {
       const ff = meta & 3; const frontFace = [5, 0, 4, 1][ff];
-      name = f === frontFace ? d.faceTex[5] : d.faceTex[4];
+      name = f === frontFace ? ft[5] : ft[4];
     }
     if (d.axis) {
       const ax = (meta >> 2) & 3;
@@ -2839,10 +3192,10 @@ const Mesher = {
   ownLight(p) { const l = this.pl[p]; return [(l >> 4) * 16, (l & 15) * 16]; },
 
   cross(O, p, id, d, x, y, z) {
-    const ti = Atlas.index[d.faceTex[0]] ?? 0; const t = (Atlas.tinted[ti] && this.tintOf(d, x, z)) || [255, 255, 255];
+    const ti = Atlas.index[(d.altBit && (this.pm[p] & d.altBit) ? d.faceTexAlt : d.faceTex)[0]] ?? 0; const t = (Atlas.tinted[ti] && this.tintOf(d, x, z)) || [255, 255, 255];
     let [s, bl] = this.ownLight(p);
     let ox = 0, oz = 0;
-    if (id === B.short_grass) { const h = Math.imul(x * 3129871 ^ z * 116129781, 1); ox = ((h & 15) / 15 - 0.5) * 4; oz = (((h >> 4) & 15) / 15 - 0.5) * 4; }
+    if (id === B.short_grass || d.tall2 || id === B.fern) { const h = Math.imul(x * 3129871 ^ z * 116129781, 1); ox = ((h & 15) / 15 - 0.5) * 4; oz = (((h >> 4) & 15) / 15 - 0.5) * 4; }
     const a = 1.2, b2 = 14.8;
     const planes = [[[a + ox, 0, a + oz], [b2 + ox, 0, b2 + oz], [b2 + ox, 16, b2 + oz], [a + ox, 16, a + oz]], [[b2 + ox, 0, a + oz], [a + ox, 0, b2 + oz], [a + ox, 16, b2 + oz], [b2 + ox, 16, a + oz]]];
     const uv = [[0, 16], [16, 16], [16, 0], [0, 0]];
@@ -2852,7 +3205,8 @@ const Mesher = {
     }
   },
   crop(O, p, d, meta, x, y, z) {
-    const ti = Atlas.index['wheat_stage' + (meta & 7)] ?? 0; const [s, bl] = this.ownLight(p); const w = [255, 255, 255];
+    const st = d.stages ? Math.min(d.stages - 1, Math.floor((meta & 7) * d.stages / 8)) : (meta & 7);
+    const ti = Atlas.index[(d.stages ? d.key + '_stage' : 'wheat_stage') + st] ?? 0; const [s, bl] = this.ownLight(p); const w = [255, 255, 255];
     const uv = [[0, 16], [16, 16], [16, 0], [0, 0]]; const yb = -1;
     for (const k of [4, 12]) {
       const pa = [[k, yb, 0], [k, yb, 16], [k, 16 + yb, 16], [k, 16 + yb, 0]];
@@ -2873,7 +3227,7 @@ const Mesher = {
     this.quad(O, x, y, z, [P[1], P[0], P[3], P[2]], uv, ti, w, 0.85, s, bl);
   },
   torch(O, p, d, meta, x, y, z) {
-    const ti = Atlas.index.torch ?? 0; const [s, bl] = this.ownLight(p); const w = [255, 255, 255];
+    const ti = Atlas.index[d.faceTex[0]] ?? Atlas.index.torch ?? 0; const [s, bl] = this.ownLight(p); const w = [255, 255, 255];
     const f = meta & 7; const D = f ? [[0, 0, 1], [-1, 0, 0], [0, 0, -1], [1, 0, 0]][f - 1] : null;
     const tf = (v) => { if (!D) return v; const ly = v[1]; return [v[0] + D[0] * (5.5 - ly * 0.41), ly + 3.5, v[2] + D[2] * (5.5 - ly * 0.41)]; };
     const x0 = 7, x1 = 9, z0 = 7, z1 = 9, y1 = 10;
@@ -2892,10 +3246,12 @@ const Mesher = {
     });
   },
   boxes(O, p, id, d, meta, x, y, z) {
-    const boxes = blockBoxes(id, meta); const pb = this.pb, pl = this.pl;
+    const pb = this.pb, pl = this.pl, NO = this.NOFF;
+    const boxes = blockBoxes(id, meta, d.shape ? (f, dy) => pb[p + NO[f] + (dy || 0) * 324] : null);
     const own = pl[p];
+    const wt = d.shape === 'wire' ? RS.wireColor(meta) : null;
     for (const bx of boxes) {
-      const [x0, y0, z0, x1, y1, z1] = bx;
+      const [x0, y0, z0, x1, y1, z1, btex] = bx;
       const fv = [
         [[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]],
         [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]],
@@ -2909,13 +3265,13 @@ const Mesher = {
         let L = own;
         if (onEdge[f]) { const np = p + this.NOFF[f]; const n = pb[np]; if (OPAQUE[n]) continue; if (n === id && (d.slab || d.stairs) && f !== 2 && f !== 3) { /* contiguo */ } L = pl[np]; }
         L = Math.max(L >> 4, own >> 4) << 4 | Math.max(L & 15, own & 15);
-        const [ti, rot] = this.texFor(d, f, meta);
-        const uvs = fv[f].map(v => this.uvOf(f, v[0], v[1], v[2]));
+        const [ti0, rot] = this.texFor(d, f, meta); const ti = btex ? (Atlas.index[btex] ?? ti0) : ti0;
+        const uvs = fv[f].map(v => this.uvOf(f, v[0], Math.max(0, Math.min(16, v[1])), v[2]));
         if (d.key === 'cactus' && (f < 2 || f > 3)) { // la piel del cactus usa toda la casilla
           for (const uv of uvs) uv[0] = clamp(uv[0] < 8 ? 0 : 16, 0, 16);
         }
-        const t = (d.tint && f === 2 && Atlas.tinted[ti]) ? (this.tintOf(d, x, z) || [255, 255, 255]) : [255, 255, 255];
-        this.quad(O, x, y, z, fv[f], uvs, ti, t, this.SHADE[f], (L >> 4) * 16, (L & 15) * 16, 0);
+        const t = wt || ((d.tint && f === 2 && (Atlas.tinted[ti] || d.shape === 'lilypad')) ? (this.tintOf(d, x, z) || [255, 255, 255]) : [255, 255, 255]);
+        this.quad(d.translucent ? this.T : O, x, y, z, fv[f], uvs, ti, t, this.SHADE[f], (L >> 4) * 16, (L & 15) * 16, 0);
       }
     }
   },
@@ -2974,17 +3330,17 @@ const Mesher = {
     const t = d.tint ? (d.tint[0] === '#' ? hexRGB(d.tint) : (d.tint === 'grass' ? [121, 192, 90] : [89, 174, 48])) : [255, 255, 255];
     const rt = RENDER[id];
     if (rt === 2 || rt === 4 || rt === 6 || rt === 7) return this.spriteItem(rt === 6 ? 'wheat_stage7' : d.faceTex[0], d.tint && TINTED_TEX.has(d.faceTex[0]) ? t : null);
-    let boxes = rt === 5 ? blockBoxes(id, meta) : [[0, 0, 0, 16, 16, 16]];
+    let boxes = rt === 5 ? blockBoxes(id, meta, null) : [[0, 0, 0, 16, 16, 16]];
     for (const bx of boxes) {
-      const [x0, y0, z0, x1, y1, z1] = bx;
+      const [x0, y0, z0, x1, y1, z1, btex] = bx;
       const fv = [
         [[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]],
         [[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]],
         [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]],
       ];
       for (let f = 0; f < 6; f++) {
-        const [ti, rot] = this.texFor(d, f, meta);
-        const uvs = fv[f].map(v => this.uvOf(f, v[0], v[1], v[2]));
+        const [ti0, rot] = this.texFor(d, f, meta); const ti = btex ? (Atlas.index[btex] ?? ti0) : ti0;
+        const uvs = fv[f].map(v => this.uvOf(f, v[0], Math.max(0, Math.min(16, v[1])), v[2]));
         const useT = d.tint && Atlas.tinted[ti] && (!d.tintFaces || d.tintFaces.includes(f));
         this.quad(buf, -0.5, -0.5, -0.5, fv[f], uvs, ti, useT ? t : [255, 255, 255], this.SHADE[f], full[0], full[1], d.fullbright ? 2 : 0);
       }
@@ -3730,9 +4086,10 @@ function collectBoxes(x0, y0, z0, x1, y1, z1) {
     if (y < 0) { _boxes.push([x, y, z, x + 1, y + 1, z + 1]); continue; }
     if (!World.loaded(x, z)) { _boxes.push([x, y, z, x + 1, y + 1, z + 1]); continue; }
     const id = World.get(x, y, z); if (!SOLID[id]) continue;
-    const bb = blockBoxes(id, World.getMeta(x, y, z));
+    const d = BLOCKS[id]; const m = World.getMeta(x, y, z);
+    const bb = blockBoxes(id, m, d.shape ? worldNb(x, y, z) : null);
     if (!bb) _boxes.push([x, y, z, x + 1, y + 1, z + 1]);
-    else for (const b of bb) _boxes.push([x + b[0] / 16, y + b[1] / 16, z + b[2] / 16, x + b[3] / 16, y + b[4] / 16, z + b[5] / 16]);
+    else { const tall = d.tall && !(d.gate && (m & 4)); for (const b of bb) _boxes.push([x + b[0] / 16, y + Math.max(0, b[1]) / 16, z + b[2] / 16, x + b[3] / 16, y + (tall && b[4] >= 14 ? 24 : b[4]) / 16, z + b[5] / 16]); }
   }
   return _boxes;
 }
@@ -4316,7 +4673,7 @@ const Store = {
     return new Promise((res, rej) => {
       try {
         const tx = this.db.transaction(store, mode); const st = tx.objectStore(store); const r = fn(st);
-        tx.oncomplete = () => res(r && r.result !== undefined ? r.result : r); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+        tx.oncomplete = () => res(r && typeof r === "object" && "result" in r ? r.result : r); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
       } catch (e) { rej(e); }
     });
   },
@@ -4434,6 +4791,7 @@ const Sound = {
       case 'splash': T.nz(t, 0.5, 'bandpass', 1100, 0.6, 0.35 * v, null, 400); break;
       case 'break_tool': T.nz(t, 0.2, 'highpass', 3000, 1, 0.3 * v); T.tone(t, 0.15, 'square', 2600, 1800, 0.06 * v); break;
       case 'chest_open': T.tone(t, 0.25, 'sawtooth', 160, 220, 0.06 * v); T.nz(t, 0.2, 'bandpass', 600, 2, 0.2 * v); break;
+      case 'piston': T.nz(t, 0.18, 'bandpass', 500, 1.5, 0.35 * v); T.tone(t, 0.12, 'square', 180, 90, 0.08 * v); break;
       case 'chest_close': T.nz(t, 0.12, 'bandpass', 500, 2, 0.3 * v); T.tone(t, 0.08, 'triangle', 140, 100, 0.15 * v); break;
       case 'pig': T.tone(t, 0.22, 'sawtooth', 330, 260, 0.08 * v); T.tone(t + 0.25, 0.18, 'sawtooth', 300, 240, 0.06 * v); break;
       case 'cow': { const o = T.tone(t, 0.9, 'sawtooth', 150, 110, 0.09 * v, null, 0.15); } break;
@@ -4446,6 +4804,14 @@ const Sound = {
         if (name.endsWith('_hurt')) { T.tone(t, 0.15, 'square', 380, 240, 0.09 * v); T.nz(t, 0.1, 'bandpass', 900, 1, 0.15 * v); }
         else if (name.endsWith('_death')) { T.tone(t, 0.4, 'square', 300, 90, 0.1 * v); }
     }
+  },
+  // bloque musical: 25 notas (de Fa# a Fa#) con varios instrumentos
+  note(p, inst, x, y, z) {
+    if (!this.ctx) return; const v = this.vol(x, y, z); if (v <= 0) return; const t = this.ctx.currentTime;
+    const f = 185 * Math.pow(2, p / 12) * ({ bass: 0.25, bd: 0.5, snare: 1, hat: 2, bell: 2, guitar: 0.5 }[inst] || 1);
+    if (inst === 'snare' || inst === 'hat') this.nz(t, inst === 'hat' ? 0.06 : 0.12, 'highpass', inst === 'hat' ? 6000 : 1500, 1, 0.3 * v);
+    else if (inst === 'bd') { this.tone(t, 0.2, 'sine', f, f * 0.4, 0.4 * v); }
+    else this.piano(this.master, t, 69 + 12 * Math.log2(f / 440), inst === 'bell' ? 2.5 : 1.2, (inst === 'bass' ? 0.35 : 0.22) * v);
   },
   // música ambiental generativa (propia): notas suaves de una escala pentatónica
   musicTick() {
@@ -4524,7 +4890,7 @@ const Game = {
   async createWorld(opts) {
     const id = 'w' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
     let seed = opts.seed && opts.seed.trim() ? (/^-?\d+$/.test(opts.seed.trim()) ? parseInt(opts.seed.trim()) | 0 : hashStr(opts.seed.trim())) : (Math.random() * 2 ** 31 | 0);
-    const meta = { id, name: opts.name || 'Mundo nuevo', seed, flat: !!opts.flat, mode: opts.mode, difficulty: opts.difficulty, hardcore: !!opts.hardcore, time: 1000, day: 0, created: Date.now(), lastPlayed: Date.now(), player: null, blockEnts: [], generated: [], mobs: [] };
+    const meta = { id, editFmt: 2, name: opts.name || 'Mundo nuevo', seed, flat: !!opts.flat, mode: opts.mode, difficulty: opts.difficulty, hardcore: !!opts.hardcore, time: 1000, day: 0, created: Date.now(), lastPlayed: Date.now(), player: null, blockEnts: [], generated: [], mobs: [] };
     await Store.put('worlds', id, meta).catch(() => { });
     return this.startWorld(meta, new Map());
   },
@@ -4532,8 +4898,13 @@ const Game = {
     const meta = await Store.get('worlds', id); if (!meta) return;
     const raw = await Store.all('chunks', id + '|').catch(() => ({}));
     const edits = new Map();
-    for (const k in raw) { const v = raw[k]; const m = new Map(); const a = v.e; for (let i = 0; i < a.length; i += 2) m.set(a[i], a[i + 1]); edits.set(v.k, m); }
-    return this.startWorld(meta, edits);
+    // mundos guardados antes de la 1.3: id en 8 bits y meta en los 8 siguientes
+    const old = !meta.editFmt;
+    for (const k in raw) { const v = raw[k]; const m = new Map(); const a = v.e; for (let i = 0; i < a.length; i += 2) m.set(a[i], old ? EV(a[i + 1] & 255, (a[i + 1] >> 8) & 255) : a[i + 1]); edits.set(v.k, m); }
+    if (old) meta.editFmt = 2;
+    const r = this.startWorld(meta, edits);
+    if (old) for (const k of edits.keys()) World.dirtyEdits.add(k); // se guardan ya en el formato nuevo
+    return r;
   },
   async deleteWorld(id) { await Store.del('worlds', id).catch(() => { }); await Store.delPrefix('chunks', id + '|').catch(() => { }); },
   startWorld(meta, edits) {
@@ -4612,6 +4983,8 @@ const Game = {
       if (World.loaded(Math.floor(P.x), Math.floor(P.z))) P.tick(inp); else P.savePrev();
       Net.track(() => this.interactTick());
       World.runTicks();
+      RS.touch(P); for (const e of Entities.list) if (e.mob || e.type === 'item') RS.touch(e);
+      RS.process();
       if (World.tickCount % 1 === 0) World.randomTicks(Math.floor(P.x), Math.floor(P.z));
       this.furnaceTick();
       for (const e of Entities.list) { if (!World.loaded(Math.floor(e.x), Math.floor(e.z)) && e.type !== 'arrow') { e.savePrev(); continue; } }
@@ -4650,7 +5023,7 @@ const Game = {
     for (let i = 0; i < 200 && t <= reach; i++) {
       const id = World.get(x, y, z);
       if (id && (solidOnly ? SOLID[id] : fluids ? (LIQUID[id] ? World.getMeta(x, y, z) === 0 : RENDER[id] !== 0) : (!LIQUID[id] && RENDER[id] !== 0))) {
-        const boxes = this.shapeOf(id, World.getMeta(x, y, z));
+        const boxes = this.shapeOf(id, World.getMeta(x, y, z), x, y, z);
         let best = null;
         for (const b of boxes) {
           const r = rayBox(ox, oy, oz, dx, dy, dz, x + b[0], y + b[1], z + b[2], x + b[3], y + b[4], z + b[5]);
@@ -4664,14 +5037,15 @@ const Game = {
     }
     return null;
   },
-  shapeOf(id, meta) { // cajas de selección en bloques (0..1)
+  shapeOf(id, meta, x, y, z) { // cajas de selección en bloques (0..1)
     const d = BLOCKS[id];
     if (d.render === 'cross') return id === B.short_grass ? [[0.1, 0, 0.1, 0.9, 0.8, 0.9]] : [[0.2, 0, 0.2, 0.8, 0.8, 0.8]];
     if (d.render === 'crop') return [[0, 0, 0, 1, Math.max(2, ((meta & 7) + 1) * 2) / 16, 1]];
     if (d.render === 'torch') { const f = meta & 7; if (!f) return [[0.4, 0, 0.4, 0.6, 0.6, 0.6]]; const D = [[0, 0, 1], [-1, 0, 0], [0, 0, -1], [1, 0, 0]][f - 1]; const cx = 0.5 + D[0] * 0.3, cz = 0.5 + D[2] * 0.3; return [[cx - 0.15, 0.2, cz - 0.15, cx + 0.15, 0.8, cz + 0.15]]; }
     if (d.render === 'liquid') return [[0, 0, 0, 1, 0.9, 1]];
-    const bb = blockBoxes(id, meta); if (!bb) return [[0, 0, 0, 1, 1, 1]];
-    return bb.map(b => b.map(v => v / 16));
+    if (d.web) return [[0, 0, 0, 1, 1, 1]];
+    const bb = blockBoxes(id, meta, x !== undefined && d.shape ? worldNb(x, y, z) : null); if (!bb) return [[0, 0, 0, 1, 1, 1]];
+    return bb.map(b => b.slice(0, 6).map(v => Math.max(-0.25, v / 16)));
   },
   rayEntity(ox, oy, oz, dx, dy, dz, reach) {
     let best = null;
@@ -4740,10 +5114,10 @@ const Game = {
     // --- clic derecho ---
     const held = P.held; const hit = ITEMS[held?.id];
     if (Input.mouse[2] && P.mode !== 3) {
-      if (hit && hit.food && (P.food < 20 || P.mode === 1 || held.id === 'golden_apple')) {
+      if (hit && hit.food && !(hit.places && this.target && this.target.id === B.farmland && this.target.face === 2) && (P.food < 20 || P.mode === 1 || held.id === 'golden_apple' || hit.always)) {
         P.usingItem = true; P.useTime++;
         if (P.useTime % 4 === 0) { Sound.play('eat'); Particles.color(...this.eyePos(1).map((v, i) => v + lookDir(P.yaw, P.pitch)[i] * 0.4), 0.8, 0.6, 0.4, 2, 0.1, 10, 0.03, 0.05); }
-        if (P.useTime >= 32) { P.food = Math.min(20, P.food + hit.food.h); P.sat = Math.min(P.food, P.sat + hit.food.s); if (held.id === 'golden_apple') P.health = Math.min(20, P.health + 4); if (P.mode !== 1) { held.n--; if (!held.n) P.inv[P.sel] = null; } P.useTime = 0; P.usingItem = false; Sound.play('burp'); Input.mouse[2] = false; }
+        if (P.useTime >= 32) { P.food = Math.min(20, P.food + hit.food.h); P.sat = Math.min(P.food, P.sat + hit.food.s); if (held.id === 'golden_apple') P.health = Math.min(20, P.health + 4); if (P.mode !== 1) { held.n--; if (!held.n) P.inv[P.sel] = null; const back = hit.bowl ? 'bowl' : hit.returns; if (back) { if (!P.inv[P.sel]) P.inv[P.sel] = { id: back, n: 1 }; else if (P.give(back, 1)) Entities.dropItem(P.x, P.y + 1, P.z, { id: back, n: 1 }); } } P.useTime = 0; P.usingItem = false; Sound.play('burp'); Input.mouse[2] = false; }
       } else if (hit && held.id === 'bow') {
         if (P.mode === 1 || P.count('arrow') > 0) { P.usingItem = true; P.bowCharge++; }
       } else if (this.useCD <= 0) { this.use(); this.useCD = 4; }
@@ -4776,6 +5150,7 @@ const Game = {
       if (d.interact === 'craft') { UI.openContainer('craft', T); P.swinging = true; P.swingTime = 0; return; }
       if (d.interact === 'furnace') { UI.openContainer('furnace', T); return; }
       if (d.interact === 'chest') { UI.openContainer('chest', T); Sound.play('chest_open', T.x, T.y, T.z); return; }
+      if ((d.interact === 'toggle' || d.interact === 'press' || d.interact === 'cycle') && RS.use(T)) { P.swinging = true; P.swingTime = 0; return; }
       if (d.interact === 'bed') { this.trySleep(T); return; }
       if (d.interact === 'tnt' && held && held.id === 'flint_and_steel') { World.set(T.x, T.y, T.z, 0); Entities.add(new PrimedTNT(T.x, T.y, T.z, 80)); P.useDurability(1); P.swinging = true; P.swingTime = 0; return; }
     }
@@ -4783,6 +5158,7 @@ const Game = {
     // objetos usables
     if (it.armor) { const s = it.armor.slot; if (!P.armor[s]) { P.armor[s] = held; P.inv[P.sel] = null; Sound.play('chest_close'); return; } }
     if (held.id === 'bucket') {
+      const te = this.targetEnt; if (te && te.kind === 'cow' && !te.dead) { if (P.mode !== 1) { if (held.n === 1) P.inv[P.sel] = { id: 'milk_bucket', n: 1 }; else { held.n--; if (P.give('milk_bucket', 1)) Entities.dropItem(P.x, P.y + 1, P.z, { id: 'milk_bucket', n: 1 }); } } P.swinging = true; P.swingTime = 0; return; }
       const [ex, ey, ez] = this.eyePos(1); const [dx, dy, dz] = lookDir(P.yaw, P.pitch);
       const r = this.raycast(ex, ey, ez, dx, dy, dz, 5, true);
       if (r && LIQUID[r.id] && World.getMeta(r.x, r.y, r.z) === 0) {
@@ -4804,13 +5180,31 @@ const Game = {
       if ((T.id === B.grass_block || T.id === B.dirt || T.id === B.snowy_grass) && T.face !== 3 && !World.get(T.x, T.y + 1, T.z)) { World.set(T.x, T.y, T.z, B.farmland, 0); Sound.dig('gravel', 'place', T.x, T.y, T.z); P.useDurability(1); P.swinging = true; P.swingTime = 0; }
       return;
     }
-    if (held.id === 'wheat_seeds') {
-      if (T.id === B.farmland && T.face === 2 && !World.get(T.x, T.y + 1, T.z)) { World.set(T.x, T.y + 1, T.z, B.wheat, 0); this.consume(); Sound.dig('grass', 'place'); P.swinging = true; P.swingTime = 0; }
+    if (held.id === 'wheat_seeds' || (it.places && it.placeOn === 'farmland')) {
+      const crop = held.id === 'wheat_seeds' ? B.wheat : B[it.places];
+      if (T.id === B.farmland && T.face === 2 && !World.get(T.x, T.y + 1, T.z)) { World.set(T.x, T.y + 1, T.z, crop, 0); this.consume(); Sound.dig('grass', 'place'); P.swinging = true; P.swingTime = 0; return; }
+      if (held.id === 'wheat_seeds' || it.places) { if (!it.food) return; }
+    }
+    if (it.places === 'redstone_wire') {
+      const [x, y, z] = this.placePos(T); const cur = World.get(x, y, z);
+      if ((!cur || REPLACE[cur]) && World.canStay(B.redstone_wire, x, y, z, 0)) { World.set(x, y, z, B.redstone_wire, 0); this.consume(); Sound.dig('stone', 'place', x, y, z); P.swinging = true; P.swingTime = 0; }
+      return;
+    }
+    if (it.egg && MOBS[it.egg]) { const [x, y, z] = this.placePos(T); const m = new Mob(it.egg, x + 0.5, y, z + 0.5); m.persistent = true; Entities.add(m); this.consume(); P.swinging = true; P.swingTime = 0; return; }
+    if (held.id === 'shears') {
+      if (T.id === B.pumpkin) { World.set(T.x, T.y, T.z, B.carved_pumpkin, (facingFromYaw(P.yaw) + 2) & 3); Entities.dropItem(T.x + 0.5, T.y + 1, T.z + 0.5, { id: 'wheat_seeds', n: 4 }); P.useDurability(1); P.swinging = true; P.swingTime = 0; return; }
+      return;
+    }
+    if (held.id === 'snow' && T.id === B.snow && (World.getMeta(T.x, T.y, T.z) & 7) < 7) { World.set(T.x, T.y, T.z, B.snow, World.getMeta(T.x, T.y, T.z) + 1); this.consume(); Sound.dig('wool', 'place', T.x, T.y, T.z); return; }
+    if (held.id === 'lily_pad') {
+      const [ex, ey, ez] = this.eyePos(1); const [dx, dy, dz] = lookDir(P.yaw, P.pitch);
+      const r = this.raycast(ex, ey, ez, dx, dy, dz, 5, true);
+      if (r && LIQUID[r.id] === 1 && !World.get(r.x, r.y + 1, r.z)) { World.set(r.x, r.y + 1, r.z, B.lily_pad, 0); this.consume(); Sound.dig('grass', 'place', r.x, r.y, r.z); P.swinging = true; P.swingTime = 0; }
       return;
     }
     if (held.id === 'bone_meal') {
       let ok = false;
-      if (T.id === B.wheat) { const m = World.getMeta(T.x, T.y, T.z) & 7; if (m < 7) { World.set(T.x, T.y, T.z, B.wheat, Math.min(7, m + 2 + (Math.random() * 3 | 0))); ok = true; } }
+      if (T.id === B.wheat || BLOCKS[T.id].crop) { const m = World.getMeta(T.x, T.y, T.z) & 7; if (m < 7) { World.set(T.x, T.y, T.z, T.id, Math.min(7, m + 2 + (Math.random() * 3 | 0))); ok = true; } }
       else if (BLOCKS[T.id].sapling) { if (Math.random() < 0.45) this.growTree(T.x, T.y, T.z, BLOCKS[T.id].sapling); ok = true; }
       else if (T.id === B.grass_block && !World.get(T.x, T.y + 1, T.z)) {
         for (let k = 0; k < 40; k++) { const x = T.x + Math.round((Math.random() - 0.5) * 7), z = T.z + Math.round((Math.random() - 0.5) * 7); for (let y = T.y + 2; y >= T.y - 2; y--) { if (World.get(x, y, z) === B.grass_block && !World.get(x, y + 1, z)) { const r = Math.random(); World.set(x, y + 1, z, r < 0.8 ? B.short_grass : r < 0.9 ? B.dandelion : B.poppy); break; } } }
@@ -4843,6 +5237,17 @@ const Game = {
     if (d.axis) meta = (T.face === 0 || T.face === 1) ? 4 : (T.face === 4 || T.face === 5) ? 8 : 0;
     if (d.slab) meta = (T.face === 3 || (T.face !== 2 && (T.hy - Math.floor(T.hy)) > 0.5)) ? 1 : 0;
     if (d.leaves) meta = 8;
+    if (d.door || d.shape === 'gate' || d.shape === 'repeater' || d.shape === 'comparator') meta = yawDir;
+    if (d.shape === 'trapdoor') meta = ((yawDir + 2) & 3) | ((T.face === 3 || (T.face !== 2 && (T.hy - Math.floor(T.hy)) > 0.5)) ? 8 : 0);
+    if (d.shape === 'button' || d.shape === 'lever') meta = REPLACE[T.id] ? 3 : (T.face ^ 1);
+    if (d.shape === 'lantern') meta = T.face === 3 ? 1 : 0;
+    if (d.facing6) {
+      const [lx, ly, lz] = lookDir(P.yaw, P.pitch); const ax = Math.abs(lx), ay = Math.abs(ly), az = Math.abs(lz);
+      const look = ay > ax && ay > az ? (ly > 0 ? 2 : 3) : ax > az ? (lx > 0 ? 0 : 1) : (lz > 0 ? 4 : 5);
+      meta = d.shape === 'rod' ? T.face : (id === B.observer ? look : look ^ 1);
+    }
+    if (d.shape === 'hopper') meta = T.face === 2 || REPLACE[T.id] ? 3 : (T.face ^ 1);
+    if (d.door || d.tall2) { const a = World.get(x, y + 1, z); if (y + 1 >= WH || (a && !REPLACE[a])) return; }
     if (d.render === 'torch') {
       if (T.face === 3) return;
       // f (1..4) tal que la pared (el bloque pulsado) queda detrás de la antorcha
@@ -4866,7 +5271,10 @@ const Game = {
       }
     }
     if (cur && LIQUID[cur] && !d.solid && d.render !== 'box') { if (d.render === 'torch' || d.render === 'cross') return; }
+    if (d.door || d.tall2) World.set(x, y + 1, z, id, meta | 8, 1); // la mitad de arriba primero, para que la de abajo no se rompa
     World.set(x, y, z, id, meta);
+    if (d.powder) World.onNeighbor(x, y, z);
+    if (RS.ROLE[id]) { RS.pending.add(x + ',' + y + ',' + z); if (RS.ROLE[id] === 11 || RS.ROLE[id] === 14) World.schedule(x, y, z, 2); }
     if (d.key === 'tnt' && false) { }
     this.afterPlace(d, x, y, z);
   },
@@ -4887,6 +5295,9 @@ const Game = {
     if (d.key === 'tnt' && !decay && drop && this.player.mode !== 1) { /* romper dinamita la suelta */ }
     let replace = 0;
     if (id === B.ice && this.player.mode !== 1 && SOLID[World.get(x, y - 1, z)]) replace = B.water;
+    if (d.pistonHead) { const D = FDIR[meta & 7]; const bx = x - D[0], by = y - D[1], bz = z - D[2]; const b = World.get(bx, by, bz); if (b === B.piston || b === B.sticky_piston) { World.set(x, y, z, 0, 0, 1); this.breakBlock(bx, by, bz, drop, tool, decay); return; } }
+    if ((id === B.piston || id === B.sticky_piston) && (meta & 8)) { const D = FDIR[meta & 7]; if (World.get(x + D[0], y + D[1], z + D[2]) === B.piston_head) World.set(x + D[0], y + D[1], z + D[2], 0, 0); }
+    if ((d.door || d.tall2) && (meta & 8)) { World.set(x, y, z, 0, 0, 1); this.breakBlock(x, y - 1, z, drop, tool, decay); return; }
     World.set(x, y, z, replace, 0);
     if (drop) {
       if (this.canHarvest(d, tool) || decay) {
@@ -4994,7 +5405,10 @@ const Game = {
       if (be.type !== 'furnace') continue;
       const [x, y, z] = k.split(',').map(Number); if (!World.loaded(x, z)) continue;
       const s = be.slots; const inp = s[0], fuel = s[1], out = s[2];
-      const rec = inp && SMELT[inp.id];
+      const bid = World.get(x, y, z); const oven = BLOCKS[bid].oven;
+      let rec = inp && SMELT[inp.id];
+      if (rec && oven === 'food' && !(ITEMS[rec[0]] && ITEMS[rec[0]].food)) rec = null;
+      if (rec && oven === 'ore' && !/^raw_|_ore$/.test(inp.id)) rec = null;
       const canSmelt = rec && (!out || (out.id === rec[0] && out.n < maxStack(out.id)));
       const wasLit = be.burn > 0;
       if (be.burn > 0) be.burn--;
@@ -5003,11 +5417,11 @@ const Game = {
         if (fuel.id === 'lava_bucket') s[1] = { id: 'bucket', n: 1 }; else { fuel.n--; if (!fuel.n) s[1] = null; }
       }
       if (be.burn > 0 && canSmelt) {
-        be.cook++;
+        be.cook += oven ? 2 : 1;
         if (be.cook >= 200) { be.cook = 0; inp.n--; if (!inp.n) s[0] = null; if (out) out.n++; else s[2] = { id: rec[0], n: 1 }; be.xp = (be.xp || 0) + rec[1]; }
       } else be.cook = Math.max(0, be.cook - 2);
       const lit = be.burn > 0;
-      if (lit !== wasLit) { const m = World.getMeta(x, y, z); World.set(x, y, z, lit ? B.lit_furnace : B.furnace, m, 1); }
+      if (lit !== wasLit && (bid === B.furnace || bid === B.lit_furnace)) { const m = World.getMeta(x, y, z); World.set(x, y, z, lit ? B.lit_furnace : B.furnace, m, 1); }
     }
   },
   onPlayerDeath() {
@@ -5317,7 +5731,7 @@ const CREATIVE_TABS = [
   { id: 'build', name: 'Bloques de construcción', icon: 'bricks' }, { id: 'color', name: 'Bloques de colores', icon: 'red_wool' },
   { id: 'nature', name: 'Bloques naturales', icon: 'grass_block' }, { id: 'func', name: 'Bloques funcionales', icon: 'crafting_table' },
   { id: 'tools', name: 'Herramientas', icon: 'iron_pickaxe' }, { id: 'combat', name: 'Combate', icon: 'iron_sword' },
-  { id: 'food', name: 'Comida', icon: 'apple' }, { id: 'misc', name: 'Ingredientes', icon: 'iron_ingot' },
+  { id: 'redstone', name: 'Redstone', icon: 'redstone' }, { id: 'food', name: 'Comida', icon: 'apple' }, { id: 'misc', name: 'Ingredientes', icon: 'iron_ingot' },
   { id: 'search', name: 'Buscar objetos', icon: 'compass' }, { id: 'inv', name: 'Inventario', icon: 'chest' },
 ];
 const GUI = {
@@ -5330,7 +5744,8 @@ const GUI = {
     if (type === 'craft') this.craft = new Array(9).fill(null);
     if (type === 'furnace' || type === 'chest') {
       const k = T.x + ',' + T.y + ',' + T.z; let be = World.blockEnts.get(k);
-      if (!be) { be = type === 'furnace' ? { type: 'furnace', slots: [null, null, null], burn: 0, burnMax: 0, cook: 0, xp: 0 } : { type: 'chest', slots: new Array(27).fill(null) }; World.blockEnts.set(k, be); }
+      const bd = BLOCKS[World.get(T.x, T.y, T.z)]; this.title = bd ? bd.name : 'Cofre';
+      if (!be) { be = type === 'furnace' ? { type: 'furnace', slots: [null, null, null], burn: 0, burnMax: 0, cook: 0, xp: 0 } : { type: 'chest', slots: new Array((bd && bd.slots) || 27).fill(null) }; World.blockEnts.set(k, be); }
       if (type === 'chest') { const m = World.getMeta(T.x, T.y, T.z); if (m & 0x10) { this.fillLoot(be, (m >> 5) & 7); World.set(T.x, T.y, T.z, B.chest, m & 3, 3); } }
       this.be = be;
     }
@@ -5375,7 +5790,11 @@ const GUI = {
     } else if (this.open === 'furnace') {
       add(this.be.slots, 0, 56, 17, 'in'); add(this.be.slots, 1, 56, 53, 'fuel'); add(this.be.slots, 2, 116, 35, 'out'); inv(84);
     } else if (this.open === 'chest') {
-      h = 168; for (let i = 0; i < 27; i++) add(this.be.slots, i, 8 + (i % 9) * 18, 18 + Math.floor(i / 9) * 18); inv(86);
+      h = 168; const n = this.be.slots.length;
+      if (n === 9) for (let i = 0; i < 9; i++) add(this.be.slots, i, 62 + (i % 3) * 18, 17 + Math.floor(i / 3) * 18);
+      else if (n < 9) for (let i = 0; i < n; i++) add(this.be.slots, i, 80 - (n - 1) * 9 + i * 18, 35);
+      else for (let i = 0; i < 27; i++) add(this.be.slots, i, 8 + (i % 9) * 18, 18 + Math.floor(i / 9) * 18);
+      inv(86);
     } else if (this.open === 'inv' && P.mode === 1) {
       w = 195; h = 136;
       if (this.creativeTab === 'inv') {
@@ -5533,7 +5952,7 @@ const GUI = {
       T('Horno', 76, 6); const be = this.be;
       const fl = be.burnMax ? be.burn / be.burnMax : 0; this.flame(ox + 56 * s, oy + 36 * s, s, fl);
       this.arrow(ox + 79 * s, oy + 34 * s, s, be.cook / 200, true);
-    } else if (this.open === 'chest') T('Cofre', 8, 6);
+    } else if (this.open === 'chest') T(this.title || 'Cofre', 8, 6);
     if (this.open !== 'inv') T('Inventario', 8, this.open === 'chest' ? 75 : 73);
     if (this.open === 'inv' && P.mode === 1) {
       const tab = CREATIVE_TABS.find(t => t.id === this.creativeTab); T(tab.name, 8, 6);
@@ -6112,7 +6531,7 @@ const Chunks = {
       if (r.gen !== Gen.gen || World.chunks.has(k)) continue;
       if (Math.max(Math.abs(r.cx - pcx), Math.abs(r.cz - pcz)) > R + 3) continue;
       const c = new Chunk(r.cx, r.cz); c.blocks = r.blocks; c.meta = r.meta; c.biomes = r.biomes; c.state = 1;
-      const ed = World.edits.get(k); if (ed) for (const [i, v] of ed) { c.blocks[i] = v & 255; c.meta[i] = v >> 8; }
+      const ed = World.edits.get(k); if (ed) for (const [i, v] of ed) { const id = EID(v); c.blocks[i] = id < NB ? id : 0; c.meta[i] = EMETA(v); }
       World.chunks.set(k, c); World._lcx = 1e9;
       World.initLight(c);
       if (Game.state !== 'title' && !World.generated.has(k)) { World.generated.add(k); Entities.spawnAnimalsInChunk(c); }
@@ -6405,12 +6824,12 @@ function drawHand() {
   gl.disable(gl.CULL_FACE); R.drawMesh(mesh, M, Pw); gl.enable(gl.CULL_FACE);
 }
 const H_ARM = { x: 0.68, y: -0.66, z: -0.36, ry: 18, rx: 120, roll: -35 };
-const H_BLOCK = { x: 0.42, y: -0.34, z: -0.8, ry: 45, rx: 16, rz: 0, s: 0.3 };
-const H_TOOL = { x: 0.5, y: -0.17, z: -0.82, ry: -62, rx: 0, rz: 52, s: 0.55 };
-const H_FLAT = { x: 0.42, y: -0.3, z: -0.8, ry: -20, rx: 0, rz: 0, s: 0.38 };
+const H_BLOCK = { x: 0.48, y: -0.43, z: -0.8, ry: 45, rx: 16, rz: 0, s: 0.32 };
+const H_TOOL = { x: 0.52, y: -0.34, z: -0.8, ry: -62, rx: 0, rz: 52, s: 0.55 };
+const H_FLAT = { x: 0.5, y: -0.46, z: -0.8, ry: -20, rx: 0, rz: 0, s: 0.4 };
 function drawSelection() {
   const R = Renderer, gl = R.gl; const T = Game.target; if (!T || Game.hideHud) return;
-  const P = Game.player; const boxes = Game.shapeOf(T.id, World.getMeta(T.x, T.y, T.z));
+  const P = Game.player; const boxes = Game.shapeOf(T.id, World.getMeta(T.x, T.y, T.z), T.x, T.y, T.z);
   // grietas
   if (Game.mining && Game.mining.p > 0) {
     const st = Math.min(9, Math.floor(Game.mining.p * 10)); const [u0, v0] = Atlas.uv('destroy_stage_' + st); const T2 = Atlas.T; const aw = Atlas.canvas.width, ah = Atlas.canvas.height;
@@ -6530,6 +6949,7 @@ async function boot() {
     loadSettings();
     await Store.init(); await loadSettingsAsync();
     try { const cs = await Store.get('kv', 'customSkin'); if (cs) { await new Promise(r => { const im = new Image(); im.onload = () => { Skins.custom = legacySkinFix(im); r(); }; im.onerror = r; im.src = cs; }); } } catch (e) { }
+    RS.init();
     await FaceTex.load(); await MobTex.load(); await Music.load();
     await TexturePack.restore();
     await TexturePack.fromLauncher();
@@ -6559,7 +6979,7 @@ boot();
 //   · «internet» → launcher o versión web: WebRTC con PeerJS (sin servidor propio).
 //   · «local»    → pestañas del mismo navegador (BroadcastChannel), para probar.
 // ============================================================
-const NET_VER = 2;
+const NET_VER = 3;
 const B36 = (n) => Math.trunc(n).toString(36);
 const NET_ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 function netCode() { let s = ''; for (let i = 0; i < 5; i++) s += NET_ALPHA[Math.floor(Math.random() * NET_ALPHA.length)]; return s; }
@@ -6859,7 +7279,7 @@ const Net = {
       for (const ch of part.split('|')) {
         const a = ch.split(','); const k = parseInt(a[0], 36); if (!isFinite(k)) continue;
         let m = edits.get(k); if (!m) { m = new Map(); edits.set(k, m); }
-        for (let i = 1; i < a.length; i++) { const j = a[i].indexOf('.'); const ix = parseInt(a[i].slice(0, j), 36), v = parseInt(a[i].slice(j + 1), 36); if (ix >= 0 && ix < CS * CS * WH && v >= 0 && (v & 255) < NB) m.set(ix, v); }
+        for (let i = 1; i < a.length; i++) { const j = a[i].indexOf('.'); const ix = parseInt(a[i].slice(0, j), 36), v = parseInt(a[i].slice(j + 1), 36); if (ix >= 0 && ix < CS * CS * WH && v >= 0 && EID(v) < NB) m.set(ix, v); }
       }
     }
     this.snapParts = [];
@@ -6936,7 +7356,7 @@ const Net = {
     try {
       const c = World.chunk(x >> 4, z >> 4);
       if (c && c.state >= 1) { if (World.get(x, y, z) !== id || World.getMeta(x, y, z) !== meta) World.set(x, y, z, id, meta); }
-      else { const k = ckey(x >> 4, z >> 4); let m = World.edits.get(k); if (!m) { m = new Map(); World.edits.set(k, m); } m.set(idx(x & 15, y, z & 15), id | (meta << 8)); World.dirtyEdits.add(k); }
+      else { const k = ckey(x >> 4, z >> 4); let m = World.edits.get(k); if (!m) { m = new Map(); World.edits.set(k, m); } m.set(idx(x & 15, y, z & 15), EV(id, meta)); World.dirtyEdits.add(k); }
     } finally { this.applying = false; }
   },
   applyArr(d) { if (!Array.isArray(d)) return; for (let i = 0; i + 4 < d.length && i < 30000; i += 5) this.apply(d[i], d[i + 1], d[i + 2], d[i + 3], d[i + 4]); },
@@ -7026,7 +7446,7 @@ const Net = {
     const now = performance.now();
     if (!this.pageCache || now - this.pageCacheT > 8000) {
       const all = [];
-      for (const [k, cx, cz] of this.editsAround()) { const m = World.edits.get(k); for (const [i, v] of m) all.push(encEdit(cx * 16 + (i & 15), i >> 8, cz * 16 + ((i >> 4) & 15), v & 255, v >> 8)); }
+      for (const [k, cx, cz] of this.editsAround()) { const m = World.edits.get(k); for (const [i, v] of m) all.push(encEdit(cx * 16 + (i & 15), i >> 8, cz * 16 + ((i >> 4) & 15), EID(v), EMETA(v))); }
       this.pageCache = all; this.pageCacheT = now; this.pageVer = (this.pageVer + 1) % 1296;
       this.pageCur = 0;
     }
@@ -7250,6 +7670,389 @@ const NameTags = {
     const cv = document.createElement('canvas'); const g = cv.getContext('2d'); g.font = '28px ' + FONT; const w = Math.ceil(g.measureText(name).width) + 16;
     cv.width = w; cv.height = 40; g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, 0, w, 40); g.font = '28px ' + FONT; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(name, 8, 21);
     const t = Renderer.texFromCanvas(cv); this.c[name] = { t, w: w / 40 }; return this.c[name];
+  },
+};
+
+// ---- 13c_redstone.js ----
+// ============================================================
+//  Redstone: potencia, componentes y pistones
+//  Reglas (resumidas de las del juego original):
+//   · El polvo pierde 1 de potencia por bloque (0..15).
+//   · Las fuentes (palanca, botón, placa, antorcha, bloque de redstone, repetidor…) dan 15.
+//   · Un bloque sólido con potencia FUERTE (palanca pegada, antorcha debajo, repetidor que apunta)
+//     alimenta al polvo de al lado; con potencia DÉBIL (solo polvo) solo activa mecanismos.
+//   · La antorcha se apaga si su bloque tiene potencia (inversor).
+//   · El pistón empuja hasta 12 bloques; obsidiana, roca madre y bloques con inventario no se mueven.
+// ============================================================
+const RS = {
+  ROLE: new Uint8Array(4096), pending: new Set(), burn: new Map(),
+  R: { wire: 1, torch: 2, lever: 3, button: 4, plate: 5, repeater: 6, comparator: 7, lamp: 8, piston: 9, observer: 10, daylight: 11, dispenser: 12, dropper: 13, hopper: 14, note: 15, door: 16, trapdoor: 17, gate: 18, tnt: 19, block: 20 },
+  init() {
+    BLOCKS[B.tnt].rs = 'tnt'; BLOCKS[B.redstone_block].rs = 'block';
+    for (const d of BLOCKS) if (d.rs) this.ROLE[d.id] = this.R[d.rs] || 0;
+  },
+  get: (x, y, z) => World.get(x, y, z), meta: (x, y, z) => World.getMeta(x, y, z),
+  conductor(id) { return OPAQUE[id] && RENDER[id] === 1 && !this.ROLE[id]; },
+  // ---------- llamado desde World.set ----------
+  changed(x, y, z, oldId, id) {
+    this.pending.add(x + ',' + y + ',' + z);
+    // los observadores que miran a este bloque dan un pulso
+    for (let f = 0; f < 6; f++) {
+      const D = FDIR[f]; const ox = x + D[0], oy = y + D[1], oz = z + D[2];
+      if (this.get(ox, oy, oz) === B.observer && (this.meta(ox, oy, oz) & 7) === (f ^ 1)) World.schedule(ox, oy, oz, 2);
+    }
+  },
+  // ---------- potencia que emite un componente hacia la cara f ----------
+  torchAtt(m) { const f = m & 7; return f ? [4, 1, 5, 0][f - 1] : 3; },
+  emit(x, y, z, id, m, f, strong) {
+    switch (this.ROLE[id]) {
+      case 20: return strong ? 0 : 15;
+      case 2: { if (BLOCKS[id].off) return 0; if (f === this.torchAtt(m)) return 0; return strong ? (f === 2 ? 15 : 0) : 15; }
+      case 3: case 4: if (!(m & 8)) return 0; return strong ? (f === (m & 7) ? 15 : 0) : 15;
+      case 5: { const p = m & 15; if (!p) return 0; return strong ? (f === 3 ? p : 0) : p; }
+      case 6: return (m & 16) && f === HFACE[m & 3] ? 15 : 0;
+      case 7: return f === HFACE[m & 3] ? (m >> 3) & 15 : 0;
+      case 10: return (m & 8) && f === ((m & 7) ^ 1) ? 15 : 0;
+      case 11: return strong ? 0 : (m >> 1) & 15;
+    }
+    return 0;
+  },
+  // ---------- polvo de redstone ----------
+  connectsTo(id, m, h) { // ¿el polvo se une a este componente en la dirección horizontal h (desde el polvo)?
+    const r = this.ROLE[id]; if (!r) return false;
+    if (r === 6) return (m & 3) === h || ((m & 3) ^ 2) === h; // repetidor: solo por delante o por detrás
+    if (r === 10) return ((m & 7) ^ 1) === (HFACE[h] ^ 1); // observador: solo por su salida
+    return r === 1 || r === 2 || r === 3 || r === 4 || r === 5 || r === 7 || r === 11 || r === 20;
+  },
+  // uniones del polvo: 0 nada, 1 al lado (o bajando), 2 subiendo por el bloque
+  wireLinks(nb) {
+    const c = [0, 0, 0, 0]; const upFree = !OPAQUE[nb(2)];
+    for (let h = 0; h < 4; h++) {
+      const f = HFACE[h]; const n = nb(f);
+      if (n === B.redstone_wire || (this.ROLE[n] && this.connectsTo(n, 0, h) && this.ROLE[n] !== 6 && this.ROLE[n] !== 10)) c[h] = 1;
+      else if (this.ROLE[n] === 6 || this.ROLE[n] === 10) c[h] = 1;
+      else if (!OPAQUE[n] && nb(f, -1) === B.redstone_wire) c[h] = 1;
+      else if (upFree && OPAQUE[n] && nb(f, 1) === B.redstone_wire) c[h] = 2;
+    }
+    return c;
+  },
+  wireNbAt(x, y, z) { return (f, dy) => { const D = FDIR[f]; return World.get(x + D[0], y + D[1] + (dy || 0), z + D[2]); }; },
+  // direcciones a las que «apunta» el polvo (y a las que da potencia débil)
+  wirePoints(x, y, z) {
+    const nb = this.wireNbAt(x, y, z); const c = this.wireLinks(nb);
+    // también cuenta como unión un componente al lado (repetidores en línea, etc.)
+    for (let h = 0; h < 4; h++) { const f = HFACE[h]; const D = FDIR[f]; const n = nb(f); if (!c[h] && this.ROLE[n] && this.connectsTo(n, this.meta(x + D[0], y, z + D[2]), (h + 2) & 3)) c[h] = 1; }
+    const n = c.filter(Boolean).length;
+    if (n === 0) return [1, 1, 1, 1];
+    if (n === 1) { const h = c.findIndex(Boolean); const o = [0, 0, 0, 0]; o[h] = 1; o[(h + 2) & 3] = 1; return o; }
+    return c.map(v => v ? 1 : 0);
+  },
+  wireColor(m) { const p = m & 15; const k = p / 15; return [Math.round(77 + 178 * k), Math.round(k > 0.6 ? (k - 0.6) * 110 : 0), 0]; },
+  // ---------- bloques conductores ----------
+  blockStrong(x, y, z) {
+    let p = 0;
+    for (let f = 0; f < 6; f++) {
+      const D = FDIR[f]; const nx = x + D[0], ny = y + D[1], nz = z + D[2]; const id = this.get(nx, ny, nz);
+      if (!this.ROLE[id] || this.ROLE[id] === 1) continue;
+      p = Math.max(p, this.emit(nx, ny, nz, id, this.meta(nx, ny, nz), f ^ 1, true));
+    }
+    return p;
+  },
+  blockWeak(x, y, z) {
+    let p = this.blockStrong(x, y, z); if (p >= 15) return p;
+    // polvo encima o que apunta hacia este bloque
+    if (this.get(x, y + 1, z) === B.redstone_wire) p = Math.max(p, this.meta(x, y + 1, z) & 15);
+    for (let h = 0; h < 4; h++) {
+      const D = FDIR[HFACE[h]]; const wx = x + D[0], wz = z + D[2];
+      if (this.get(wx, y, wz) !== B.redstone_wire) continue; const lv = this.meta(wx, y, wz) & 15; if (lv <= p) continue;
+      if (this.wirePoints(wx, y, wz)[(h + 2) & 3]) p = lv;
+    }
+    return p;
+  },
+  // potencia que llega a un mecanismo desde la cara f (vecino en dirección f)
+  inputFrom(x, y, z, f) {
+    const D = FDIR[f]; const nx = x + D[0], ny = y + D[1], nz = z + D[2]; const id = this.get(nx, ny, nz); const r = this.ROLE[id];
+    if (r === 1) { const lv = this.meta(nx, ny, nz) & 15; if (!lv) return 0; if (f === 2) return lv; if (f === 3) return 0; const h = HFACE.indexOf(f); return this.wirePoints(nx, ny, nz)[(h + 2) & 3] ? lv : 0; }
+    if (r) return this.emit(nx, ny, nz, id, this.meta(nx, ny, nz), f ^ 1, false);
+    if (this.conductor(id)) return this.blockWeak(nx, ny, nz);
+    return 0;
+  },
+  powered(x, y, z, except) { for (let f = 0; f < 6; f++) { if (f === except) continue; if (this.inputFrom(x, y, z, f) > 0) return true; } return false; },
+  // ---------- recálculo de redes de polvo ----------
+  wireSource(x, y, z) {
+    let p = 0;
+    for (let f = 0; f < 6; f++) {
+      const D = FDIR[f]; const nx = x + D[0], ny = y + D[1], nz = z + D[2]; const id = this.get(nx, ny, nz); const r = this.ROLE[id];
+      if (r === 1) continue;
+      if (r) p = Math.max(p, this.emit(nx, ny, nz, id, this.meta(nx, ny, nz), f ^ 1, false));
+      else if (this.conductor(id)) p = Math.max(p, this.blockStrong(nx, ny, nz));
+      if (p >= 15) return 15;
+    }
+    return p;
+  },
+  wireNeighbors(x, y, z) {
+    const out = []; const upFree = !OPAQUE[this.get(x, y + 1, z)];
+    for (let h = 0; h < 4; h++) {
+      const D = FDIR[HFACE[h]]; const nx = x + D[0], nz = z + D[2]; const side = this.get(nx, y, nz);
+      if (side === B.redstone_wire) out.push([nx, y, nz]);
+      else {
+        if (!OPAQUE[side] && this.get(nx, y - 1, nz) === B.redstone_wire) out.push([nx, y - 1, nz]);
+        if (upFree && this.get(nx, y + 1, nz) === B.redstone_wire) out.push([nx, y + 1, nz]);
+      }
+    }
+    return out;
+  },
+  updateWires(seeds, out) {
+    const net = new Map(); const q = [...seeds];
+    while (q.length && net.size < 3000) {
+      const [x, y, z] = q.pop(); const k = x + ',' + y + ',' + z; if (net.has(k)) continue;
+      if (this.get(x, y, z) !== B.redstone_wire) continue;
+      net.set(k, { x, y, z, lv: 0, old: this.meta(x, y, z) & 15 });
+      for (const n of this.wireNeighbors(x, y, z)) q.push(n);
+    }
+    // propagación como la luz: de mayor a menor
+    const buckets = Array.from({ length: 16 }, () => []);
+    for (const w of net.values()) { w.lv = this.wireSource(w.x, w.y, w.z); if (w.lv) buckets[w.lv].push(w); }
+    for (let lv = 15; lv > 0; lv--) for (const w of buckets[lv]) {
+      if (w.lv !== lv) continue;
+      for (const [nx, ny, nz] of this.wireNeighbors(w.x, w.y, w.z)) { const n = net.get(nx + ',' + ny + ',' + nz); if (n && n.lv < lv - 1) { n.lv = lv - 1; buckets[lv - 1].push(n); } }
+    }
+    for (const w of net.values()) if (w.lv !== w.old) { World.set(w.x, w.y, w.z, B.redstone_wire, w.lv, 1 | 4); out.push([w.x, w.y, w.z]); }
+  },
+  // ---------- cada tick ----------
+  process() {
+    for (let it = 0; it < 12 && this.pending.size; it++) {
+      const list = [...this.pending]; this.pending.clear();
+      const seen = new Set(); const wires = []; const comps = [];
+      for (const k of list) {
+        const [x, y, z] = k.split(',').map(Number);
+        const visit = (a, b, c) => { const kk = a + ',' + b + ',' + c; if (seen.has(kk)) return; seen.add(kk); const id = this.get(a, b, c); const r = this.ROLE[id]; if (!r) return; if (r === 1) wires.push([a, b, c]); else comps.push([a, b, c, id]); };
+        visit(x, y, z);
+        for (const D of FDIR) { const ax = x + D[0], ay = y + D[1], az = z + D[2]; visit(ax, ay, az); for (const E of FDIR) visit(ax + E[0], ay + E[1], az + E[2]); }
+      }
+      if (wires.length) { const changed = []; this.updateWires(wires, changed); for (const [x, y, z] of changed) { this.pending.add(x + ',' + y + ',' + z); } }
+      for (const [x, y, z, id] of comps) this.evaluate(x, y, z, id);
+    }
+  },
+  // ---------- reacción de cada componente ----------
+  evaluate(x, y, z, id) {
+    const m = this.meta(x, y, z); const d = BLOCKS[id];
+    switch (this.ROLE[id]) {
+      case 2: { const att = this.torchAtt(m); const D = FDIR[att]; const off = this.blockWeak(x + D[0], y + D[1], z + D[2]) > 0; if (off !== !!d.off) World.schedule(x, y, z, 2); break; }
+      case 6: { const want = this.repeaterIn(x, y, z, m) > 0; if (want !== !!(m & 16)) World.schedule(x, y, z, 2 * (((m >> 2) & 3) + 1)); break; }
+      case 7: { if (this.comparatorOut(x, y, z, m) !== ((m >> 3) & 15)) World.schedule(x, y, z, 2); break; }
+      case 8: { const p = this.powered(x, y, z); if (p && !d.on) World.set(x, y, z, B.redstone_lamp_on, 0); else if (!p && d.on) World.schedule(x, y, z, 4); break; }
+      case 9: { const p = this.powered(x, y, z, m & 7); if (p !== !!(m & 8)) World.schedule(x, y, z, 1); break; }
+      case 12: case 13: { const p = this.powered(x, y, z); if (p && !(m & 8)) { World.set(x, y, z, id, m | 8, 1); World.schedule(x, y, z, 4); } else if (!p && (m & 8)) World.set(x, y, z, id, m & ~8, 1); break; }
+      case 14: { const p = this.powered(x, y, z); if (p !== !!(m & 8)) World.set(x, y, z, id, p ? m | 8 : m & ~8, 1); if (!p) World.schedule(x, y, z, 8); break; }
+      case 15: { const p = this.powered(x, y, z); if (p && !(m & 32)) { World.set(x, y, z, id, m | 32, 1); Sound.note(m & 31, this.instrument(x, y - 1, z), x, y, z); } else if (!p && (m & 32)) World.set(x, y, z, id, m & 31, 1); break; }
+      case 16: this.doorPower(x, y, z, id, m); break;
+      case 17: { const p = this.powered(x, y, z); if (p !== !!(m & 16)) { World.set(x, y, z, id, p ? (m | 16 | 4) : (m & ~16 & ~4), 1); Sound.play('chest_close', x, y, z); } break; }
+      case 18: { const p = this.powered(x, y, z); if (p !== !!(m & 8)) { World.set(x, y, z, id, p ? (m | 8 | 4) : (m & ~8 & ~4), 1); Sound.play('chest_close', x, y, z); } break; }
+      case 19: if (this.powered(x, y, z)) { World.set(x, y, z, 0); Entities.add(new PrimedTNT(x, y, z, 80)); Sound.play('fuse', x, y, z); } break;
+      case 11: World.schedule(x, y, z, 20); break;
+    }
+  },
+  doorPower(x, y, z, id, m) {
+    const by = (m & 8) ? y - 1 : y; const bm = this.meta(x, by, z); if (this.get(x, by, z) !== id) return;
+    const p = this.powered(x, by, z) || this.powered(x, by + 1, z);
+    if (p !== !!(bm & 32)) { this.setDoor(x, by, z, id, p ? (bm | 32 | 4) : (bm & ~32 & ~4)); Sound.play(p ? 'chest_open' : 'chest_close', x, y, z); }
+  },
+  setDoor(x, y, z, id, m) { World.set(x, y, z, id, m & ~8, 1); if (this.get(x, y + 1, z) === id) World.set(x, y + 1, z, id, (m & ~8) | 8, 1); },
+  repeaterIn(x, y, z, m) { const back = HFACE[((m & 3) + 2) & 3]; return this.inputFrom(x, y, z, back); },
+  sideIn(x, y, z, f) { const D = FDIR[f]; const nx = x + D[0], nz = z + D[2]; const id = this.get(nx, y, nz); const r = this.ROLE[id]; if (r === 1) return this.meta(nx, y, nz) & 15; if (r === 20) return 15; if (r === 6 || r === 7) return this.emit(nx, y, nz, id, this.meta(nx, y, nz), f ^ 1, false); return 0; },
+  comparatorOut(x, y, z, m) {
+    const h = m & 3; const back = HFACE[(h + 2) & 3]; const D = FDIR[back];
+    let a = this.containerSignal(x + D[0], y, z + D[2]); if (a < 0) a = this.inputFrom(x, y, z, back);
+    const s = Math.max(this.sideIn(x, y, z, HFACE[(h + 1) & 3]), this.sideIn(x, y, z, HFACE[(h + 3) & 3]));
+    return (m & 4) ? Math.max(0, a - s) : (a >= s ? a : 0);
+  },
+  containerSignal(x, y, z) {
+    const id = this.get(x, y, z); const d = BLOCKS[id]; if (!d.interact || (d.interact !== 'chest' && d.interact !== 'furnace')) return -1;
+    const be = World.blockEnts.get(x + ',' + y + ',' + z); const slots = be ? be.slots : null; if (!slots) return 0;
+    let sum = 0, any = false; for (const s of slots) if (s) { any = true; sum += s.n / ((ITEMS[s.id] && ITEMS[s.id].stack) || 64); }
+    return any ? Math.floor(1 + sum / slots.length * 14) : 0;
+  },
+  instrument(x, y, z) { const d = BLOCKS[this.get(x, y, z)]; if (!d || !d.id) return 'harp'; if (d.sound === 'wood') return 'bass'; if (d.sound === 'sand' || d.sound === 'gravel') return 'snare'; if (d.sound === 'glass') return 'hat'; if (d.sound === 'metal') return 'bell'; if (d.sound === 'wool') return 'guitar'; if (d.tool === 'pickaxe') return 'bd'; return 'harp'; },
+  // ---------- ticks programados ----------
+  scheduled(x, y, z, id) {
+    const m = this.meta(x, y, z); const d = BLOCKS[id];
+    switch (this.ROLE[id]) {
+      case 2: {
+        const att = this.torchAtt(m); const D = FDIR[att]; const off = this.blockWeak(x + D[0], y + D[1], z + D[2]) > 0;
+        if (off === !!d.off) break;
+        const k = x + ',' + y + ',' + z; const now = World.tickCount; const hist = (this.burn.get(k) || []).filter(t => now - t < 60);
+        if (!off && hist.length >= 8) { World.schedule(x, y, z, 160); break; } // se ha fundido un rato
+        hist.push(now); this.burn.set(k, hist);
+        World.set(x, y, z, off ? B.redstone_torch_off : B.redstone_torch, m); break;
+      }
+      case 3: break;
+      case 4: if (m & 8) { World.set(x, y, z, id, m & ~8); Sound.play('click', x, y, z); } break;
+      case 5: { const p = this.plateCount(x, y, z, d); if (p !== (m & 15)) World.set(x, y, z, id, p); if (p) World.schedule(x, y, z, 10); break; }
+      case 6: { const want = this.repeaterIn(x, y, z, m) > 0; if (want !== !!(m & 16)) World.set(x, y, z, id, want ? m | 16 : m & ~16); break; }
+      case 7: { const o = this.comparatorOut(x, y, z, m); if (o !== ((m >> 3) & 15)) World.set(x, y, z, id, (m & 7) | (o << 3)); break; }
+      case 8: if (d.on && !this.powered(x, y, z)) World.set(x, y, z, B.redstone_lamp, 0); break;
+      case 9: { const p = this.powered(x, y, z, m & 7); if (p && !(m & 8)) this.extend(x, y, z, id, m); else if (!p && (m & 8)) this.retract(x, y, z, id, m); break; }
+      case 10: if (m & 8) World.set(x, y, z, id, m & ~8); else { World.set(x, y, z, id, m | 8); World.schedule(x, y, z, 2); } break;
+      case 11: { const lv = this.daylight(x, y, z, m); if (lv !== ((m >> 1) & 15)) World.set(x, y, z, id, (m & 1) | (lv << 1)); World.schedule(x, y, z, 20); break; }
+      case 12: case 13: if (m & 8) this.fire(x, y, z, id, m); break;
+      case 14: this.hopperTick(x, y, z, id, m); break;
+    }
+  },
+  daylight(x, y, z, m) {
+    const sky = World.sky(x, y + 1, z); const t = World.time % 24000; const sun = Math.max(0, Math.cos((t - 6000) / 24000 * Math.PI * 2));
+    let lv = Math.round(Math.min(15, sky * (0.25 + sun))) ; if (t > 13000 && t < 23000) lv = Math.min(lv, Math.round(sky * 0.15));
+    return (m & 1) ? 15 - lv : lv;
+  },
+  // ---------- placas de presión ----------
+  plateCount(x, y, z, d) {
+    let n = 0;
+    const list = [Game.player, ...Entities.list];
+    for (const e of list) {
+      if (!e || e.dead || e.remove) continue; if (d.plate === 'mobs' && e.type === 'item') continue; if (e.type === 'arrow' && d.plate !== 'all') continue;
+      if (Math.floor(e.y + 0.01) === y && e.x + e.w / 2 > x + 0.06 && e.x - e.w / 2 < x + 0.94 && e.z + e.w / 2 > z + 0.06 && e.z - e.w / 2 < z + 0.94) n += e.item ? e.item.n : 1;
+    }
+    if (!n) return 0;
+    if (d.plate === 'light') return Math.min(15, n); if (d.plate === 'heavy') return Math.min(15, Math.ceil(n / 10)); return 15;
+  },
+  touch(e) { // cada tick: ¿está pisando una placa?
+    const x = Math.floor(e.x), y = Math.floor(e.y + 0.01), z = Math.floor(e.z); const id = this.get(x, y, z);
+    if (this.ROLE[id] === 5 && !(this.meta(x, y, z) & 15)) { const d = BLOCKS[id]; const p = this.plateCount(x, y, z, d); if (p) { World.set(x, y, z, id, p); Sound.play('click', x, y, z); World.schedule(x, y, z, 10); } }
+  },
+  // ---------- interacción del jugador ----------
+  use(T) {
+    const id = T.id, m = this.meta(T.x, T.y, T.z), d = BLOCKS[id];
+    switch (this.ROLE[id]) {
+      case 3: World.set(T.x, T.y, T.z, id, m ^ 8); Sound.play('click', T.x, T.y, T.z); return true;
+      case 4: if (!(m & 8)) { World.set(T.x, T.y, T.z, id, m | 8); World.schedule(T.x, T.y, T.z, d.press || 20); Sound.play('click', T.x, T.y, T.z); } return true;
+      case 6: World.set(T.x, T.y, T.z, id, (m & ~12) | ((((m >> 2) & 3) + 1) & 3) << 2, 1); Sound.play('click', T.x, T.y, T.z); return true;
+      case 7: World.set(T.x, T.y, T.z, id, m ^ 4, 1); World.schedule(T.x, T.y, T.z, 2); Sound.play('click', T.x, T.y, T.z); return true;
+      case 11: World.set(T.x, T.y, T.z, id, m ^ 1, 1); World.schedule(T.x, T.y, T.z, 1); return true;
+      case 15: { const p = ((m & 31) + 1) % 25; World.set(T.x, T.y, T.z, id, (m & 32) | p, 1); Sound.note(p, this.instrument(T.x, T.y - 1, T.z), T.x, T.y, T.z); Particles.color(T.x + 0.5, T.y + 1.2, T.z + 0.5, 0.2 + p / 30, 0.8 - p / 40, 0.3, 1, 0.02, 15, 0, 0.04); return true; }
+      case 16: if (d.iron) return false; { const by = (m & 8) ? T.y - 1 : T.y; const bm = this.meta(T.x, by, T.z); this.setDoor(T.x, by, T.z, id, bm ^ 4); Sound.play((bm & 4) ? 'chest_close' : 'chest_open', T.x, T.y, T.z); return true; }
+      case 17: if (d.iron) return false; World.set(T.x, T.y, T.z, id, m ^ 4); Sound.play((m & 4) ? 'chest_close' : 'chest_open', T.x, T.y, T.z); return true;
+      case 18: { let nm = m ^ 4; if (!(m & 4)) { const yd = facingFromYaw(Game.player.yaw); if (((yd ^ m) & 1) === 0) nm = (nm & ~3) | yd; } World.set(T.x, T.y, T.z, id, nm); Sound.play((m & 4) ? 'chest_close' : 'chest_open', T.x, T.y, T.z); return true; }
+    }
+    return false;
+  },
+  // ---------- pistones ----------
+  movable(id, x, y, z) {
+    const d = BLOCKS[id];
+    if (!id || REPLACE[id] || LIQUID[id]) return 'air';
+    if (d.hardness < 0 || id === B.obsidian || id === B.crying_obsidian || d.pistonHead || id === B.ancient_debris || id === B.netherite_block) return 'no';
+    if (d.interact === 'chest' || d.interact === 'furnace' || d.interact === 'bed' || d.door || d.tall2) return 'no';
+    if ((id === B.piston || id === B.sticky_piston) && (this.meta(x, y, z) & 8)) return 'no';
+    if (!d.solid || d.render === 'cross' || d.render === 'torch' || d.render === 'crop' || d.render === 'ladder' || d.shape === 'carpet' || d.shape === 'wire' || d.shape === 'button' || d.shape === 'lever' || d.shape === 'plate' || d.shape === 'snow') return 'break';
+    return 'move';
+  },
+  // reúne los bloques que se mueven (con bloques de limo y de miel que arrastran a sus vecinos)
+  collect(sx, sy, sz, D, px, py, pz) {
+    const move = new Map(), brk = new Map(); const q = [[sx, sy, sz]];
+    while (q.length) {
+      const [x, y, z] = q.shift(); const k = x + ',' + y + ',' + z; if (move.has(k) || brk.has(k)) continue;
+      if (x === px && y === py && z === pz) continue;
+      if (y < 0 || y >= WH) return null;
+      const id = this.get(x, y, z); const kind = this.movable(id, x, y, z);
+      if (kind === 'air') continue; if (kind === 'no') return null;
+      if (kind === 'break') { brk.set(k, [x, y, z, id]); continue; }
+      move.set(k, [x, y, z, id, this.meta(x, y, z)]); if (move.size > 12) return null;
+      q.push([x + D[0], y + D[1], z + D[2]]);
+      const sticky = id === B.slime_block || id === B.honey_block;
+      if (sticky) for (const E of FDIR) {
+        const nx = x + E[0], ny = y + E[1], nz = z + E[2]; const n = this.get(nx, ny, nz);
+        if ((id === B.slime_block && n === B.honey_block) || (id === B.honey_block && n === B.slime_block)) continue;
+        if (this.movable(n, nx, ny, nz) === 'move') q.push([nx, ny, nz]);
+      }
+    }
+    return { move, brk };
+  },
+  shift(set, D) {
+    const { move, brk } = set;
+    for (const [x, y, z, id] of brk.values()) Game.breakBlock(x, y, z, true, null, true);
+    const list = [...move.values()];
+    for (const [x, y, z] of list) World.set(x, y, z, 0, 0, 1);
+    for (const [x, y, z, id, m] of list) World.set(x + D[0], y + D[1], z + D[2], id, m);
+    for (const [x, y, z] of list) World.updateAround(x, y, z);
+    // empujar al jugador y a las criaturas que estén en el camino
+    const dest = new Set(list.map(([x, y, z]) => (x + D[0]) + ',' + (y + D[1]) + ',' + (z + D[2])));
+    for (const e of [Game.player, ...Entities.list]) {
+      if (!e || e.dead) continue; const bb = e.bb ? e.bb() : null; if (!bb) continue;
+      let hit = false; for (let ix = Math.floor(bb[0]); ix <= Math.floor(bb[3] - 1e-6) && !hit; ix++) for (let iy = Math.floor(bb[1]); iy <= Math.floor(bb[4] - 1e-6) && !hit; iy++) for (let iz = Math.floor(bb[2]); iz <= Math.floor(bb[5] - 1e-6) && !hit; iz++) if (dest.has(ix + ',' + iy + ',' + iz)) hit = true;
+      if (hit) { e.x += D[0]; e.y += D[1] + (D[1] > 0 ? 0.01 : 0); e.z += D[2]; if (D[1] > 0) e.vy = Math.max(e.vy || 0, 0); if (e.savePrev) e.savePrev(); }
+    }
+  },
+  extend(x, y, z, id, m) {
+    const f = m & 7; const D = FDIR[f];
+    const set = this.collect(x + D[0], y + D[1], z + D[2], D, x, y, z); if (!set) return;
+    this.shift(set, D);
+    World.set(x, y, z, id, m | 8, 1);
+    World.set(x + D[0], y + D[1], z + D[2], B.piston_head, f | (BLOCKS[id].sticky ? 8 : 0));
+    Sound.play('piston', x, y, z);
+  },
+  retract(x, y, z, id, m) {
+    const f = m & 7; const D = FDIR[f]; const hx = x + D[0], hy = y + D[1], hz = z + D[2];
+    World.set(x, y, z, id, m & ~8, 1);
+    if (this.get(hx, hy, hz) === B.piston_head) World.set(hx, hy, hz, 0, 0);
+    if (BLOCKS[id].sticky) {
+      const bx = hx + D[0], by = hy + D[1], bz = hz + D[2]; const b = this.get(bx, by, bz);
+      if (this.movable(b, bx, by, bz) === 'move') { const set = this.collect(bx, by, bz, [-D[0], -D[1], -D[2]], x, y, z); if (set) { set.brk.clear(); this.shift(set, [-D[0], -D[1], -D[2]]); } }
+    }
+    Sound.play('piston', x, y, z);
+  },
+  // ---------- dispensador y soltador ----------
+  fire(x, y, z, id, m) {
+    const be = World.blockEnts.get(x + ',' + y + ',' + z); if (!be || !be.slots) { Sound.play('click', x, y, z); return; }
+    const full = be.slots.map((s, i) => s ? i : -1).filter(i => i >= 0); if (!full.length) { Sound.play('click', x, y, z); return; }
+    const i = full[Math.floor(Math.random() * full.length)]; const s = be.slots[i]; const f = m & 7; const D = FDIR[f];
+    const ox = x + 0.5 + D[0] * 0.7, oy = y + 0.5 + D[1] * 0.7 - (D[1] === 0 ? 0.15 : 0), oz = z + 0.5 + D[2] * 0.7;
+    const take = () => { s.n--; if (!s.n) be.slots[i] = null; };
+    const fx = x + D[0], fy = y + D[1], fz = z + D[2];
+    if (id === B.dispenser) {
+      if (s.id === 'arrow') { take(); Entities.add(new Arrow(ox, oy, oz, D[0] * 1.6, D[1] * 1.6 + 0.1, D[2] * 1.6, null, 2)); Sound.play('bow', x, y, z); return; }
+      if (s.id === 'tnt') { take(); Entities.add(new PrimedTNT(fx, fy, fz, 80)); Sound.play('fuse', x, y, z); return; }
+      if ((s.id === 'water_bucket' || s.id === 'lava_bucket') && (REPLACE[this.get(fx, fy, fz)] || !this.get(fx, fy, fz))) { World.set(fx, fy, fz, s.id === 'water_bucket' ? B.water : B.lava, 0); World.schedule(fx, fy, fz, 2); be.slots[i] = { id: 'bucket', n: 1 }; Sound.play('splash', x, y, z); return; }
+      if (s.id === 'bucket' && LIQUID[this.get(fx, fy, fz)] && this.meta(fx, fy, fz) === 0) { const out = LIQUID[this.get(fx, fy, fz)] === 1 ? 'water_bucket' : 'lava_bucket'; World.set(fx, fy, fz, 0); be.slots[i] = { id: out, n: 1 }; return; }
+      if (s.id === 'bone_meal') { const t = this.get(fx, fy, fz); if (BLOCKS[t].crop) { take(); World.set(fx, fy, fz, t, Math.min(7, (this.meta(fx, fy, fz) & 7) + 3)); return; } }
+      if (ITEMS[s.id] && ITEMS[s.id].egg && MOBS[ITEMS[s.id].egg]) { take(); const mob = new Mob(ITEMS[s.id].egg, fx + 0.5, fy, fz + 0.5); mob.persistent = true; Entities.add(mob); return; }
+      if (s.id === 'flint_and_steel' && this.get(fx, fy, fz) === B.tnt) { World.set(fx, fy, fz, 0); Entities.add(new PrimedTNT(fx, fy, fz, 80)); return; }
+    } else {
+      // el soltador mete el objeto en el contenedor de delante si lo hay
+      const tbe = World.blockEnts.get(fx + ',' + fy + ',' + fz);
+      if (tbe && tbe.slots && BLOCKS[this.get(fx, fy, fz)].interact === 'chest') { if (this.insert(tbe.slots, { id: s.id, n: 1, d: s.d })) take(); return; }
+    }
+    take(); const e = Entities.dropItem(ox, oy, oz, { id: s.id, n: 1, d: s.d });
+    if (e) { e.vx = D[0] * 0.25 + (Math.random() - 0.5) * 0.04; e.vy = D[1] * 0.25 + 0.08; e.vz = D[2] * 0.25 + (Math.random() - 0.5) * 0.04; }
+    Sound.play('click', x, y, z);
+  },
+  insert(slots, it, only) {
+    const max = (ITEMS[it.id] && ITEMS[it.id].stack) || 64;
+    for (let k = 0; k < slots.length; k++) { if (only !== undefined && k !== only) continue; const s = slots[k]; if (s && s.id === it.id && !s.d && !it.d && s.n < max) { s.n++; return true; } }
+    for (let k = 0; k < slots.length; k++) { if (only !== undefined && k !== only) continue; if (!slots[k]) { slots[k] = { id: it.id, n: 1, d: it.d }; return true; } }
+    return false;
+  },
+  // ---------- tolva ----------
+  ensureBE(x, y, z, n) { const k = x + ',' + y + ',' + z; let be = World.blockEnts.get(k); if (!be) { be = { type: 'chest', slots: new Array(n).fill(null) }; World.blockEnts.set(k, be); } return be; },
+  hopperTick(x, y, z, id, m) {
+    World.schedule(x, y, z, 8); if (m & 8) return;
+    const be = this.ensureBE(x, y, z, 5);
+    // sacar un objeto del contenedor que tiene detrás (salida) — la salida es la cara guardada en meta (3 = abajo)
+    const f = m & 7; const D = FDIR[f]; const tx = x + D[0], ty = y + D[1], tz = z + D[2];
+    const tid = this.get(tx, ty, tz); const tbe = World.blockEnts.get(tx + ',' + ty + ',' + tz);
+    const k = be.slots.findIndex(Boolean);
+    if (k >= 0 && tbe && tbe.slots) {
+      const s = be.slots[k]; let ok = false;
+      if (BLOCKS[tid].interact === 'furnace') ok = f === 3 ? (SMELT[s.id] ? this.insert(tbe.slots, s, 0) : false) : (fuelOf(s.id) ? this.insert(tbe.slots, s, 1) : false);
+      else ok = this.insert(tbe.slots, s);
+      if (ok) { s.n--; if (!s.n) be.slots[k] = null; }
+    }
+    // recoger del contenedor de arriba
+    const abe = World.blockEnts.get(x + ',' + (y + 1) + ',' + z); const aid = this.get(x, y + 1, z);
+    if (abe && abe.slots) {
+      const from = BLOCKS[aid].interact === 'furnace' ? [2] : abe.slots.map((_, i) => i);
+      for (const i of from) { const s = abe.slots[i]; if (!s) continue; if (this.insert(be.slots, s)) { s.n--; if (!s.n) abe.slots[i] = null; } break; }
+    }
+    // recoger objetos sueltos que caen encima
+    for (const e of Entities.list) if (e.type === 'item' && !e.remove && Math.floor(e.x) === x && Math.floor(e.z) === z && e.y >= y + 0.5 && e.y < y + 1.6) { while (e.item.n > 0 && this.insert(be.slots, e.item)) e.item.n--; if (e.item.n <= 0) e.remove = true; }
   },
 };
 

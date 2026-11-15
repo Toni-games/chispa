@@ -1,8 +1,24 @@
 {
-  "latest": "1.2",
+  "latest": "1.3",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.3",
+      "date": "2026-11-15",
+      "title": "Redstone, pistones y cientos de bloques",
+      "notes": [
+        "Redstone completa: polvo, antorchas, palancas, botones, placas de presión, repetidores, comparadores, lámparas, observadores, sensores de luz, dispensadores, soltadores, tolvas, bloques musicales y dianas",
+        "Pistones y pistones pegajosos (con bloques de limo y miel)",
+        "Puertas, trampillas, vallas, puertas de valla, muros, escaleras y losas de casi todos los materiales",
+        "Cristal tintado, paneles, alfombras, cemento en polvo y terracota esmaltada de 16 colores",
+        "Faroles, cadenas, barriles, ahumador, alto horno, cortapiedras, caldero, mesa de encantamientos y más",
+        "Zanahorias, patatas, remolachas, plantas altas, herramientas y armaduras de cobre y netherita, huevos generadores",
+        "Los objetos en la mano se ven más abajo"
+      ],
+      "size": 168112,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.3.zip"
+    },
     {
       "id": "1.2",
       "date": "2026-11-15",
