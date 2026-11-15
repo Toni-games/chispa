@@ -296,7 +296,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.5';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.5.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -901,7 +901,7 @@ function GEN_MODULE(B) {
       face(f) { return (f + rot) & 3; },
       chest(u, y, v, table, f) { L.set(u, y, v, B.chest, ((f + rot) & 3) | 0x10 | (table << 5)); },
       ladder(u, y, v, f) { L.set(u, y, v, B.ladder, (f + rot) & 3); },
-      bed(u, y, v, f) { L.set(u, y, v, B.bed, (f + rot) & 3); },
+      bed(u, y, v, f) { const m = (f + rot) & 3, [x, z] = W(u, v); P.set(x, y, z, B.bed, m); const D = [[0, -1], [1, 0], [0, 1], [-1, 0]][(m + 2) & 3]; if (B.bed_head !== undefined && P.inside(x + D[0], z + D[1])) P.set(x + D[0], y, z + D[1], B.bed_head, m); },
       torch(u, y, v) { L.set(u, y, v, B.torch, 0); },
       // eje de troncos/huesos tumbados a lo largo de u o de v
       axisU() { return rot & 1 ? 8 : 4; }, axisV() { return rot & 1 ? 4 : 8; },
@@ -1367,7 +1367,7 @@ defBlock('tnt', 'Dinamita', { tex: { top: 'tnt_top', bottom: 'tnt_bottom', side:
 defBlock('obsidian', 'Obsidiana', { tex: 'obsidian', hardness: 50, tool: 'pickaxe', tier: 4, needsTool: true, color: '#14121d', resist: 1200 });
 const WOOL = [['white', 'blanca', '#e9ecec'], ['orange', 'naranja', '#f07613'], ['magenta', 'magenta', '#bd44b3'], ['light_blue', 'azul claro', '#3aafd9'], ['yellow', 'amarilla', '#f8c627'], ['lime', 'verde lima', '#70b919'], ['pink', 'rosa', '#ed8dac'], ['gray', 'gris', '#3e4447'], ['light_gray', 'gris claro', '#8e8e86'], ['cyan', 'cian', '#158991'], ['purple', 'morada', '#792aac'], ['blue', 'azul', '#35399d'], ['brown', 'marrón', '#724728'], ['green', 'verde', '#546d1b'], ['red', 'roja', '#a12722'], ['black', 'negra', '#141519']];
 for (const [c, n, col] of WOOL) defBlock(c + '_wool', 'Lana ' + n, { tex: c + '_wool', hardness: 0.8, sound: 'wool', color: col, fuel: 100, cat: 'color' });
-defBlock('bed', 'Cama', { tex: { top: 'bed_top', bottom: 'oak_planks', side: 'bed_side', front: 'bed_side' }, facing: true, render: 'box', box: [[0, 0, 0, 16, 9, 16]], opaque: false, hardness: 0.2, sound: 'wool', interact: 'bed', color: '#b02e26', cat: 'func' });
+defBlock('bed', 'Cama', { tex: { top: 'bed_foot_top_n', bottom: 'oak_planks', side: 'bed_foot_side_a', front: 'bed_foot_end' }, bedPart: 'foot', cutout: true, facing: true, render: 'box', box: [[0, 0, 0, 16, 9, 16]], opaque: false, hardness: 0.2, sound: 'wool', interact: 'bed', color: '#b02e26', cat: 'func' });
 defBlock('pumpkin', 'Calabaza', { tex: { top: 'pumpkin_top', bottom: 'pumpkin_top', side: 'pumpkin_side' }, hardness: 1, tool: 'axe', sound: 'wood', color: '#c07615', cat: 'nature' });
 defBlock('lamp', 'Farol de cristal', { tex: 'lamp', hardness: 0.3, emit: 15, sound: 'glass', color: '#f8d878', cat: 'func' });
 defBlock('ladder', 'Escalera de mano', { tex: 'ladder', render: 'ladder', solid: false, opaque: false, cutout: true, hardness: 0.4, tool: 'axe', sound: 'wood', facing: true, support: 'wall', color: '#9a7a4a', cat: 'func', climb: true, fuel: 300 });
@@ -1616,6 +1616,9 @@ for (const d of BLOCKS) {
   if (d.tall2) d.icon = d.key === 'sunflower' ? 'sunflower_front' : (typeof d.texAlt === 'string' ? d.texAlt : d.key + '_top');
 }
 if (B.lily_pad !== undefined) BLOCKS[B.lily_pad].icon = 'lily_pad';
+
+// cabecera de la cama (la cama ocupa dos bloques; se añade al final para no cambiar los números de los demás bloques)
+defBlock('bed_head', 'Cama', Object.assign(Object.fromEntries(Object.entries(BLOCKS[B.bed]).filter(([k]) => !['id', 'key', 'name', 'faceTex', 'faceTexAlt'].includes(k))), { tex: { top: 'bed_head_top_n', bottom: 'oak_planks', side: 'bed_head_side_a', front: 'bed_head_end' }, bedPart: 'head', noItem: true, drops: [['bed', 1]] }));
 
 const NB = BLOCKS.length;
 if (NB > 4095) throw new Error('Demasiados bloques: ' + NB);
@@ -2132,8 +2135,85 @@ addTex('tnt_top', (c) => { P(c, 0, 0, '#c8402f', 16, 16); P(c, 7, 7, '#303030', 
 addTex('tnt_bottom', fill('#b03a2a'));
 addTex('obsidian', spots('#14121d', '#2a1f40', [[2, 2, 3, 2], [10, 4, 3, 3], [4, 10, 4, 2], [12, 12, 2, 2]]));
 for (const [w, , col] of WOOL) addTex(w + '_wool', fill(col));
-addTex('bed_top', (c) => { P(c, 0, 0, '#b02e26', 16, 16); P(c, 1, 0, '#f0f0f0', 14, 5); });
-addTex('bed_side', (c) => { c.clearRect(0, 0, 16, 16); P(c, 0, 7, '#b02e26', 16, 4); P(c, 0, 11, '#a2824e', 16, 2); P(c, 0, 13, '#6b5130', 2, 3); P(c, 14, 13, '#6b5130', 2, 3); });
+
+// ---- extra/bed15.js ----
+// ============================================================
+//  Cama de dos bloques (pies + cabecera). Sus casillas se recortan
+//  de una textura de cama con la distribución clásica (64x64): la del
+//  paquete del jugador (entity/bed/red.png) o una propia de reserva.
+// ============================================================
+// lámina de reserva propia con la misma distribución
+function bedFallbackSheet() {
+  if (bedFallbackSheet.c) return bedFallbackSheet.c;
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const red = '#b42c26', red2 = '#962220', wh = '#eeeeea', wh2 = '#d6d6d0', wood = '#9a7442', wood2 = '#6e5230';
+  const R = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  for (const [by, pillow] of [[0, true], [22, false]]) {
+    // superficie (16x16): almohada arriba en la cabecera
+    R(6, by + 6, 16, 16, red); for (let i = 0; i < 16; i += 3) R(6, by + 6 + i, 16, 1, red2);
+    if (pillow) { R(6, by + 6, 16, 7, wh); R(7, by + 7, 14, 5, wh2); R(8, by + 8, 12, 3, wh); }
+    R(6, by + 6, 1, 16, wood); R(21, by + 6, 1, 16, wood);
+    // lados (6x16): columnas de madera abajo, tela arriba
+    for (const sx of [0, 22]) {
+      const woodSide = sx === 0 ? 0 : 3; R(sx, by + 6, 6, 16, red); R(sx + woodSide, by + 6, 3, 16, wood2);
+      if (pillow) R(sx + (sx === 0 ? 3 : 0), by + 6, 3, 7, wh);
+    }
+    // extremo (16x6): filas 0..2 madera (abajo), 3..5 tela (arriba)
+    const ex = pillow ? 6 : 22; R(ex, by, 16, 6, pillow ? wh : red); R(ex, by, 16, pillow ? 3 : 2, wood2);
+    R(28, by + 6, 16, 16, wood);
+  }
+  R(50, 0, 14, 24, wood2); R(53, 3, 3, 3, wood);
+  return (bedFallbackSheet.c = c);
+}
+const BED_HD = ['n', 'e', 's', 'w'];
+// nombres de las casillas: superficie (según hacia dónde está la cabecera), lados a/b y extremo
+const BED_TILES = [];
+for (const p of ['head', 'foot']) { for (const d of BED_HD) BED_TILES.push('bed_' + p + '_top_' + d); BED_TILES.push('bed_' + p + '_side_a', 'bed_' + p + '_side_b', 'bed_' + p + '_end'); }
+// recorta todas las casillas de una lámina de cama -> { nombre: canvas }
+function bedCompose(src) {
+  const k = Math.max(1, Math.round(src.width / 64)), N = 16 * k, SW = 64 * k;
+  const sc = document.createElement('canvas'); sc.width = sc.height = SW; const sg = sc.getContext('2d'); sg.imageSmoothingEnabled = false; sg.drawImage(src, 0, 0, SW, SW);
+  const S = sg.getImageData(0, 0, SW, SW).data; const out = {};
+  const make = (fn) => {
+    const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'); const im = g.createImageData(N, N);
+    for (let Y = 0; Y < N; Y++) for (let X = 0; X < N; X++) { const s = fn(X, Y); if (!s) continue; const si = (s[1] * SW + s[0]) * 4, di = (Y * N + X) * 4; for (let q = 0; q < 4; q++) im.data[di + q] = S[si + q]; }
+    g.putImageData(im, 0, 0); return c;
+  };
+  const leg = (t, Y) => [53 * k + (t % (3 * k)), 3 * k + (Y - 13 * k)];
+  for (const [p, by, ey, ex] of [['head', 0, 0, 6], ['foot', 22, 22, 22]]) {
+    const head = p === 'head';
+    // superficie: (cx, cy) de la casilla canónica (arriba = hacia la cabecera)
+    const top = { n: (x, y) => [x, y], s: (x, y) => [N - 1 - x, N - 1 - y], e: (x, y) => [y, N - 1 - x], w: (x, y) => [N - 1 - y, x] };
+    for (const d of BED_HD) out['bed_' + p + '_top_' + d] = make((X, Y) => { const [cx, cy] = top[d](X, Y); return [6 * k + cx, (by + 6) * k + cy]; });
+    // lados: colchón en las filas 7..12, patas en 13..15 en el extremo exterior
+    for (const v of ['a', 'b']) out['bed_' + p + '_side_' + v] = make((X, Y) => {
+      const t = v === 'a' ? X : N - 1 - X; // t = 0 en el lado de la cabecera
+      if (Y >= 7 * k && Y < 13 * k) return [6 * k - 1 - (Y - 7 * k), (by + 6) * k + t];
+      if (Y >= 13 * k && (head ? t < 3 * k : t >= 13 * k)) return leg(t, Y);
+      return null;
+    });
+    out['bed_' + p + '_end'] = make((X, Y) => {
+      if (Y >= 7 * k && Y < 13 * k) return [ex * k + X, ey * k + 6 * k - 1 - (Y - 7 * k)];
+      if (Y >= 13 * k && (X < 3 * k || X >= 13 * k)) return leg(X, Y);
+      return null;
+    });
+  }
+  return out;
+}
+let BED_FB = null;
+for (const n of BED_TILES) addTex(n, (c) => { if (!BED_FB) BED_FB = bedCompose(bedFallbackSheet()); c.clearRect(0, 0, 16, 16); c.drawImage(BED_FB[n], 0, 0); });
+// textura de cada cara de la cama (f: 0 +X, 1 -X, 2 arriba, 3 abajo, 4 +Z, 5 -Z)
+function bedFaceTex(d, f, meta) {
+  const hd = ((meta & 3) + 2) & 3, P = 'bed_' + d.bedPart + '_'; // hd: hacia dónde está la cabecera
+  if (f === 2) return P + 'top_' + BED_HD[hd];
+  if (f === 3) return 'oak_planks';
+  const alongZ = hd === 0 || hd === 2;
+  if (alongZ ? (f === 4 || f === 5) : (f === 0 || f === 1)) return P + 'end';
+  const headLow = hd === 0 || hd === 3; // cabecera en la coordenada pequeña (z para N, x para O)
+  let a; if (f === 0) a = !headLow; else if (f === 1) a = headLow; else if (f === 4) a = headLow; else a = !headLow;
+  return P + 'side_' + (a ? 'a' : 'b');
+}
+
 addTex('pumpkin_side', (c) => { P(c, 0, 0, '#c07615', 16, 16); for (const x of [3, 7, 11]) P(c, x, 0, '#a86410', 1, 16); });
 addTex('pumpkin_top', (c) => { P(c, 0, 0, '#c07615', 16, 16); P(c, 7, 7, '#5a7a2a', 2, 2); });
 addTex('lamp', (c) => { P(c, 0, 0, '#f8d878', 16, 16); P(c, 0, 0, '#c8a040', 16, 1); P(c, 0, 15, '#c8a040', 16, 1); P(c, 0, 0, '#c8a040', 1, 16); P(c, 15, 0, '#c8a040', 1, 16); P(c, 7, 2, '#fff6c8', 2, 12); P(c, 2, 7, '#fff6c8', 12, 2); });
@@ -2613,6 +2693,17 @@ function isoBox(g, x0, y0, z0, x1, y1, z1, top, south, east) {
   isoFace(g, east, 0.4, 16 - z1, 16 - y1, z1 - z0, y1 - y0, Pp(x1, y1, z1), Pp(x1, y1, z0), Pp(x1, y0, z1));
   isoFace(g, top, 0, x0, z0, x1 - x0, z1 - z0, Pp(x0, y1, z0), Pp(x1, y1, z0), Pp(x0, y1, z1));
 }
+// icono de la cama entera (cabecera detrás a la izquierda, pies delante): dos cajas a media escala
+function bedIcon(g) {
+  const q = (x, y, z) => isoP(4 + x / 2, y / 2 + 3, z / 2);
+  const box = (z0, part) => {
+    const x0 = 0, x1 = 16, y0 = 0, y1 = 9, z1 = z0 + 16, P = 'bed_' + part + '_';
+    isoFace(g, P + 'end', 0.2, 0, 7, 16, 9, q(x0, y1, z1 + 0), q(x1, y1, z1), q(x0, y0, z1));
+    isoFace(g, P + 'side_' + (part === 'head' ? 'b' : 'a'), 0.4, 0, 7, 16, 9, q(x1, y1, z1), q(x1, y1, z0), q(x1, y0, z1));
+    isoFace(g, P + 'top_s', 0, 0, 0, 16, 16, q(x0, y1, z0), q(x1, y1, z0), q(x0, y1, z1));
+  };
+  box(-8, 'head'); box(8, 'foot');
+}
 function boxIcon(g, d) {
   let meta = d.stairs ? ICON_META.stairs : (ICON_META[d.shape] || 0); if (d.facing6) meta = 2;
   let boxes = (blockBoxes(d.id, meta, null) || [[0, 0, 0, 16, 16, 16]]).map(bx => bx.slice());
@@ -2633,6 +2724,7 @@ function itemIcon(id) { // canvas 32x32
   const bd = it.block ? BLOCKS[B[it.block]] : null;
   if (bd && bd.iconAlias && Atlas.custom[bd.iconAlias]) { const src = Atlas.tile(bd.iconAlias); g.drawImage(src, 0, 0, src.width, src.height, 0, 0, 32, 32); ICON_CACHE[key] = c; return c; }
   if (it.iconBlock && bd && RENDER[bd.id] === 5 && !bd.slab && bd.key !== 'bed' && bd.key !== 'chest') { boxIcon(g, bd); ICON_CACHE[key] = c; return c; }
+  if (bd && bd.bedPart) { bedIcon(g); ICON_CACHE[key] = c; return c; }
   if (it.iconBlock) {
     const d = BLOCKS[B[it.block]];
     const tt = d.faceTex6 ? d.faceTex6.front : d.faceTex[2], tl = d.faceTex[d.facing ? 5 : 4], tr = d.faceTex[0];
@@ -2804,6 +2896,9 @@ const TexturePack = {
         if (await this.add('redstone_wire', cv.toDataURL())) n++;
       }
     }
+    // cama: se recortan sus casillas de la textura de criatura (entity/bed/red.png)
+    const bed = names.find(p => /(^|\/)bed\/red\.png$/i.test(p) && !/(gui|interfaz|items?\/|objetos)/i.test(p));
+    if (bed) { const im = await loadImg(await getURL(bed)); if (im && im.width >= 64) { const T = bedCompose(im); for (const nm in T) if (await this.add(nm, T[nm].toDataURL())) n++; } }
     // «Farol de cristal» (bloque propio): se usa el farol marino del paquete o, si no, la piedra luminosa
     const lamp = find(/(^|\/)sea_lantern\.png$/) || find(/(^|\/)glowstone\.png$/);
     if (lamp && !Atlas.custom.lamp) { const u = await getURL(lamp); if (u && await this.add('lamp', u)) n++; }
@@ -3543,6 +3638,7 @@ const Mesher = {
   },
 
   texFor(d, f, meta) {
+    if (d.bedPart) return [Atlas.index[bedFaceTex(d, f, meta)] ?? 0, false];
     const ft = d.altBit && (meta & d.altBit) ? d.faceTexAlt : d.faceTex;
     let name = ft[f]; let rot = false;
     if (d.facing6 && d.faceTex6) {
@@ -5779,6 +5875,9 @@ const Game = {
     }
     if (d.shape === 'hopper') meta = T.face === 2 || REPLACE[T.id] ? 3 : (T.face ^ 1);
     if (d.door || d.tall2) { const a = World.get(x, y + 1, z); if (y + 1 >= WH || (a && !REPLACE[a])) return; }
+    // cama: la cabecera va un bloque más allá, hacia donde mira el jugador
+    let bedHead = null;
+    if (d.bedPart) { const D = [[0, -1], [1, 0], [0, 1], [-1, 0]][yawDir]; bedHead = [x + D[0], y, z + D[1]]; const a = World.get(...bedHead); if (a && !REPLACE[a]) return; if (!SOLID[World.get(x + D[0], y - 1, z + D[1])]) return; }
     if (d.render === 'torch') {
       if (T.face === 3) return;
       // f (1..4) tal que la pared (el bloque pulsado) queda detrás de la antorcha
@@ -5802,6 +5901,7 @@ const Game = {
       }
     }
     if (cur && LIQUID[cur] && !d.solid && d.render !== 'box') { if (d.render === 'torch' || d.render === 'cross') return; }
+    if (bedHead) World.set(bedHead[0], bedHead[1], bedHead[2], B.bed_head, meta, 1);
     if (d.door || d.tall2) World.set(x, y + 1, z, id, meta | 8, 1); // la mitad de arriba primero, para que la de abajo no se rompa
     World.set(x, y, z, id, meta);
     if (d.powder) World.onNeighbor(x, y, z);
@@ -5828,6 +5928,11 @@ const Game = {
     if (id === B.ice && this.player.mode !== 1 && SOLID[World.get(x, y - 1, z)]) replace = B.water;
     if (d.pistonHead) { const D = FDIR[meta & 7]; const bx = x - D[0], by = y - D[1], bz = z - D[2]; const b = World.get(bx, by, bz); if (b === B.piston || b === B.sticky_piston) { World.set(x, y, z, 0, 0, 1); this.breakBlock(bx, by, bz, drop, tool, decay); return; } }
     if ((id === B.piston || id === B.sticky_piston) && (meta & 8)) { const D = FDIR[meta & 7]; if (World.get(x + D[0], y + D[1], z + D[2]) === B.piston_head) World.set(x + D[0], y + D[1], z + D[2], 0, 0); }
+    if (d.bedPart) { // quitar la otra mitad de la cama (sin soltar nada)
+      const hd = ((meta & 3) + 2) & 3, D = [[0, -1], [1, 0], [0, 1], [-1, 0]][hd], s = d.bedPart === 'foot' ? 1 : -1;
+      const ox = x + D[0] * s, oz = z + D[1] * s, o = World.get(ox, y, oz);
+      if (o !== id && BLOCKS[o] && BLOCKS[o].bedPart && (World.getMeta(ox, y, oz) & 3) === (meta & 3)) World.set(ox, y, oz, 0, 0);
+    }
     if ((d.door || d.tall2) && (meta & 8)) { World.set(x, y, z, 0, 0, 1); this.breakBlock(x, y - 1, z, drop, tool, decay); return; }
     World.set(x, y, z, replace, 0);
     if (drop) {
@@ -5968,7 +6073,7 @@ const Game = {
     setTimeout(() => UI.show('death'), 900);
   },
   respawn() {
-    const P = this.player; const sp = P.spawnPoint && World.get(Math.floor(P.spawnPoint[0]), Math.floor(P.spawnPoint[1]) - 1, Math.floor(P.spawnPoint[2])) === B.bed ? P.spawnPoint : null;
+    const P = this.player; const sp = P.spawnPoint && World.get(Math.floor(P.spawnPoint[0]), Math.floor(P.spawnPoint[1]) - 1, Math.floor(P.spawnPoint[2])) && BLOCKS[World.get(Math.floor(P.spawnPoint[0]), Math.floor(P.spawnPoint[1]) - 1, Math.floor(P.spawnPoint[2]))].bedPart ? P.spawnPoint : null;
     if (P.spawnPoint && !sp) Chat.add('§7Tu cama no existe o está bloqueada.');
     const s = sp || [World.spawn[0] + 0.5, World.spawn[1], World.spawn[2] + 0.5];
     if (this.world.hardcore) { P.mode = 3; }

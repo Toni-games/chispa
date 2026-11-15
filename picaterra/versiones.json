@@ -1,8 +1,20 @@
 {
-  "latest": "1.5",
+  "latest": "1.5.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.5.1",
+      "date": "2026-11-15",
+      "title": "Camas de dos bloques",
+      "notes": [
+        "La cama ocupa dos bloques (pies y cabecera) como en el original",
+        "Con el paquete de texturas la cama usa su textura (almohada, manta, lados y patas)",
+        "Las casas de las aldeas también traen las camas de dos bloques"
+      ],
+      "size": 187332,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.5.1.zip"
+    },
     {
       "id": "1.5",
       "date": "2026-11-15",
