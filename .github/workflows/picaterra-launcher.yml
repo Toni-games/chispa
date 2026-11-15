@@ -1,0 +1,44 @@
+name: Picaterra Launcher
+on:
+  push:
+    branches: [picaterra-launcher]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  launcher:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar Electron
+        run: npm install --no-audit --no-fund
+      - name: Incluir PeerJS (multijugador por internet)
+        shell: bash
+        run: |
+          mkdir -p lib
+          curl -sSfL https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js -o lib/peerjs.min.js
+      - name: Crear el instalador
+        run: npx electron-builder --win --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Leer la versión
+        shell: bash
+        run: echo "VL=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+      - name: Publicar para descargar
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: picaterra-launcher-v1.0.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: Picaterra Launcher ${{ env.VL }} (compilación ${{ github.run_number }})
+          body: |
+            **Picaterra-Launcher-Instalador.exe**: instala el launcher con acceso directo en el escritorio.
+            **Picaterra-Launcher-Portable.exe**: se abre sin instalar nada.
+            El launcher descarga solo la última versión de Picaterra cada vez que sale una nueva.
+            Windows puede avisar de que la app no es conocida: pulsa «Más información» y luego «Ejecutar de todas formas».
+          files: |
+            salida/Picaterra-Launcher-Instalador.exe
+            salida/Picaterra-Launcher-Portable.exe
+          make_latest: false

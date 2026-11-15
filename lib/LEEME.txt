@@ -1,0 +1,2 @@
+Aquí va peerjs.min.js (lo descarga solo el workflow de GitHub al crear el .exe).
+Si pruebas el launcher con "npm start" y no está, el juego lo descarga de internet.
