@@ -303,7 +303,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.6';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.6.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -3101,7 +3101,7 @@ const TexturePack = {
     ['zombie', /(^|\/)zombie\.png$/],
     ['skeleton', /(^|\/)skeleton\.png$/],
     ['husk', /(^|\/)husk\.png$/], ['drowned', /(^|\/)drowned\.png$/], ['stray', /(^|\/)stray\.png$/], ['wither_skeleton', /(^|\/)wither_skeleton\.png$/],
-    ['cave_spider', /(^|\/)cave_spider\.png$/], ['slime', /(^|\/)slime\.png$/],
+    ['cave_spider', /(^|\/)cave_spider\.png$/], ['slime', /(^|\/)slime\.png$/], ['magma_cube', /(^|\/)(magmacube|magma_cube)\.png$/],
     ['pig_warm', /(^|\/)(pig_warm|warm_pig)\.png$/], ['pig_cold', /(^|\/)(pig_cold|cold_pig)\.png$/], ['cow_warm', /(^|\/)(cow_warm|warm_cow)\.png$/], ['cow_cold', /(^|\/)(cow_cold|cold_cow)\.png$/],
     ['chicken_warm', /(^|\/)(chicken_warm|warm_chicken)\.png$/], ['chicken_cold', /(^|\/)(chicken_cold|cold_chicken)\.png$/],
   ],
@@ -4700,10 +4700,16 @@ function mobNoise(g, r, base, amt, seed) {
 }
 function furBox(g, u, v, w, h, d, col, amt, seed) { const R = paintBox(g, u, v, w, h, d, col); let i = 0; for (const k in R) mobNoise(g, R[k], typeof col === 'string' ? col : (col[k] || col.all), amt, seed + (i++) * 97); return R; }
 // pieles de reserva de las variantes: la de la criatura base con otro tono
-const SKIN_RECOLOR = { husk: ['zombie', 'sepia(0.9) saturate(1.4) hue-rotate(-10deg) brightness(1.05)'], drowned: ['zombie', 'hue-rotate(60deg) saturate(1.3)'], stray: ['skeleton', 'sepia(0.3) hue-rotate(170deg) saturate(1.6) brightness(0.95)'], wither_skeleton: ['skeleton', 'brightness(0.32) contrast(1.3)'], cave_spider: ['spider', 'hue-rotate(180deg) saturate(2.4) brightness(1.3)'], magma_cube: ['slime', 'hue-rotate(-95deg) saturate(2.2) brightness(0.9)'],
+const SKIN_RECOLOR = { husk: ['zombie', 'sepia(0.9) saturate(1.4) hue-rotate(-10deg) brightness(1.05)'], drowned: ['zombie', 'hue-rotate(60deg) saturate(1.3)'], stray: ['skeleton', 'sepia(0.3) hue-rotate(170deg) saturate(1.6) brightness(0.95)'], wither_skeleton: ['skeleton', 'brightness(0.32) contrast(1.3)'], cave_spider: ['spider', 'hue-rotate(180deg) saturate(2.4) brightness(1.3)'],
   pig_warm: ['pig', 'hue-rotate(-12deg) saturate(1.3) brightness(0.92)'], pig_cold: ['pig', 'saturate(0.5) brightness(1.05)'], cow_warm: ['cow', 'hue-rotate(-10deg) saturate(1.6) brightness(1.15)'], cow_cold: ['cow', 'saturate(0.6) brightness(1.2)'], chicken_warm: ['chicken', 'sepia(0.5) saturate(1.5)'], chicken_cold: ['chicken', 'sepia(0.2) hue-rotate(170deg) saturate(0.8)'] };
 function mobSkin(kind) {
   if (SKIN_RECOLOR[kind]) { const [b, f] = SKIN_RECOLOR[kind]; const src = mobSkin(b); const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.filter = f; g.drawImage(src, 0, 0); return c; }
+  if (kind === 'magma_cube') {
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    for (let i = 0; i < 8; i++) { const u = i < 4 ? 0 : 32, v = (i < 4 ? i : i - 4) * 9; const R = furBox(g, u, v, 8, 1, 8, i % 3 === 1 ? '#5a1608' : '#3a0e06', 0.25, 120 + i); if (i === 2 || i === 3) { px(g, R.front[0] + 1, R.front[1], '#ffcc30', 2, 1); px(g, R.front[0] + 5, R.front[1], '#ffcc30', 2, 1); } if (i === 5) px(g, R.front[0] + 2, R.front[1], '#ff8a20', 4, 1); }
+    furBox(g, 24, 40, 4, 4, 4, '#ff9a20', 0.2, 130);
+    return c;
+  }
   if (kind === 'slime') {
     const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
     furBox(g, 0, 0, 8, 8, 8, '#76c45e', 0.12, 91); const O = g.getImageData(0, 0, 32, 16); for (let i = 3; i < O.data.length; i += 4) if (O.data[i]) O.data[i] = 150; g.putImageData(O, 0, 0);
@@ -4877,6 +4883,8 @@ MODELS.slime = [
   MCB('mouth', [32, 8], [0, 21, -3.5, 1, 1, 1], [0, 0, 0]),
 ];
 MODELS.slime_outer = [MCB('cube', [0, 0], [-4, 16, -4, 8, 8, 8], [0, 0, 0])];
+// cubo de magma: 8 lonchas de 8x1x8 y un núcleo (misma distribución que la textura del paquete)
+MODELS.magma_cube = [...Array.from({ length: 8 }, (_, i) => MCB('s' + i, i < 4 ? [0, i * 9] : [32, (i - 4) * 9], [-4, 16 + i, -4, 8, 1, 8], [0, 0, 0])), MCB('core', [24, 40], [-2, 18, -2, 4, 4, 4], [0, 0, 0])];
 // tamaño del modelo de cada criatura (las variantes usan el modelo base)
 const mobModel = (kind) => (MOBS[kind] && MOBS[kind].model) || kind;
 const mobScale = (kind) => (MODEL_SCALE[mobModel(kind)] || 1) * ((MOBS[kind] && MOBS[kind].scale) || 1);
@@ -5302,7 +5310,7 @@ const MOBS = {
   wither_skeleton: { name: 'Esqueleto oscuro', model: 'skeleton', scale: 1.2, hp: 20, w: 0.7, h: 2.4, speed: 0.25, hostile: true, dmg: 5, undead: true, noBurn: true, drops: (r) => [['coal', r() * 2 | 0], ['bone', r() * 3 | 0]], xp: [5, 5], sound: 'skeleton', holds: 'stone_sword' },
   cave_spider: { name: 'Araña de cueva', model: 'spider', scale: 0.7, hp: 12, w: 0.7, h: 0.5, speed: 0.3, hostile: true, dmg: 2, climbs: true, drops: (r) => [['string', r() * 3 | 0]], xp: [5, 5], sound: 'spider' },
   slime: { name: 'Slime', model: 'slime', scale: 2, hp: 8, w: 1.0, h: 1.0, speed: 0.22, hostile: true, dmg: 2, hops: true, drops: (r) => [['slime_ball', r() * 3 | 0]], xp: [2, 3], sound: 'zombie' },
-  magma_cube: { name: 'Cubo de magma', model: 'slime', scale: 2, hp: 8, w: 1.0, h: 1.0, speed: 0.24, hostile: true, dmg: 3, hops: true, fireImmune: true, drops: (r) => [['magma_cream', r() < 0.5 ? 1 : 0]], xp: [2, 3], sound: 'zombie' },
+  magma_cube: { name: 'Cubo de magma', model: 'magma_cube', scale: 2, hp: 8, w: 1.0, h: 1.0, speed: 0.24, hostile: true, dmg: 3, hops: true, fireImmune: true, drops: (r) => [['magma_cream', r() < 0.5 ? 1 : 0]], xp: [2, 3], sound: 'zombie' },
   spider: { name: 'Araña', hp: 16, w: 1.4, h: 0.9, speed: 0.3, hostile: true, dmg: 2, climbs: true, drops: (r) => [['string', r() * 3 | 0]], xp: [5, 5], sound: 'spider' },
 };
 class Mob extends Entity {

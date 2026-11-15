@@ -1,8 +1,19 @@
 {
-  "latest": "1.6",
+  "latest": "1.6.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.6.1",
+      "date": "2026-11-15",
+      "title": "Texturas de criaturas",
+      "notes": [
+        "El cubo de magma usa su modelo de lonchas y la textura del paquete",
+        "Todas las criaturas toman su textura del paquete de texturas"
+      ],
+      "size": 207549,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.6.1.zip"
+    },
     {
       "id": "1.6",
       "date": "2026-11-15",
