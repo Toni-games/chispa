@@ -1,0 +1,22 @@
+{
+  "latest": "1.1",
+  "launcher": "1.0.0",
+  "launcherUrl": "https://github.com/Toni-games/chispa/releases",
+  "versions": [
+    {
+      "id": "1.1",
+      "date": "2026-11-15",
+      "title": "Multijugador arreglado, música del menú, paquetes de texturas y 150 bloques nuevos",
+      "notes": [
+        "Multijugador arreglado: dentro de claude.ai, por internet con el launcher o la web, y entre pestañas",
+        "Música del menú: tema de piano propio y tus canciones marcadas para el menú o la partida",
+        "Carpetas de música y texturas en el launcher",
+        "Cargar paquetes de texturas en .zip: cada imagen se pone sola en su bloque y objeto",
+        "Más de 150 bloques nuevos: pizarra abismal, maderas nuevas, hormigón, terracota, cobre, Nether, End, océano y flores",
+        "Capa de pizarra abismal y mena de redstone bajo tierra"
+      ],
+      "size": 138083,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.1.zip"
+    }
+  ]
+}
