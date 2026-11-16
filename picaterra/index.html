@@ -336,7 +336,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.10.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.10.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -5482,7 +5482,7 @@ function animate(kind, m, e, pt) {
     if (e.flying && kind === 'player') { P.rleg.rx *= 0.3; P.lleg.rx *= 0.3; }
   } else if (kind === 'pig' || kind === 'cow' || kind === 'sheep') {
     P.leg0.rx = sw; P.leg1.rx = -sw; P.leg2.rx = -sw; P.leg3.rx = sw;
-    if (kind === 'sheep' && e.eating > 0) { P.head.rx = 1.0; P.head.dy = -6; }
+    if (kind === 'sheep' && e.eating > 0) { P.head.rx = -1.0; P.head.dy = -6; } // agacha la cabeza para comer
   } else if (kind === 'chicken') {
     P.rleg.rx = sw; P.lleg.rx = -sw;
     const flap = e.onGround ? 0 : (Math.sin(age * 1.8) + 1) * 0.9; P.rwing.rz = flap; P.lwing.rz = -flap;
@@ -5877,6 +5877,7 @@ class Mob extends Entity {
     }
     if (this.panic > 0) this.panic--;
     if (d.passive) this.breedTick();
+    if (this.tame && Pets.tick(this, d, P, dist)) { if (this.love > 0 || this.baby || this.breedCD > 0) this.breedTick(); return; }
     if (MobMove.tick(this, d, P, dist)) { if (--this.soundT <= 0) { this.soundT = 200 + Math.random() * 400 | 0; if (dist < 24) Sound.play(d.sound, this.x, this.y, this.z); } return; }
     if (d.shy && dist < 7 && playerOk && !(P.held && breedFood(this.kind, P.held.id)) && this.panic <= 0) { this.panic = 30; this.goalYaw = Math.atan2(this.x - P.x, this.z - P.z) * -1; }
     if (this.target) {
@@ -5891,7 +5892,7 @@ class Mob extends Entity {
         fwd = 1;
         if (dist < ((d.model || this.kind) === 'spider' ? 1.9 : 1.5) && Math.abs(P.y - this.y) < 1.5 && this.atkCD <= 0) {
           this.atkCD = 20; this.swinging = true; this.swingTime = 0;
-          P.hurtBy(d.dmg, { x: this.x, z: this.z, mob: true, kb: 0.4 });
+          P.hurtBy(d.dmg, { x: this.x, z: this.z, mob: true, kb: 0.4 }); Pets.alert(this);
         }
         if ((d.model || this.kind) === 'spider' && dist < 4 && dist > 2 && this.onGround && Math.random() < 0.1) { this.vy = 0.4; this.vx += -Math.sin(this.yaw) * 0.25; this.vz += -Math.cos(this.yaw) * 0.25; }
       }
@@ -5940,7 +5941,8 @@ class Mob extends Entity {
   hurtByPlayer(dmg, P, crit) {
     this.playerHit = performance.now();
     const ok = this.damage(dmg, { x: P.x, z: P.z, player: true, kb: P.sprinting ? 0.8 : 0.4 });
-    if (ok) { Sound.play(this.def.sound + '_hurt', this.x, this.y, this.z); if (this.def.passive) { this.panic = 100; this.goalYaw = Math.atan2(this.x - P.x, this.z - P.z) * -1; } else { this.provoked = true; this.target = P; this.angry = true; this.angryT = 600;
+    if (ok && !this.tame) Pets.alert(this);
+    if (ok) { Sound.play(this.def.sound + '_hurt', this.x, this.y, this.z); if (this.def.passive) { this.panic = 100; this.goalYaw = Math.atan2(this.x - P.x, this.z - P.z) * -1; } else if (this.tame) { /* tu mascota no se enfada contigo */ } else { this.provoked = true; this.target = P; this.angry = true; this.angryT = 600;
       if (this.def.pack) for (const e of Entities.list) if (e.mob && e !== this && e.kind === this.kind && !e.dead && Math.hypot(e.x - this.x, e.z - this.z) < 14) { e.target = P; e.angry = true; e.angryT = 600; } } if (crit) Particles.crit(this); }
     return ok;
   }
@@ -6015,6 +6017,7 @@ Object.assign(Mob.prototype, {
     this.mateLock = mate.mateLock = true;
     const baby = new Mob(this.kind, (this.x + mate.x) / 2, Math.max(this.y, mate.y), (this.z + mate.z) / 2);
     baby.setBaby(true); baby.persistent = true; baby.variant = Math.random() < 0.5 ? this.variant : mate.variant;
+    if (this.tame && mate.tame) { baby.tame = true; baby.collar = 'red'; baby.maxHealth = baby.health = 20; }
     Entities.add(baby); Particles.hearts(baby, 6);
     for (const p of [this, mate]) { p.love = 0; p.mateT = 0; p.breedCD = BREED_CD; p.mateLock = false; }
     const P = Game.player; if (P && !P.dead) P.addXP(1 + (Math.random() * 7 | 0));
@@ -6104,7 +6107,7 @@ Object.assign(MODELS, {
     MCB('body', [24, 15], [-3, 3.999, -3.5, 6, 11, 6], [0, 16, -6], { brx: -QP }),
     leg('leg0', [13, 24], [2, 0.5, -1, 2, 6, 2], [-5, 17.5, 0]), leg('leg1', [4, 24], [2, 0.5, -1, 2, 6, 2], [-1, 17.5, 0]),
     leg('leg2', [13, 24], [2, 0.5, -1, 2, 6, 2], [-5, 17.5, 7]), leg('leg3', [4, 24], [2, 0.5, -1, 2, 6, 2], [-1, 17.5, 7]),
-    MCB('tail', [30, 0], [2, 0, -1, 4, 9, 5], [-4, 15, -1], { brx: -(QP + 0.15) }),
+    MCB('tail', [30, 0], [2, 0, -1, 4, 9, 5], [-4, 17, 9], { brx: -(QP - 0.0524) }), // hija del cuerpo en el original: sale por detrás, un poco caída
   ],
   polar_bear: [
     MCB('head', [0, 0], [-3.5, -3, -3, 7, 7, 7], [0, 10, -16]),
@@ -6195,7 +6198,7 @@ Object.assign(MODELS, {
 // animaciones de las criaturas nuevas
 const ANIM_EXTRA = {
   _quad(P, sw) { if (P.leg0) { P.leg0.rx = sw; P.leg1.rx = -sw; P.leg2.rx = -sw; P.leg3.rx = sw; } },
-  wolf(P, sw, age, e) { this._quad(P, sw); P.tail.ry = Math.sin(age * 0.35) * (e.angry ? 0.05 : 0.35); if (e.angry || e.target) P.tail.rx = -Math.PI / 3.5; },
+  wolf(P, sw, age, e) { this._quad(P, sw); if (e.sitting) { P.body.rx = -QP + 0.785; P.body.dy = -3; P.mane.rx = -QP + 1.2566; P.mane.dy = -1; P.leg2.rx = P.leg3.rx = -QP * 1.5 + QP; P.leg2.dy = P.leg3.dy = -6.9; P.leg2.dz = P.leg3.dz = -2; P.leg0.rx = P.leg1.rx = 0.15; P.leg0.dy = P.leg1.dy = 0; P.tail.dy = -9; P.tail.dz = -2; P.head.dy = 0; return; } P.tail.ry = Math.sin(age * 0.35) * (e.angry ? 0.05 : 0.35); if (e.angry || e.target) P.tail.rx = -Math.PI / 3.5; },
   cat(P, sw) { this._quad(P, sw); },
   fox(P, sw, age) { this._quad(P, sw); P.tail.ry = Math.sin(age * 0.2) * 0.12; },
   polar_bear(P, sw, age, e) { this._quad(P, sw); if (e.target && e.atkCD > 10) { P.head.dy = 0; P.leg0.rx = P.leg1.rx = -1.2; } },
@@ -6270,7 +6273,7 @@ Object.assign(MOBS, {
 });
 for (const k of ['cat', 'ocelot', 'fox']) MOBS[k].fleeDist = 10;
 // comida para criar a los nuevos
-Object.assign(BREED_FOOD, { cat: ['cod', 'salmon'], ocelot: ['cod', 'salmon'], fox: ['sweet_berries', 'glow_berries'], panda: ['bamboo'], llama: ['hay_block', 'wheat'], turtle: ['seagrass'], wolf: ['bone'], bee: ['dandelion', 'poppy', 'cornflower', 'allium'] });
+Object.assign(BREED_FOOD, { cat: ['cod', 'salmon'], ocelot: ['cod', 'salmon'], fox: ['sweet_berries', 'glow_berries'], panda: ['bamboo'], llama: ['hay_block', 'wheat'], turtle: ['seagrass'], bee: ['dandelion', 'poppy', 'cornflower', 'allium'] });
 // los nuevos son criables si son pasivos
 // ---- comportamiento especial: volar, nadar, enfadarse ----
 const MobMove = {
@@ -6350,6 +6353,75 @@ const BIOME_ANIMALS = (sb) => {
 };
 const randVariant = (k) => { const v = MOB_VARIANTS[k]; if (!v) return null; if (k === 'panda') return Math.random() < 0.1 ? 'brown' : null; if (k === 'wolf' || k === 'fox') return null; return Math.random() < 0.3 ? null : v[Math.random() * v.length | 0]; };
 
+
+// ---- extra/pets110.js ----
+// ============================================================
+//  1.10: lobos de mascota (como en el original)
+//  - Dale huesos a un lobo salvaje: 1 de cada 3 veces se domestica (corazones) y lleva collar rojo.
+//  - Te sigue (y se teletransporta si se queda lejos), clic derecho = sentarse / levantarse.
+//  - Ataca a lo que te pega y a lo que tú pegas; se cura con carne; con tinte cambias el color del collar.
+// ============================================================
+const DYE_RGB = { white: [0.98, 1, 1], orange: [0.98, 0.5, 0.11], magenta: [0.78, 0.31, 0.75], light_blue: [0.23, 0.7, 0.85], yellow: [1, 0.85, 0.24], lime: [0.5, 0.78, 0.12], pink: [0.95, 0.55, 0.67],
+  gray: [0.28, 0.31, 0.32], light_gray: [0.62, 0.62, 0.59], cyan: [0.09, 0.61, 0.61], purple: [0.54, 0.2, 0.72], blue: [0.24, 0.27, 0.67], brown: [0.51, 0.33, 0.2], green: [0.37, 0.49, 0.09], red: [0.69, 0.18, 0.15], black: [0.11, 0.11, 0.13] };
+const WOLF_MEAT = ['beef', 'cooked_beef', 'porkchop', 'cooked_porkchop', 'chicken', 'cooked_chicken', 'mutton', 'cooked_mutton', 'rabbit', 'cooked_rabbit', 'rotten_flesh'];
+Object.assign(Mob.prototype, {
+  // clic derecho sobre la criatura (antes que dar de comer)
+  interact(P, held) {
+    if (this.kind !== 'wolf' || this.dead) return false;
+    const id = held && held.id, use1 = () => { if (P.mode !== 1) { held.n--; if (held.n <= 0) P.inv[P.sel] = null; } };
+    if (!this.tame) {
+      if (id !== 'bone' || this.target) return false;
+      use1(); Sound.play('eat', this.x, this.y, this.z);
+      if (Math.random() < 1 / 3) { this.tame = true; this.persistent = true; this.sitting = true; this.collar = 'red'; this.maxHealth = this.health = 20; this.target = null; this.angry = false; Particles.hearts(this, 7); }
+      else Particles.poof(this);
+      return true;
+    }
+    if (id && id.endsWith('_dye') && DYE_RGB[id.slice(0, -4)]) { this.collar = id.slice(0, -4); use1(); return true; }
+    if (id && WOLF_MEAT.includes(id) && this.health < this.maxHealth) { this.health = Math.min(this.maxHealth, this.health + (id.startsWith('cooked') ? 8 : 4)); use1(); Sound.play('eat', this.x, this.y, this.z); Particles.happy(this); return true; }
+    if (id && WOLF_MEAT.includes(id) && !this.baby && !(this.love > 0) && !(this.breedCD > 0)) { this.love = 600; use1(); Particles.hearts(this, 3); return true; }
+    this.sitting = !this.sitting; this.target = null; this.goal = null; return true;
+  },
+});
+const Pets = {
+  // IA del lobo domesticado; devuelve true si se ha encargado del movimiento
+  tick(m, d, P, dist) {
+    if (!m.tame) return false;
+    m.persistent = true; m.angry = false;
+    if (m.love > 0 || m.baby) m.breedTick && 0; // la cría usa breedTick (ya llamado si es pasivo)
+    // enemigo: lo que pega al dueño o lo que el dueño pega
+    const foe = m.foe && !m.foe.dead && !m.foe.remove && Math.hypot(m.foe.x - m.x, m.foe.z - m.z) < 20 ? m.foe : null; if (!foe) m.foe = null;
+    if (m.sitting) { m.vx *= 0.5; m.vz *= 0.5; m.travel(0, 0, d.speed, false); m.fallCheck(m.y); m.updateLimbs(); if (dist < 8) { const ty = Math.atan2(-(P.x - m.x), -(P.z - m.z)); m.headYaw = lerpAngle(m.headYaw, ty, 0.2); } return true; }
+    let fwd = 0, yawT = null, sp = d.speed;
+    if (foe) {
+      const fd = Math.hypot(foe.x - m.x, foe.z - m.z); yawT = Math.atan2(-(foe.x - m.x), -(foe.z - m.z)); fwd = 1; sp = d.speed * 1.2;
+      if (fd < 1.5 && Math.abs(foe.y - m.y) < 1.5 && m.atkCD <= 0) { m.atkCD = 20; m.swinging = true; m.swingTime = 0; foe.damage(4, { x: m.x, z: m.z, kb: 0.4, player: true, pet: true }); if (foe.def && !foe.def.passive) foe.target = foe.target || null; }
+    } else if (dist > 12 && P.onGround) { // demasiado lejos: aparece junto al dueño
+      m.x = P.x + (Math.random() - 0.5) * 2; m.y = P.y; m.z = P.z + (Math.random() - 0.5) * 2; m.vx = m.vy = m.vz = 0; m.savePrev();
+    } else if (dist > 5) { yawT = Math.atan2(-(P.x - m.x), -(P.z - m.z)); fwd = 1; sp = d.speed * 1.1; }
+    else if (dist < 8) m.lookPlayer = 10;
+    if (yawT !== null) m.yaw = lerpAngle(m.yaw, yawT, 0.35);
+    let jump = m.horizCol && m.onGround && fwd !== 0; if (m.inWater) jump = m.age % 4 < 3; if (jump && m.onGround) m.vy = 0.42;
+    const oy = m.y; m.travel(fwd * sp * 0.98, 0, sp, jump); m.fallCheck(oy); m.updateLimbs();
+    m.bodyYaw = lerpAngle(m.bodyYaw, m.yaw, 0.3); m.headYaw = lerpAngle(m.headYaw, m.yaw, 0.3);
+    if (m.atkCD > 0) m.atkCD--; if (m.swinging) { m.swingTime++; if (m.swingTime >= 6) m.swinging = false; }
+    return true;
+  },
+  // avisar a las mascotas: alguien ha pegado al dueño o el dueño ha pegado a alguien
+  alert(foe) { if (!foe || foe === Game.player || foe.tame) return; for (const e of Entities.list) if (e.tame && !e.sitting && !e.dead && Math.hypot(e.x - foe.x, e.z - foe.z) < 20) e.foe = foe; },
+};
+// textura del lobo domesticado y su collar (capa aparte que se tiñe)
+TexturePack.ENT.push(['wolf_tame', /(^|\/)wolf_tame\.png$/], ...WOLF_VARIANTS.map(v => ['wolf_' + v + '_tame', new RegExp('(^|/)wolf_' + v + '_tame\\.png$')]), ['wolf_collar', /(^|\/)wolf_collar\.png$/]);
+SKIN_RECOLOR.wolf_tame = ['wolf', 'brightness(1.05)']; for (const v of WOLF_VARIANTS) SKIN_RECOLOR['wolf_' + v + '_tame'] = ['wolf_' + v, 'brightness(1.05)'];
+{
+  const base = mobSkin;
+  mobSkin = function (kind) {
+    if (kind !== 'wolf_collar') return base(kind);
+    // collar de reserva: una franja blanca alrededor del cuello (la melena)
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#f0f0f0';
+    const u = 21, v = 0, w = 8, h = 6, d = 7; g.fillRect(u, v + d + h - 2, d * 2 + w * 2, 2); g.fillRect(u + d, v, w, 2); return c;
+  };
+}
+
 class ItemEntity extends Entity {
   constructor(x, y, z, item) { super('item', x, y, z); this.item = item; this.w = 0.25; this.h = 0.25; this.pickupDelay = 10; this.spin = Math.random() * 6.28; this.step = 0; }
   tick() {
@@ -6382,7 +6454,7 @@ class Arrow extends Entity {
         if (e === this.shooter && this.age < 8) continue; if (e.dead || !(e.mob || e.type === 'player')) continue;
         const bb = e.bb(); if (nx > bb[0] - 0.1 && nx < bb[3] + 0.1 && ny > bb[1] && ny < bb[4] && nz > bb[2] - 0.1 && nz < bb[5] + 0.1) {
           const dmg = Math.ceil(Math.hypot(this.vx, this.vy, this.vz) * this.dmgK);
-          if (e.type === 'player') e.hurtBy(dmg, { x: this.x, z: this.z, mob: !!(this.shooter && this.shooter.mob), kb: 0.3 });
+          if (e.type === 'player') { e.hurtBy(dmg, { x: this.x, z: this.z, mob: !!(this.shooter && this.shooter.mob), kb: 0.3 }); if (this.shooter && this.shooter.mob) Pets.alert(this.shooter); }
           else if (this.shooter && this.shooter.type === 'player') e.hurtByPlayer(dmg, this.shooter, false); else e.damage(dmg, { x: this.x, z: this.z });
           if (this.flame && e.mob) e.fire = Math.max(e.fire || 0, 100); if (this.punch && e.mob) { const h = Math.hypot(this.vx, this.vz) || 1; e.vx += this.vx / h * 0.6 * this.punch; e.vz += this.vz / h * 0.6 * this.punch; }
           Sound.play('arrow_hit'); this.remove = true; return;
@@ -7298,7 +7370,8 @@ const Game = {
   use() {
     const P = this.player; const T = this.target; const held = P.held; const it = held && ITEMS[held.id];
     // dar de comer a un animal (cría)
-    const fe = this.targetEnt; if (fe && fe.mob && fe.feed && held && fe.feed(P, held)) { P.swinging = true; P.swingTime = 0; return; }
+    const fe = this.targetEnt; if (fe && fe.mob && fe.interact && fe.interact(P, held)) { P.swinging = true; P.swingTime = 0; return; }
+    if (fe && fe.mob && fe.feed && held && fe.feed(P, held)) { P.swinging = true; P.swingTime = 0; return; }
     // lanzar huevos y bolas de nieve
     if (it && it.throwable && !(T && !P.sneaking && BLOCKS[T.id].interact)) { throwItem(P, held.id); this.consume(); P.swinging = true; P.swingTime = 0; this.useCD = 4; return; }
     // interactuar con bloques
@@ -7777,8 +7850,8 @@ const Dims = {
     delete meta._editsN; delete meta._editsO;
     this.arrival = null;
   },
-  liveMobs() { return Entities.list.filter(e => e.mob && e.persistent && !e.dead).slice(0, 300).map(e => ({ k: e.kind, x: e.x, y: e.y, z: e.z, yaw: e.yaw, h: e.health, v: e.variant || undefined, b: e.baby ? e.growAge : undefined, cd: e.breedCD || undefined })); },
-  spawnMobs(list) { for (const m of list) if (MOBS[m.k]) { const e = new Mob(m.k, m.x, m.y, m.z); e.yaw = m.yaw || 0; e.variant = m.v || null; e.health = m.h ?? e.health; if (m.b) e.setBaby(true, m.b); if (m.cd) e.breedCD = m.cd; Entities.add(e); } },
+  liveMobs() { return Entities.list.filter(e => e.mob && e.persistent && !e.dead).slice(0, 300).map(e => ({ k: e.kind, x: e.x, y: e.y, z: e.z, yaw: e.yaw, h: e.health, v: e.variant || undefined, b: e.baby ? e.growAge : undefined, cd: e.breedCD || undefined, t: e.tame || undefined, s: e.sitting || undefined, c: e.collar || undefined })); },
+  spawnMobs(list) { for (const m of list) if (MOBS[m.k]) { const e = new Mob(m.k, m.x, m.y, m.z); e.yaw = m.yaw || 0; e.variant = m.v || null; e.health = m.h ?? e.health; if (m.b) e.setBaby(true, m.b); if (m.cd) e.breedCD = m.cd; if (m.t) { e.tame = true; e.sitting = !!m.s; e.collar = m.c || 'red'; e.maxHealth = 20; e.persistent = true; } Entities.add(e); } },
   ser(st) { return { blockEnts: [...st.blockEnts].map(([k, v]) => ({ k, v })), generated: [...st.generated], mobs: st.mobs }; },
   // completa los datos que se guardan (las dos dimensiones)
   beforeSave(W) {
@@ -9292,7 +9365,7 @@ const Panorama = {
   faces: null, ready: false, yaw: 0, capturing: false, t0: 0, tex: null, FOV: 92 * DEG,
   async sig() { const z = await Store.get('kv', 'texpack:zip').catch(() => null); return (z ? z.size + ':' + (z.name || '') : 'base') + ':' + Object.keys(Atlas.custom).length + ':p3'; },
   async load() {
-    try { const d = await Store.get('kv', 'panorama'); if (d && d.sig === await this.sig() && d.faces && d.faces.length === 6) { this.faces = d.faces; await this.build(); return true; } } catch (e) { }
+    try { const d = await Store.get('kv', 'panorama'); if (d && d.faces && d.faces.length === 6) { this.faces = d.faces; await this.build(); this.stale = d.sig !== await this.sig(); return true; } } catch (e) { }
     return false;
   },
   // direcciones de las 6 fotos (yaw, pitch): delante, derecha, detrás, izquierda, arriba y abajo
@@ -9344,11 +9417,11 @@ precision mediump float; in vec2 vUV; uniform sampler2D uTex; out vec4 o; void m
   tick() { document.body.classList.toggle('panoReady', this.ready); document.body.classList.toggle('panoWait', Game.state === 'title' && !this.ready); document.getElementById('gl').classList.toggle('panoBlur', this.ready && (Game.state === 'loading' || (Game.state === 'title' && !!UI.cur && UI.cur !== 'title'))); },
   // ¿ya se ha cargado lo suficiente del mundo del menú para hacer las fotos?
   canCapture() {
-    if (this.ready || this.capturing || Game.state !== 'title' || !Title.active) return false;
+    if ((this.ready && !this.stale) || this.capturing || Game.state !== 'title' || !Title.active) return false;
     if (!this.t0) this.t0 = performance.now();
     const cx = Title.cx >> 4, cz = Title.cz >> 4; let ok = 0, need = 0;
     for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) { need++; const c = World.chunk(cx + dx, cz + dz); if (c && c.mesh && !c.dirty) ok++; }
-    return ok >= need || (performance.now() - this.t0 > 15000 && ok > need * 0.6);
+    return ok >= need || (performance.now() - this.t0 > 9000 && ok > need * 0.6);
   },
   async capture() {
     this.capturing = true;
@@ -9356,17 +9429,18 @@ precision mediump float; in vec2 vUV; uniform sampler2D uTex; out vec4 o; void m
     try { for (const [yaw, pitch] of this.DIRS) { Cam.override = { yaw, pitch: pitch === 0 ? 0 : pitch * 0.99999, size: S }; renderFrame(); faces.push(cv.toDataURL('image/jpeg', 0.9)); } }
     finally { Cam.override = null; }
     this.faces = faces; await Store.put('kv', 'panorama', { sig: await this.sig(), faces }).catch(() => { });
-    await this.build(); this.capturing = false;
+    await this.build(); this.capturing = false; this.stale = false;
     World.reset(); Entities.clear(); Title.active = false; // el mundo del menú ya no hace falta
   },
-  async invalidate() { const was = this.ready; this.ready = false; this.faces = null; this.t0 = 0; try { await Store.del('kv', 'panorama'); } catch (e) { } if (was && Game.state === 'title' && !Title.active) Title.start(); },
+  // con texturas nuevas el panorama viejo se sigue viendo mientras se hacen las fotos nuevas por detrás
+  async invalidate() { this.stale = true; this.t0 = 0; if (Game.state === 'title' && !Title.active) Title.start(); },
 };
 
 const Title = {
   active: false, t: 0,
   start() {
     Game.state = 'title'; UI.show('title');
-    if (Panorama.ready) { this.active = false; World.reset(); Entities.clear(); return; } // con panorama no hace falta el mundo
+    if (Panorama.ready && !Panorama.stale) { this.active = false; World.reset(); Entities.clear(); return; } // con panorama no hace falta el mundo (si está viejo, se rehace por detrás)
     this.active = true;
     World.reset(); Entities.clear();
     World.seed = 1337421; World.flat = false; World.time = 3000; Gen.gen++; Gen.pending.clear(); Gen.results = []; Gen.init();
@@ -9572,7 +9646,7 @@ function drawEntities(Pw, cam) {
     if (!aabbInFrustum(R.planes, x - 1.5, y - 0.5, z - 1.5, x + 1.5, y + 2.5, z + 1.5)) continue;
     const L = entLight(x, y + 0.5, z);
     if (e.mob) {
-      const sk = e.variant ? e.kind + '_' + e.variant : e.kind; const tex = R.skinTexture('mob_' + sk, MobSkins.get(sk));
+      const sk = (e.variant ? e.kind + '_' + e.variant : e.kind) + (e.tame ? '_tame' : ''); const tex = R.skinTexture('mob_' + sk, MobSkins.get(sk));
       M4.identity(_m); M4.translate(_m, x, y, z); M4.rotY(_m, lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt));
       if (e.dead) M4.rotZ(_m, Math.min(1, Math.sqrt((e.deathTime + pt) / 20)) * Math.PI / 2);
       const sc = mobScale(e.kind) * (e.baby ? 0.5 : 1); M4.scale(_m, sc, sc, sc);
@@ -9582,6 +9656,7 @@ function drawEntities(Pw, cam) {
         gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.uniform1f(Pw.u.uAlphaTest, 0.02);
         drawModel('slime_outer', e, tex, _m, Pw, L, tint, 'slime'); gl.uniform1f(Pw.u.uAlphaTest, 0.5); gl.disable(gl.BLEND);
       }
+      if (e.tame && e.collar) { const c = DYE_RGB[e.collar] || DYE_RGB.red; const m2 = M4.copy(_m3, _m); M4.scale(m2, 1.012, 1.012, 1.012); drawModel(e.kind, e, R.skinTexture('mob_wolf_collar', MobSkins.get('wolf_collar')), m2, Pw, L, [c[0], c[1], c[2], 0.85]); }
       if (e.kind === 'sheep' && !e.sheared) drawModel('sheep_wool', e, R.skinTexture('mob_sheep_wool', MobSkins.get('sheep_wool')), _m, Pw, L, tint, 'sheep');
       if (e.def.holds) { // arco en la mano
         gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex);

@@ -1,8 +1,19 @@
 {
-  "latest": "1.10.0",
+  "latest": "1.10.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.10.1",
+      "date": "2026-11-16",
+      "title": "Lobos de mascota",
+      "notes": [
+        "Domestica lobos con huesos: te siguen, se sientan con clic derecho, te defienden, se curan con carne, crían y su collar se tiñe con tintes",
+        "Arreglos: cola del zorro, cabeza de la oveja al comer y el menú ya no se ve en negro al entrar (si hay que rehacer el panorama, se hace por detrás)"
+      ],
+      "size": 252266,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.10.1.zip"
+    },
     {
       "id": "1.10.0",
       "date": "2026-11-16",
