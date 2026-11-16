@@ -336,7 +336,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.11.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.11.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -3777,8 +3777,11 @@ const TexturePack = {
       const ssig = JSON.stringify([file.size, audio.length]);
       if (keep || ssig !== (await Store.get('kv', 'snd:launcherSig').catch(() => null))) { this.lastSounds = await SoundPack.importZip(z, audio, onProgress); await Store.put('kv', 'snd:launcherSig', ssig).catch(() => { }); }
     }
+    // frases amarillas del menú (splashes.txt), en el zip de texturas o en un zip aparte
+    let sp = 0; const spf = z.names.find(p => /(^|\/)splashes\.txt$/i.test(p));
+    if (spf) { try { const txt = new TextDecoder().decode(await z.get(spf)); sp = await Splashes.save(txt); this.lastSplashes = sp; } catch (e) { } }
     const want = [...this.pick(z.names)]; let n = 0;
-    if (!want.length) { // solo sonidos o solo interfaz: no tocar las texturas guardadas
+    if (!want.length) { if (sp && !z.names.some(p => /\.png$/i.test(p))) return 0; // solo sonidos o solo interfaz: no tocar las texturas guardadas
       let g = 0; try { g = await this.gui(z.names, async (p) => blobToURL(new Blob([await z.get(p)], { type: 'image/png' }))); } catch (e) { } if (g) Store.flushTex && await Store.flushTex(); return g;
     }
     if (keep) { try { await Store.put('kv', 'texpack:zip', file); await Store.put('kv', 'texpack:sig', this.sig()); } catch (e) { } }
@@ -9267,6 +9270,19 @@ const Skins = {
 };
 
 // ---------------- pantallas (DOM) ----------------
+// frases del paquete: la de Technoblade sale el 10 % de las veces; el resto, al azar
+const Splashes = {
+  list: null,
+  async load() { if (this.list) return this.list; try { this.list = (await Store.get('kv', 'splashes')) || []; } catch (e) { this.list = []; } return this.list; },
+  async save(txt) { const l = txt.split(/\r?\n/).map(s => s.trim()).filter(Boolean); if (!l.length) return 0; this.list = l; await Store.put('kv', 'splashes', l); this.show(); return l.length; },
+  pick() {
+    const l = this.list && this.list.length ? this.list : SPLASHES;
+    const tb = l.find(s => /technoblade/i.test(s));
+    if (tb && Math.random() < 0.1) return tb;
+    const rest = tb ? l.filter(s => s !== tb) : l; return rest[Math.random() * rest.length | 0];
+  },
+  async show() { await this.load(); const el = document.getElementById('splash'); if (!el) return; const t = this.pick(); el.textContent = t; el.style.fontSize = Math.max(10, 20 - Math.max(0, t.length - 16) * 0.4) + 'px'; },
+};
 const SPLASHES = ['¡Ahora en HTML!', '¡Sin texturas… por ahora!', '¡Pica, construye, sobrevive!', '¡Cuidado con los zombis!', '¡Con F5!', '¡El trigo crece solo!', '¡Lana de 16 colores!', '¡Dinamita incluida!', '¡JavaScript puro!', '¡Cava hacia abajo… o mejor no!', '¡Ahora con camas!', '¡Mundos infinitos!', '¡Cuevas por todas partes!', '¡Hecho bloque a bloque!', '¡Diamantes a lo hondo!', '¡Funciona en el navegador!'];
 const UI = {
   cur: null, sleepFade: 0, el: {},
@@ -9358,7 +9374,7 @@ const UI = {
     $('muDirOpen').onclick = () => { Sound.play('click'); Music.openFolder(); $('muMsg').textContent = 'Mete las canciones en esa carpeta y pulsa «Volver a leer la carpeta».'; };
     $('muDirReload').onclick = async () => { Sound.play('click'); await Music.reloadFolder(); const n = Music.songs.filter(s => s.src === 'dir').length; $('muMsg').textContent = Music.folderMsg || (n ? n + ' canción' + (n > 1 ? 'es' : '') + ' en la carpeta.' : 'La carpeta está vacía.'); this.renderMusic(); };
     this.buildOptions(); this.applyName(); this.renderAvatars();
-    $('splash').textContent = SPLASHES[Math.random() * SPLASHES.length | 0];
+    $('splash').textContent = SPLASHES[Math.random() * SPLASHES.length | 0]; Splashes.show();
   },
   applyName() {
     const n = Settings.gameName || 'Picaterra', sub = Settings.subtitle ?? 'HTML Edition';
@@ -9367,7 +9383,7 @@ const UI = {
     this.$('rName').value = n; this.$('rSub').value = sub; this.previewName();
   },
   previewName() { this.$('rPrevName').textContent = this.$('rName').value || 'Picaterra'; this.$('rPrevSub').textContent = this.$('rSub').value; },
-  texMsg(n) { const sn = TexturePack.lastSounds || 0, mn = TexturePack.lastMusic || 0; TexturePack.lastSounds = 0; TexturePack.lastMusic = 0; if (sn || mn) { this.$('texMsg').textContent = '¡' + [sn ? sn + ' sonidos' : '', mn ? mn + ' canciones' : ''].filter(Boolean).join(' y ') + ' cargad' + (sn ? 'os' : 'as') + '!' + (n ? ' Y ' + n + ' texturas.' : ''); Game.reloadTextures(); this.renderTexList(); return; } this.$('texMsg').textContent = n ? `¡${n} textura${n > 1 ? 's' : ''} cargada${n > 1 ? 's' : ''}!` : 'No se reconoció ningún nombre de archivo. Mira la lista de abajo.'; Game.reloadTextures(); this.renderTexList(); },
+  texMsg(n) { const spn = TexturePack.lastSplashes || 0; TexturePack.lastSplashes = 0; if (spn && !n) { this.$('texMsg').textContent = '¡' + spn + ' frases del menú cargadas!'; return; } const sn = TexturePack.lastSounds || 0, mn = TexturePack.lastMusic || 0; TexturePack.lastSounds = 0; TexturePack.lastMusic = 0; if (sn || mn) { this.$('texMsg').textContent = '¡' + [sn ? sn + ' sonidos' : '', mn ? mn + ' canciones' : ''].filter(Boolean).join(' y ') + ' cargad' + (sn ? 'os' : 'as') + '!' + (n ? ' Y ' + n + ' texturas.' : ''); Game.reloadTextures(); this.renderTexList(); return; } this.$('texMsg').textContent = n ? `¡${n} textura${n > 1 ? 's' : ''} cargada${n > 1 ? 's' : ''}!` : 'No se reconoció ningún nombre de archivo. Mira la lista de abajo.'; Game.reloadTextures(); this.renderTexList(); },
   renderTexList() {
     const box = this.$('texList'); box.innerHTML = '';
     for (const n of TEX_NAMES) {
@@ -9563,7 +9579,8 @@ const UI = {
   },
   async show(name) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
-    this.cur = name;
+    const prevScr = this.cur; this.cur = name;
+    if (name === 'title' && (!prevScr || prevScr === 'pause' || prevScr === 'loading' || prevScr === 'death')) Splashes.show();
     if (name === 'options' || name === 'controls') this.$('optBack').dataset.go = this.$('ctlBack').dataset.go = (Game.state === 'play' ? 'pause' : 'title');
     if (name) { const el = this.$('s_' + name); if (el) el.classList.add('on'); }
     document.body.classList.toggle('menu', !!name && name !== 'loading');

@@ -1,8 +1,19 @@
 {
-  "latest": "1.11.0",
+  "latest": "1.11.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.11.1",
+      "date": "2026-11-16",
+      "title": "Frases del menú",
+      "notes": [
+        "Las frases amarillas del menú se cargan desde tu zip (splashes.txt), sueltas o dentro del pack de texturas",
+        "La de Technoblade sale el 10 % de las veces; el resto, al azar"
+      ],
+      "size": 264247,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.11.1.zip"
+    },
     {
       "id": "1.11.0",
       "date": "2026-11-16",
