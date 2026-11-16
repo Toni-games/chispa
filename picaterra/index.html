@@ -305,7 +305,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.9.4';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.9.5';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2201,6 +2201,8 @@ for (const d of BLOCKS) {
   OPAQUE[d.id] = d.opaque ? 1 : 0; SOLID[d.id] = d.solid ? 1 : 0; EMIT[d.id] = d.emit;
   FILTER[d.id] = d.opaque ? 15 : d.filter; RENDER[d.id] = RT[d.render]; CULLSELF[d.id] = d.cullSelf ? 1 : 0;
   TRANSL[d.id] = d.translucent ? 1 : 0; REPLACE[d.id] = d.replaceable ? 1 : 0; LIQUID[d.id] = d.liquid === 'water' ? 1 : d.liquid === 'lava' ? 2 : 0;
+  // troncos y bloques en columna: la cara de abajo es igual que la de arriba (como en el original)
+  if ((d.axis || d.key === 'melon' || d.key === 'pumpkin') && d.tex && typeof d.tex === 'object' && d.tex.top && !d.tex.bottom && !d.tex.all) d.tex = Object.assign({}, d.tex, { bottom: d.tex.top });
   d.faceTex = T6(d.tex || 'stone'); if (d.texAlt) d.faceTexAlt = T6(d.texAlt);
   if (d.facing6 && typeof d.tex === 'object') { const t = d.tex; d.faceTex6 = { front: t.front || t.side, back: t.bottom || t.side, side: t.side, top: t.top || t.side }; }
 }

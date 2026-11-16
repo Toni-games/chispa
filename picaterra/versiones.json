@@ -1,8 +1,18 @@
 {
-  "latest": "1.9.4",
+  "latest": "1.9.5",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.9.5",
+      "date": "2026-11-16",
+      "title": "Troncos por debajo",
+      "notes": [
+        "La cara de abajo de los troncos (y bloques en columna) muestra los anillos, igual que la de arriba"
+      ],
+      "size": 234995,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.9.5.zip"
+    },
     {
       "id": "1.9.4",
       "date": "2026-11-16",
