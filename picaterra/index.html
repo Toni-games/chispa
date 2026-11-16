@@ -336,7 +336,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.11.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.11.2';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2353,6 +2353,107 @@ def13('chorus_plant', 'Planta coral', BOX({ tex: 'chorus_plant', shape: 'chorus'
 def13('chorus_flower', 'Flor coral', BOX({ tex: 'chorus_flower', texAlt: 'chorus_flower_dead', altBit: 8, box: [[1, 1, 1, 15, 15, 15]], hardness: 0.4, tool: 'axe', sound: 'wood', color: '#957d95', cat: 'nature', support: 'chorus' }));
 def13('ender_chest', 'Cofre de ender', { tex: { top: 'ender_chest_top', bottom: 'ender_chest_top', side: 'ender_chest_side', front: 'ender_chest_front' }, facing: true, render: 'box', box: [[1, 0, 1, 15, 14, 15]], opaque: false, hardness: 22.5, tool: 'pickaxe', needsTool: true, emit: 7, interact: 'enderchest', color: '#22302c', cat: 'func', drops: [['obsidian', 8]] });
 
+
+// ---- extra/fire111.js ----
+// ============================================================
+//  1.11.2: el fuego (mechero de pedernal) y texturas animadas
+// ============================================================
+def13('fire', 'Fuego', { tex: 'fire_0', render: 'cross', solid: false, opaque: false, cutout: true, hardness: 0, emit: 15, noItem: true, drops: [], replaceable: true, color: '#f28a1e', fullbright: true, sound: 'wool' });
+def13('soul_fire', 'Fuego de almas', { tex: 'soul_fire_0', render: 'cross', solid: false, opaque: false, cutout: true, hardness: 0, emit: 10, noItem: true, drops: [], replaceable: true, color: '#3fd8e0', fullbright: true, sound: 'wool' });
+// qué arde: madera, hojas, lana, plantas, paja, estanterías, TNT… (cuanto más alto, antes prende)
+function burnChance(id) {
+  const d = BLOCKS[id]; if (!d || !id) return 0; const k = d.key || '';
+  if (/_leaves$|^vine$|grass$|fern$|^dead_bush|_carpet$|^hay_block$|_wool$|^dried_kelp_block$|^tnt$|^bookshelf$|^scaffolding$|^moss|azalea|^bamboo$|^leaf_litter$/.test(k)) return 60;
+  if (/_log$|_wood$|_stem$|_hyphae$|^bamboo_block/.test(k) && !/crimson|warped/.test(k)) return 5;
+  if (/_planks$|_slab$|_stairs$|_fence|_door$|_trapdoor$|^crafting_table$|^chest$|^barrel$|^lectern$|^composter$|^jukebox$|^note_block$|^beehive|^bee_nest/.test(k) && !/crimson|warped|stone|brick|iron|copper|quartz|purpur|sandstone|prismarine|blackstone|deepslate|tuff|mud|andesite|diorite|granite|cobble|nether|end_stone|smooth|cut_|polished|resin/.test(k)) return 20;
+  if (d.fuel > 0 && !d.liquid) return 10;
+  return 0;
+}
+const Fire = {
+  list: new Set(), key: (x, y, z) => x + ',' + y + ',' + z,
+  add(x, y, z) { this.list.add(this.key(x, y, z)); },
+  // ¿puede estar el fuego aquí? (suelo macizo debajo o algo que arda al lado)
+  canStay(x, y, z) {
+    const b = World.get(x, y - 1, z); if (SOLID[b] && OPAQUE[b]) return true;
+    for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0]]) if (burnChance(World.get(x + dx, y + dy, z + dz))) return true;
+    return false;
+  },
+  // encender con el mechero en la casilla (x,y,z)
+  light(x, y, z) {
+    const cur = World.get(x, y, z); if (cur && !REPLACE[cur]) return false; if (LIQUID[cur]) return false;
+    if (!this.canStay(x, y, z)) return false;
+    const below = BLOCKS[World.get(x, y - 1, z)] || {}; const soul = below.key === 'soul_sand' || below.key === 'soul_soil';
+    World.set(x, y, z, soul ? B.soul_fire : B.fire, 0); this.add(x, y, z); return true;
+  },
+  permanent(x, y, z) { const k = (BLOCKS[World.get(x, y - 1, z)] || {}).key; return k === 'netherrack' || k === 'magma_block' || k === 'soul_sand' || k === 'soul_soil' || (k === 'bedrock' && World.dim === 'e'); },
+  tick() {
+    if (!this.list.size) return;
+    const rain = Game.raining && Game.raining();
+    for (const k of [...this.list]) {
+      const [x, y, z] = k.split(',').map(Number); const id = World.get(x, y, z);
+      if (id !== B.fire && id !== B.soul_fire) { this.list.delete(k); continue; }
+      if (!World.chunk(x >> 4, z >> 4)) continue;
+      if (Math.random() < 0.7) continue; // como el original: el fuego va «a ratos»
+      const perm = this.permanent(x, y, z);
+      if (!perm && !this.canStay(x, y, z)) { World.set(x, y, z, 0, 0); this.list.delete(k); continue; }
+      let age = World.getMeta(x, y, z) & 15;
+      if (!perm) {
+        if (rain && World.sky(x, y + 1, z) >= 15 && Math.random() < 0.4) { World.set(x, y, z, 0, 0); this.list.delete(k); Sound.play('fire_out', x, y, z); continue; }
+        if (age < 15 && Math.random() < 0.5) { age++; World.setMeta ? World.setMeta(x, y, z, age) : World.set(x, y, z, id, age, 1); }
+        const below = World.get(x, y - 1, z);
+        if (age >= 15 || (!burnChance(below) && age > 3 && Math.random() < 0.25)) { if (age >= 15 || Math.random() < 0.4) { World.set(x, y, z, 0, 0); this.list.delete(k); continue; } }
+      }
+      if (id === B.soul_fire) continue; // el fuego de almas no se extiende
+      // quemar los bloques de alrededor
+      for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0]]) {
+        const nx = x + dx, ny = y + dy, nz = z + dz, nb = World.get(nx, ny, nz), c = burnChance(nb); if (!c) continue;
+        if (Math.random() * 300 < c) {
+          if (nb === B.tnt) { World.set(nx, ny, nz, 0, 0); Entities.add(new PrimedTNT(nx, ny, nz, 40 + (Math.random() * 30 | 0))); continue; }
+          if (Math.random() < 0.6 && !rain) { World.set(nx, ny, nz, B.fire, Math.min(15, age + 2), 1); this.add(nx, ny, nz); } else World.set(nx, ny, nz, 0, 0, 1);
+        }
+      }
+      // saltar a huecos de aire cercanos que toquen algo que arda
+      if (!rain) for (let i = 0; i < 2; i++) {
+        const nx = x + (Math.random() * 3 | 0) - 1, ny = y + (Math.random() * 4 | 0) - 1, nz = z + (Math.random() * 3 | 0) - 1;
+        if (World.get(nx, ny, nz)) continue;
+        let best = 0; for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0]]) best = Math.max(best, burnChance(World.get(nx + dx, ny + dy, nz + dz)));
+        if (best && Math.random() * 100 < best * 0.6) { World.set(nx, ny, nz, B.fire, Math.min(15, age + 3), 1); this.add(nx, ny, nz); }
+      }
+    }
+  },
+  // quemar a quien esté dentro del fuego
+  touch(e) {
+    if (e.def && e.def.fireImmune) return;
+    const bb = e.bb();
+    for (let y = Math.floor(bb[1]); y <= Math.floor(bb[4] - 0.001); y++) for (let z = Math.floor(bb[2]); z <= Math.floor(bb[5] - 0.001); z++) for (let x = Math.floor(bb[0]); x <= Math.floor(bb[3] - 0.001); x++) {
+      const id = World.get(x, y, z); if (id !== B.fire && id !== B.soul_fire) continue;
+      if (e.inWater) { World.set(x, y, z, 0, 0); return; }
+      e.fire = Math.max(e.fire || 0, 160); if (e.age % 10 === 0) e.damage(id === B.soul_fire ? 2 : 1, null); return;
+    }
+  },
+};
+// texturas animadas (fuego, lava, agua, portal…): las tiras de fotogramas de los paquetes se mueven
+const TileAnim = {
+  last: 0, list: null, ver: -1, tmp: null,
+  scan() {
+    this.list = []; this.ver = Atlas.version;
+    for (const name of TEX_NAMES) { const im = Atlas.custom[name]; if (!im || !im.width || im.height < im.width * 2) continue; const i = Atlas.index[name]; if (i === undefined) continue; this.list.push({ name, im, n: Math.floor(im.height / im.width), x: (i % Atlas.cols) * Atlas.T, y: Math.floor(i / Atlas.cols) * Atlas.T, f: 0, ms: /fire/.test(name) ? 50 : /lava/.test(name) ? 150 : 100, t: 0 }); }
+  },
+  tick(now) {
+    const R = Renderer, gl = R.gl; if (!gl || !Atlas.canvas || !R.atlasTex) return;
+    if (this.ver !== Atlas.version || !this.list) this.scan();
+    if (!this.list.length || now - this.last < 50) return; this.last = now;
+    const T = Atlas.T; if (!this.tmp || this.tmp.width !== T) { this.tmp = document.createElement('canvas'); this.tmp.width = this.tmp.height = T; }
+    const g = this.tmp.getContext('2d'); g.imageSmoothingEnabled = false;
+    gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    for (const a of this.list) {
+      if (now - a.t < a.ms) continue; a.t = now; a.f = (a.f + 1) % a.n; const w = a.im.width;
+      g.clearRect(0, 0, T, T); g.drawImage(a.im, 0, a.f * w, w, w, 0, 0, T, T);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, a.x, a.y, gl.RGBA, gl.UNSIGNED_BYTE, this.tmp);
+    }
+  },
+};
+
 const NB = BLOCKS.length;
 if (NB > 4095) throw new Error('Demasiados bloques: ' + NB);
 // tablas rápidas
@@ -3419,6 +3520,8 @@ function autoTextures() {
   for (const n of ['jungle_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'fern', 'lily_pad', 'tall_grass_top', 'tall_grass_bottom', 'large_fern_top', 'large_fern_bottom', 'bush', 'vine', 'leaf_litter', 'sugar_cane']) if (TEX[n]) TINTED_TEX.add(n);
   // iconos que no son casillas de ningún bloque (p. ej. la cara del girasol)
   for (const d of BLOCKS) if (d.icon && !TEX[d.icon]) addTex(d.icon, autoBlockTex(d.icon, d));
+  const flame = (a, b, c2) => (c) => { c.clearRect(0, 0, 16, 16); for (let x = 0; x < 16; x++) { const h = 6 + Math.round(5 * Math.abs(Math.sin(x * 1.7)) + 3 * Math.abs(Math.sin(x * 0.6 + 1))); for (let y = 16 - h; y < 16; y++) { const k = (y - (16 - h)) / h; c.fillStyle = k < 0.3 ? c2 : k < 0.65 ? b : a; c.fillRect(x, y, 1, 1); } } };
+  addTex('fire_0', flame('#d4400c', '#f28a1e', '#ffd84a')); addTex('soul_fire_0', flame('#0e6b8c', '#2fb7d0', '#a8f4ff'));
 }
 autoTextures();
 
@@ -4269,6 +4372,7 @@ const World = {
 
 function RandomTick(x, y, z, id, meta) {
   const d = BLOCKS[id];
+  if (id === B.fire || id === B.soul_fire) { Fire.add(x, y, z); return; }
   const light = Math.max(World.sky(x, y + 1, z) * (Sky.skyFactor > 0.5 ? 1 : 0.3), World.blk(x, y + 1, z));
   if (id === B.grass_block || id === B.snowy_grass) {
     const above = World.get(x, y + 1, z);
@@ -5813,6 +5917,7 @@ class Entity {
     if (this.def && this.def.fireImmune) this.fire = 0;
     else if (this.inLava) { this.damage(4, null); this.fire = 300; }
     else if (this.inWater) this.fire = 0;
+    if ((this.mob || this instanceof Player) && this.age % 2 === 0) Fire.touch(this);
     if (this.fire > 0) { this.fire--; if (this.fire % 20 === 0 && !this.inLava) this.damage(1, null); }
     if (this.y < -64) this.damage(4, null);
     if (World.get(Math.floor(this.x), Math.floor(this.y), Math.floor(this.z)) === B.cactus || World.get(Math.floor(this.x + this.w / 2 + 0.05), Math.floor(this.y), Math.floor(this.z)) === B.cactus || World.get(Math.floor(this.x - this.w / 2 - 0.05), Math.floor(this.y), Math.floor(this.z)) === B.cactus || World.get(Math.floor(this.x), Math.floor(this.y), Math.floor(this.z + this.w / 2 + 0.05)) === B.cactus || World.get(Math.floor(this.x), Math.floor(this.y), Math.floor(this.z - this.w / 2 - 0.05)) === B.cactus) this.damage(1, null);
@@ -7271,6 +7376,7 @@ const SoundPack = {
   MOB: { pig: 'cerdo', cow: 'vaca', sheep: 'oveja', chicken: 'gallina', zombie: 'zombi', skeleton: 'esqueleto', spider: 'arana', husk: 'zombi del desierto', drowned: 'ahogado', stray: 'esqueleto glacial', wither_skeleton: 'esqueleto wither', cave_spider: 'arana', slime: 'slime', magma_cube: 'cubo de magma',
     wolf: 'lobo', cat: 'gato', ocelot: 'ocelote', fox: 'zorro', polar_bear: 'oso polar', panda: 'panda', llama: 'llama', bee: 'abeja', parrot: 'loro', cod: 'bacalao', salmon: 'bacalao', squid: 'calamar', turtle: 'tortuga', silverfish: 'lepisma', witch: 'bruja', bogged: 'esqueleto pantanoso', void_colossus: 'wither' },
   NAMED: {
+    ignite: ['objetos/mechero/usar'], fire_out: ['bloques/vela/apagar fuego'], fire_loop: ['bloques/fuego/sonido normal'],
     ender_chest_open: ['bloques/cofre de ender/abrir', 'bloques/cofre/abrir'], ender_chest_close: ['bloques/cofre de ender/cerrar', 'bloques/cofre/cerrar'],
     end_frame_fill: ['bloques/end portal frame/llenar'], end_portal_spawn: ['bloques/end portal/aparece'], eye_launch: ['criaturas y entidades/ender eye/lanzamiento'], eye_dead: ['criaturas y entidades/ender eye/muere'],
     firework_launch: ['criaturas y entidades/fuegos artificiales/lanzamiento'], firework_blast: ['criaturas y entidades/fuegos artificiales/blast', 'criaturas y entidades/fuegos artificiales/large blast'], firework_twinkle: ['criaturas y entidades/fuegos artificiales/twinkle'],
@@ -7613,6 +7719,7 @@ const Game = {
       RS.touch(P); for (const e of Entities.list) if (e.mob || e.type === 'item') RS.touch(e);
       RS.process();
       if (World.tickCount % 1 === 0) World.randomTicks(Math.floor(P.x), Math.floor(P.z));
+      if (World.tickCount % 10 === 0) Fire.tick();
       this.furnaceTick();
       for (const e of Entities.list) { if (!World.loaded(Math.floor(e.x), Math.floor(e.z)) && e.type !== 'arrow') { e.savePrev(); continue; } }
       Entities.list.forEach(e => { if (World.loaded(Math.floor(e.x), Math.floor(e.z))) e.tick(); });
@@ -7800,7 +7907,8 @@ const Game = {
     }
     if (!held) return;
     // mechero de pedernal: encender un portal de obsidiana
-    if (held.id === 'flint_and_steel' && T) { const [lx, ly, lz] = this.placePos(T); if (Dims.tryLight(lx, ly, lz)) { P.useDurability(1); P.swinging = true; P.swingTime = 0; return; } }
+    if (held.id === 'flint_and_steel' && T) { const [lx, ly, lz] = this.placePos(T); if (Dims.tryLight(lx, ly, lz)) { P.useDurability(1); P.swinging = true; P.swingTime = 0; Sound.play('ignite', lx, ly, lz); return; }
+      if (Fire.light(lx, ly, lz)) { P.useDurability(1); P.swinging = true; P.swingTime = 0; this.useCD = 4; Sound.play('ignite', lx, ly, lz); return; } }
     // objetos usables
     if (it.armor) { const s = it.armor.slot; if (!P.armor[s]) { P.armor[s] = held; P.inv[P.sel] = null; Sound.play('chest_close'); return; } }
     if (held.id === 'bucket') {
@@ -8135,7 +8243,8 @@ const Game = {
     const say = (m) => Chat.add(m);
     switch (c) {
       case 'ayuda': case 'help':
-        say('§eComandos: /gamemode, /time, /tp, /give, /kill, /seed, /difficulty, /summon, /setblock, /fill, /clear, /spawnpoint, /xp, /weather, /keepinventory, /locate');
+        say('§eComandos: /gamemode, /time, /tp, /give, /kill, /seed, /difficulty, /summon, /setblock, /fill, /clear, /spawnpoint, /xp, /weather, /keepinventory, /locate, /dimension');
+        say('§7/dimension mundo | nether | end te lleva a esa dimensión.');
         say('§7/locate sirve para biomas y estructuras: aldea, templo del desierto, templo del bosque, cabaña, iglú, pozo, mina, barco, ruinas oceánicas, tesoro, fósil, torre, templo oceánico, mansión, ruinas de obsidiana, fortaleza, ruinas enterradas.');
         break;
       case 'gamemode': case 'gm': case 'modo': {
@@ -8172,6 +8281,15 @@ const Game = {
         let id = (a[1] || '').toLowerCase().replace('minecraft:', ''); if (!ITEMS[id]) { const f = ITEM_LIST.find(i => i.name.toLowerCase() === a.slice(1, -1).join(' ').toLowerCase() || i.name.toLowerCase() === a.slice(1).join(' ').toLowerCase()); if (f) id = f.key; }
         if (!ITEMS[id]) { say('§cObjeto desconocido: ' + (a[1] || '')); break; }
         const n = parseInt(a[2]) || 1; const left = P.give(id, n); if (left) Entities.dropItem(P.x, P.y + 1, P.z, { id, n: left }); say('§7Dados ' + n + ' × ' + ITEMS[id].name); break;
+      }
+      case 'dimension': case 'dimensión': case 'dim': {
+        const w = sinTilde((a[1] || '').toLowerCase()).replace(/^minecraft:/, '');
+        const to = /^(o|overworld|mundo|normal|superficie|the_overworld)$/.test(w) ? 'o' : /^(n|nether|the_nether|infierno)$/.test(w) ? 'n' : /^(e|end|the_end|fin)$/.test(w) ? 'e' : null;
+        if (!to) { say('§cUso: /dimension mundo | nether | end'); break; }
+        if (to === World.dim) { say('§7Ya estás en ' + Dims.name(to) + '.'); break; }
+        if (Net.active) { say('§cEn multijugador no se puede cambiar de dimensión.'); break; }
+        if (Dims.arrival) break;
+        UI.show(null); Dims.travel(to); say('§7Viajando a ' + Dims.name(to) + '…'); break;
       }
       case 'kill': case 'matar': P.health = 0; P.die(); break;
       case 'seed': case 'semilla': say('§7Semilla: §a' + World.seed); break;
@@ -8656,10 +8774,10 @@ const CmdComplete = {
       difficulty: [[['pacifico'], ['facil'], ['normal'], ['dificil']]], summon: [mobs],
       setblock: [c(0), c(1), c(2), blocks], fill: [c(0), c(1), c(2), c(0), c(1), c(2), blocks],
       clear: [], spawnpoint: [], xp: [[['10'], ['100'], ['5l', '5 niveles']]], weather: [[['despejado'], ['tormenta']]],
-      keepinventory: [], locate: [{ rest: places }],
+      keepinventory: [], locate: [{ rest: places }], dimension: [[['mundo', 'el mundo normal'], ['nether', 'el Nether'], ['end', 'el End']]],
     };
   },
-  HELP: { ayuda: 'lista de comandos', gamemode: 'modo de juego', time: 'hora del día', tp: 'teletransportarte', give: 'darte objetos', kill: 'morir', seed: 'ver la semilla', difficulty: 'dificultad', summon: 'invocar criaturas', setblock: 'poner un bloque', fill: 'rellenar una zona', clear: 'vaciar el inventario', spawnpoint: 'punto de aparición aquí', xp: 'experiencia', weather: 'clima', keepinventory: 'conservar el inventario al morir', locate: 'buscar estructuras y biomas' },
+  HELP: { dimension: 'cambiar de dimensión', ayuda: 'lista de comandos', gamemode: 'modo de juego', time: 'hora del día', tp: 'teletransportarte', give: 'darte objetos', kill: 'morir', seed: 'ver la semilla', difficulty: 'dificultad', summon: 'invocar criaturas', setblock: 'poner un bloque', fill: 'rellenar una zona', clear: 'vaciar el inventario', spawnpoint: 'punto de aparición aquí', xp: 'experiencia', weather: 'clima', keepinventory: 'conservar el inventario al morir', locate: 'buscar estructuras y biomas' },
   compute(v) {
     this.list = []; this.sel = 0; this.ctx = null;
     if (!v.startsWith('/')) return;
@@ -8671,7 +8789,7 @@ const CmdComplete = {
       this.ctx = { start: 1, add: (k) => spec[k].length ? ' ' : '' };
       return;
     }
-    const cmd = sinTilde(parts[0]); const args = spec[cmd === 'teleport' || cmd === 'ir' ? 'tp' : cmd === 'buscar' ? 'locate' : cmd]; if (!args || !args.length) return;
+    const cmd = sinTilde(parts[0]); const args = spec[cmd === 'teleport' || cmd === 'ir' ? 'tp' : cmd === 'buscar' ? 'locate' : cmd === 'dim' ? 'dimension' : cmd]; if (!args || !args.length) return;
     let opts, typed, start;
     if (args[0] && args[0].rest) { // el resto de la línea es un solo nombre (puede tener espacios)
       typed = parts.slice(1).join(' '); start = v.length - typed.length; opts = args[0].rest();
@@ -10347,6 +10465,7 @@ function placePlayerOnGround(P) {
 let lastT = performance.now(), acc = 0;
 function frame(now) {
   requestAnimationFrame(frame);
+  if (Game.state === 'play') try { TileAnim.tick(now); } catch (e) { }
   const dt = Math.min(250, now - lastT); lastT = now;
   try {
     const P = Game.player;

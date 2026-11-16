@@ -1,8 +1,21 @@
 {
-  "latest": "1.11.1",
+  "latest": "1.11.2",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.11.2",
+      "date": "2026-11-16",
+      "title": "Fuego y /dimension",
+      "notes": [
+        "El mechero de pedernal enciende fuego: quema madera, hojas, lana y TNT, se extiende y se apaga solo",
+        "Fuego de almas sobre arena de almas; en netherrack el fuego no se apaga",
+        "Comando /dimension mundo | nether | end",
+        "Texturas animadas del pack: fuego, lava, agua, portal y más"
+      ],
+      "size": 267408,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.11.2.zip"
+    },
     {
       "id": "1.11.1",
       "date": "2026-11-16",
