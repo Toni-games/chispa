@@ -1,8 +1,19 @@
 {
-  "latest": "1.9.8",
+  "latest": "1.9.9",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.9.9",
+      "date": "2026-11-16",
+      "title": "Panorama del menú",
+      "notes": [
+        "El menú principal es un panorama 3D que gira (6 fotos del mundo con tus texturas): se hace una vez y luego el menú carga al instante sin generar chunks",
+        "La pantalla de cargar mundo muestra ese mismo panorama girando, desenfocado y oscurecido, como en Minecraft"
+      ],
+      "size": 239362,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.9.9.zip"
+    },
     {
       "id": "1.9.8",
       "date": "2026-11-16",
