@@ -336,7 +336,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.11.2';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.11.3';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2925,6 +2925,96 @@ Object.assign(SMELT, { potato: ['baked_potato', 0.35], stone_bricks: SMELT.stone
 defItem('nether_wart', 'Verruga del Nether', { block: 'nether_wart', icon: 'nether_wart', cat: 'nature' });
 defItem('magma_cream', 'Crema de magma', { cat: 'misc', color: '#e07a1a' });
 
+
+// ---- extra/maps112.js ----
+// ============================================================
+//  1.11.3: mapas — mapa vacío (8 papeles + brújula); al usarlo se dibuja
+//  la zona de 128x128 bloques que lo rodea mientras lo llevas en la mano
+// ============================================================
+defItem('map', 'Mapa vacío', { cat: 'tools', mapEmpty: true });
+defItem('filled_map', 'Mapa', { stack: 1, cat: 'tools', mapItem: true, noCreative: true });
+shaped(['PPP', 'PCP', 'PPP'], { P: 'paper', C: 'compass' }, 'map');
+const Maps = {
+  data: {}, next: 1, pal: null, palVer: -1,
+  ser() { const o = {}; for (const k in this.data) { const m = this.data[k]; let s = ''; const a = m.px; for (let i = 0; i < a.length; i += 8192) s += String.fromCharCode.apply(null, a.subarray(i, i + 8192)); o[k] = { x: m.x, z: m.z, d: m.d, px: btoa(s) }; } return { next: this.next, maps: o }; },
+  load(v) { this.data = {}; this.next = (v && v.next) || 1; if (v && v.maps) for (const k in v.maps) { const m = v.maps[k]; const s = atob(m.px); const a = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i); this.data[k] = { x: m.x, z: m.z, d: m.d, px: a, cv: null, dirty: true }; } },
+  // nuevo mapa alineado a la cuadrícula de 128 (como el original)
+  create(x, z) { const id = this.next++; const mx = Math.floor((x + 64) / 128) * 128 - 64, mz = Math.floor((z + 64) / 128) * 128 - 64; this.data[id] = { x: mx, z: mz, d: World.dim, px: new Uint8Array(128 * 128 * 4), cv: null, dirty: true, scan: 0 }; return id; },
+  // color medio de la cara de arriba de cada bloque (con las texturas del paquete si las hay)
+  palette() {
+    if (this.pal && this.palVer === Atlas.version) return this.pal;
+    this.palVer = Atlas.version; this.pal = []; let img = null; try { img = Atlas.canvas.getContext('2d').getImageData(0, 0, Atlas.canvas.width, Atlas.canvas.height); } catch (e) { }
+    const T = Atlas.T, cols = Atlas.cols;
+    for (const d of BLOCKS) {
+      if (!d) continue; let c = null; const tn = d.faceTex && d.faceTex[2];
+      if (img && tn && Atlas.index[tn] !== undefined) {
+        const i = Atlas.index[tn], x0 = (i % cols) * T, y0 = Math.floor(i / cols) * T; let r = 0, g = 0, b = 0, n = 0;
+        for (let y = 0; y < T; y += 2) for (let x = 0; x < T; x += 2) { const o = ((y0 + y) * img.width + x0 + x) * 4; if (img.data[o + 3] < 100) continue; r += img.data[o]; g += img.data[o + 1]; b += img.data[o + 2]; n++; }
+        if (n) { c = [r / n, g / n, b / n]; if (TINTED_TEX.has(tn) || /leaves|grass/.test(tn)) { const k = (c[0] + c[1] + c[2]) / 3 / 255; if (Math.max(...c) - Math.min(...c) < 30) c = [124 * k * 1.3, 189 * k * 1.3, 107 * k * 1.3]; } }
+      }
+      if (!c) { const h = (d.color || '#888888').replace('#', ''); c = [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
+      if (d.liquid === 'water') c = [64, 100, 220]; if (d.liquid === 'lava') c = [230, 100, 20];
+      this.pal[d.id] = c;
+    }
+    return this.pal;
+  },
+  top(x, z) {
+    const c = World.chunk(x >> 4, z >> 4); if (!c || c.state < 2) return null;
+    const maxY = World.dim === 'n' ? 100 : Math.min(WH - 1, (c.maxY || WH - 1) + 1);
+    for (let y = maxY; y > 0; y--) { const id = World.get(x, y, z); if (!id) continue; const d = BLOCKS[id]; if (!d || (d.render === 'cross' && !d.liquid) || d.key === 'glass') continue; return [y, id]; }
+    return null;
+  },
+  // ir dibujando lo que rodea al jugador (radio de 64 bloques)
+  tick(P) {
+    const st = P.held; if (!st || st.id !== 'filled_map') return; const m = this.data[st.map]; if (!m || m.d !== World.dim) return;
+    const pal = this.palette(); const px = Math.floor(P.x) - m.x, pz = Math.floor(P.z) - m.z;
+    for (let k = 0; k < 600; k++) {
+      m.scan = (m.scan + 1) % (128 * 128); const u = m.scan % 128, v = (m.scan / 128) | 0;
+      if ((u - px) ** 2 + (v - pz) ** 2 > 64 * 64) continue;
+      const wx = m.x + u, wz = m.z + v; const t = this.top(wx, wz); if (!t) continue;
+      const [y, id] = t; let c = pal[id] || [128, 128, 128], f = 1;
+      if (LIQUID[id] === 1) { let dpt = 0; while (dpt < 10 && LIQUID[World.get(wx, y - dpt - 1, wz)] === 1) dpt++; f = dpt < 2 ? 1.05 : dpt < 5 ? 0.9 : 0.75; }
+      else { const n = this.top(wx, wz - 1); if (n) f = n[0] < y ? 1.12 : n[0] > y ? 0.82 : 1; }
+      const o = (v * 128 + u) * 4; m.px[o] = Math.min(255, c[0] * f); m.px[o + 1] = Math.min(255, c[1] * f); m.px[o + 2] = Math.min(255, c[2] * f); m.px[o + 3] = 255; m.dirty = true;
+    }
+  },
+  canvas(m) {
+    if (!m.cv) { m.cv = document.createElement('canvas'); m.cv.width = m.cv.height = 128; }
+    if (m.dirty) { m.dirty = false; m.cv.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(m.px.buffer.slice(0)), 128, 128), 0, 0); }
+    return m.cv;
+  },
+  // dibujar el mapa que llevas en la mano (abajo, en el centro de la pantalla)
+  draw(g, W, H, s) {
+    const P = Game.player; const st = P && P.held; if (!st || st.id !== 'filled_map' || GUI.open) return;
+    const m = this.data[st.map]; if (!m) return;
+    const size = Math.min(H - 70 * s, H * 0.6, W * 0.42) | 0, x0 = (W - size) / 2 | 0, y0 = Math.max(8, H - size - 50 * s) | 0;
+    // pergamino
+    const bg = Atlas.gui && Atlas.gui.ui_map_bg;
+    if (bg) g.drawImage(bg, x0 - size * 0.06, y0 - size * 0.06, size * 1.12, size * 1.12);
+    else { g.fillStyle = '#d8c79c'; g.fillRect(x0 - 8, y0 - 8, size + 16, size + 16); g.strokeStyle = '#8a7346'; g.lineWidth = 3; g.strokeRect(x0 - 6, y0 - 6, size + 12, size + 12); }
+    g.fillStyle = 'rgba(214,196,150,0.9)'; g.fillRect(x0, y0, size, size);
+    g.imageSmoothingEnabled = false; g.drawImage(this.canvas(m), x0, y0, size, size);
+    // marca del jugador (flecha blanca)
+    if (m.d === World.dim) {
+      const k = size / 128; let ux = (P.x - m.x) * k, uz = (P.z - m.z) * k; const out = ux < 0 || uz < 0 || ux > size || uz > size; ux = clamp(ux, 3, size - 3); uz = clamp(uz, 3, size - 3);
+      g.save(); g.translate(x0 + ux, y0 + uz); g.rotate(-P.yaw + Math.PI); const r = Math.max(4, size / 40);
+      const icon = Atlas.gui && (out ? Atlas.gui.ui_map_off : Atlas.gui.ui_map_player);
+      if (icon) { g.rotate(Math.PI); const q = Math.max(8, size / 16); g.drawImage(icon, -q / 2, -q / 2, q, q); g.restore(); }
+      else { g.fillStyle = '#ffffff'; g.strokeStyle = '#222'; g.lineWidth = 1.5;
+      g.beginPath(); if (out) g.arc(0, 0, r * 0.6, 0, Math.PI * 2); else { g.moveTo(0, r * 1.4); g.lineTo(r, -r); g.lineTo(0, -r * 0.4); g.lineTo(-r, -r); g.closePath(); } g.fill(); g.stroke(); g.restore(); }
+    }
+    g.font = Math.round(9 * s) + 'px "Pixelify Sans", monospace'; g.fillStyle = '#3f2f15'; g.textAlign = 'left';
+    g.fillText('Mapa #' + st.map, x0 + 2, y0 + 10 * s * 0.9); g.textAlign = 'left';
+  },
+  // usar un mapa vacío
+  use(P, held) {
+    const id = this.create(P.x, P.z); const map = { id: 'filled_map', n: 1, map: id };
+    if (P.mode !== 1) { held.n--; if (held.n <= 0) { P.inv[P.sel] = map; } else if (!P.give('filled_map', 1)) Entities.dropItem(P.x, P.y + 1, P.z, map); else { const s = P.inv.find(x => x && x.id === 'filled_map' && !x.map); if (s) s.map = id; } }
+    else P.inv[P.sel] = map;
+    Sound.play('map_draw', P.x, P.y, P.z); return true;
+  },
+};
+
 // ---- 03_textures.js ----
 // ============================================================
 //  Texturas: marcadores de color liso + paquete de texturas
@@ -3816,7 +3906,7 @@ const TexturePack = {
     for (const ph of MOON_PHASES) m['sky_moon_' + ph] = 'celestial/moon/' + ph;
     m.c_recipe_book = 'recipe_book';
     // pantalla de carga, logo del menú principal y fondos de menú (paquetes 1.20.5 en adelante)
-    Object.assign(m, { ui_mojang: 'mojangstudios', ui_logo: 'minecraft', ui_logo_alt: 'minceraft', ui_edition: 'edition', ui_menu_bg: 'menu_background', ui_inworld_bg: 'inworld_menu_background', ui_panorama: 'panorama_0', ui_pano1: 'panorama_1', ui_pano2: 'panorama_2', ui_pano3: 'panorama_3' });
+    Object.assign(m, { ui_mojang: 'mojangstudios', ui_logo: 'minecraft', ui_logo_alt: 'minceraft', ui_edition: 'edition', ui_map_bg: 'map_background', ui_map_player: 'player', ui_map_off: 'player_off_map', ui_menu_bg: 'menu_background', ui_inworld_bg: 'inworld_menu_background', ui_panorama: 'panorama_0', ui_pano1: 'panorama_1', ui_pano2: 'panorama_2', ui_pano3: 'panorama_3' });
     for (const [k, f] of [['rb_button', 'button'], ['rb_button_hi', 'button_highlighted'], ['rb_slot_ok', 'slot_craftable'], ['rb_slot_no', 'slot_uncraftable'], ['rb_filter_on', 'filter_enabled'], ['rb_filter_on_hi', 'filter_enabled_highlighted'], ['rb_filter_off', 'filter_disabled'], ['rb_filter_off_hi', 'filter_disabled_highlighted'], ['rb_page_forward', 'page_forward'], ['rb_page_forward_hi', 'page_forward_highlighted'], ['rb_page_backward', 'page_backward'], ['rb_page_backward_hi', 'page_backward_highlighted']]) m[k] = 'sprites/recipe_book/' + f;
     for (let i = 1; i <= 3; i++) { m['ench_l' + i] = 'sprites/container/enchanting_table/level_' + i; m['ench_l' + i + '_off'] = 'sprites/container/enchanting_table/level_' + i + '_disabled'; }
     for (let i = 1; i <= 7; i++) for (const [a, b] of [['ts', 'top_selected'], ['tu', 'top_unselected'], ['bs', 'bottom_selected'], ['bu', 'bottom_unselected']]) m['tab_' + a + i] = 'sprites/container/creative_inventory/tab_' + b + '_' + i;
@@ -7376,6 +7466,7 @@ const SoundPack = {
   MOB: { pig: 'cerdo', cow: 'vaca', sheep: 'oveja', chicken: 'gallina', zombie: 'zombi', skeleton: 'esqueleto', spider: 'arana', husk: 'zombi del desierto', drowned: 'ahogado', stray: 'esqueleto glacial', wither_skeleton: 'esqueleto wither', cave_spider: 'arana', slime: 'slime', magma_cube: 'cubo de magma',
     wolf: 'lobo', cat: 'gato', ocelot: 'ocelote', fox: 'zorro', polar_bear: 'oso polar', panda: 'panda', llama: 'llama', bee: 'abeja', parrot: 'loro', cod: 'bacalao', salmon: 'bacalao', squid: 'calamar', turtle: 'tortuga', silverfish: 'lepisma', witch: 'bruja', bogged: 'esqueleto pantanoso', void_colossus: 'wither' },
   NAMED: {
+    map_draw: ['interfaz y botones/mesa de cartografia/take result', 'objetos/libro/page turn'],
     ignite: ['objetos/mechero/usar'], fire_out: ['bloques/vela/apagar fuego'], fire_loop: ['bloques/fuego/sonido normal'],
     ender_chest_open: ['bloques/cofre de ender/abrir', 'bloques/cofre/abrir'], ender_chest_close: ['bloques/cofre de ender/cerrar', 'bloques/cofre/cerrar'],
     end_frame_fill: ['bloques/end portal frame/llenar'], end_portal_spawn: ['bloques/end portal/aparece'], eye_launch: ['criaturas y entidades/ender eye/lanzamiento'], eye_dead: ['criaturas y entidades/ender eye/muere'],
@@ -7720,6 +7811,7 @@ const Game = {
       RS.process();
       if (World.tickCount % 1 === 0) World.randomTicks(Math.floor(P.x), Math.floor(P.z));
       if (World.tickCount % 10 === 0) Fire.tick();
+      if (World.tickCount % 2 === 0) Maps.tick(P);
       this.furnaceTick();
       for (const e of Entities.list) { if (!World.loaded(Math.floor(e.x), Math.floor(e.z)) && e.type !== 'arrow') { e.savePrev(); continue; } }
       Entities.list.forEach(e => { if (World.loaded(Math.floor(e.x), Math.floor(e.z))) e.tick(); });
@@ -7883,6 +7975,7 @@ const Game = {
     // dar de comer a un animal (cría)
     const fe = this.targetEnt; if (fe && fe.mob && fe.interact && fe.interact(P, held)) { P.swinging = true; P.swingTime = 0; return; }
     if (fe && fe.mob && fe.feed && held && fe.feed(P, held)) { P.swinging = true; P.swingTime = 0; return; }
+    if (held && held.id === 'map') { Maps.use(P, held); P.swinging = true; P.swingTime = 0; this.useCD = 6; return; }
     // cosas del End: ojos en el marco, ojos voladores, cohetes
     if (held && held.id === 'ender_eye' && T && T.id === B.end_portal_frame) { if (EndDim.putEye(T, P, held)) { P.swinging = true; P.swingTime = 0; this.useCD = 4; } return; }
     if (held && held.id === 'ender_eye') { if (EndDim.throwEye(P)) { this.consume(); P.swinging = true; P.swingTime = 0; this.useCD = 8; } return; }
@@ -8369,7 +8462,7 @@ const Dims = {
     this.stash = {};
     for (const d of ['o', 'n', 'e']) { if (d === World.dim) continue; this.stash[d] = this.dataOf(meta, d); }
     if (World.dim !== 'o') { const c = this.dataOf(meta, World.dim); World.edits = c.edits; World.blockEnts = c.blockEnts; World.generated = c.generated; Entities.clear(); this.spawnMobs(c.mobs); }
-    this.endBossDead = !!meta.endBossDead; this.enderSlots = meta.enderSlots || new Array(27).fill(null);
+    Maps.load(meta.maps); this.endBossDead = !!meta.endBossDead; this.enderSlots = meta.enderSlots || new Array(27).fill(null);
     delete meta._edits; delete meta._editsN; delete meta._editsO;
     this.other = null; this.arrival = null;
   },
@@ -8384,7 +8477,7 @@ const Dims = {
     const o = get('o'); W.blockEnts = this.ser(o).blockEnts.filter(b => !(b.v && b.v.type === 'ender')); W.generated = this.ser(o).generated; W.mobs = o.mobs;
     W.nether = this.ser(get('n')); W.end = this.ser(get('e'));
     for (const k of ['nether', 'end']) W[k].blockEnts = W[k].blockEnts.filter(b => !(b.v && b.v.type === 'ender'));
-    W.endBossDead = !!this.endBossDead; W.enderSlots = this.enderSlots || new Array(27).fill(null);
+    W.maps = Maps.ser(); W.endBossDead = !!this.endBossDead; W.enderSlots = this.enderSlots || new Array(27).fill(null);
   },
   // trabajos para guardar los cambios de bloques de las tres dimensiones
   editJobs(W) {
@@ -8620,7 +8713,7 @@ const HUD = {
     if (P.portalT > 0) { const k = Math.min(1, P.portalT / 80); g.fillStyle = `rgba(110,30,190,${0.15 + k * 0.6})`; g.fillRect(0, 0, W, H); }
     if (Dims.arrival) { g.fillStyle = World.dim === 'n' ? '#2a0606' : World.dim === 'e' ? '#120a1a' : '#0a1020'; g.fillRect(0, 0, W, H); const t = World.dim === 'n' ? 'Entrando en el Nether…' : World.dim === 'e' ? 'Entrando en el End…' : 'Volviendo al mundo normal…'; HUD.text(t, W / 2 - HUD.textW(t, s * 1.5) / 2, H / 2 - 10 * s, '#ffffff', s * 1.5, true); return; }
     if (Game.hideHud) return;
-    BossBar.draw(g, W);
+    BossBar.draw(g, W); Maps.draw(g, W, H, s);
     // cruz
     if (!GUI.open && Game.cam === 0) {
       g.save(); g.globalCompositeOperation = 'difference'; g.fillStyle = '#fff';
@@ -9007,11 +9100,11 @@ const GUI = {
     /* 0 mazmorra */ [['music_disc_13', 1, 1, 2], ['music_disc_cat', 1, 1, 2], ['bread', 1, 4, 10], ['iron_ingot', 1, 5, 8], ['gold_ingot', 1, 4, 5], ['coal', 3, 12, 10], ['string', 1, 6, 8], ['bone', 1, 6, 8], ['gunpowder', 1, 6, 8], ['wheat', 2, 6, 8], ['bucket', 1, 1, 3], ['diamond', 1, 2, 2], ['golden_apple', 1, 1, 1], ['iron_pickaxe', 1, 1, 2], ['apple', 1, 4, 5], ['arrow', 4, 12, 5], ['lapis_lazuli', 2, 8, 4], ['emerald', 1, 2, 1], ['iron_helmet', 1, 1, 1], ['bow', 1, 1, 1]],
     /* 1 aldea */ [['bread', 1, 4, 12], ['apple', 1, 5, 10], ['wheat', 2, 8, 10], ['wheat_seeds', 2, 8, 8], ['oak_sapling', 1, 2, 5], ['iron_ingot', 1, 3, 5], ['emerald', 1, 3, 4], ['coal', 2, 6, 6], ['stick', 2, 6, 5], ['leather', 1, 3, 4], ['stone_pickaxe', 1, 1, 3], ['iron_shovel', 1, 1, 2], ['white_wool', 1, 3, 4], ['torch', 2, 8, 5], ['book', 1, 2, 3]],
     /* 2 templo */ [['gold_ingot', 2, 7, 10], ['iron_ingot', 1, 5, 10], ['diamond', 1, 3, 4], ['emerald', 1, 3, 6], ['bone', 4, 6, 12], ['rotten_flesh', 3, 7, 12], ['golden_apple', 1, 1, 3], ['gunpowder', 1, 8, 8], ['sand', 1, 8, 6], ['string', 1, 8, 6], ['iron_chestplate', 1, 1, 2], ['diamond_sword', 1, 1, 1], ['gold_block', 1, 1, 1]],
-    /* 3 mina */ [['iron_ingot', 1, 5, 10], ['gold_ingot', 1, 3, 5], ['coal', 3, 8, 10], ['redstone', 4, 9, 6], ['lapis_lazuli', 4, 9, 5], ['diamond', 1, 2, 3], ['bread', 1, 3, 10], ['torch', 4, 12, 8], ['wheat_seeds', 2, 4, 6], ['iron_pickaxe', 1, 1, 2], ['raw_iron', 2, 6, 6], ['raw_gold', 1, 3, 3]],
+    /* 3 mina */ [['gunpowder', 1, 4, 8], ['iron_ingot', 1, 5, 10], ['gold_ingot', 1, 3, 5], ['coal', 3, 8, 10], ['redstone', 4, 9, 6], ['lapis_lazuli', 4, 9, 5], ['diamond', 1, 2, 3], ['bread', 1, 3, 10], ['torch', 4, 12, 8], ['wheat_seeds', 2, 4, 6], ['iron_pickaxe', 1, 1, 2], ['raw_iron', 2, 6, 6], ['raw_gold', 1, 3, 3]],
     /* 4 barco / tesoro */ [['gold_ingot', 1, 5, 10], ['iron_ingot', 1, 5, 10], ['emerald', 1, 5, 8], ['diamond', 1, 2, 4], ['gold_nugget', 2, 12, 8], ['iron_nugget', 2, 12, 8], ['paper', 1, 8, 6], ['bread', 1, 4, 6], ['coal', 2, 8, 6], ['tnt', 1, 2, 3], ['leather_chestplate', 1, 1, 2], ['golden_apple', 1, 1, 1]],
     /* 5 fortaleza / mansión */ [['ender_pearl', 1, 3, 6], ['ender_eye', 1, 2, 3], ['book', 1, 4, 10], ['paper', 2, 8, 8], ['iron_ingot', 1, 5, 10], ['gold_ingot', 1, 3, 6], ['diamond', 1, 3, 4], ['golden_apple', 1, 1, 3], ['bread', 1, 3, 8], ['apple', 1, 3, 6], ['iron_sword', 1, 1, 3], ['iron_chestplate', 1, 1, 2], ['diamond_pickaxe', 1, 1, 1], ['redstone', 4, 9, 4], ['emerald', 1, 3, 4], ['bookshelf', 1, 2, 2]],
     /* 6 cabaña / iglú / torre */ [['music_disc_mellohi', 1, 1, 1], ['music_disc_wait', 1, 1, 1], ['golden_apple', 1, 1, 2], ['coal', 1, 4, 8], ['apple', 1, 3, 10], ['wheat', 2, 5, 8], ['rotten_flesh', 1, 3, 6], ['emerald', 1, 2, 4], ['stone_axe', 1, 1, 4], ['bread', 1, 3, 8], ['arrow', 2, 7, 6], ['bow', 1, 1, 3], ['iron_ingot', 1, 3, 5], ['brown_mushroom', 1, 2, 4]],
-    /* 7 ruinas */ [['gold_nugget', 2, 8, 10], ['coal', 1, 4, 10], ['wheat', 2, 4, 8], ['emerald', 1, 2, 5], ['iron_nugget', 2, 8, 8], ['gold_ingot', 1, 2, 4], ['stone_axe', 1, 1, 4], ['golden_apple', 1, 1, 1], ['leather_helmet', 1, 1, 3], ['prismarine', 1, 4, 3]],
+    /* 7 ruinas */ [['gunpowder', 1, 3, 6], ['gold_nugget', 2, 8, 10], ['coal', 1, 4, 10], ['wheat', 2, 4, 8], ['emerald', 1, 2, 5], ['iron_nugget', 2, 8, 8], ['gold_ingot', 1, 2, 4], ['stone_axe', 1, 1, 4], ['golden_apple', 1, 1, 1], ['leather_helmet', 1, 1, 3], ['prismarine', 1, 4, 3]],
     /* 8 ciudad del End */ [['diamond', 2, 7, 5], ['iron_ingot', 4, 8, 10], ['gold_ingot', 2, 7, 15], ['emerald', 2, 6, 2], ['diamond_sword', 1, 1, 3], ['diamond_pickaxe', 1, 1, 3], ['diamond_chestplate', 1, 1, 3], ['diamond_helmet', 1, 1, 3], ['iron_sword', 1, 1, 3], ['iron_boots', 1, 1, 3], ['saddle', 1, 1, 3], ['beetroot_seeds', 1, 10, 5], ['ender_pearl', 1, 3, 6], ['firework_rocket', 2, 8, 6], ['chorus_fruit', 2, 6, 6]],
   ],
   fillLoot(be, table) {

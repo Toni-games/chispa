@@ -1,8 +1,20 @@
 {
-  "latest": "1.11.2",
+  "latest": "1.11.3",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.11.3",
+      "date": "2026-11-16",
+      "title": "Mapas",
+      "notes": [
+        "Mapa vacío (8 papeles + brújula): al usarlo dibuja 128x128 bloques mientras lo llevas en la mano, con el fondo y la marca del jugador de tu pack",
+        "Los mapas se guardan con el mundo",
+        "Pólvora: también en cofres de minas y ruinas (además de las brujas y la receta carbón + pedernal)"
+      ],
+      "size": 270291,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.11.3.zip"
+    },
     {
       "id": "1.11.2",
       "date": "2026-11-16",
