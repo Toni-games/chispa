@@ -1,8 +1,18 @@
 {
-  "latest": "1.10.1",
+  "latest": "1.10.2",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.10.2",
+      "date": "2026-11-16",
+      "title": "Sonidos de las criaturas nuevas",
+      "notes": [
+        "Las 16 criaturas nuevas usan los sonidos de tu paquete (normal, daño y muerte); el lobo gruñe enfadado y jadea o gime de mascota, el oso polar avisa, la abeja pica y la bruja lanza"
+      ],
+      "size": 252715,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.10.2.zip"
+    },
     {
       "id": "1.10.1",
       "date": "2026-11-16",

@@ -336,7 +336,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.10.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.10.2';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -5878,7 +5878,7 @@ class Mob extends Entity {
     if (this.panic > 0) this.panic--;
     if (d.passive) this.breedTick();
     if (this.tame && Pets.tick(this, d, P, dist)) { if (this.love > 0 || this.baby || this.breedCD > 0) this.breedTick(); return; }
-    if (MobMove.tick(this, d, P, dist)) { if (--this.soundT <= 0) { this.soundT = 200 + Math.random() * 400 | 0; if (dist < 24) Sound.play(d.sound, this.x, this.y, this.z); } return; }
+    if (MobMove.tick(this, d, P, dist)) { if (--this.soundT <= 0) { this.soundT = 200 + Math.random() * 400 | 0; if (dist < 24) Sound.play(this.kind === 'bee' && this.target ? 'bee_sting' : d.sound, this.x, this.y, this.z); } return; }
     if (d.shy && dist < 7 && playerOk && !(P.held && breedFood(this.kind, P.held.id)) && this.panic <= 0) { this.panic = 30; this.goalYaw = Math.atan2(this.x - P.x, this.z - P.z) * -1; }
     if (this.target) {
       const t = this.target; const ty = Math.atan2(-(t.x - this.x), -(t.z - this.z));
@@ -5934,7 +5934,7 @@ class Mob extends Entity {
     this.bodyYaw = lerpAngle(this.bodyYaw, this.yaw, 0.3);
     if (this.lookPlayer > 0 && !this.target) { this.lookPlayer--; const ty = Math.atan2(-(P.x - this.x), -(P.z - this.z)); this.headYaw = lerpAngle(this.headYaw, clampAngle(ty, this.bodyYaw, 1.2), 0.3); this.pitch = clamp(Math.atan2(P.y + P.eye - (this.y + this.h * 0.85), Math.hypot(dx, dz)), -0.8, 0.8); }
     else { this.headYaw = lerpAngle(this.headYaw, this.yaw, 0.3); this.pitch = this.target ? clamp(Math.atan2(P.y + P.eye - (this.y + this.h * 0.85), Math.hypot(dx, dz)), -0.8, 0.8) : this.pitch * 0.8; }
-    if (--this.soundT <= 0) { this.soundT = 200 + Math.random() * 400 | 0; if (dist < 24) Sound.play(d.sound, this.x, this.y, this.z); }
+    if (--this.soundT <= 0) { this.soundT = 200 + Math.random() * 400 | 0; if (dist < 24) { const nm = this.kind === 'wolf' ? (this.target ? 'wolf_growl' : this.tame && this.health < this.maxHealth / 2 ? 'wolf_whine' : this.tame && Math.random() < 0.5 ? 'wolf_pant' : d.sound) : this.kind === 'polar_bear' && this.target ? 'polar_bear_warning' : d.sound; Sound.play(nm, this.x, this.y, this.z); } }
     // pasos de las criaturas (solo con el paquete de sonidos)
     if (SoundPack.count && this.onGround && dist < 16) { this.stepD = (this.stepD || 0) + Math.hypot(this.x - this.px, this.z - this.pz); if (this.stepD > 1.6) { this.stepD = 0; Sound.play(d.sound + '_step', this.x, this.y, this.z); } }
   }
@@ -6269,7 +6269,7 @@ Object.assign(MOBS, {
   turtle: { name: 'Tortuga', hp: 30, w: 1.2, h: 0.4, speed: 0.12, passive: true, swimsWell: true, drops: (r) => [['seagrass', r() * 3 | 0]], xp: [1, 3], sound: 'turtle' },
   silverfish: { name: 'Lepisma', hp: 8, w: 0.4, h: 0.3, speed: 0.25, hostile: true, dmg: 1, drops: () => [], xp: [5, 5], sound: 'silverfish' },
   witch: { name: 'Bruja', hp: 26, w: 0.6, h: 1.95, speed: 0.25, hostile: true, ranged: true, throws: true, dmg: 3, scale: 0.9375, drops: (r) => [[['glass_bottle', 'glowstone_dust', 'gunpowder', 'redstone', 'spider_eye', 'sugar', 'stick'][r() * 7 | 0], 1 + (r() * 2 | 0)]], xp: [5, 5], sound: 'witch' },
-  bogged: { name: 'Esqueleto pantanoso', model: 'skeleton', hp: 16, w: 0.6, h: 1.99, speed: 0.25, hostile: true, ranged: true, undead: true, drops: (r) => [['bone', r() * 3 | 0], ['arrow', r() * 3 | 0]], xp: [5, 5], sound: 'skeleton', holds: 'bow' },
+  bogged: { name: 'Esqueleto pantanoso', model: 'skeleton', hp: 16, w: 0.6, h: 1.99, speed: 0.25, hostile: true, ranged: true, undead: true, drops: (r) => [['bone', r() * 3 | 0], ['arrow', r() * 3 | 0]], xp: [5, 5], sound: 'bogged', holds: 'bow' },
 });
 for (const k of ['cat', 'ocelot', 'fox']) MOBS[k].fleeDist = 10;
 // comida para criar a los nuevos
@@ -6390,6 +6390,7 @@ const Pets = {
     if (m.love > 0 || m.baby) m.breedTick && 0; // la cría usa breedTick (ya llamado si es pasivo)
     // enemigo: lo que pega al dueño o lo que el dueño pega
     const foe = m.foe && !m.foe.dead && !m.foe.remove && Math.hypot(m.foe.x - m.x, m.foe.z - m.z) < 20 ? m.foe : null; if (!foe) m.foe = null;
+    if (--m.soundT <= 0) { m.soundT = 300 + Math.random() * 500 | 0; if (dist < 24) Sound.play(m.health < m.maxHealth / 2 ? 'wolf_whine' : Math.random() < 0.6 ? 'wolf_pant' : 'wolf', m.x, m.y, m.z); }
     if (m.sitting) { m.vx *= 0.5; m.vz *= 0.5; m.travel(0, 0, d.speed, false); m.fallCheck(m.y); m.updateLimbs(); if (dist < 8) { const ty = Math.atan2(-(P.x - m.x), -(P.z - m.z)); m.headYaw = lerpAngle(m.headYaw, ty, 0.2); } return true; }
     let fwd = 0, yawT = null, sp = d.speed;
     if (foe) {
@@ -6510,7 +6511,7 @@ const Entities = {
   throwAt(from, target, dmg) {
     const sx = from.x, sy = from.y + from.h * 0.8, sz = from.z, tx = target.x - sx, tz = target.z - sz, hd = Math.hypot(tx, tz) || 1;
     const ty = target.y + 0.6 - sy + hd * 0.18, l = Math.hypot(tx, ty, tz) || 1, sp = 0.75;
-    const t = new Thrown(ITEMS.glass_bottle ? 'glass_bottle' : 'snowball', sx, sy, sz, tx / l * sp, ty / l * sp, tz / l * sp, from); t.harm = dmg; this.add(t); Sound.play('bow', sx, sy, sz);
+    const t = new Thrown(ITEMS.glass_bottle ? 'glass_bottle' : 'snowball', sx, sy, sz, tx / l * sp, ty / l * sp, tz / l * sp, from); t.harm = dmg; this.add(t); Sound.play(SoundPack.has('criaturas y entidades/bruja/lanzar') ? 'witch_throw' : 'bow', sx, sy, sz);
   },
   shootArrow(from, target, speed) {
     const sx = from.x, sy = from.y + (from.h * 0.85), sz = from.z;
@@ -6871,7 +6872,8 @@ const SoundPack = {
     return this.play(hit[0], vol * v, pitch * hit[1]);
   },
   // ---- sonidos con nombre (criaturas, jugador, interfaz...) ----
-  MOB: { pig: 'cerdo', cow: 'vaca', sheep: 'oveja', chicken: 'gallina', zombie: 'zombi', skeleton: 'esqueleto', spider: 'arana', husk: 'zombi del desierto', drowned: 'ahogado', stray: 'esqueleto glacial', wither_skeleton: 'esqueleto wither', cave_spider: 'arana', slime: 'slime', magma_cube: 'cubo de magma' },
+  MOB: { pig: 'cerdo', cow: 'vaca', sheep: 'oveja', chicken: 'gallina', zombie: 'zombi', skeleton: 'esqueleto', spider: 'arana', husk: 'zombi del desierto', drowned: 'ahogado', stray: 'esqueleto glacial', wither_skeleton: 'esqueleto wither', cave_spider: 'arana', slime: 'slime', magma_cube: 'cubo de magma',
+    wolf: 'lobo', cat: 'gato', ocelot: 'ocelote', fox: 'zorro', polar_bear: 'oso polar', panda: 'panda', llama: 'llama', bee: 'abeja', parrot: 'loro', cod: 'bacalao', salmon: 'bacalao', squid: 'calamar', turtle: 'tortuga', silverfish: 'lepisma', witch: 'bruja', bogged: 'esqueleto pantanoso' },
   NAMED: {
     click: ['interfaz y botones/boton/clic'], chest_open: ['bloques/cofre/abrir', 'otros sonidos/random/chestopen'], chest_close: ['bloques/cofre/cerrar', 'otros sonidos/random/chestclosed'],
     door_open: ['bloques/puerta de madera/abrir', 'otros sonidos/random/door open'], door_close: ['bloques/puerta de madera/cerrar', 'otros sonidos/random/door close'],
@@ -6887,6 +6889,7 @@ const SoundPack = {
     thunder: ['criaturas y entidades/rayo/trueno'], swim: ['criaturas y entidades/jugador/nadar'], till: ['objetos/azada/till'], bucket_fill: ['objetos/cubo/llenar'], bucket_empty: ['objetos/cubo/vaciar'],
     lava_bucket_fill: ['objetos/cubo/fill lava'], lava_bucket_empty: ['objetos/cubo/empty lava'], bonemeal: ['objetos/polvo de hueso/usar'], strip: ['objetos/hacha/strip'], flatten: ['objetos/pala/flatten'],
     equip: ['objetos/armadura/equip generic'], enchant: ['bloques/enchantment table/usar'], anvil: ['bloques/yunque/usar'], shear: ['criaturas y entidades/oveja/esquilar'],
+    wolf_growl: ['criaturas y entidades/lobo/grune'], wolf_pant: ['criaturas y entidades/lobo/jadea'], wolf_whine: ['criaturas y entidades/lobo/gime'], bee_sting: ['criaturas y entidades/abeja/pica'], witch_throw: ['criaturas y entidades/bruja/lanzar'], polar_bear_warning: ['criaturas y entidades/oso polar/warning'], cat_purr: ['criaturas y entidades/gato/ronronea'],
     attack: ['criaturas y entidades/jugador/ataca strong'], attack_weak: ['criaturas y entidades/jugador/ataca weak'], crit: ['criaturas y entidades/jugador/ataca crit'],
   },
   VOL: { click: 0.35, step: 0.3, pop: 0.3, xp: 0.25, swim: 0.3 },
@@ -6896,7 +6899,7 @@ const SoundPack = {
     let keys = this.NAMED[name];
     if (!keys) {
       const m = name.match(/^([a-z_]+?)(_hurt|_death|_step|_jump)?$/); const mob = m && this.MOB[m[1]];
-      if (mob) { const suf = m[2]; keys = suf === '_hurt' ? ['recibe dano', 'hurt small', 'squish small', 'sonido normal'] : suf === '_death' ? ['muere', 'squish', 'sonido normal'] : suf === '_step' ? ['pasos'] : suf === '_jump' ? ['salta', 'squish'] : ['sonido normal', 'squish', 'salta', 'ataca']; keys = keys.map(k => 'criaturas y entidades/' + mob + '/' + k); }
+      if (mob) { const suf = m[2]; keys = suf === '_hurt' ? ['recibe dano', 'hurt small', 'squish small', 'sonido normal', 'coletea'] : suf === '_death' ? ['muere', 'squish', 'sonido normal'] : suf === '_step' ? ['pasos'] : suf === '_jump' ? ['salta', 'squish'] : ['sonido normal', 'squish', 'salta', 'ataca', 'coletea', 'bucle', 'ambient land']; keys = keys.map(k => 'criaturas y entidades/' + mob + '/' + k); }
     }
     if (!keys) return false;
     return this.play(keys, (this.VOL[name] ?? 1) * v, 1);
