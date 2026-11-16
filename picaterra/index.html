@@ -336,7 +336,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.11.3';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.12.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -531,7 +531,70 @@ function GEN_MODULE(B) {
   }
 
   // altura y bioma de una columna (determinista)
-  function column(N, wx, wz) {
+  // generador del terreno: v1 (mundos antiguos) o v2 (al estilo del original: continentalidad,
+  // erosión y «picos y valles», con ríos largos que serpentean, montañas escarpadas y mesetas)
+  let GV = 1;
+  function column(N, wx, wz) { return GV >= 2 ? column2(N, wx, wz) : column1(N, wx, wz); }
+  // curva por tramos (como las «splines» del original)
+  const spl = (pts, x) => { if (x <= pts[0][0]) return pts[0][1]; for (let i = 1; i < pts.length; i++) if (x <= pts[i][0]) { const [x0, y0] = pts[i - 1], [x1, y1] = pts[i]; const t = (x - x0) / (x1 - x0); return y0 + (y1 - y0) * t * t * (3 - 2 * t); } return pts[pts.length - 1][1]; };
+  function column2(N, wx, wz) {
+    // un poco de deformación para que nada quede en línea recta
+    const wpx = wx + N.det.n2(wx / 180, wz / 180) * 40, wpz = wz + N.det.n2(wx / 180 + 40, wz / 180 - 20) * 40;
+    const C = fbm(N.cont, wpx / 1600, wpz / 1600, 5) * 1.45 + 0.16;          // continentalidad
+    const E = fbm(N.ero, wpx / 700, wpz / 700, 4) * 1.3;                  // erosión (alta = llano)
+    const Wd = fbm(N.ridge, wpx / 560, wpz / 560, 4) * 1.25;              // rareza
+    const PV = 1 - Math.abs(3 * Math.abs(Wd) - 2);                        // picos (+1) y valles (-1)
+    const det = fbm(N.det, wx / 60, wz / 60, 3);
+    const temp = fbm(N.temp, wx / 1300, wz / 1300, 3) + N.det.n2(wx / 30, wz / 30) * 0.03;
+    const hum = fbm(N.hum, wx / 1100 + 31.7, wz / 1100, 3);
+    // altura base según lo lejos que estés del mar
+    let base = spl([[-1.1, 30], [-0.55, 34], [-0.42, 44], [-0.22, 52], [-0.17, 59], [-0.12, 63], [-0.05, 66], [0.1, 69], [0.3, 73], [0.6, 78], [1, 82]], C);
+    // cuánto relieve hay: mucho con erosión baja y tierra adentro
+    const inland = sm(-0.15, 0.25, C), rough = (1 - sm(-0.55, 0.45, E)) * inland;
+    let h = base + det * (2 + rough * 3);
+    if (PV > 0) {
+      // colinas y montañas
+      const pk = Math.pow(PV, 1.35);
+      h += pk * (7 + rough * 38) + rough * 5;
+      // cumbres escarpadas
+      if (rough > 0.55 && PV > 0.45) { const j = 1 - Math.abs(fbm(N.misc, wx / 38, wz / 38, 3)); h += (rough - 0.55) * (PV - 0.45) * j * j * 80; }
+    } else {
+      h += PV * (3 + rough * 8) * inland;
+    }
+    // mesetas: con erosión media algunas montañas se aplanan arriba en escalones
+    if (E > 0.05 && E < 0.35 && h > 82 && N.misc.n2(wx / 340 + 9, wz / 340 - 4) > 0.35) { const st = 6; const fh = Math.floor(h / st) * st; h = fh + (h - fh) * 0.25; }
+    // ríos: a lo largo de los valles más hondos, anchos y sinuosos
+    let riverK = 0;
+    if (C > -0.17) {
+      const rn = fbm(N.misc, wpx / 1100 + 77.3, wpz / 1100 - 13.1, 2) + N.det.n2(wx / 90, wz / 90) * 0.012;
+      const rw = Math.abs(rn), width = (0.024 + 0.012 * sm(0, 0.6, E)) * (1 - sm(0.4, 0.9, rough * Math.max(0, PV)));
+      if (rw < width) { const k = sm(0, 1, 1 - rw / width); riverK = k; const bed = SEA - 3 - k * 2; const bank = Math.min(h, SEA + 1 + (h - SEA) * 0.35); h = bank + (bed - bank) * k; }
+      else if (rw < width * 2.2) { const k = 1 - (rw - width) / (width * 1.2); h = h - (h - (SEA + 1)) * k * k * 0.55; }
+    }
+    if (h > 108) h = 108 + (h - 108) * 0.55; if (h > WH - 6) h = WH - 6;
+    h = Math.floor(h);
+    const cont = C, mount = rough * sm(0, 0.6, PV);
+    let b;
+    if (h < SEA) b = riverK > 0.3 ? BI.OCEAN : (temp < -0.45 ? BI.FROZEN_OCEAN : BI.OCEAN);
+    else if (h <= SEA + 2 && C < -0.1) b = temp < -0.45 ? BI.SNOWY : BI.BEACH;
+    else if (h > SEA + 44) b = h > SEA + 54 ? BI.SNOW_PEAKS : BI.MOUNTAINS;
+    else if (temp > 0.38) b = hum < 0.02 ? BI.DESERT : BI.SAVANNA;
+    else if (temp > -0.18) {
+      if (hum > 0.32 && h < SEA + 6) b = BI.SWAMP;
+      else if (hum > 0.16) b = (N.misc.n2(wx / 260, wz / 260) > 0.25) ? BI.BIRCH : BI.FOREST;
+      else if (hum > -0.06) b = BI.FOREST;
+      else b = (N.misc.n2(wx / 200 + 50, wz / 200) > 0.45) ? BI.FLOWER : BI.PLAINS;
+    }
+    else if (temp > -0.45) b = BI.TAIGA;
+    else b = BI.SNOWY;
+    let sb = subBiome(N, wx, wz, b, h, temp, hum, cont, riverK);
+    if (riverK > 0.35 && h < SEA) sb = temp < -0.45 ? BI.FROZEN_RIVER : BI.RIVER;
+    if (sb === BI.BADLANDS || sb === BI.ERODED_BADLANDS || sb === BI.WOODED_BADLANDS || sb === BI.MUSHROOM) b = sb;
+    if (sb === BI.ERODED_BADLANDS) { const sp = N.ridge.n2(wx / 14, wz / 14); if (sp > 0.45) h = Math.min(WH - 12, h + Math.floor((sp - 0.45) * 60)); }
+    void mount;
+    return { h, b, sb, temp, hum };
+  }
+  function column1(N, wx, wz) {
     const cont = fbm(N.cont, wx / 900, wz / 900, 4) * 1.35 + 0.08;
     const ero = fbm(N.ero, wx / 420, wz / 420, 3);
     const ridge = 1 - Math.abs(fbm(N.ridge, wx / 210, wz / 210, 4));
@@ -930,7 +993,8 @@ function GEN_MODULE(B) {
     }
   }
 
-  function genChunk(seed, cx, cz, flat) {
+  function genChunk(seed, cx, cz, flat, gv) {
+    GV = gv || 1;
     if (flat === 'nether') return netherChunk(seed, cx, cz);
     if (flat === 'end') return endChunk(seed, cx, cz);
     const V = CS * CS * WH;
@@ -1867,7 +1931,7 @@ function GEN_MODULE(B) {
     for (const s of list) { try { BUILD[s.k](s, P); } catch (e) { if (STRUCT_ERRS.length < 20) STRUCT_ERRS.push(s.k + ': ' + (e && e.message)); } }
   }
 
-  return { genChunk, strongholds, END_PILLARS, endColumn: (seed, x, z) => endColumn(setup(seed), x, z), column: (seed, x, z) => column(setup(seed), x, z), caveBiome: (seed, x, y, z) => caveBiome(setup(seed), x, y, z), BI, treeList, findStruct, fortressNear, netherBiomeAt, NETHER_BIOME_NAMES, STRUCTS, STRUCT_ERRS };
+  return { setGV: (v) => { GV = v || 1; }, genChunk, strongholds, END_PILLARS, endColumn: (seed, x, z) => endColumn(setup(seed), x, z), column: (seed, x, z) => column(setup(seed), x, z), caveBiome: (seed, x, y, z) => caveBiome(setup(seed), x, y, z), BI, treeList, findStruct, fortressNear, netherBiomeAt, NETHER_BIOME_NAMES, STRUCTS, STRUCT_ERRS };
 }
 
 // ---- 02_registry.js ----
@@ -4167,7 +4231,7 @@ class Q { // cola de coordenadas
 const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 
 const World = {
-  seed: 0, flat: false, dim: 'o', chunks: new Map(), edits: new Map(), blockEnts: new Map(), ticks: new Map(),
+  seed: 0, flat: false, genV: 2, dim: 'o', chunks: new Map(), edits: new Map(), blockEnts: new Map(), ticks: new Map(),
   time: 0, day: 0, tickCount: 0, generated: new Set(), spawn: [0, 70, 0], dirtyEdits: new Set(),
   _lc: null, _lcx: 1e9, _lcz: 1e9,
   qSkyAdd: new Q(), qBlkAdd: new Q(), qSkyRem: new Q(), qBlkRem: new Q(),
@@ -4567,7 +4631,7 @@ const Gen = {
   workers: [], free: [], pending: new Set(), local: null, results: [],
   init() {
     if (this.workers.length || this.local) return;
-    const src = `const G=(${GEN_MODULE.toString()})(${JSON.stringify(B)});onmessage=e=>{const d=e.data;const r=G.genChunk(d.seed,d.cx,d.cz,d.flat);postMessage({cx:d.cx,cz:d.cz,gen:d.gen,blocks:r.blocks,meta:r.meta,biomes:r.biomes,heights:r.heights},[r.blocks.buffer,r.meta.buffer,r.biomes.buffer,r.heights.buffer]);};`;
+    const src = `const G=(${GEN_MODULE.toString()})(${JSON.stringify(B)});onmessage=e=>{const d=e.data;const r=G.genChunk(d.seed,d.cx,d.cz,d.flat,d.gv);postMessage({cx:d.cx,cz:d.cz,gen:d.gen,blocks:r.blocks,meta:r.meta,biomes:r.biomes,heights:r.heights},[r.blocks.buffer,r.meta.buffer,r.biomes.buffer,r.heights.buffer]);};`;
     try {
       const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
       const n = clamp((navigator.hardwareConcurrency || 4) - 1, 1, 4);
@@ -4578,18 +4642,18 @@ const Gen = {
         this.workers.push(w); this.free.push(w);
       }
     } catch (e) { this.fallback(); }
-    this.local = GEN_MODULE(B);
+    this.local = GEN_MODULE(B); this.local.setGV(World.genV);
   },
   fallback() { this.workers = []; this.free = []; this.noWorkers = true; },
   gen: 0,
   request(cx, cz) {
     const k = ckey(cx, cz); if (this.pending.has(k)) return true;
     if (this.noWorkers || !this.workers.length) {
-      const r = this.local.genChunk(World.seed, cx, cz, World.dim === 'n' ? 'nether' : World.dim === 'e' ? 'end' : World.flat); this.pending.add(k);
+      const r = this.local.genChunk(World.seed, cx, cz, World.dim === 'n' ? 'nether' : World.dim === 'e' ? 'end' : World.flat, World.genV); this.local.setGV(World.genV); this.pending.add(k);
       this.results.push({ cx, cz, gen: this.gen, ...r }); return true;
     }
     const w = this.free.pop(); if (!w) return false;
-    this.pending.add(k); w.postMessage({ seed: World.seed, cx, cz, flat: World.dim === 'n' ? 'nether' : World.dim === 'e' ? 'end' : World.flat, gen: this.gen }); return true;
+    this.pending.add(k); w.postMessage({ seed: World.seed, cx, cz, flat: World.dim === 'n' ? 'nether' : World.dim === 'e' ? 'end' : World.flat, gv: World.genV, gen: this.gen }); return true;
   },
   canRequest() { return this.noWorkers || !this.workers.length ? true : this.free.length > 0; },
 };
@@ -7714,7 +7778,7 @@ const Game = {
   async createWorld(opts) {
     const id = 'w' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
     let seed = opts.seed && opts.seed.trim() ? (/^-?\d+$/.test(opts.seed.trim()) ? parseInt(opts.seed.trim()) | 0 : hashStr(opts.seed.trim())) : (Math.random() * 2 ** 31 | 0);
-    const meta = { id, editFmt: 2, name: opts.name || 'Mundo nuevo', seed, flat: !!opts.flat, mode: opts.mode, difficulty: opts.difficulty, hardcore: !!opts.hardcore, time: 1000, day: 0, created: Date.now(), lastPlayed: Date.now(), player: null, blockEnts: [], generated: [], mobs: [] };
+    const meta = { id, editFmt: 2, genV: 2, name: opts.name || 'Mundo nuevo', seed, flat: !!opts.flat, mode: opts.mode, difficulty: opts.difficulty, hardcore: !!opts.hardcore, time: 1000, day: 0, created: Date.now(), lastPlayed: Date.now(), player: null, blockEnts: [], generated: [], mobs: [] };
     await Store.put('worlds', id, meta).catch(() => { });
     return this.startWorld(meta, new Map());
   },
@@ -7736,7 +7800,7 @@ const Game = {
   startWorld(meta, edits) {
     UI.show('loading'); UI.setLoading('Preparando el terreno…', 0);
     World.reset(); Entities.clear(); Particles.list = [];
-    this.world = meta; World.seed = meta.seed; World.flat = meta.flat; World.edits = edits; World.time = meta.time || 0; World.day = meta.day || 0;
+    this.world = meta; World.seed = meta.seed; World.flat = meta.flat; World.genV = meta.genV || 1; Gen.local && Gen.local.setGV(World.genV); World.edits = edits; World.time = meta.time || 0; World.day = meta.day || 0;
     World.generated = new Set(meta.generated || []);
     for (const be of meta.blockEnts || []) World.blockEnts.set(be.k, be.v);
     this.difficulty = meta.difficulty ?? 2;
@@ -10089,7 +10153,7 @@ const Title = {
     if (Panorama.ready && !Panorama.stale) { this.active = false; World.reset(); Entities.clear(); return; } // con panorama no hace falta el mundo (si está viejo, se rehace por detrás)
     this.active = true;
     World.reset(); Entities.clear();
-    World.seed = 1337421; World.flat = false; World.time = 3000; Gen.gen++; Gen.pending.clear(); Gen.results = []; Gen.init();
+    World.seed = 1337421; World.flat = false; World.genV = 2; Gen.local && Gen.local.setGV(2); World.time = 3000; Gen.gen++; Gen.pending.clear(); Gen.results = []; Gen.init();
     const sp = Game.findSpawn(); this.cx = sp[0]; this.cz = sp[2]; this.cy = sp[1] + 14;
   },
   stop() { this.active = false; World.reset(); },
@@ -10963,7 +11027,7 @@ const Net = {
     }
     this.snapParts = [];
     Title.stop(); Music.stop();
-    const meta = { id: 'mp_' + this.code, name: 'Partida de ' + cleanName(w.hn), seed: w.seed | 0, flat: !!w.flat, mode: 0, difficulty: w.dif ?? 2, time: w.t || 0, day: w.d || 0, temp: true, player: null, blockEnts: [], generated: [], mobs: [] };
+    const meta = { id: 'mp_' + this.code, name: 'Partida de ' + cleanName(w.hn), seed: w.seed | 0, flat: !!w.flat, genV: w.gv || 1, mode: 0, difficulty: w.dif ?? 2, time: w.t || 0, day: w.d || 0, temp: true, player: null, blockEnts: [], generated: [], mobs: [] };
     Game.startWorld(meta, edits);
     if (Array.isArray(w.sp) && w.sp.length === 3 && w.sp.every(v => typeof v === 'number' && isFinite(v))) { World.spawn = w.sp; Game.player.x = w.sp[0] + 0.5; Game.player.z = w.sp[2] + 0.5; Game.player.y = w.sp[1]; }
     this.started = true;
@@ -11020,7 +11084,7 @@ const Net = {
     const P = Game.player; const R = (v) => Math.round(v * 100) / 100;
     return { p: [R(P.x), R(P.y), R(P.z), R(P.yaw), R(P.pitch), R(P.bodyYaw)], f: (P.sneaking ? 1 : 0) | (P.swinging ? 2 : 0) | (P.flying ? 4 : 0) | (P.dead ? 8 : 0), h: P.held ? P.held.id : null };
   },
-  worldInfo() { return { seed: World.seed, flat: !!World.flat, t: World.time, d: World.day, hn: this.name(), sp: World.spawn, dif: Game.difficulty }; },
+  worldInfo() { return { seed: World.seed, flat: !!World.flat, gv: World.genV, t: World.time, d: World.day, hn: this.name(), sp: World.spawn, dif: Game.difficulty }; },
   timeSync(t, d) { if (typeof t !== 'number' || this.host || !this.started) return; const df = Math.abs(t - World.time); if (df > 200 && df < 23800) { World.time = t; World.day = d | 0; } },
 
   // ---------- bloques ----------
