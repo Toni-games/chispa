@@ -1,8 +1,18 @@
 {
-  "latest": "1.9.5",
+  "latest": "1.9.6",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.9.6",
+      "date": "2026-11-16",
+      "title": "Pantalla de carga como en la 1.20",
+      "notes": [
+        "Al generar el mundo: fondo de tierra oscurecida (con la textura del paquete), «Preparando el área de aparición: %» y el mapa de chunks de colores"
+      ],
+      "size": 235561,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.9.6.zip"
+    },
     {
       "id": "1.9.5",
       "date": "2026-11-16",

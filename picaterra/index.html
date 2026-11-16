@@ -17,6 +17,8 @@
   .screen.on { display: flex; }
   .screen.dim { background: rgba(10, 10, 14, 0.62); }
   .screen.dirt { background: repeating-linear-gradient(45deg, #2c2218 0 12px, #2a1f15 12px 24px); }
+  /* fondo de tierra oscurecida como en el original (la textura «dirt» del paquete si lo hay) */
+  body.dirtTex .screen.dirt { background: linear-gradient(rgba(0,0,0,.75), rgba(0,0,0,.75)), var(--dirt); background-size: auto, 64px 64px; image-rendering: pixelated; }
   h2 { font-weight: 600; font-size: 26px; margin: 6px 0 14px; letter-spacing: 1px; }
   .btn { width: 400px; max-width: 92vw; height: 42px; margin: 4px; background: var(--btn); color: var(--txt); font: 20px 'Pixelify Sans', monospace; text-shadow: 2px 2px 0 #2a2a2a;
     border: 2px solid #000; box-shadow: inset 2px 2px 0 var(--btn-hi), inset -2px -3px 0 var(--btn-lo); cursor: pointer; padding: 0 10px; }
@@ -64,7 +66,9 @@
   .txt { width: min(720px, 96vw); font-size: 16px; color: #ddd; line-height: 1.45; text-shadow: 1px 1px 0 #000; margin: 0 0 8px; }
   .file { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; }
   .file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-  #loadBox { width: 400px; max-width: 86vw; height: 8px; background: #333; border: 2px solid #000; margin-top: 14px; }
+  #loadBox { width: 400px; max-width: 86vw; height: 8px; background: #333; border: 2px solid #000; margin-top: 14px; display: none; }
+  #s_loading h2 { font-weight: normal; font-size: 20px; color: #fff; text-shadow: 2px 2px 0 #3f3f3f; margin: 0 0 18px; letter-spacing: 0; }
+  #loadMap { image-rendering: pixelated; width: 176px; height: 176px; }
   #loadBar { height: 100%; width: 0; background: #7fd34a; transition: width 0.2s; }
   #chatGhost { position: fixed; left: 4px; right: 4px; bottom: 4px; height: 30px; line-height: 33px; padding: 0 6px; font: 18px 'Pixelify Sans', monospace; color: #8a8a8a; pointer-events: none; z-index: 7; white-space: pre; overflow: hidden; }
   #chatSug { position: fixed; left: 4px; bottom: 38px; min-width: 260px; max-width: 70vw; display: none; background: rgba(0, 0, 0, 0.8); font: 17px 'Pixelify Sans', monospace; z-index: 7; padding: 2px 0; }
@@ -281,6 +285,7 @@
 <div class="screen dirt" id="s_loading">
   <h2 id="loadText">Generando terreno…</h2>
   <div id="loadBox"><div id="loadBar"></div></div>
+  <canvas id="loadMap" width="88" height="88"></canvas>
 </div>
 
 <input id="chatInput" maxlength="256" autocomplete="off" spellcheck="false">
@@ -305,7 +310,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.9.5';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.9.6';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -8725,7 +8730,22 @@ const UI = {
       box.appendChild(d);
     }
   },
-  setLoading(t, p) { this.$('loadText').textContent = t; this.$('loadBar').style.width = Math.round(p * 100) + '%'; },
+  setLoading(t, p) {
+    // como en el original: «Preparando el área de aparición: 45 %» encima del mapa de chunks
+    this.$('loadText').textContent = /Generando terreno|Preparando el terreno/.test(t) ? 'Preparando el área de aparición: ' + Math.round(p * 100) + ' %' : t;
+    this.$('loadBar').style.width = Math.round(p * 100) + '%';
+    this.$('loadMap').style.display = /Conectando/.test(t) ? 'none' : '';
+  },
+  // mapa de chunks de la pantalla de carga (colores de los estados de generación del original)
+  drawLoadMap(cx, cz) {
+    const cv = this.$('loadMap'); const g = cv.getContext('2d'); const R = 5, S = 8; // 11x11 chunks, 8 px cada uno (con separación)
+    g.clearRect(0, 0, cv.width, cv.height);
+    for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
+      const c = World.chunk(cx + dx, cz + dz);
+      const col = !c ? '#545454' : c.mesh && !c.dirty ? '#ffffff' : c.mesh ? '#cccccc' : '#80b252';
+      g.fillStyle = col; g.fillRect((dx + R) * S, (dz + R) * S, S - 1, S - 1);
+    }
+  },
   paused() { return !Net.active && ['pause', 'options', 'controls', 'death', 'textures', 'blocktex', 'avatar', 'music', 'mobtex'].includes(this.cur); },
   blockingInput() { return !!this.cur || GUI.open || Chat.open; },
   openContainer(type, T) { GUI.openFor(type, T); },
@@ -8948,7 +8968,8 @@ const Chunks = {
 };
 Game.remeshAll = () => { for (const c of World.chunks.values()) c.dirty = true; };
 Game.unloadFar = () => { };
-Game.reloadTextures = () => { FaceTex.apply(); Atlas.build(); Renderer.uploadAtlas(); Renderer.makeCelestial(); Renderer.makeClouds(); ItemMeshes.clear(); Game.remeshAll(); for (const k in ICON_CACHE) delete ICON_CACHE[k]; for (const k in GLINT) delete GLINT[k]; };
+function applyDirtBg() { try { document.body.style.setProperty('--dirt', 'url(' + Atlas.tile('dirt').toDataURL() + ')'); document.body.classList.add('dirtTex'); } catch (e) { } }
+Game.reloadTextures = () => { FaceTex.apply(); Atlas.build(); applyDirtBg(); Renderer.uploadAtlas(); Renderer.makeCelestial(); Renderer.makeClouds(); ItemMeshes.clear(); Game.remeshAll(); for (const k in ICON_CACHE) delete ICON_CACHE[k]; for (const k in GLINT) delete GLINT[k]; };
 
 // ---------------- mallas de objetos ----------------
 const MovingMeshes = {};
@@ -9348,7 +9369,7 @@ function frame(now) {
       if (Game.state === 'loading') {
         const cx = Math.floor(P.x) >> 4, cz = Math.floor(P.z) >> 4; let ready = 0, need = 0;
         for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { need++; const c = World.chunk(cx + dx, cz + dz); if (c && c.mesh && !c.dirty) ready++; }
-        UI.setLoading(ready < need ? 'Generando terreno…' : 'Colocando al jugador…', ready / need);
+        UI.setLoading(ready < need ? 'Generando terreno…' : 'Colocando al jugador…', ready / need); UI.drawLoadMap(cx, cz);
         if (ready >= need) {
           if (!P.placed) placePlayerOnGround(P);
           Game.state = 'play'; UI.show('pause'); UI.$('pauseTitle').textContent = '¡Listo! Haz clic para jugar'; World.chunks.forEach(c => { });
@@ -9376,7 +9397,7 @@ async function boot() {
     await TexturePack.fromLauncher();
     await TexturePack.refreshStored();
     FaceTex.apply();
-    Atlas.build();
+    Atlas.build(); applyDirtBg();
     Renderer.init(document.getElementById('gl')); Renderer.uploadAtlas(); Mesher.init();
     HUD.init(); Skins.init(); UI.init(); Input.init();
     if (document.fonts && document.fonts.load) { try { await Promise.race([document.fonts.load('16px "Pixelify Sans"'), new Promise(r => setTimeout(r, 1500))]); } catch (e) { } }
