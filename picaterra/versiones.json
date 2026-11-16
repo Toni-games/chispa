@@ -1,8 +1,22 @@
 {
-  "latest": "1.10.2",
+  "latest": "1.11.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.11.0",
+      "date": "2026-11-16",
+      "title": "El End",
+      "notes": [
+        "Nueva dimensión: el End, con isla central, pilares de obsidiana, islas exteriores, plantas coral y ciudades de púrpur con botín (élitros)",
+        "Fortalezas con la sala del portal: lanza ojos de ender para encontrarlas y pon 12 ojos en el marco",
+        "Jefe original: el Coloso del Vacío, con barra de vida; al vencerlo se abre el portal de vuelta y un acceso a las islas exteriores",
+        "Élitros para planear, cohetes de fuegos artificiales, perlas de ender, fruta coral y cofre de ender compartido",
+        "Usa tus packs de texturas, sonidos y la música del End"
+      ],
+      "size": 263721,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.11.0.zip"
+    },
     {
       "id": "1.10.2",
       "date": "2026-11-16",
