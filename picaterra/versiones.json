@@ -1,8 +1,18 @@
 {
-  "latest": "1.9.6",
+  "latest": "1.9.7",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.9.7",
+      "date": "2026-11-16",
+      "title": "Pantallas del paquete",
+      "notes": [
+        "Con un paquete de texturas que las traiga: pantalla de arranque roja con el logo y la barra, logo y «edición» del menú principal, fondo de menú (con panorama) al cargar mundos y en los menús"
+      ],
+      "size": 236883,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.9.7.zip"
+    },
     {
       "id": "1.9.6",
       "date": "2026-11-16",

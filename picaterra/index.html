@@ -13,6 +13,15 @@
   #gl, #hud { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   #hud { image-rendering: pixelated; }
   #bootMsg { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #ccc; padding: 20px; text-align: center; }
+  /* pantalla de carga del juego con el logo del paquete (fondo rojo y barra blanca, como el original) */
+  #bootMsg.mojang { background: #ef323d; flex-direction: column; z-index: 50; transition: opacity 0.6s; }
+  #bootMsg.mojang img { width: min(50vw, 100vh); image-rendering: auto; }
+  #bootBar { width: min(50vw, 100vh); height: 10px; border: 2px solid #fff; margin-top: 4vh; padding: 2px; box-sizing: border-box; }
+  #bootBar div { height: 100%; width: 0; background: #fff; transition: width 0.3s; }
+  #logo img.packLogo { display: block; width: min(86vw, 640px); image-rendering: auto; margin: 0 auto; }
+  #logo img.packEdition { display: block; width: min(40vw, 300px); margin: -1.6% auto 0; image-rendering: auto; }
+  body.menuTex.dirtTex .screen.dirt, body.menuTex .screen.dirt { background: var(--menubg), var(--pano, #1b1b1b); background-size: 64px 64px, cover; background-position: 0 0, center; image-rendering: pixelated; }
+  body.menuTex.playing .screen.dim, body.menuTex.playing.dirtTex .screen.dim { background: var(--inworld); background-size: 64px 64px; image-rendering: pixelated; }
   .screen { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; text-shadow: 2px 2px 0 #2a2a2a; z-index: 5; overflow: auto; padding: 16px 8px; }
   .screen.on { display: flex; }
   .screen.dim { background: rgba(10, 10, 14, 0.62); }
@@ -310,7 +319,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.9.6';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.9.7';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -3504,6 +3513,8 @@ const TexturePack = {
     m.sky_sun = 'celestial/sun'; m.sky_sun_old = 'environment/sun'; m.sky_moon_phases = 'environment/moon_phases'; m.sky_clouds = 'clouds';
     for (const ph of MOON_PHASES) m['sky_moon_' + ph] = 'celestial/moon/' + ph;
     m.c_recipe_book = 'recipe_book';
+    // pantalla de carga, logo del menú principal y fondos de menú (paquetes 1.20.5 en adelante)
+    Object.assign(m, { ui_mojang: 'mojangstudios', ui_logo: 'minecraft', ui_logo_alt: 'minceraft', ui_edition: 'edition', ui_menu_bg: 'menu_background', ui_inworld_bg: 'inworld_menu_background', ui_panorama: 'panorama_0' });
     for (const [k, f] of [['rb_button', 'button'], ['rb_button_hi', 'button_highlighted'], ['rb_slot_ok', 'slot_craftable'], ['rb_slot_no', 'slot_uncraftable'], ['rb_filter_on', 'filter_enabled'], ['rb_filter_on_hi', 'filter_enabled_highlighted'], ['rb_filter_off', 'filter_disabled'], ['rb_filter_off_hi', 'filter_disabled_highlighted'], ['rb_page_forward', 'page_forward'], ['rb_page_forward_hi', 'page_forward_highlighted'], ['rb_page_backward', 'page_backward'], ['rb_page_backward_hi', 'page_backward_highlighted']]) m[k] = 'sprites/recipe_book/' + f;
     for (let i = 1; i <= 3; i++) { m['ench_l' + i] = 'sprites/container/enchanting_table/level_' + i; m['ench_l' + i + '_off'] = 'sprites/container/enchanting_table/level_' + i + '_disabled'; }
     for (let i = 1; i <= 7; i++) for (const [a, b] of [['ts', 'top_selected'], ['tu', 'top_unselected'], ['bs', 'bottom_selected'], ['bu', 'bottom_unselected']]) m['tab_' + a + i] = 'sprites/container/creative_inventory/tab_' + b + '_' + i;
@@ -3568,7 +3579,9 @@ const TexturePack = {
       if (keep || ssig !== (await Store.get('kv', 'snd:launcherSig').catch(() => null))) { this.lastSounds = await SoundPack.importZip(z, audio, onProgress); await Store.put('kv', 'snd:launcherSig', ssig).catch(() => { }); }
     }
     const want = [...this.pick(z.names)]; let n = 0;
-    if (!want.length) return 0; // era solo de sonidos: no tocar las texturas guardadas
+    if (!want.length) { // solo sonidos o solo interfaz: no tocar las texturas guardadas
+      let g = 0; try { g = await this.gui(z.names, async (p) => blobToURL(new Blob([await z.get(p)], { type: 'image/png' }))); } catch (e) { } if (g) Store.flushTex && await Store.flushTex(); return g;
+    }
     if (keep) { try { await Store.put('kv', 'texpack:zip', file); await Store.put('kv', 'texpack:sig', this.sig()); } catch (e) { } }
     // de 32 en 32 a la vez, para que vaya rápido
     for (let i = 0; i < want.length; i += 32) {
@@ -8702,6 +8715,7 @@ const UI = {
     if (name === 'options' || name === 'controls') this.$('optBack').dataset.go = this.$('ctlBack').dataset.go = (Game.state === 'play' ? 'pause' : 'title');
     if (name) { const el = this.$('s_' + name); if (el) el.classList.add('on'); }
     document.body.classList.toggle('menu', !!name && name !== 'loading');
+    document.body.classList.toggle('playing', Game.state === 'play');
     if (name === 'worlds') await this.renderWorlds();
     if (name === 'textures') { this.renderTexList(); this.$('texBack').dataset.go = Game.state === 'play' ? 'pause' : 'title'; }
     if (name === 'blocktex') this.renderBlockTex();
@@ -8968,7 +8982,23 @@ const Chunks = {
 };
 Game.remeshAll = () => { for (const c of World.chunks.values()) c.dirty = true; };
 Game.unloadFar = () => { };
-function applyDirtBg() { try { document.body.style.setProperty('--dirt', 'url(' + Atlas.tile('dirt').toDataURL() + ')'); document.body.classList.add('dirtTex'); } catch (e) { } }
+// logo del menú principal y fondos tomados del paquete de texturas (si los trae)
+function applyPackUI() {
+  const G = Atlas.gui, logo = document.getElementById('logo'); if (!logo) return;
+  const url = (im) => { if (!im) return null; if (im.src) return im.src; try { return im.toDataURL(); } catch (e) { return null; } };
+  logo.querySelectorAll('img.packLogo, img.packEdition').forEach(e => e.remove());
+  const main = Math.random() < 0.0001 && G.ui_logo_alt ? G.ui_logo_alt : G.ui_logo;
+  document.getElementById('logoName').style.display = document.getElementById('logoSub').style.display = main ? 'none' : '';
+  if (main) { const a = document.createElement('img'); a.className = 'packLogo'; a.src = url(main); logo.prepend(a); if (G.ui_edition) { const b = document.createElement('img'); b.className = 'packEdition'; b.src = url(G.ui_edition); a.after(b); } }
+  const st = document.body.style;
+  if (G.ui_menu_bg) {
+    st.setProperty('--menubg', 'url(' + url(G.ui_menu_bg) + ')');
+    if (G.ui_inworld_bg) st.setProperty('--inworld', 'url(' + url(G.ui_inworld_bg) + ')');
+    if (G.ui_panorama) { try { const c = document.createElement('canvas'); const w = 480, h = Math.round(w * G.ui_panorama.height / G.ui_panorama.width); c.width = w; c.height = h; const g = c.getContext('2d'); g.filter = 'blur(4px)'; g.drawImage(G.ui_panorama, -12, -12, w + 24, h + 24); st.setProperty('--pano', 'url(' + c.toDataURL('image/jpeg', 0.8) + ') center / cover'); } catch (e) { } }
+    document.body.classList.add('menuTex');
+  } else document.body.classList.remove('menuTex');
+}
+function applyDirtBg() { applyPackUI(); try { document.body.style.setProperty('--dirt', 'url(' + Atlas.tile('dirt').toDataURL() + ')'); document.body.classList.add('dirtTex'); } catch (e) { } }
 Game.reloadTextures = () => { FaceTex.apply(); Atlas.build(); applyDirtBg(); Renderer.uploadAtlas(); Renderer.makeCelestial(); Renderer.makeClouds(); ItemMeshes.clear(); Game.remeshAll(); for (const k in ICON_CACHE) delete ICON_CACHE[k]; for (const k in GLINT) delete GLINT[k]; };
 
 // ---------------- mallas de objetos ----------------
@@ -9388,20 +9418,34 @@ async function boot() {
   try {
     loadSettings();
     await Store.init(); await loadSettingsAsync();
+    // si el paquete guardado trae el logo de carga, la pantalla de arranque es la del original (roja con barra)
+    let bootStep = 0; const bootSteps = 9; const bump = () => { const b = document.querySelector('#bootBar div'); if (b) b.style.width = Math.round(++bootStep / bootSteps * 100) + '%'; };
+    try {
+      const lg = await Store.get('tex', 'gui:ui_mojang');
+      if (lg) {
+        const im = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = lg; });
+        if (im) { // el logo viene partido: «MOJANG» arriba y «STUDIOS» abajo; se juntan uno al lado del otro
+          const c = document.createElement('canvas'); const hw = im.width, hh = im.height / 2; c.width = hw * 2; c.height = hh;
+          const g = c.getContext('2d'); g.drawImage(im, 0, 0, hw, hh, 0, 0, hw, hh); g.drawImage(im, 0, hh, hw, hh, hw, 0, hw, hh);
+          status.textContent = ''; status.className = 'mojang'; const a = document.createElement('img'); a.src = c.toDataURL(); status.append(a);
+          const bar = document.createElement('div'); bar.id = 'bootBar'; bar.append(document.createElement('div')); status.append(bar);
+        }
+      }
+    } catch (e) { }
     try { const cs = await Store.get('kv', 'customSkin'); if (cs) { await new Promise(r => { const im = new Image(); im.onload = () => { Skins.custom = legacySkinFix(im); r(); }; im.onerror = r; im.src = cs; }); } } catch (e) { }
-    RS.init();
-    await FaceTex.load(); await MobTex.load(); await Music.load();
-    await TexturePack.restore();
+    RS.init(); bump();
+    await FaceTex.load(); await MobTex.load(); await Music.load(); bump();
+    await TexturePack.restore(); bump();
     await SoundPack.restore();
-    await PackMusic.restore();
-    await TexturePack.fromLauncher();
-    await TexturePack.refreshStored();
+    await PackMusic.restore(); bump();
+    await TexturePack.fromLauncher(); bump();
+    await TexturePack.refreshStored(); bump();
     FaceTex.apply();
-    Atlas.build(); applyDirtBg();
+    Atlas.build(); applyDirtBg(); bump();
     Renderer.init(document.getElementById('gl')); Renderer.uploadAtlas(); Mesher.init();
-    HUD.init(); Skins.init(); UI.init(); Input.init();
+    HUD.init(); Skins.init(); UI.init(); Input.init(); bump();
     if (document.fonts && document.fonts.load) { try { await Promise.race([document.fonts.load('16px "Pixelify Sans"'), new Promise(r => setTimeout(r, 1500))]); } catch (e) { } }
-    status.remove();
+    bump(); if (status.classList.contains('mojang')) { status.style.opacity = '0'; setTimeout(() => status.remove(), 700); } else status.remove();
     Title.start();
     if (await TexturePack.stale()) document.getElementById('texNotice').hidden = false;
     Net.init();
