@@ -1,8 +1,19 @@
 {
-  "latest": "1.9.0",
+  "latest": "1.9.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.9.1",
+      "date": "2026-11-16",
+      "title": "Pistones animados",
+      "notes": [
+        "Pistones con las texturas bien (también con el paquete) y animación al extenderse y recogerse, como en Minecraft",
+        "El launcher ya no vuelve a leer los zips de sonidos y música en cada versión: arranca mucho más rápido"
+      ],
+      "size": 234424,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.9.1.zip"
+    },
     {
       "id": "1.9.0",
       "date": "2026-11-15",

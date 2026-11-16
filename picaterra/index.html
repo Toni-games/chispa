@@ -305,7 +305,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.9.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.9.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2184,6 +2184,9 @@ def13('seagrass', 'Pasto marino', WETP({ tex: 'seagrass', color: '#2a7a2a', drop
 def13('kelp', 'Alga', WETP({ tex: 'kelp', support: 'kelp', color: '#5a8a2a', grows: 18 }));
 def13('sea_pickle', 'Pepinillo de mar', BOX(Object.assign(WETP({ tex: { top: 'sea_pickle', side: 'sea_pickle' }, render: 'box', box: [[6, 0, 6, 10, 6, 10]], emit: 6, support: 'underwater', color: '#5a6a2a', sound: 'wool' }))));
 
+// bloque que se está moviendo con un pistón (invisible: se dibuja aparte mientras se desliza)
+def13('moving_piston', 'Bloque en movimiento', { render: 'none', solid: false, opaque: false, hardness: -1, noItem: true, drops: [], color: '#000000' });
+
 // ---- comportamiento ----
 // soporte nuevo y crecimiento (se engancha a World.canStay y a RandomTick)
 const WET = new Uint8Array(4096);
@@ -3543,11 +3546,11 @@ const TexturePack = {
     const allAudio = z.names.filter(p => /\.(ogg|mp3|wav|m4a)$/i.test(p));
     const music = allAudio.filter(p => PackMusic.isMusic(p)), audio = allAudio.filter(p => !PackMusic.isMusic(p));
     if (music.length) {
-      const msig = JSON.stringify([file.name || '', file.size, music.length]);
+      const msig = JSON.stringify([file.size, music.length]);
       if (keep || msig !== (await Store.get('kv', 'mus:launcherSig').catch(() => null))) { this.lastMusic = await PackMusic.importZip(z, music, onProgress); await Store.put('kv', 'mus:launcherSig', msig).catch(() => { }); }
     }
     if (audio.length) {
-      const ssig = JSON.stringify([file.name || '', file.size, audio.length]);
+      const ssig = JSON.stringify([file.size, audio.length]);
       if (keep || ssig !== (await Store.get('kv', 'snd:launcherSig').catch(() => null))) { this.lastSounds = await SoundPack.importZip(z, audio, onProgress); await Store.put('kv', 'snd:launcherSig', ssig).catch(() => { }); }
     }
     const want = [...this.pick(z.names)]; let n = 0;
@@ -3578,14 +3581,22 @@ const TexturePack = {
     try {
       const r = await fetch('/__texturas/lista.json', { cache: 'no-store' }); if (!r.ok) return 0;
       const list = (await r.json()).filter(f => f && typeof f.file === 'string');
-      const sig = JSON.stringify([this.sig(), list.map(f => [f.file, f.size, f.mtime])]);
-      if (sig === (await Store.get('kv', 'launcherTexSig').catch(() => null))) return 0;
-      let n = 0;
+      // cada archivo se recuerda por separado: los zips que solo traen sonidos o música no se vuelven
+      // a leer nunca (aunque cambie la versión del juego); los de texturas solo si cambia el juego
+      const seen = (await Store.get('kv', 'launcherFiles').catch(() => null)) || {};
+      const sig = this.sig(); let n = 0, changed = false;
       for (const f of list) {
-        const b = await (await fetch('/__texturas/' + encodeURIComponent(f.file))).blob();
-        n += /\.zip$/i.test(f.file) ? await this.loadZip(b, null, false) : await this.loadFiles([new File([b], f.file)]);
+        const prev = seen[f.file], same = prev && prev.size === f.size && prev.mtime === f.mtime;
+        if (same && (prev.kind === 'audio' || prev.sig === sig)) continue;
+        try {
+          if (window.Loading && Loading.msg) Loading.msg('Cargando ' + f.file + '…');
+          const b = await (await fetch('/__texturas/' + encodeURIComponent(f.file))).blob();
+          const blob = new File([b], f.file);
+          const got = /\.zip$/i.test(f.file) ? await this.loadZip(blob, null, false) : await this.loadFiles([blob]);
+          n += got; seen[f.file] = { size: f.size, mtime: f.mtime, sig, kind: got ? 'tex' : 'audio' }; changed = true;
+        } catch (e) { }
       }
-      await Store.put('kv', 'launcherTexSig', sig).catch(() => { });
+      if (changed) await Store.put('kv', 'launcherFiles', seen).catch(() => { });
       return n;
     } catch (e) { return 0; }
   },
@@ -4429,8 +4440,43 @@ const Mesher = {
       this.quad(O, x, y, z, fv.map(tf), uv, ti, w, this.SHADE[fi] * 0.3 + 0.7, s, Math.max(bl, 224), 0);
     });
   },
+  // pistón: se modela mirando hacia arriba (como en el original) y luego se gira, así las texturas
+  // quedan bien en las 6 direcciones: la franja de madera del lado siempre mira hacia la cabeza
+  piston(O, p, id, d, meta, x, y, z) {
+    const pb = this.pb, pl = this.pl, own = pl[p], f6 = meta & 7, head = d.shape === 'piston_head';
+    const ext = !head && (meta & 8), sticky = head ? (meta & 8) : d.sticky;
+    const top = sticky ? 'piston_top_sticky' : 'piston_top';
+    // [caja local, textura por cara local (0 x+,1 x-,2 y+,3 y-,4 z+,5 z-), ¿brazo?]
+    const parts = head ? [[[0, 12, 0, 16, 16, 16], ['piston_side', 'piston_side', top, 'piston_top', 'piston_side', 'piston_side']], [[6, -4, 6, 10, 12, 10], ['piston_side', 'piston_side', null, null, 'piston_side', 'piston_side'], true]]
+      : [[ext ? [0, 0, 0, 16, 12, 16] : [0, 0, 0, 16, 16, 16], ['piston_side', 'piston_side', ext ? 'piston_inner' : top, 'piston_bottom', 'piston_side', 'piston_side']]];
+    const P = (lx, ly, lz) => { switch (f6) { case 2: return [lx, ly, lz]; case 3: return [lx, 16 - ly, lz]; case 4: return [lx, lz, ly]; case 5: return [lx, lz, 16 - ly]; case 0: return [ly, lx, lz]; default: return [16 - ly, lx, lz]; } };
+    const flip = f6 === 3 || f6 === 4 || f6 === 0;
+    const NRM = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+    const faceOf = (n) => { const a = P(n[0] + 8, n[1] + 8, n[2] + 8).map(v => v - 8); return a[0] > 0 ? 0 : a[0] < 0 ? 1 : a[1] > 0 ? 2 : a[1] < 0 ? 3 : a[2] > 0 ? 4 : 5; };
+    for (const [bx, tex, arm] of parts) {
+      const [x0, y0, z0, x1, y1, z1] = bx;
+      const fv = [[[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], [[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]],
+        [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]]];
+      for (let lf = 0; lf < 6; lf++) {
+        if (!tex[lf]) continue;
+        let uvs = fv[lf].map(v => this.uvOf(lf, v[0], v[1], v[2]));
+        if (arm) uvs = fv[lf].map(v => { const h = lf < 2 ? (lf === 0 ? 16 - v[2] : v[2]) : (lf === 4 ? v[0] : 16 - v[0]); return [v[1] + 4, h - 6]; }); // la franja de madera a lo largo del brazo
+        let verts = fv[lf].map(v => P(v[0], v[1], v[2]));
+        if (flip) { verts = verts.slice().reverse(); uvs = uvs.slice().reverse(); }
+        const wf = faceOf(NRM[lf]);
+        const onEdge = [verts.every(v => v[0] === 16), verts.every(v => v[0] === 0), verts.every(v => v[1] === 16), verts.every(v => v[1] === 0), verts.every(v => v[2] === 16), verts.every(v => v[2] === 0)][wf];
+        // la luz se toma siempre de la casilla hacia la que mira la cara (el bloque del pistón es opaco y por dentro está a oscuras)
+        const n = pb[p + this.NOFF[wf]]; if (onEdge && OPAQUE[n]) continue;
+        let L = OPAQUE[n] ? own : pl[p + this.NOFF[wf]];
+        if (!onEdge) { const m = pl[p + this.NOFF[f6]]; L = Math.max(L >> 4, m >> 4) << 4 | Math.max(L & 15, m & 15); }
+        L = Math.max(L >> 4, own >> 4) << 4 | Math.max(L & 15, own & 15);
+        this.quad(O, x, y, z, verts, uvs, Atlas.index[tex[lf]] ?? 0, [255, 255, 255], this.SHADE[wf], (L >> 4) * 16, (L & 15) * 16, 0);
+      }
+    }
+  },
   boxes(O, p, id, d, meta, x, y, z) {
     const pb = this.pb, pl = this.pl, NO = this.NOFF;
+    if (d.shape === 'piston' || d.shape === 'piston_head') return this.piston(O, p, id, d, meta, x, y, z);
     const boxes = blockBoxes(id, meta, d.shape ? (f, dy) => pb[p + NO[f] + (dy || 0) * 324] : null);
     const own = pl[p];
     const wt = d.shape === 'wire' ? RS.wireColor(meta) : null;
@@ -4510,6 +4556,15 @@ const Mesher = {
   },
 
   // ---------- mallas de objetos (bloque suelto, objeto extruido) ----------
+  // malla de un bloque suelto con su orientación (para dibujar bloques que se mueven con pistones)
+  movingMesh(id, meta) {
+    const d = BLOCKS[id];
+    if (d.shape === 'piston' || d.shape === 'piston_head') {
+      const ctx = Object.create(this); ctx.pb = new Uint16Array(18 * 18 * 18); ctx.pl = new Uint8Array(18 * 18 * 18).fill(0xF0);
+      const buf = new VB(64); ctx.piston(buf, this.pi(8, 8, 8), id, d, meta, -0.5, -0.5, -0.5); return buf;
+    }
+    return this.blockItem(id, meta);
+  },
   blockItem(id, meta) { // malla de un bloque en coordenadas -8..8 px (centrado)
     const buf = new VB(64); const d = BLOCKS[id];
     const full = [240, 0];
@@ -6653,6 +6708,7 @@ const Game = {
     return [0, 80, 0];
   },
   async save(quiet) {
+    RS.finishMoves();
     if (!this.world || !this.player) return;
     if (this.world.temp) { if (!quiet) Chat.add('§7Las partidas de otros jugadores no se guardan en tu navegador.'); return; }
     const P = this.player, W = this.world;
@@ -6685,6 +6741,7 @@ const Game = {
       if (World.loaded(Math.floor(P.x), Math.floor(P.z))) P.tick(inp); else P.savePrev();
       if (B.nether_portal !== undefined && !Net.active) Dims.portalTick(P);
       if (World.tickCount % 10 === 0) { try { Ambience.tick(); } catch (e) { } }
+      RS.moveTick();
       Net.track(() => this.interactTick());
       World.runTicks();
       RS.touch(P); for (const e of Entities.list) if (e.mob || e.type === 'item') RS.touch(e);
@@ -8883,6 +8940,7 @@ Game.unloadFar = () => { };
 Game.reloadTextures = () => { FaceTex.apply(); Atlas.build(); Renderer.uploadAtlas(); Renderer.makeCelestial(); Renderer.makeClouds(); ItemMeshes.clear(); Game.remeshAll(); for (const k in ICON_CACHE) delete ICON_CACHE[k]; for (const k in GLINT) delete GLINT[k]; };
 
 // ---------------- mallas de objetos ----------------
+const MovingMeshes = {};
 const ItemMeshes = {
   cache: {},
   get(id) {
@@ -8892,7 +8950,7 @@ const ItemMeshes = {
     else { vb = it && it.block && !it.iconBlock ? Mesher.spriteItem(BLOCKS[B[it.block]].faceTex[0], BLOCKS[B[it.block]].tint && TINTED_TEX.has(BLOCKS[B[it.block]].faceTex[0]) ? [110, 180, 80] : null) : Mesher.spriteItem(it ? it.icon || id : 'stone'); sprite = true; }
     const m = Renderer.meshFromVB(vb); m.sprite = sprite || !!vb.sprite; this.cache[id] = m; return m;
   },
-  clear() { for (const k in this.cache) Renderer.freeMesh(this.cache[k]); this.cache = {}; },
+  clear() { for (const k in this.cache) Renderer.freeMesh(this.cache[k]); this.cache = {}; for (const k in MovingMeshes) { Renderer.freeMesh(MovingMeshes[k]); delete MovingMeshes[k]; } },
 };
 
 // ---------------- cámara y render ----------------
@@ -9035,6 +9093,17 @@ function drawEntities(Pw, cam) {
       gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]);
       let sc = 1; if (e.type === 'tnt') { const f = e.fuse - pt + 1; if (f < 10) sc = 1 + (1 - f / 10) * 0.3; gl.uniform4f(Pw.u.uTint, 1, 1, 1, (f / 5 | 0) % 2 ? 0.6 : 0); } else gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
       M4.identity(_m); M4.translate(_m, x, y + 0.5 * sc, z); M4.scale(_m, sc, sc, sc); R.drawMesh(ItemMeshes.get(id), _m, Pw);
+    }
+  }
+  // bloques que empujan o recogen los pistones (se deslizan)
+  if (RS.moves.length) {
+    gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
+    for (const mv of RS.moves) {
+      const k = clamp((World.tickCount - mv.t0 + pt) / 2, 0, 1), o = mv.from + (mv.to - mv.from) * k;
+      const x = mv.x + 0.5 + mv.D[0] * o, y = mv.y + 0.5 + mv.D[1] * o, z = mv.z + 0.5 + mv.D[2] * o;
+      const key = mv.id + ':' + mv.m; let mesh = MovingMeshes[key]; if (!mesh) mesh = MovingMeshes[key] = Renderer.meshFromVB(Mesher.movingMesh(mv.id, mv.m));
+      const L = entLight(mv.x + 0.5, mv.y + 0.5, mv.z + 0.5); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]); // la luz de la casilla a la que va (no la del interior del pistón)
+      M4.identity(_m); M4.translate(_m, x, y, z); R.drawMesh(mesh, _m, Pw);
     }
   }
   // jugador en 3ª persona
@@ -10461,12 +10530,24 @@ const RS = {
     }
     return { move, brk };
   },
+  // ---- animación: los bloques se deslizan durante 2 ticks (como en el original) ----
+  moves: [],
+  addMove(x, y, z, id, m, D, from, to, place) {
+    if (place) World.set(x, y, z, B.moving_piston, 0, 1);
+    this.moves.push({ x, y, z, id, m, D, from, to, place, t0: World.tickCount });
+  },
+  finishMove(mv) {
+    if (mv.place && World.get(mv.x, mv.y, mv.z) === B.moving_piston) { World.set(mv.x, mv.y, mv.z, mv.id, mv.m); World.updateAround(mv.x, mv.y, mv.z); }
+    if (mv.after) mv.after();
+  },
+  moveTick() { if (!this.moves.length) return; const keep = []; for (const mv of this.moves) { if (World.tickCount - mv.t0 >= 2) this.finishMove(mv); else keep.push(mv); } this.moves = keep; },
+  finishMoves() { const l = this.moves; this.moves = []; for (const mv of l) this.finishMove(mv); },
   shift(set, D) {
     const { move, brk } = set;
     for (const [x, y, z, id] of brk.values()) Game.breakBlock(x, y, z, true, null, true);
     const list = [...move.values()];
     for (const [x, y, z] of list) World.set(x, y, z, 0, 0, 1);
-    for (const [x, y, z, id, m] of list) World.set(x + D[0], y + D[1], z + D[2], id, m);
+    for (const [x, y, z, id, m] of list) this.addMove(x + D[0], y + D[1], z + D[2], id, m, D, -1, 0, true);
     for (const [x, y, z] of list) World.updateAround(x, y, z);
     // empujar al jugador y a las criaturas que estén en el camino
     const dest = new Set(list.map(([x, y, z]) => (x + D[0]) + ',' + (y + D[1]) + ',' + (z + D[2])));
@@ -10477,17 +10558,21 @@ const RS = {
     }
   },
   extend(x, y, z, id, m) {
+    this.finishMoves();
     const f = m & 7; const D = FDIR[f];
     const set = this.collect(x + D[0], y + D[1], z + D[2], D, x, y, z); if (!set) return;
     this.shift(set, D);
     World.set(x, y, z, id, m | 8, 1);
-    World.set(x + D[0], y + D[1], z + D[2], B.piston_head, f | (BLOCKS[id].sticky ? 8 : 0));
+    this.addMove(x + D[0], y + D[1], z + D[2], B.piston_head, f | (BLOCKS[id].sticky ? 8 : 0), D, -1, 0, true);
     Sound.play('piston', x, y, z);
   },
   retract(x, y, z, id, m) {
+    this.finishMoves();
     const f = m & 7; const D = FDIR[f]; const hx = x + D[0], hy = y + D[1], hz = z + D[2];
-    World.set(x, y, z, id, m & ~8, 1);
-    if (this.get(hx, hy, hz) === B.piston_head) World.set(hx, hy, hz, 0, 0);
+    // la cabeza vuelve deslizándose; la base sigue abierta hasta que termina
+    if (this.get(hx, hy, hz) === B.piston_head) { const hm = World.getMeta(hx, hy, hz); World.set(hx, hy, hz, 0, 0); const mv = { x: hx, y: hy, z: hz, id: B.piston_head, m: hm, D, from: 0, to: -1, place: false, t0: World.tickCount };
+      mv.after = () => { if (World.get(x, y, z) === id) World.set(x, y, z, id, World.getMeta(x, y, z) & ~8, 1); }; this.moves.push(mv); }
+    else World.set(x, y, z, id, m & ~8, 1);
     if (BLOCKS[id].sticky) {
       const bx = hx + D[0], by = hy + D[1], bz = hz + D[2]; const b = this.get(bx, by, bz);
       if (this.movable(b, bx, by, bz) === 'move') { const set = this.collect(bx, by, bz, [-D[0], -D[1], -D[2]], x, y, z); if (set) { set.brk.clear(); this.shift(set, [-D[0], -D[1], -D[2]]); } }
