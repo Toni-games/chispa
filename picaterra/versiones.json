@@ -1,8 +1,19 @@
 {
-  "latest": "1.9.2",
+  "latest": "1.9.3",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.9.3",
+      "date": "2026-11-16",
+      "title": "Colores de bioma y pistón",
+      "notes": [
+        "Arbustos, enredaderas, hojarasca y caña de azúcar con el color del bioma (con el paquete de texturas ya no salen grises)",
+        "El pistón extendido ya no deja ver a través de los bloques de al lado"
+      ],
+      "size": 234833,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.9.3.zip"
+    },
     {
       "id": "1.9.2",
       "date": "2026-11-16",

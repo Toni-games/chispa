@@ -305,7 +305,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.9.2';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.9.3';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -1805,7 +1805,7 @@ defBlock('stone_bricks', 'Ladrillos de piedra', { tex: 'stone_bricks', hardness:
 defBlock('snow_block', 'Bloque de nieve', { tex: 'snow', hardness: 0.2, tool: 'shovel', sound: 'wool', color: '#f0f8fa', cat: 'nature' });
 defBlock('ice', 'Hielo', { tex: 'ice', hardness: 0.5, tool: 'pickaxe', opaque: false, translucent: true, cullSelf: true, filter: 1, slip: 0.98, drops: [], sound: 'glass', color: '#91b4fe', cat: 'nature' });
 defBlock('cactus', 'Cactus', { tex: { top: 'cactus_top', bottom: 'cactus_bottom', side: 'cactus_side' }, render: 'box', box: [[1, 0, 1, 15, 16, 15]], opaque: false, cutout: true, hardness: 0.4, sound: 'wool', support: 'cactus', color: '#5d8b2f', cat: 'nature' });
-defBlock('sugar_cane', 'Caña de azúcar', { tex: 'sugar_cane', render: 'cross', solid: false, opaque: false, cutout: true, hardness: 0, sound: 'grass', support: 'cane', color: '#7fb238', cat: 'nature' });
+defBlock('sugar_cane', 'Caña de azúcar', { tex: 'sugar_cane', render: 'cross', solid: false, opaque: false, cutout: true, hardness: 0, sound: 'grass', support: 'cane', color: '#7fb238', cat: 'nature', tint: 'grass' });
 defBlock('short_grass', 'Hierba', { tex: 'short_grass', render: 'cross', solid: false, opaque: false, cutout: true, hardness: 0, replaceable: true, sound: 'grass', tint: 'grass', support: 'soil', drops: (r) => r() < 0.125 ? [['wheat_seeds', 1]] : [], color: '#5a8a2a', cat: 'nature' });
 defBlock('dandelion', 'Diente de león', { tex: 'dandelion', render: 'cross', solid: false, opaque: false, cutout: true, hardness: 0, sound: 'grass', support: 'soil', color: '#f8d020', cat: 'nature' });
 defBlock('poppy', 'Amapola', { tex: 'poppy', render: 'cross', solid: false, opaque: false, cutout: true, hardness: 0, sound: 'grass', support: 'soil', color: '#d02020', cat: 'nature' });
@@ -3222,7 +3222,7 @@ function autoTextures() {
     else if (it.block) { const d = BLOCKS[B[it.block]]; addTex(n, autoItemTex({ key: n, color: d.color }), 'item'); }
     else addTex(n, autoItemTex(it), 'item');
   }
-  for (const n of ['jungle_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'fern', 'lily_pad', 'tall_grass_top', 'tall_grass_bottom', 'large_fern_top', 'large_fern_bottom']) if (TEX[n]) TINTED_TEX.add(n);
+  for (const n of ['jungle_leaves', 'dark_oak_leaves', 'mangrove_leaves', 'fern', 'lily_pad', 'tall_grass_top', 'tall_grass_bottom', 'large_fern_top', 'large_fern_bottom', 'bush', 'vine', 'leaf_litter', 'sugar_cane']) if (TEX[n]) TINTED_TEX.add(n);
   // iconos que no son casillas de ningún bloque (p. ej. la cara del girasol)
   for (const d of BLOCKS) if (d.icon && !TEX[d.icon]) addTex(d.icon, autoBlockTex(d.icon, d));
 }
@@ -3261,6 +3261,13 @@ const Atlas = {
     });
     this.canvas = cv; this.size = cv.width; this.height = cv.height; this.version++;
     this.tinted = new Uint8Array(TEX_NAMES.length); TEX_NAMES.forEach((n, i) => { if (TINTED_TEX.has(n)) this.tinted[i] = 1; });
+    // estas solo se tiñen con el color del bioma si su textura es gris (la del paquete); las de serie ya vienen pintadas
+    for (const n of ['bush', 'vine', 'leaf_litter', 'sugar_cane']) {
+      const i = TEX_NAMES.indexOf(n); if (i < 0) continue; const cols = Math.floor(cv.width / T);
+      const px = cv.getContext('2d').getImageData((i % cols) * T, Math.floor(i / cols) * T, T, T).data; let sat = 0, cnt = 0;
+      for (let k = 0; k < px.length; k += 4) if (px[k + 3] > 100) { const mx = Math.max(px[k], px[k + 1], px[k + 2]), mn = Math.min(px[k], px[k + 1], px[k + 2]); sat += mx ? (mx - mn) / mx : 0; cnt++; }
+      this.tinted[i] = cnt && sat / cnt < 0.18 ? 1 : 0;
+    }
     // ¿las hojas tienen transparencia? (para el modo de hojas detalladas)
     this.leavesAlpha = !!this.custom.oak_leaves;
     this.tileCanvas = {};
@@ -4339,7 +4346,10 @@ const Mesher = {
     const tintAll = d.tint && !d.tintFaces;
     for (let f = 0; f < 6; f++) {
       const np = p + this.NOFF[f]; const n = pb[np];
-      if (OPAQUE[n]) continue;
+      // un pistón extendido no tapa del todo los lados (la base mide 12 px): no esconder esa cara
+      const gap = OPAQUE[n] && (n === B.piston || n === B.sticky_piston) && (this.pm[np] & 8) && ((this.pm[np] & 7) >> 1) !== (f >> 1);
+      if (OPAQUE[n] && !gap) continue;
+      const lnp = gap ? pl[np + this.NOFF[this.pm[np] & 7]] : pl[np];
       if (n === id && (d.cullSelf || (d.leaves && !fancy))) continue;
       if (d.translucent && TRANSL[n] && n !== id) continue;
       if (d.leaves && BLOCKS[n].leaves && !fancy) continue;
@@ -4355,7 +4365,7 @@ const Mesher = {
         const t = aoT[k]; const o1 = np + t[0], o2 = np + t[1], o3 = np + t[2];
         const q1 = OPAQUE[pb[o1]], q2 = OPAQUE[pb[o2]], q3 = OPAQUE[pb[o3]];
         ao[k] = (q1 && q2) ? 0 : 3 - (q1 + q2 + q3);
-        let s = pl[np] >> 4, bl = pl[np] & 15, cnt = 1;
+        let s = lnp >> 4, bl = lnp & 15, cnt = 1;
         if (!q1) { s += pl[o1] >> 4; bl += pl[o1] & 15; cnt++; }
         if (!q2) { s += pl[o2] >> 4; bl += pl[o2] & 15; cnt++; }
         if (!q3 && !(q1 && q2)) { s += pl[o3] >> 4; bl += pl[o3] & 15; cnt++; }
@@ -4493,7 +4503,7 @@ const Mesher = {
       const onEdge = [x1 === 16, x0 === 0, y1 === 16, y0 === 0, z1 === 16, z0 === 0];
       for (let f = 0; f < 6; f++) {
         let L = own;
-        if (onEdge[f]) { const np = p + this.NOFF[f]; const n = pb[np]; if (OPAQUE[n]) continue; if (n === id && (d.slab || d.stairs) && f !== 2 && f !== 3) { /* contiguo */ } L = pl[np]; }
+        if (onEdge[f]) { const np = p + this.NOFF[f]; const n = pb[np]; if (OPAQUE[n] && !((n === B.piston || n === B.sticky_piston) && (this.pm[np] & 8) && ((this.pm[np] & 7) >> 1) !== (f >> 1))) continue; if (n === id && (d.slab || d.stairs) && f !== 2 && f !== 3) { /* contiguo */ } L = pl[np]; }
         L = Math.max(L >> 4, own >> 4) << 4 | Math.max(L & 15, own & 15);
         const [ti0, rot] = this.texFor(d, f, meta); const ti = btex ? (Atlas.index[btex] ?? ti0) : ti0;
         const uvs = fv[f].map(v => this.uvOf(f, v[0], Math.max(0, Math.min(16, v[1])), v[2]));
