@@ -1,8 +1,18 @@
 {
-  "latest": "1.9.1",
+  "latest": "1.9.2",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.9.2",
+      "date": "2026-11-16",
+      "title": "Luz de las antorchas en la mano",
+      "notes": [
+        "Lo que llevas en la mano (y los objetos del suelo) se iluminan con antorchas y otras luces, no solo con el cielo"
+      ],
+      "size": 234474,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.9.2.zip"
+    },
     {
       "id": "1.9.1",
       "date": "2026-11-16",

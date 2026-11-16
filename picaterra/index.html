@@ -305,7 +305,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.9.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.9.2';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -4567,7 +4567,7 @@ const Mesher = {
   },
   blockItem(id, meta) { // malla de un bloque en coordenadas -8..8 px (centrado)
     const buf = new VB(64); const d = BLOCKS[id];
-    const full = [240, 0];
+    const full = [240, 240]; // luz del cielo y de antorchas: así lo que llevas en la mano se ilumina con las antorchas
     const t = d.tint ? (d.tint[0] === '#' ? hexRGB(d.tint) : (d.tint === 'grass' ? [121, 192, 90] : [89, 174, 48])) : [255, 255, 255];
     const rt = RENDER[id];
     if (rt === 2 || rt === 4 || rt === 6 || rt === 7) return this.spriteItem(rt === 6 ? 'wheat_stage7' : d.faceTex[0], d.tint && TINTED_TEX.has(d.faceTex[0]) ? t : null);
@@ -4599,17 +4599,17 @@ const Mesher = {
     const z0 = -th / 2, z1 = th / 2;
     const F = [[0, 0, z1], [16, 0, z1], [16, 16, z1], [0, 16, z1]];
     const uvF = [[0, 16], [16, 16], [16, 0], [0, 0]];
-    this.quad(buf, -0.5, -0.5, 0, F, uvF, ti, col, 1, 240, 0);
-    this.quad(buf, -0.5, -0.5, 0, [[16, 0, z0], [0, 0, z0], [0, 16, z0], [16, 16, z0]], [[16, 16], [0, 16], [0, 0], [16, 0]], ti, col, 0.85, 240, 0);
+    this.quad(buf, -0.5, -0.5, 0, F, uvF, ti, col, 1, 240, 240);
+    this.quad(buf, -0.5, -0.5, 0, [[16, 0, z0], [0, 0, z0], [0, 16, z0], [16, 16, z0]], [[16, 16], [0, 16], [0, 0], [16, 0]], ti, col, 0.85, 240, 240);
     // bordes por píxel
     for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
       if (!solid(x, y)) continue;
       const X0 = x * k, X1 = (x + 1) * k, Y1 = 16 - y * k, Y0 = 16 - (y + 1) * k;
       const cu = (x + 0.5) * k, cv = (y + 0.5) * k; const uv = [[cu, cv], [cu, cv], [cu, cv], [cu, cv]];
-      if (!solid(x + 1, y)) this.quad(buf, -0.5, -0.5, 0, [[X1, Y0, z1], [X1, Y0, z0], [X1, Y1, z0], [X1, Y1, z1]], uv, ti, col, 0.7, 240, 0);
-      if (!solid(x - 1, y)) this.quad(buf, -0.5, -0.5, 0, [[X0, Y0, z0], [X0, Y0, z1], [X0, Y1, z1], [X0, Y1, z0]], uv, ti, col, 0.7, 240, 0);
-      if (!solid(x, y - 1)) this.quad(buf, -0.5, -0.5, 0, [[X0, Y1, z1], [X1, Y1, z1], [X1, Y1, z0], [X0, Y1, z0]], uv, ti, col, 0.95, 240, 0);
-      if (!solid(x, y + 1)) this.quad(buf, -0.5, -0.5, 0, [[X0, Y0, z0], [X1, Y0, z0], [X1, Y0, z1], [X0, Y0, z1]], uv, ti, col, 0.55, 240, 0);
+      if (!solid(x + 1, y)) this.quad(buf, -0.5, -0.5, 0, [[X1, Y0, z1], [X1, Y0, z0], [X1, Y1, z0], [X1, Y1, z1]], uv, ti, col, 0.7, 240, 240);
+      if (!solid(x - 1, y)) this.quad(buf, -0.5, -0.5, 0, [[X0, Y0, z0], [X0, Y0, z1], [X0, Y1, z1], [X0, Y1, z0]], uv, ti, col, 0.7, 240, 240);
+      if (!solid(x, y - 1)) this.quad(buf, -0.5, -0.5, 0, [[X0, Y1, z1], [X1, Y1, z1], [X1, Y1, z0], [X0, Y1, z0]], uv, ti, col, 0.95, 240, 240);
+      if (!solid(x, y + 1)) this.quad(buf, -0.5, -0.5, 0, [[X0, Y0, z0], [X1, Y0, z0], [X1, Y0, z1], [X0, Y0, z1]], uv, ti, col, 0.55, 240, 240);
     }
     buf.sprite = true;
     return buf;
