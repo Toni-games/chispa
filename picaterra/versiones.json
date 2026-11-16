@@ -1,8 +1,21 @@
 {
-  "latest": "1.9.10",
+  "latest": "1.10.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.10.0",
+      "date": "2026-11-16",
+      "title": "Más criaturas",
+      "notes": [
+        "16 criaturas nuevas con la textura del paquete: lobo, gato, ocelote, zorro, oso polar, panda, llama, abeja, loro, bacalao, salmón, calamar, tortuga, lepisma, bruja y esqueleto pantanoso",
+        "Colores según el bioma (8 lobos, zorro de las nieves, 11 gatos, llamas, loros, panda marrón) y cada bioma con sus animales",
+        "Más animales y menos monstruos de noche; zombis que pegan con los brazos, esqueletos que tensan el arco, brujas que lanzan pociones",
+        "Panorama del menú más nítido"
+      ],
+      "size": 249790,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.10.0.zip"
+    },
     {
       "id": "1.9.10",
       "date": "2026-11-16",

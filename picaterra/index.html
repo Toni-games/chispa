@@ -336,7 +336,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.9.10';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.10.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2584,6 +2584,7 @@ for (const n of DISCS) defItem('music_disc_' + n, 'Disco de música', { stack: 1
 ITEMS.redstone.places = 'redstone_wire'; ITEMS.redstone.cat = 'redstone';
 // huevos para hacer aparecer criaturas
 const MOBS_LIST13 = { pig: 'cerdo', cow: 'vaca', sheep: 'oveja', chicken: 'gallina', zombie: 'zombi', skeleton: 'esqueleto', spider: 'araña', husk: 'zombi momificado', drowned: 'ahogado', stray: 'esqueleto glacial', wither_skeleton: 'esqueleto oscuro', cave_spider: 'araña de cueva', slime: 'slime', magma_cube: 'cubo de magma' };
+Object.assign(MOBS_LIST13, { wolf: 'lobo', cat: 'gato', ocelot: 'ocelote', fox: 'zorro', polar_bear: 'oso polar', panda: 'panda', llama: 'llama', bee: 'abeja', parrot: 'loro', cod: 'bacalao', salmon: 'salmón', squid: 'calamar', turtle: 'tortuga', silverfish: 'lepisma', witch: 'bruja', bogged: 'esqueleto pantanoso' });
 for (const k of Object.keys(MOBS_LIST13)) defItem(k + '_spawn_egg', 'Huevo generador de ' + MOBS_LIST13[k], { cat: 'misc', egg: k });
 // herramientas y armaduras de cobre y de netherita
 for (const [m, mn, tier, speed, dur, c1, c2, mi] of [['copper', 'de cobre', 2, 5, 190, '#e0734d', '#9a4a2a', 1], ['netherite', 'de netherita', 4, 9, 2031, '#4a4245', '#2a2426', 4]]) {
@@ -3055,7 +3056,7 @@ function eggIcon(base, spot) {
     '................',
   ], { o: shade(base, -0.6), b: base, h: shade(base, 0.35), s: spot, d: shade(base, -0.2) });
 }
-const EGG_COLORS = { pig: ['#f0a5a2', '#db6e6e'], cow: ['#4a3828', '#b8b0a8'], sheep: ['#e8e6e0', '#f2b8b6'], chicken: ['#e8e8e0', '#d83a2a'], zombie: ['#2e9a9a', '#6e9a4e'], skeleton: ['#c8c8c4', '#5a5a5a'], spider: ['#3a2f26', '#b02020'], husk: ['#8a7a52', '#c8b07a'], drowned: ['#5fb0a8', '#8a6a3a'], stray: ['#5f7a7e', '#d8e4e8'], wither_skeleton: ['#1a1a1a', '#4a4a4a'], cave_spider: ['#0e3a44', '#a8122a'], slime: ['#5aa848', '#2e6a24'], magma_cube: ['#3a0e04', '#e8a018'] };
+const EGG_COLORS = { wolf: ['#d7d3d3', '#ceaf96'], cat: ['#efc88e', '#957256'], ocelot: ['#efde7d', '#564434'], fox: ['#d5b69f', '#cc6920'], polar_bear: ['#f2f2f2', '#959590'], panda: ['#e7e7e7', '#1b1b22'], llama: ['#c09e7d', '#995f40'], bee: ['#edc343', '#43241b'], parrot: ['#0da70b', '#ff0000'], cod: ['#c1a76a', '#e5c48b'], salmon: ['#a00f10', '#0e8474'], squid: ['#223b4d', '#708899'], turtle: ['#e7e7e7', '#00afaf'], silverfish: ['#6e6e6e', '#303030'], witch: ['#340000', '#51a03e'], bogged: ['#8a9a73', '#314d1b'], pig: ['#f0a5a2', '#db6e6e'], cow: ['#4a3828', '#b8b0a8'], sheep: ['#e8e6e0', '#f2b8b6'], chicken: ['#e8e8e0', '#d83a2a'], zombie: ['#2e9a9a', '#6e9a4e'], skeleton: ['#c8c8c4', '#5a5a5a'], spider: ['#3a2f26', '#b02020'], husk: ['#8a7a52', '#c8b07a'], drowned: ['#5fb0a8', '#8a6a3a'], stray: ['#5f7a7e', '#d8e4e8'], wither_skeleton: ['#1a1a1a', '#4a4a4a'], cave_spider: ['#0e3a44', '#a8122a'], slime: ['#5aa848', '#2e6a24'], magma_cube: ['#3a0e04', '#e8a018'] };
 const bowlRows = (top) => [
   '................',
   '................',
@@ -5412,7 +5413,7 @@ function boxMesh(buf, s, o, uv, inf, texW, mirror) {
   const face = (verts, rect, map, sh) => {
     for (let k = 0; k < 4; k++) {
       const [vx, vy, vz] = verts[k]; let [iu, iv] = map(vx, vy, vz); if (mirror) iu = rect[2] - iu;
-      buf.v(k, Math.round(vx * U), Math.round(vy * U), Math.round(vz * U), Math.round((rect[0] + iu) * 16), Math.round((rect[1] + iv) * 16), 255, 255, 255, Math.round(255 * sh), 240, 240, 0);
+      buf.v(k, Math.round(vx * U), Math.round(vy * U), Math.round(vz * U), Math.round((rect[0] + iu) * 16 * 64 / (texW || 64)), Math.round((rect[1] + iv) * 16 * 64 / (texW || 64)), 255, 255, 255, Math.round(255 * sh), 240, 240, 0);
     }
     buf.end();
   };
@@ -5429,7 +5430,7 @@ const ModelCache = {};
 function getModel(kind) {
   if (ModelCache[kind]) return ModelCache[kind];
   const parts = (MODELS[kind] || MODELS[mobModel(kind)] || MODELS.player).map(p => {
-    const vb = new VB(8); boxMesh(vb, p.s, p.o, p.uv, p.inf, 64, p.mirror);
+    const vb = new VB(8); boxMesh(vb, p.s, p.o, p.uv, p.inf, (typeof MODEL_TEXW !== 'undefined' && MODEL_TEXW[mobModel(kind)]) || 64, p.mirror);
     return Object.assign({}, p, { mesh: Renderer.meshFromVB(vb), rx: p.brx || 0, ry: p.bry || 0, rz: p.brz || 0 });
   });
   const m = { parts, by: {} }; for (const p of parts) m.by[p.n] = p;
@@ -5463,8 +5464,9 @@ function animate(kind, m, e, pt) {
     P.rarm.rz = -(Math.cos(age * 0.09) * 0.05 + 0.05); P.larm.rz = Math.cos(age * 0.09) * 0.05 + 0.05;
     P.rarm.rx += Math.sin(age * 0.067) * 0.05; P.larm.rx -= Math.sin(age * 0.067) * 0.05;
     if (e.holding && kind === 'player') P.rarm.rx = P.rarm.rx * 0.5 + 0.31;
-    if (kind === 'zombie') { P.rarm.rx = Math.PI / 2 - Math.sin(age * 0.067) * 0.05; P.larm.rx = Math.PI / 2 + Math.sin(age * 0.067) * 0.05; }
-    if (kind === 'skeleton' && e.aiming) { P.rarm.rx = Math.PI / 2 + pitch; P.larm.rx = Math.PI / 2 + pitch; P.larm.ry = 0.4; P.rarm.ry = -0.1; }
+    if (kind === 'zombie') { P.rarm.rx = Math.PI / 2 - Math.sin(age * 0.067) * 0.05; P.larm.rx = Math.PI / 2 + Math.sin(age * 0.067) * 0.05;
+      const at = e.swingTime !== undefined && e.swinging ? Math.sin(clamp((e.swingTime + pt) / 6, 0, 1) * Math.PI) : 0; if (at) { P.rarm.rx -= at * 1.1; P.larm.rx -= at * 1.1; P.body.ry = at * 0.15; } }
+    if (kind === 'skeleton' && e.aiming) { const pull = clamp(1 - (e.shootT || 0) / 30, 0, 1), kick = e.shotT > 0 ? (e.shotT - pt) / 5 : 0; P.rarm.rx = Math.PI / 2 + pitch - kick * 0.4; P.larm.rx = Math.PI / 2 + pitch - kick * 0.25; P.larm.ry = 0.4 + pull * 0.15; P.rarm.ry = -0.1 - pull * 0.35; P.head.rx = pitch; }
     const swing = e.swingTime !== undefined ? clamp((e.swingTime + (e.swinging ? pt : 0)) / 6, 0, 1) : 0;
     if (e.swinging || (swing > 0 && swing < 1)) {
       const s = swing; const f = Math.sin(s * Math.PI), f2 = Math.sin(Math.sqrt(s) * Math.PI);
@@ -5496,6 +5498,7 @@ function animate(kind, m, e, pt) {
       R.ry = -(yb[i] + fy); L.ry = yb[i] + fy;
     }
   }
+  if (typeof ANIM_EXTRA !== 'undefined' && ANIM_EXTRA[kind]) ANIM_EXTRA[kind](P, sw, age, e, la);
   for (const p of m.parts) if (p.follow) { const f = P[p.follow]; p.rx = f.rx; p.ry = f.ry; p.rz = f.rz; p.dx = f.dx; p.dy = f.dy; p.dz = f.dz; }
 }
 function lerpAngle(a, b, t) { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return a + d * t; }
@@ -5874,13 +5877,16 @@ class Mob extends Entity {
     }
     if (this.panic > 0) this.panic--;
     if (d.passive) this.breedTick();
+    if (MobMove.tick(this, d, P, dist)) { if (--this.soundT <= 0) { this.soundT = 200 + Math.random() * 400 | 0; if (dist < 24) Sound.play(d.sound, this.x, this.y, this.z); } return; }
+    if (d.shy && dist < 7 && playerOk && !(P.held && breedFood(this.kind, P.held.id)) && this.panic <= 0) { this.panic = 30; this.goalYaw = Math.atan2(this.x - P.x, this.z - P.z) * -1; }
     if (this.target) {
       const t = this.target; const ty = Math.atan2(-(t.x - this.x), -(t.z - this.z));
       this.yaw = lerpAngle(this.yaw, ty, 0.35);
       if (d.ranged) {
         this.aiming = dist < 15;
         fwd = dist > 10 ? 1 : dist < 5 ? -0.6 : 0;
-        if (--this.shootT <= 0 && dist < 15) { this.shootT = 40 + (Math.random() * 20 | 0); Entities.shootArrow(this, t, 1.6); }
+        if (--this.shootT <= 0 && dist < 15) { this.shootT = 40 + (Math.random() * 20 | 0); this.shotT = 5; if (d.throws) Entities.throwAt(this, t, d.dmg); else Entities.shootArrow(this, t, 1.6); }
+        if (this.shotT > 0) this.shotT--;
       } else {
         fwd = 1;
         if (dist < ((d.model || this.kind) === 'spider' ? 1.9 : 1.5) && Math.abs(P.y - this.y) < 1.5 && this.atkCD <= 0) {
@@ -5934,7 +5940,8 @@ class Mob extends Entity {
   hurtByPlayer(dmg, P, crit) {
     this.playerHit = performance.now();
     const ok = this.damage(dmg, { x: P.x, z: P.z, player: true, kb: P.sprinting ? 0.8 : 0.4 });
-    if (ok) { Sound.play(this.def.sound + '_hurt', this.x, this.y, this.z); if (this.def.passive) { this.panic = 100; this.goalYaw = Math.atan2(this.x - P.x, this.z - P.z) * -1; } else { this.provoked = true; this.target = P; } if (crit) Particles.crit(this); }
+    if (ok) { Sound.play(this.def.sound + '_hurt', this.x, this.y, this.z); if (this.def.passive) { this.panic = 100; this.goalYaw = Math.atan2(this.x - P.x, this.z - P.z) * -1; } else { this.provoked = true; this.target = P; this.angry = true; this.angryT = 600;
+      if (this.def.pack) for (const e of Entities.list) if (e.mob && e !== this && e.kind === this.kind && !e.dead && Math.hypot(e.x - this.x, e.z - this.z) < 14) { e.target = P; e.angry = true; e.angryT = 600; } } if (crit) Particles.crit(this); }
     return ok;
   }
 }
@@ -6030,7 +6037,8 @@ class Thrown extends Entity {
   constructor(id, x, y, z, vx, vy, vz, shooter) { super('thrown', x, y, z); this.item = { id, n: 1 }; this.vx = vx; this.vy = vy; this.vz = vz; this.w = 0.25; this.h = 0.25; this.shooter = shooter; }
   tick() {
     this.savePrev(); this.age++;
-    const steps = 4;
+    const steps = 4; const PL = Game.player;
+    if (this.harm && PL && !PL.dead) { const b = PL.bb(); if (this.x > b[0] - 0.15 && this.x < b[3] + 0.15 && this.y > b[1] - 0.1 && this.y < b[4] + 0.1 && this.z > b[2] - 0.15 && this.z < b[5] + 0.15) { PL.hurtBy(this.harm, { x: this.x - this.vx, z: this.z - this.vz, mob: true, kb: 0.3 }); this.hit(); return; } }
     for (let s = 0; s < steps; s++) {
       const nx = this.x + this.vx / steps, ny = this.y + this.vy / steps, nz = this.z + this.vz / steps;
       for (const e of Entities.list) {
@@ -6057,6 +6065,290 @@ function throwItem(P, id) {
   Entities.add(new Thrown(id, P.x + dx * 0.4, P.y + P.eye - 0.1, P.z + dz * 0.4, dx * sp + P.vx, dy * sp + (P.onGround ? 0 : P.vy), dz * sp + P.vz, P));
   Sound.play('bow', P.x, P.y, P.z);
 }
+
+
+// ---- extra/mobs19.js ----
+// ============================================================
+//  1.9: más criaturas (animales de cada bioma y monstruos)
+//  Modelos con las mismas cajas y UV que el original, para que la textura del
+//  paquete encaje sola. Los colores cambian según el bioma (lobos, zorros...).
+// ============================================================
+const QP = Math.PI / 2;
+// tamaño de la textura de cada modelo (las UV se escalan a 64)
+const MODEL_TEXW = { wolf: 64, cat: 64, fox: 48, polar_bear: 128, panda: 64, llama: 128, bee: 64, parrot: 32, cod: 32, salmon: 32, squid: 64, silverfish: 64, turtle: 128, witch: 128 };
+const leg = (n, uv, box, pivot, x) => MCB(n, uv, box, pivot, x);
+Object.assign(MODELS, {
+  wolf: [
+    MCB('head', [0, 0], [-2, -3, -2, 6, 6, 4], [-1, 13.5, -7]),
+    MCB('ear1', [16, 14], [-2, -5, 0, 2, 2, 1], [-1, 13.5, -7], { follow: 'head' }), MCB('ear2', [16, 14], [2, -5, 0, 2, 2, 1], [-1, 13.5, -7], { follow: 'head' }),
+    MCB('nose', [0, 10], [-0.5, -0.001, -5, 3, 3, 4], [-1, 13.5, -7], { follow: 'head' }),
+    MCB('body', [18, 14], [-3, -2, -3, 6, 9, 6], [0, 14, 2], { brx: -QP }),
+    MCB('mane', [21, 0], [-3, -3, -3, 8, 6, 7], [-1, 14, -3], { brx: -QP }),
+    leg('leg0', [0, 18], [0, 0, -1, 2, 8, 2], [-2.5, 16, -4]), leg('leg1', [0, 18], [0, 0, -1, 2, 8, 2], [0.5, 16, -4]),
+    leg('leg2', [0, 18], [0, 0, -1, 2, 8, 2], [-2.5, 16, 7]), leg('leg3', [0, 18], [0, 0, -1, 2, 8, 2], [0.5, 16, 7]),
+    MCB('tail', [9, 18], [0, 0, -1, 2, 8, 2], [-1, 12, 8], { brx: -Math.PI / 5 }),
+  ],
+  cat: [
+    MCB('head', [0, 0], [-2.5, -2, -3, 5, 4, 5], [0, 15, -9]),
+    MCB('nose', [0, 24], [-1.5, -0.001, -4, 3, 2, 2], [0, 15, -9], { follow: 'head' }),
+    MCB('ear1', [0, 10], [-2, -3, 0, 1, 1, 2], [0, 15, -9], { follow: 'head' }), MCB('ear2', [6, 10], [1, -3, 0, 1, 1, 2], [0, 15, -9], { follow: 'head' }),
+    MCB('body', [20, 0], [-2, 3, -8, 4, 16, 6], [0, 12, -10], { brx: -QP }),
+    MCB('tail', [0, 15], [-0.5, 0, 0, 1, 8, 1], [0, 15, 8], { brx: -0.9 }), MCB('tail2', [4, 15], [-0.5, 0, 0, 1, 8, 1], [0, 20, 14], { brx: -1.7 }),
+    leg('leg0', [40, 0], [-1, 0, 0, 2, 10, 2], [-1.2, 14.1, -5]), leg('leg1', [40, 0], [-1, 0, 0, 2, 10, 2], [1.2, 14.1, -5]),
+    leg('leg2', [8, 13], [-1, 0, 1, 2, 6, 2], [-1.1, 18, 5]), leg('leg3', [8, 13], [-1, 0, 1, 2, 6, 2], [1.1, 18, 5]),
+  ],
+  fox: [
+    MCB('head', [1, 5], [-3, -2, -5, 8, 6, 6], [-1, 16.5, -3]),
+    MCB('ear1', [8, 1], [-3, -4, -4, 2, 2, 1], [-1, 16.5, -3], { follow: 'head' }), MCB('ear2', [15, 1], [3, -4, -4, 2, 2, 1], [-1, 16.5, -3], { follow: 'head' }),
+    MCB('nose', [6, 18], [-1, 2.01, -8, 4, 2, 3], [-1, 16.5, -3], { follow: 'head' }),
+    MCB('body', [24, 15], [-3, 3.999, -3.5, 6, 11, 6], [0, 16, -6], { brx: -QP }),
+    leg('leg0', [13, 24], [2, 0.5, -1, 2, 6, 2], [-5, 17.5, 0]), leg('leg1', [4, 24], [2, 0.5, -1, 2, 6, 2], [-1, 17.5, 0]),
+    leg('leg2', [13, 24], [2, 0.5, -1, 2, 6, 2], [-5, 17.5, 7]), leg('leg3', [4, 24], [2, 0.5, -1, 2, 6, 2], [-1, 17.5, 7]),
+    MCB('tail', [30, 0], [2, 0, -1, 4, 9, 5], [-4, 15, -1], { brx: -(QP + 0.15) }),
+  ],
+  polar_bear: [
+    MCB('head', [0, 0], [-3.5, -3, -3, 7, 7, 7], [0, 10, -16]),
+    MCB('mouth', [0, 44], [-2.5, 1, -6, 5, 3, 3], [0, 10, -16], { follow: 'head' }),
+    MCB('ear1', [26, 0], [-4.5, -4, -1, 2, 2, 1], [0, 10, -16], { follow: 'head' }), MCB('ear2', [26, 0], [2.5, -4, -1, 2, 2, 1], [0, 10, -16], { follow: 'head', mirror: true }),
+    MCB('body', [0, 19], [-5, -13, -7, 14, 14, 11], [-2, 9, 12], { brx: -QP }), MCB('body2', [39, 0], [-4, -25, -7, 12, 12, 10], [-2, 9, 12], { brx: -QP }),
+    leg('leg0', [50, 40], [-2, 0, -2, 4, 10, 6], [-3.5, 14, -8]), leg('leg1', [50, 40], [-2, 0, -2, 4, 10, 6], [3.5, 14, -8]),
+    leg('leg2', [50, 22], [-2, 0, -2, 4, 10, 8], [-4.5, 14, 6]), leg('leg3', [50, 22], [-2, 0, -2, 4, 10, 8], [4.5, 14, 6]),
+  ],
+  panda: [
+    MCB('head', [0, 6], [-6.5, -5, -4, 13, 10, 9], [0, 11.5, -17]),
+    MCB('nose', [45, 16], [-3.5, 0, -6, 7, 5, 2], [0, 11.5, -17], { follow: 'head' }),
+    MCB('ear1', [52, 25], [-8.5, -8, -1, 5, 4, 1], [0, 11.5, -17], { follow: 'head' }), MCB('ear2', [52, 25], [3.5, -8, -1, 5, 4, 1], [0, 11.5, -17], { follow: 'head' }),
+    MCB('body', [0, 25], [-9.5, -13, -6.5, 19, 26, 13], [0, 10, 0], { brx: -QP }),
+    leg('leg0', [40, 0], [-3, 0, -3, 6, 9, 6], [-5.5, 15, -9]), leg('leg1', [40, 0], [-3, 0, -3, 6, 9, 6], [5.5, 15, -9]),
+    leg('leg2', [40, 0], [-3, 0, -3, 6, 9, 6], [-5.5, 15, 9]), leg('leg3', [40, 0], [-3, 0, -3, 6, 9, 6], [5.5, 15, 9]),
+  ],
+  llama: [
+    MCB('head', [0, 0], [-2, -14, -10, 4, 4, 9], [0, 7, -6]),
+    MCB('neck', [0, 14], [-4, -16, -6, 8, 18, 6], [0, 7, -6], { follow: 'head' }),
+    MCB('ear1', [17, 0], [-4, -19, -4, 3, 3, 2], [0, 7, -6], { follow: 'head' }), MCB('ear2', [17, 0], [1, -19, -4, 3, 3, 2], [0, 7, -6], { follow: 'head' }),
+    MCB('body', [29, 0], [-6, -10, -7, 12, 18, 10], [0, 5, 2], { brx: -QP }),
+    leg('leg0', [29, 29], [-2, 0, -2, 4, 14, 4], [-3.5, 10, -5]), leg('leg1', [29, 29], [-2, 0, -2, 4, 14, 4], [3.5, 10, -5]),
+    leg('leg2', [29, 29], [-2, 0, -2, 4, 14, 4], [-3.5, 10, 6]), leg('leg3', [29, 29], [-2, 0, -2, 4, 14, 4], [3.5, 10, 6]),
+  ],
+  bee: [
+    MCB('body', [0, 0], [-3.5, -4, -5, 7, 7, 10], [0, 19, 0]),
+    MCB('stinger', [26, 7], [0, -1, 5, 0, 1, 2], [0, 19, 0], { follow: 'body' }),
+    MCB('ant1', [2, 0], [1.5, -6, -8, 1, 2, 3], [0, 19, 0], { follow: 'body' }), MCB('ant2', [2, 3], [-2.5, -6, -8, 1, 2, 3], [0, 19, 0], { follow: 'body' }),
+    MCB('rwing', [0, 18], [-9, 0, 0, 9, 0, 6], [-1.5, 15, -3], { bry: 0.2618 }), MCB('lwing', [0, 18], [0, 0, 0, 9, 0, 6], [1.5, 15, -3], { bry: -0.2618, mirror: true }),
+    MCB('legf', [26, 1], [-5, 0, 0, 7, 2, 0], [1.5, 22, -2]), MCB('legm', [26, 3], [-5, 0, 0, 7, 2, 0], [1.5, 22, 0]), MCB('legb', [26, 5], [-5, 0, 0, 7, 2, 0], [1.5, 22, 2]),
+  ],
+  parrot: [
+    MCB('body', [2, 8], [-1.5, 0, -1.5, 3, 6, 3], [0, 16.5, -3], { brx: -0.4937 }),
+    MCB('tail', [22, 1], [-1.5, -1, -1, 3, 4, 1], [0, 21.07, 1.16], { brx: -1.015 }),
+    MCB('lwing', [19, 8], [-0.5, 0, -1.5, 1, 5, 3], [1.5, 16.94, -2.76], { brx: 0.6981, bry: Math.PI }),
+    MCB('rwing', [19, 8], [-0.5, 0, -1.5, 1, 5, 3], [-1.5, 16.94, -2.76], { brx: 0.6981, bry: Math.PI }),
+    MCB('head', [2, 2], [-1, -1.5, -1, 2, 3, 2], [0, 15.69, -2.76]),
+    MCB('head2', [10, 0], [-1, -2.5, -3, 2, 1, 4], [0, 15.69, -2.76], { follow: 'head' }),
+    MCB('beak1', [11, 7], [-0.5, -1.5, -2.5, 1, 2, 1], [0, 15.69, -2.76], { follow: 'head' }), MCB('beak2', [16, 7], [-0.5, -1.75, -2.95, 1, 2, 1], [0, 15.69, -2.76], { follow: 'head' }),
+    MCB('feather', [2, 18], [0, -6.15, -1.85, 0, 5, 4], [0, 15.69, -2.76], { follow: 'head' }),
+    MCB('legl', [14, 18], [-0.5, 0, -0.5, 1, 2, 1], [1, 22, -1.05]), MCB('legr', [14, 18], [-0.5, 0, -0.5, 1, 2, 1], [-1, 22, -1.05]),
+  ],
+  cod: [
+    MCB('body', [0, 0], [-1, -2, 0, 2, 4, 7], [0, 22, 0]),
+    MCB('head', [11, 0], [-1, -2, -3, 2, 4, 3], [0, 22, 0], { follow: 'body' }),
+    MCB('nose', [0, 0], [-1, -2, -4, 2, 3, 1], [0, 22, 0], { follow: 'body' }),
+    MCB('finr', [22, 1], [-2, 0, -1, 2, 0, 2], [-1, 23, 0], { bry: QP / 2 }), MCB('finl', [22, 4], [0, 0, -1, 2, 0, 2], [1, 23, 0], { bry: -QP / 2 }),
+    MCB('tail', [22, 3], [0, -2, 0, 0, 4, 4], [0, 22, 7]),
+  ],
+  salmon: [
+    MCB('body', [0, 0], [-1.5, -2.5, 0, 3, 5, 8], [0, 20, 0]),
+    MCB('body2', [0, 13], [-1.5, -2.5, 0, 3, 5, 8], [0, 20, 8]),
+    MCB('head', [22, 0], [-1, -2, -3, 2, 4, 3], [0, 20, 0], { follow: 'body' }),
+    MCB('tail', [20, 10], [0, -2.5, 0, 0, 5, 6], [0, 20, 16]),
+    MCB('fin1', [2, 1], [0, 0, 0, 0, 2, 3], [0, 17.5, 5], { follow: 'body' }), MCB('fin2', [0, 2], [0, 0, 0, 0, 2, 4], [0, 17.5, 9], { follow: 'body2' }),
+  ],
+  squid: [
+    MCB('body', [0, 0], [-6, -8, -6, 12, 16, 12], [0, 8, 0]),
+    ...Array.from({ length: 8 }, (_, i) => { const a = i * Math.PI * 2 / 8; return MCB('t' + i, [48, 0], [-1, 0, -1, 2, 18, 2], [Math.cos(a) * 5, 15, Math.sin(a) * 5], { bry: -(i * -Math.PI * 2 / 8 + QP) }); }),
+  ],
+  turtle: [
+    MCB('head', [3, 0], [-3, -1, -3, 6, 5, 6], [0, 19, -10]),
+    MCB('body', [7, 37], [-9.5, 3, -10, 19, 20, 6], [0, 11, -10], { brx: -QP }),
+    leg('leg2', [1, 23], [-2, 0, 0, 4, 1, 10], [-3.5, 22, 11]), leg('leg3', [1, 12], [-2, 0, 0, 4, 1, 10], [3.5, 22, 11]),
+    leg('leg0', [27, 30], [-13, 0, -2, 13, 1, 5], [-5, 21, -4]), leg('leg1', [27, 24], [0, 0, -2, 13, 1, 5], [5, 21, -4]),
+  ],
+  silverfish: (() => {
+    const S = [[3, 2, 2], [4, 3, 2], [6, 4, 3], [3, 3, 3], [2, 2, 3], [2, 1, 2], [1, 1, 2]], T = [[0, 0], [0, 4], [0, 9], [0, 16], [0, 22], [11, 0], [13, 4]];
+    const out = [], zp = []; let f = -3.5;
+    for (let i = 0; i < 7; i++) { zp[i] = f; out.push(MCB('s' + i, T[i], [S[i][0] * -0.5, 0, S[i][2] * -0.5, S[i][0], S[i][1], S[i][2]], [0, 24 - S[i][1], f])); if (i < 6) f += (S[i][2] + S[i + 1][2]) * 0.5; }
+    out.push(MCB('l0', [20, 0], [-5, 0, S[2][2] * -0.5, 10, 8, 3], [0, 16, zp[2]]), MCB('l1', [20, 11], [-3, 0, S[4][2] * -0.5, 6, 4, 3], [0, 20, zp[4]]), MCB('l2', [20, 18], [-3, 0, S[4][2] * -0.5, 6, 5, 2], [0, 19, zp[1]]));
+    return out;
+  })(),
+  witch: [
+    MCB('head', [0, 0], [-4, -10, -4, 8, 10, 8], [0, 0, 0]),
+    MCB('nose', [24, 0], [-1, -3, -6, 2, 4, 2], [0, 0, 0], { follow: 'head' }),
+    MCB('hat', [0, 64], [-5, -10.03, -5, 10, 2, 10], [0, 0, 0], { follow: 'head' }),
+    MCB('hat2', [0, 76], [-3.25, -14, -3, 7, 4, 7], [0, 0, 0], { follow: 'head' }),
+    MCB('hat3', [0, 87], [-1.5, -17, -1, 4, 4, 4], [0, 0, 0], { follow: 'head' }),
+    MCB('body', [16, 20], [-4, 0, -3, 8, 12, 6], [0, 0, 0]),
+    MCB('robe', [0, 38], [-4, 0, -3, 8, 20, 6], [0, 0, 0], { inf: 0.5 }),
+    MCB('arms', [44, 22], [-8, -2, -2, 4, 8, 4], [0, 3, -1], { brx: 0.75 }), MCB('arms2', [44, 22], [4, -2, -2, 4, 8, 4], [0, 3, -1], { brx: 0.75, mirror: true }),
+    MCB('arms3', [40, 38], [-4, 2, -2, 8, 4, 4], [0, 3, -1], { brx: 0.75 }),
+    MCB('rleg', [0, 22], [-2, 0, -2, 4, 12, 4], [-2, 12, 0]), MCB('lleg', [0, 22], [-2, 0, -2, 4, 12, 4], [2, 12, 0], { mirror: true }),
+  ],
+});
+// animaciones de las criaturas nuevas
+const ANIM_EXTRA = {
+  _quad(P, sw) { if (P.leg0) { P.leg0.rx = sw; P.leg1.rx = -sw; P.leg2.rx = -sw; P.leg3.rx = sw; } },
+  wolf(P, sw, age, e) { this._quad(P, sw); P.tail.ry = Math.sin(age * 0.35) * (e.angry ? 0.05 : 0.35); if (e.angry || e.target) P.tail.rx = -Math.PI / 3.5; },
+  cat(P, sw) { this._quad(P, sw); },
+  fox(P, sw, age) { this._quad(P, sw); P.tail.ry = Math.sin(age * 0.2) * 0.12; },
+  polar_bear(P, sw, age, e) { this._quad(P, sw); if (e.target && e.atkCD > 10) { P.head.dy = 0; P.leg0.rx = P.leg1.rx = -1.2; } },
+  panda(P, sw) { this._quad(P, sw); },
+  llama(P, sw) { this._quad(P, sw); },
+  turtle(P, sw) { if (P.leg0) { P.leg0.ry = sw * 0.5; P.leg1.ry = -sw * 0.5; P.leg2.rx = sw * 0.4; P.leg3.rx = -sw * 0.4; } },
+  bee(P, sw, age) { const f = Math.sin(age * 2.1) * 0.6; P.rwing.rz = f; P.lwing.rz = -f; P.body.dy = Math.sin(age * 0.18) * 0.6; for (const n of ['stinger', 'ant1', 'ant2']) P[n].dy = P.body.dy; },
+  parrot(P, sw, age, e) { const fl = !e.onGround; const f = fl ? Math.sin(age * 1.4) * 0.9 : 0; P.lwing.rz = -f; P.rwing.rz = f; P.legl.rx = fl ? 0.4 : sw; P.legr.rx = fl ? 0.4 : -sw; },
+  cod(P, sw, age, e) { const k = e.inWater ? 1 : 1.7; P.tail.ry = -Math.sin(age * 0.6 * k) * 0.45 * k; if (!e.inWater) { P.body.rz = QP; for (const p of ['head', 'nose']) P[p].rz = QP; } },
+  salmon(P, sw, age, e) { const k = e.inWater ? 1 : 1.7; P.body2.ry = -Math.sin(age * 0.6 * k) * 0.25 * k; P.tail.ry = -Math.sin(age * 0.6 * k) * 0.45 * k; },
+  squid(P, sw, age) { const t = (Math.sin(age * 0.15) + 1) * 0.35; for (let i = 0; i < 8; i++) P['t' + i].rx = t; },
+  silverfish(P, sw, age) { for (let i = 0; i < 7; i++) { P['s' + i].ry = Math.cos(age * 0.9 + i * 0.15 * Math.PI) * Math.PI * 0.05 * (1 + Math.abs(i - 2)); P['s' + i].dx = Math.sin(age * 0.9 + i * 0.15 * Math.PI) * Math.PI * 0.2 * Math.abs(i - 2); } },
+  witch(P, sw, age, e) { P.rleg.rx = sw; P.lleg.rx = -sw; if (e.swinging) { P.arms.rx = P.arms2.rx = P.arms3.rx = 0.75 - Math.sin((e.swingTime || 0) / 6 * Math.PI) * 1.2; } },
+};
+// variantes por bioma (textura distinta con el mismo modelo)
+const WOLF_VARIANTS = ['ashen', 'black', 'chestnut', 'rusty', 'snowy', 'spotted', 'striped', 'woods'];
+const CAT_VARIANTS = ['all_black', 'black', 'british_shorthair', 'calico', 'jellie', 'persian', 'ragdoll', 'red', 'siamese', 'tabby', 'white'];
+Object.assign(MOB_VARIANTS, { wolf: WOLF_VARIANTS, fox: ['snow'], cat: CAT_VARIANTS, llama: ['creamy', 'gray', 'white'], parrot: ['green', 'grey', 'red_blue', 'yellow_blue'], panda: ['brown'] });
+Object.assign(SKIN_RECOLOR, {
+  wolf_ashen: ['wolf', 'saturate(0.2) brightness(0.9)'], wolf_black: ['wolf', 'brightness(0.35)'], wolf_chestnut: ['wolf', 'sepia(0.8) saturate(1.6) brightness(0.8)'], wolf_rusty: ['wolf', 'sepia(1) saturate(2.4) hue-rotate(-12deg) brightness(0.8)'],
+  wolf_snowy: ['wolf', 'brightness(1.25)'], wolf_spotted: ['wolf', 'sepia(0.6) saturate(1.4)'], wolf_striped: ['wolf', 'sepia(0.9) saturate(1.8) brightness(0.9)'], wolf_woods: ['wolf', 'sepia(0.7) brightness(0.65)'],
+  fox_snow: ['fox', 'saturate(0) brightness(1.6)'], panda_brown: ['panda', 'sepia(1) saturate(1.5) brightness(0.8)'],
+  llama_creamy: ['llama', 'brightness(1.2)'], llama_gray: ['llama', 'saturate(0) brightness(0.9)'], llama_white: ['llama', 'saturate(0) brightness(1.5)'],
+  parrot_green: ['parrot', 'hue-rotate(110deg)'], parrot_grey: ['parrot', 'saturate(0)'], parrot_red_blue: ['parrot', 'hue-rotate(0deg)'], parrot_yellow_blue: ['parrot', 'hue-rotate(50deg)'],
+  ocelot: ['cat', 'sepia(0.7) saturate(1.8) brightness(1.05)'],
+  bogged: ['skeleton', 'sepia(0.6) hue-rotate(40deg) saturate(1.3) brightness(0.85)'],
+  ...Object.fromEntries(CAT_VARIANTS.map((v, i) => ['cat_' + v, ['cat', `hue-rotate(${i * 33}deg) brightness(${0.6 + (i % 4) * 0.2})`]])),
+});
+// piel de reserva (sin paquete): cada caja del modelo pintada con el color de la criatura
+const MOB_COLORS = { wolf: '#d8d2c8', cat: '#d9a35a', fox: '#e0782c', polar_bear: '#f0f0ec', panda: '#f2f2f2', llama: '#c8a070', bee: '#e8b828', parrot: '#d23a2a', cod: '#b89a70', salmon: '#a83a32', squid: '#2a4a6a', turtle: '#3a8a3a', silverfish: '#8a8f98', witch: '#4a2a5a' };
+{
+  const base = mobSkin;
+  mobSkin = function (kind) {
+    if (SKIN_RECOLOR[kind] || !MOB_COLORS[kind]) return base(kind);
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const f = 64 / MODEL_TEXW[kind];
+    let i = 0; for (const p of MODELS[kind]) { const [w, h, d] = p.s; furBox(g, p.uv[0] * f, p.uv[1] * f, Math.max(1, w * f), Math.max(1, h * f), Math.max(1, d * f), i++ % 3 === 0 ? MOB_COLORS[kind] : shade(MOB_COLORS[kind], -0.12), 0.1, 300 + i); }
+    // ojos en la cara de la cabeza
+    const hd = MODELS[kind].find(p => p.n === 'head' || p.n === 'body'); if (hd) { const fx = (hd.uv[0] + hd.s[2]) * f, fy = (hd.uv[1] + hd.s[2]) * f; g.fillStyle = '#111'; g.fillRect(fx + 1, fy + 1, 1, 1); g.fillRect(fx + Math.max(2, hd.s[0] * f - 2), fy + 1, 1, 1); }
+    return c;
+  };
+}
+// texturas del paquete de las criaturas nuevas
+TexturePack.ENT.push(
+  ['wolf', /(^|\/)wolf(_pale)?\.png$/], ...WOLF_VARIANTS.map(v => ['wolf_' + v, new RegExp('(^|/)wolf_' + v + '\\.png$')]),
+  ['cat', /(^|\/)cat_tabby\.png$/], ...CAT_VARIANTS.map(v => ['cat_' + v, new RegExp('(^|/)cat_' + v + '\\.png$')]), ['ocelot', /(^|\/)ocelot\.png$/],
+  ['fox', /(^|\/)fox\.png$/], ['fox_snow', /(^|\/)(fox_snow|snow_fox)\.png$/],
+  ['polar_bear', /(^|\/)(polarbear|polar_bear)\.png$/], ['panda', /(^|\/)panda\.png$/], ['panda_brown', /(^|\/)panda_brown\.png$/],
+  ['llama', /(^|\/)llama_brown\.png$/], ['llama_creamy', /(^|\/)llama_creamy\.png$/], ['llama_gray', /(^|\/)llama_gray\.png$/], ['llama_white', /(^|\/)llama_white\.png$/],
+  ['bee', /(^|\/)bee\.png$/], ['parrot', /(^|\/)parrot_red_blue\.png$/], ['parrot_green', /(^|\/)parrot_green\.png$/], ['parrot_grey', /(^|\/)parrot_grey\.png$/], ['parrot_red_blue', /(^|\/)parrot_red_blue\.png$/], ['parrot_yellow_blue', /(^|\/)parrot_yellow_blue\.png$/],
+  ['cod', /(^|\/)cod\.png$/], ['salmon', /(^|\/)salmon\.png$/], ['squid', /(^|\/)squid\.png$/], ['turtle', /(^|\/)(turtle|big_sea_turtle)\.png$/],
+  ['silverfish', /(^|\/)silverfish\.png$/], ['witch', /(^|\/)witch\.png$/], ['bogged', /(^|\/)bogged\.png$/],
+);
+// las criaturas
+const fishDrops = (k) => (r, fire) => [[fire ? 'cooked_' + k : k, 1], ...(r() < 0.05 ? [['bone_meal', 1]] : [])];
+Object.assign(MOBS, {
+  wolf: { name: 'Lobo', hp: 8, w: 0.6, h: 0.85, speed: 0.3, neutral: true, dmg: 4, pack: true, drops: () => [], xp: [1, 3], sound: 'wolf' },
+  cat: { name: 'Gato', hp: 10, w: 0.6, h: 0.7, speed: 0.3, passive: true, scale: 0.8, drops: (r) => [['string', r() * 3 | 0]], xp: [1, 3], sound: 'cat' },
+  ocelot: { name: 'Ocelote', model: 'cat', hp: 10, w: 0.6, h: 0.7, speed: 0.3, passive: true, shy: true, drops: () => [], xp: [1, 3], sound: 'ocelot' },
+  fox: { name: 'Zorro', hp: 10, w: 0.6, h: 0.7, speed: 0.3, passive: true, shy: true, drops: () => [], xp: [1, 3], sound: 'fox' },
+  polar_bear: { name: 'Oso polar', hp: 30, w: 1.4, h: 1.4, speed: 0.25, neutral: true, dmg: 6, drops: (r) => [[r() < 0.75 ? 'cod' : 'salmon', r() * 3 | 0]], xp: [1, 3], sound: 'polar_bear' },
+  panda: { name: 'Panda', hp: 20, w: 1.3, h: 1.25, speed: 0.15, passive: true, drops: (r) => [['bamboo', r() < 0.5 ? 1 : 0]], xp: [1, 3], sound: 'panda' },
+  llama: { name: 'Llama', hp: 22, w: 0.9, h: 1.87, speed: 0.175, passive: true, drops: (r) => [['leather', r() * 3 | 0]], xp: [1, 3], sound: 'llama' },
+  bee: { name: 'Abeja', hp: 10, w: 0.7, h: 0.6, speed: 0.3, neutral: true, dmg: 2, flies: true, pack: true, drops: () => [], xp: [1, 3], sound: 'bee' },
+  parrot: { name: 'Loro', hp: 6, w: 0.5, h: 0.9, speed: 0.3, passive: true, flies: true, drops: (r) => [['feather', 1 + (r() * 2 | 0)]], xp: [1, 3], sound: 'parrot' },
+  cod: { name: 'Bacalao', hp: 3, w: 0.5, h: 0.3, speed: 0.12, passive: true, aquatic: true, drops: fishDrops('cod'), xp: [1, 3], sound: 'cod' },
+  salmon: { name: 'Salmón', hp: 3, w: 0.7, h: 0.4, speed: 0.12, passive: true, aquatic: true, drops: fishDrops('salmon'), xp: [1, 3], sound: 'salmon' },
+  squid: { name: 'Calamar', hp: 10, w: 0.8, h: 0.8, speed: 0.06, passive: true, aquatic: true, drops: (r) => [['ink_sac', 1 + (r() * 3 | 0)]], xp: [1, 3], sound: 'squid' },
+  turtle: { name: 'Tortuga', hp: 30, w: 1.2, h: 0.4, speed: 0.12, passive: true, swimsWell: true, drops: (r) => [['seagrass', r() * 3 | 0]], xp: [1, 3], sound: 'turtle' },
+  silverfish: { name: 'Lepisma', hp: 8, w: 0.4, h: 0.3, speed: 0.25, hostile: true, dmg: 1, drops: () => [], xp: [5, 5], sound: 'silverfish' },
+  witch: { name: 'Bruja', hp: 26, w: 0.6, h: 1.95, speed: 0.25, hostile: true, ranged: true, throws: true, dmg: 3, scale: 0.9375, drops: (r) => [[['glass_bottle', 'glowstone_dust', 'gunpowder', 'redstone', 'spider_eye', 'sugar', 'stick'][r() * 7 | 0], 1 + (r() * 2 | 0)]], xp: [5, 5], sound: 'witch' },
+  bogged: { name: 'Esqueleto pantanoso', model: 'skeleton', hp: 16, w: 0.6, h: 1.99, speed: 0.25, hostile: true, ranged: true, undead: true, drops: (r) => [['bone', r() * 3 | 0], ['arrow', r() * 3 | 0]], xp: [5, 5], sound: 'skeleton', holds: 'bow' },
+});
+for (const k of ['cat', 'ocelot', 'fox']) MOBS[k].fleeDist = 10;
+// comida para criar a los nuevos
+Object.assign(BREED_FOOD, { cat: ['cod', 'salmon'], ocelot: ['cod', 'salmon'], fox: ['sweet_berries', 'glow_berries'], panda: ['bamboo'], llama: ['hay_block', 'wheat'], turtle: ['seagrass'], wolf: ['bone'], bee: ['dandelion', 'poppy', 'cornflower', 'allium'] });
+// los nuevos son criables si son pasivos
+// ---- comportamiento especial: volar, nadar, enfadarse ----
+const MobMove = {
+  // devuelve true si ya se ha encargado del movimiento
+  tick(m, d, P, dist) {
+    if (d.neutral) { // enfadado: ataca hasta que te alejas o pasa un rato
+      if (m.target && (m.target.dead || dist > 24 || --m.angryT <= 0)) { m.target = null; m.angry = false; }
+    }
+    if (d.flies) return this.fly(m, d, P, dist);
+    if (d.aquatic) return this.swim(m, d, P, dist);
+    return false;
+  },
+  fly(m, d, P, dist) {
+    m.gravity = 0; m.drag = 0.91; m.fall = 0;
+    let gx, gy, gz;
+    if (m.target) { gx = m.target.x; gy = m.target.y + 1; gz = m.target.z; }
+    else {
+      if (!m.goal || --m.goalT <= 0 || Math.hypot(m.goal[0] - m.x, m.goal[2] - m.z) < 1) {
+        const a = Math.random() * Math.PI * 2, r = 3 + Math.random() * 8; let x = Math.floor(m.x + Math.cos(a) * r), z = Math.floor(m.z + Math.sin(a) * r);
+        let gyy = Math.floor(m.y) + 6; while (gyy > 1 && !SOLID[World.get(x, gyy - 1, z)]) gyy--; m.goal = [x + 0.5, gyy + 1.5 + Math.random() * 3, z + 0.5]; m.goalT = 120;
+      }
+      [gx, gy, gz] = m.goal;
+    }
+    const dx = gx - m.x, dy = gy - m.y, dz = gz - m.z, h = Math.hypot(dx, dz) || 1;
+    m.yaw = lerpAngle(m.yaw, Math.atan2(-dx, -dz), 0.15);
+    const sp = d.speed * 0.12; m.vx += dx / h * sp; m.vz += dz / h * sp; m.vy += clamp(dy * 0.02, -0.04, 0.04);
+    if (m.target && dist < 1.4 && m.atkCD <= 0) { m.atkCD = 20; P.hurtBy(d.dmg, { x: m.x, z: m.z, mob: true, kb: 0.2 }); if (m.kind === 'bee') { m.stung = true; m.angryT = Math.min(m.angryT, 200); } }
+    m.move(m.vx, m.vy, m.vz); m.vx *= 0.91; m.vy *= 0.85; m.vz *= 0.91;
+    m.onGround = false; m.updateLimbs(); m.bodyYaw = lerpAngle(m.bodyYaw, m.yaw, 0.3); m.headYaw = m.bodyYaw;
+    if (m.atkCD > 0) m.atkCD--;
+    return true;
+  },
+  swim(m, d, P, dist) {
+    if (!m.inWater) { // fuera del agua: da saltitos y se ahoga
+      m.gravity = 0.08; m.drag = 0.98; if (m.onGround && Math.random() < 0.1) { m.vy = 0.3; m.vx += (Math.random() - 0.5) * 0.15; m.vz += (Math.random() - 0.5) * 0.15; }
+      if (++m.dryT > 300 && m.age % 20 === 0) m.damage(1, { kb: 0 });
+      return false;
+    }
+    m.dryT = 0; m.gravity = 0; m.drag = 0.9;
+    if (!m.goal || --m.goalT <= 0) { const a = Math.random() * Math.PI * 2; m.goal = [m.x + Math.cos(a) * 6, m.y + (Math.random() - 0.5) * 3, m.z + Math.sin(a) * 6]; m.goalT = 80 + (Math.random() * 80 | 0); }
+    if (m.panic > 0) { m.goal = [m.x + (m.x - P.x), m.y, m.z + (m.z - P.z)]; m.panic--; }
+    const [gx, gy, gz] = m.goal; const dx = gx - m.x, dz = gz - m.z, h = Math.hypot(dx, dz) || 1;
+    m.yaw = lerpAngle(m.yaw, Math.atan2(-dx, -dz), 0.1);
+    const sp = d.speed * (m.panic > 0 ? 0.25 : 0.12); m.vx += dx / h * sp * 0.2; m.vz += dz / h * sp * 0.2;
+    const top = LIQUID[World.get(Math.floor(m.x), Math.floor(m.y + m.h + 0.3), Math.floor(m.z))] === 1; m.vy += clamp((gy - m.y) * 0.01, -0.01, top ? 0.01 : -0.002);
+    m.move(m.vx, m.vy, m.vz); m.vx *= 0.9; m.vy *= 0.9; m.vz *= 0.9;
+    m.updateLimbs(); m.bodyYaw = lerpAngle(m.bodyYaw, m.yaw, 0.3); m.headYaw = m.bodyYaw;
+    return true;
+  },
+};
+// ---- aparición por bioma ----
+const BIOME_ANIMALS = (sb) => {
+  const B_ = Gen.local.BI; const L = [];
+  const add = (k, w, n = [2, 4], v) => L.push({ k, w, n, v });
+  switch (sb) {
+    case B_.PLAINS: case B_.SUNFLOWER_PLAINS: case B_.MEADOW: add('pig', 10); add('cow', 8); add('sheep', 12); add('chicken', 10); add('bee', 3, [2, 3]); add('cat', 1, [1, 1]); break;
+    case B_.FOREST: case B_.BIRCH: case B_.OLD_BIRCH: case B_.FLOWER: case B_.CHERRY: add('pig', 8); add('sheep', 8); add('chicken', 8); add('cow', 6); add('wolf', sb === B_.FOREST ? 4 : 0, [2, 4], 'woods'); add('bee', sb === B_.FLOWER || sb === B_.CHERRY ? 8 : 2, [2, 3]); break;
+    case B_.DARK_FOREST: case B_.PALE_GARDEN: add('pig', 4); add('cow', 4); add('chicken', 4); break;
+    case B_.TAIGA: add('wolf', 6, [2, 4], null); add('fox', 8, [2, 3]); add('sheep', 6); add('pig', 4); add('chicken', 4); break;
+    case B_.OLD_PINE: add('wolf', 6, [2, 4], 'black'); add('fox', 6, [2, 3]); add('sheep', 4); break;
+    case B_.OLD_SPRUCE: add('wolf', 6, [2, 4], 'chestnut'); add('fox', 6, [2, 3]); add('pig', 4); break;
+    case B_.SNOWY_TAIGA: add('wolf', 6, [2, 4], 'ashen'); add('fox', 8, [2, 3], 'snow'); break;
+    case B_.GROVE: add('wolf', 6, [2, 4], 'snowy'); add('fox', 6, [2, 3], 'snow'); break;
+    case B_.SNOWY: case B_.ICE_SPIKES: case B_.SNOWY_SLOPES: add('polar_bear', 5, [1, 2]); add('fox', 2, [1, 2], 'snow'); break;
+    case B_.SAVANNA: add('cow', 6); add('sheep', 6); add('chicken', 6); add('llama', 6, [2, 4]); break;
+    case B_.SAVANNA_PLATEAU: case B_.WINDSWEPT_SAVANNA: add('llama', 8, [2, 4]); add('wolf', 4, [2, 4], 'spotted'); add('cow', 4); break;
+    case B_.WINDSWEPT_HILLS: case B_.WINDSWEPT_FOREST: case B_.WINDSWEPT_GRAVELLY: add('llama', 5, [2, 3]); add('sheep', 8); add('cow', 4); break;
+    case B_.JUNGLE: case B_.SPARSE_JUNGLE: add('parrot', 8, [1, 2]); add('ocelot', 4, [1, 2]); add('chicken', 6); add('pig', 4); add('panda', sb === B_.JUNGLE ? 2 : 0, [1, 2]); if (sb === B_.SPARSE_JUNGLE) add('wolf', 3, [2, 3], 'rusty'); break;
+    case B_.BAMBOO_JUNGLE: add('panda', 8, [1, 3]); add('parrot', 6, [1, 2]); add('ocelot', 2, [1, 2]); break;
+    case B_.WOODED_BADLANDS: add('wolf', 5, [2, 3], 'striped'); break;
+    case B_.SWAMP: case B_.MANGROVE: add('pig', 3); add('chicken', 3); break;
+    case B_.BEACH: add('turtle', 6, [2, 4]); break;
+    case B_.MUSHROOM: add('cow', 8, [3, 5]); break;
+    default: add('pig', 6); add('sheep', 6); add('cow', 5); add('chicken', 6);
+  }
+  return L.filter(e => e.w > 0);
+};
+const randVariant = (k) => { const v = MOB_VARIANTS[k]; if (!v) return null; if (k === 'panda') return Math.random() < 0.1 ? 'brown' : null; if (k === 'wolf' || k === 'fox') return null; return Math.random() < 0.3 ? null : v[Math.random() * v.length | 0]; };
 
 class ItemEntity extends Entity {
   constructor(x, y, z, item) { super('item', x, y, z); this.item = item; this.w = 0.25; this.h = 0.25; this.pickupDelay = 10; this.spin = Math.random() * 6.28; this.step = 0; }
@@ -6142,6 +6434,12 @@ const Entities = {
     return this.add(e);
   },
   spawnFalling(x, y, z, id, meta) { this.add(new FallingBlock(x, y, z, id, meta)); },
+  // la bruja lanza una poción (hace daño al dar)
+  throwAt(from, target, dmg) {
+    const sx = from.x, sy = from.y + from.h * 0.8, sz = from.z, tx = target.x - sx, tz = target.z - sz, hd = Math.hypot(tx, tz) || 1;
+    const ty = target.y + 0.6 - sy + hd * 0.18, l = Math.hypot(tx, ty, tz) || 1, sp = 0.75;
+    const t = new Thrown(ITEMS.glass_bottle ? 'glass_bottle' : 'snowball', sx, sy, sz, tx / l * sp, ty / l * sp, tz / l * sp, from); t.harm = dmg; this.add(t); Sound.play('bow', sx, sy, sz);
+  },
   shootArrow(from, target, speed) {
     const sx = from.x, sy = from.y + (from.h * 0.85), sz = from.z;
     const tx = target.x - sx, ty = target.y + target.h * 0.4 - sy, tz = target.z - sz; const hd = Math.hypot(tx, tz);
@@ -6179,14 +6477,18 @@ const Entities = {
     if (World.dim === 'n') { this.netherSpawn(P); return; }
     // monstruos
     const hostiles = this.count(e => e.mob && e.def.hostile);
-    if (Game.difficulty > 0 && hostiles < 45 && Math.random() < 0.7) {
+    if (Game.difficulty > 0 && hostiles < 28 && Math.random() < 0.35) {
       for (let tries = 0; tries < 6; tries++) {
         const sp = this.spot(P, 20, 56, false); if (!sp) continue; const { x, y, z } = sp;
         if (World.blk(x, y, z) > 0) continue;
         const sky = Math.round(World.sky(x, y, z) * Sky.skyFactor);
         if (sky > Math.random() * 8) continue;
         const b = this.biomeAt(x, z), deep = y < 40 && World.sky(x, y, z) === 0, r2 = Math.random();
-        let kind = r2 < 0.42 ? 'zombie' : r2 < 0.74 ? 'skeleton' : r2 < 0.92 ? 'spider' : 'slime';
+        let kind = r2 < 0.4 ? 'zombie' : r2 < 0.7 ? 'skeleton' : r2 < 0.88 ? 'spider' : r2 < 0.94 ? 'slime' : 'witch';
+        const sb = World.flat ? 2 : Gen.local.column(World.seed, x, z).sb;
+        if (kind === 'skeleton' && (sb === 9 || sb === 27) && Math.random() < 0.7) kind = 'bogged';
+        if (kind === 'witch' && !(b === 9 || Math.random() < 0.4)) kind = 'zombie';
+        if (deep && Math.random() < 0.04) kind = 'silverfish';
         if (kind === 'slime' && !(b === 9 || deep)) kind = 'zombie';
         if (kind === 'zombie' && b === 7 && !deep && Math.random() < 0.8) kind = 'husk';
         if (kind === 'skeleton' && (b === 6 || b === 12 || b === 11) && !deep && Math.random() < 0.8) kind = 'stray';
@@ -6195,7 +6497,7 @@ const Entities = {
         if (!boxFree(m.bb())) continue;
         this.add(m);
         // a veces vienen en grupo
-        if (Math.random() < 0.4) { const m2 = new Mob(kind, x + 0.5 + (Math.random() - 0.5) * 2, y, z + 0.5 + (Math.random() - 0.5) * 2); m2.persistent = false; if (boxFree(m2.bb())) this.add(m2); }
+        if (kind !== 'witch' && Math.random() < 0.2) { const m2 = new Mob(kind, x + 0.5 + (Math.random() - 0.5) * 2, y, z + 0.5 + (Math.random() - 0.5) * 2); m2.persistent = false; if (boxFree(m2.bb())) this.add(m2); }
         break;
       }
       // ahogados en el agua profunda de noche
@@ -6204,17 +6506,37 @@ const Entities = {
         if (World.loaded(x, z)) { let y = 62; while (y > 30 && LIQUID[World.get(x, y, z)] !== 1) y--; if (LIQUID[World.get(x, y, z)] === 1 && LIQUID[World.get(x, y - 2, z)] === 1) this.add(Object.assign(new Mob('drowned', x + 0.5, y - 2, z + 0.5), { persistent: false })); }
       }
     }
-    // animales de día (también aparecen poco a poco, no solo al generar el mundo)
-    const animals = this.count(e => e.mob && e.def.passive);
-    if (animals < 30 && Math.random() < 0.3) {
-      const sp = this.spot(P, 24, 56, true);
-      if (sp && World.sky(sp.x, sp.y, sp.z) >= 12) {
-        const kinds = ['pig', 'cow', 'sheep', 'chicken']; const kind = kinds[Math.random() * 4 | 0]; const n = 2 + (Math.random() * 3 | 0);
-        const variant = this.variantFor(kind, sp.x, sp.z);
-        for (let k = 0; k < n; k++) {
-          const m = new Mob(kind, sp.x + 0.5 + (Math.random() - 0.5) * 3, sp.y, sp.z + 0.5 + (Math.random() - 0.5) * 3); m.variant = variant;
-          if (boxFree(m.bb()) && World.get(Math.floor(m.x), sp.y - 1, Math.floor(m.z)) === B.grass_block) this.add(m);
+    // animales de cada bioma (también aparecen poco a poco, no solo al generar el mundo)
+    const animals = this.count(e => e.mob && (e.def.passive || e.def.neutral) && !e.def.aquatic);
+    if (animals < 45 && Math.random() < 0.5) {
+      const sp = this.spot(P, 24, 56, false);
+      if (sp && World.sky(sp.x, sp.y, sp.z) >= 10) {
+        const g = World.get(sp.x, sp.y - 1, sp.z);
+        if (SOLID[g] && !LIQUID[g] && !BLOCKS[g].leaves) {
+          const sb = World.flat ? 2 : Gen.local.column(World.seed, sp.x, sp.z).sb;
+          const L = BIOME_ANIMALS(sb); let tot = L.reduce((a, e) => a + e.w, 0), r = Math.random() * tot, pick = L[0];
+          for (const e of L) { r -= e.w; if (r <= 0) { pick = e; break; } }
+          if (pick) {
+            const kind = pick.k, n = pick.n[0] + (Math.random() * (pick.n[1] - pick.n[0] + 1) | 0);
+            const variant = pick.v !== undefined && pick.v !== null ? pick.v : MOB_VARIANTS[kind] && (kind === 'pig' || kind === 'cow' || kind === 'chicken') ? this.variantFor(kind, sp.x, sp.z) : randVariant(kind);
+            for (let k = 0; k < n; k++) {
+              const m = new Mob(kind, sp.x + 0.5 + (Math.random() - 0.5) * 3, sp.y + (MOBS[kind].flies ? 1.5 : 0), sp.z + 0.5 + (Math.random() - 0.5) * 3); m.variant = variant;
+              if (Math.random() < 0.08 && MOBS[kind].passive && !MOBS[kind].flies) m.setBaby(true, 12000 + Math.random() * 12000);
+              if (boxFree(m.bb())) this.add(m);
+            }
+          }
         }
+      }
+    }
+    // peces y calamares en el agua
+    const fish = this.count(e => e.mob && e.def.aquatic);
+    if (fish < 16 && Math.random() < 0.25) {
+      const a = Math.random() * Math.PI * 2, r = 16 + Math.random() * 30, x = Math.floor(P.x + Math.cos(a) * r), z = Math.floor(P.z + Math.sin(a) * r);
+      if (World.loaded(x, z) && LIQUID[World.get(x, 62, z)] === 1 && LIQUID[World.get(x, 59, z)] === 1) {
+        const sb = World.flat ? 0 : Gen.local.column(World.seed, x, z).sb, BI_ = Gen.local.BI;
+        const kind = Math.random() < 0.25 ? 'squid' : (sb === BI_.RIVER || sb === BI_.FROZEN_RIVER || sb === BI_.COLD_OCEAN || sb === BI_.DEEP_COLD_OCEAN || sb === BI_.FROZEN_OCEAN) ? 'salmon' : 'cod';
+        const n = kind === 'squid' ? 1 + (Math.random() * 2 | 0) : 3 + (Math.random() * 4 | 0);
+        for (let k = 0; k < n; k++) { const m = new Mob(kind, x + 0.5 + (Math.random() - 0.5) * 3, 58 + Math.random() * 3, z + 0.5 + (Math.random() - 0.5) * 3); m.persistent = false; if (boxFree(m.bb())) this.add(m); }
       }
     }
   },
@@ -8968,7 +9290,7 @@ const Input = {
 // muestra ese cubo girando: no hay que generar ni dibujar chunks, así que va mucho más rápido.
 const Panorama = {
   faces: null, ready: false, yaw: 0, capturing: false, t0: 0, tex: null, FOV: 92 * DEG,
-  async sig() { const z = await Store.get('kv', 'texpack:zip').catch(() => null); return (z ? z.size + ':' + (z.name || '') : 'base') + ':' + Object.keys(Atlas.custom).length + ':p2'; },
+  async sig() { const z = await Store.get('kv', 'texpack:zip').catch(() => null); return (z ? z.size + ':' + (z.name || '') : 'base') + ':' + Object.keys(Atlas.custom).length + ':p3'; },
   async load() {
     try { const d = await Store.get('kv', 'panorama'); if (d && d.sig === await this.sig() && d.faces && d.faces.length === 6) { this.faces = d.faces; await this.build(); return true; } } catch (e) { }
     return false;
@@ -9030,7 +9352,7 @@ precision mediump float; in vec2 vUV; uniform sampler2D uTex; out vec4 o; void m
   },
   async capture() {
     this.capturing = true;
-    const cv = Renderer.canvas, S = 512, faces = [];
+    const cv = Renderer.canvas, S = 1024, faces = [];
     try { for (const [yaw, pitch] of this.DIRS) { Cam.override = { yaw, pitch: pitch === 0 ? 0 : pitch * 0.99999, size: S }; renderFrame(); faces.push(cv.toDataURL('image/jpeg', 0.9)); } }
     finally { Cam.override = null; }
     this.faces = faces; await Store.put('kv', 'panorama', { sig: await this.sig(), faces }).catch(() => { });
@@ -10425,7 +10747,7 @@ const MobTex = {
   },
   // la piel se guarda en un lienzo cuadrado: las de 64x32 ocupan la mitad de arriba (misma UV);
   // las de más resolución (128x64, 256x256...) conservan su detalle
-  toCanvas(im) { const k = Math.max(1, Math.round(im.width / 64)); const c = document.createElement('canvas'); c.width = c.height = 64 * k; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(im, 0, 0, 64 * k, Math.round(64 * k * im.height / im.width)); return c; },
+  toCanvas(im) { const M = Math.max(im.width, im.height); const k = Math.max(1, Math.round(M / 64)); const c = document.createElement('canvas'); c.width = c.height = 64 * k; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(im, 0, 0, Math.round(64 * k * im.width / M), Math.round(64 * k * im.height / M)); return c; },
   get(k) { return this.custom[k] || MobSkins.base(k); },
   parts(kind) {
     const out = [], seen = new Set();
