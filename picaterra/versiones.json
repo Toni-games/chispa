@@ -1,8 +1,18 @@
 {
-  "latest": "1.9.3",
+  "latest": "1.9.4",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.9.4",
+      "date": "2026-11-16",
+      "title": "Cactus arreglado",
+      "notes": [
+        "El cactus se dibuja como en Minecraft: sin la franja transparente en las esquinas y con las espinas por fuera"
+      ],
+      "size": 234898,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.9.4.zip"
+    },
     {
       "id": "1.9.3",
       "date": "2026-11-16",
