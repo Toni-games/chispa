@@ -25,14 +25,14 @@
   body.panoTex #loadPano { display: block; }
   body.panoTex #s_loading { background: var(--menubg) !important; background-size: 64px 64px !important; isolation: isolate; }
   #s_loading { overflow: hidden; }
-  /* panorama del menú: cubo con 6 «fotos» del mundo que gira despacio (como el original) */
-  #panoBg { position: fixed; inset: 0; overflow: hidden; z-index: 1; display: none; perspective: var(--panoP, 500px); background: #6a8fc8; pointer-events: none; }
-  #panoBg.on { display: block; }
-  #panoBg.blur { filter: blur(5px) brightness(0.55); inset: -12px; }
-  #panoBg .cube { position: absolute; left: 50%; top: 50%; width: 0; height: 0; transform-style: preserve-3d; }
-  #panoBg .cube img { position: absolute; width: calc(var(--panoS, 1000px) + 3px); height: calc(var(--panoS, 1000px) + 3px); left: calc(var(--panoS, 1000px) / -2 - 1.5px); top: calc(var(--panoS, 1000px) / -2 - 1.5px); backface-visibility: hidden; }
-  body.panoOn #s_loading, body.panoOn.menuTex #s_loading { background: var(--menubg, rgba(0,0,0,.3)) !important; background-size: 64px 64px !important; }
-  body.panoOn:not(.menuTex) #s_loading { background: rgba(0,0,0,.35) !important; }
+  /* panorama del menú (se dibuja en el lienzo): desenfocado en la carga y en los submenús */
+  #gl.panoBlur { filter: blur(5px) brightness(0.6); transform: scale(1.03); }
+  /* mientras se hacen las fotos del panorama (solo la primera vez), el menú tiene fondo de menú */
+  body.panoWait #s_title { background: repeating-linear-gradient(45deg, #2c2218 0 12px, #2a1f15 12px 24px); }
+  body.panoWait.dirtTex #s_title { background: linear-gradient(rgba(0,0,0,.75), rgba(0,0,0,.75)), var(--dirt); background-size: auto, 64px 64px; image-rendering: pixelated; }
+  body.panoWait.menuTex #s_title { background: var(--menubg), #1e1e22; background-size: 64px 64px; }
+  body.panoReady #s_loading, body.panoReady.menuTex #s_loading { background: var(--menubg, rgba(0,0,0,.3)) !important; background-size: 64px 64px !important; }
+  body.panoReady:not(.menuTex) #s_loading { background: rgba(0,0,0,.35) !important; }
   /* sin panorama en el paquete: se ve el mundo nuevo generándose detrás, girando, desenfocado y oscurecido */
   #loadMap { margin-top: 4px; }
   body.menuTex.dirtTex .screen.dirt, body.menuTex .screen.dirt { background: var(--menubg), var(--pano, #1b1b1b); background-size: 64px 64px, cover; background-position: 0 0, center; image-rendering: pixelated; }
@@ -148,7 +148,7 @@
 </head>
 <body class="menu">
 <canvas id="gl"></canvas>
-<div id="panoBg"><div class="cube"></div></div>
+
 <canvas id="hud"></canvas>
 <div id="bootMsg">Cargando…</div>
 
@@ -336,7 +336,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.9.9';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.9.10';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -3292,6 +3292,25 @@ const Atlas = {
         ctx.drawImage(tmp, 0, 0, 16, 16, x, y, T, T);
       }
     });
+    // autorrelleno: en los bloques macizos, los píxeles transparentes o casi (que dejarían ver rayitas
+    // blancas del cielo) se pintan con el color medio de sus vecinos y se vuelven opacos
+    const solidTex = new Set(); for (const d of BLOCKS) if (d && OPAQUE[d.id] && d.render === 'cube') for (const n of [...(d.faceTex || []), ...(d.faceTexAlt || []), ...(d.faceTex6 ? Object.values(d.faceTex6) : [])]) solidTex.add(n);
+    for (const name of solidTex) {
+      if (!this.custom[name] || this.index[name] === undefined) continue; const i = this.index[name];
+      const x0 = (i % this.cols) * T, y0 = Math.floor(i / this.cols) * T; const img = ctx.getImageData(x0, y0, T, T), a = img.data; let holes = 0;
+      for (let k = 3; k < a.length; k += 4) if (a[k] < 200) holes++;
+      if (!holes || holes > T * T * 0.9) continue;
+      for (let pass = 0; pass < 4 && holes; pass++) {
+        const src = new Uint8ClampedArray(a); holes = 0;
+        for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+          const o = (y * T + x) * 4; if (src[o + 3] >= 200) continue;
+          let r = 0, g = 0, b = 0, n = 0;
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { const xx = (x + dx + T) % T, yy = (y + dy + T) % T, q = (yy * T + xx) * 4; if (src[q + 3] >= 200) { r += src[q]; g += src[q + 1]; b += src[q + 2]; n++; } }
+          if (n) { a[o] = r / n; a[o + 1] = g / n; a[o + 2] = b / n; a[o + 3] = 255; } else holes++;
+        }
+      }
+      ctx.putImageData(img, x0, y0);
+    }
     this.canvas = cv; this.size = cv.width; this.height = cv.height; this.version++;
     this.tinted = new Uint8Array(TEX_NAMES.length); TEX_NAMES.forEach((n, i) => { if (TINTED_TEX.has(n)) this.tinted[i] = 1; });
     // estas solo se tiñen con el color del bioma si su textura es gris (la del paquete); las de serie ya vienen pintadas
@@ -4227,6 +4246,9 @@ const STRUCT_NAMES = { dungeon: 'Mazmorra', cabin: 'Cabaña del bosque', ruined_
 const BIOME_NAMES = ['Océano', 'Playa', 'Llanura', 'Bosque', 'Bosque de abedules', 'Taiga', 'Llanura nevada', 'Desierto', 'Sabana', 'Pantano', 'Colinas ventosas', 'Océano helado', 'Picos nevados', 'Bosque de flores', 'Río', 'Río helado', 'Playa nevada', 'Costa pedregosa', 'Océano profundo', 'Océano cálido', 'Océano templado', 'Océano templado profundo', 'Océano frío', 'Océano frío profundo', 'Océano helado profundo', 'Llanura de girasoles', 'Pinchos de hielo', 'Manglar', 'Bosque oscuro', 'Jardín pálido', 'Bosque de abedules ancestral', 'Taiga de pinos ancestral', 'Taiga de abetos ancestral', 'Taiga nevada', 'Meseta de sabana', 'Sabana ventosa', 'Colinas ventosas', 'Colinas de grava ventosas', 'Bosque ventoso', 'Jungla', 'Jungla dispersa', 'Jungla de bambú', 'Badlands', 'Badlands erosionadas', 'Meseta arbolada de badlands', 'Pradera', 'Arboleda de cerezos', 'Arboleda', 'Laderas nevadas', 'Picos helados', 'Picos escarpados', 'Picos pedregosos', 'Campo de champiñones', 'Cuevas de espeleotemas', 'Cuevas exuberantes', 'Oscuridad profunda'];
 // bioma donde está el jugador: bajo tierra puede ser un bioma de cueva
 function biomeHere(x, y, z) { if (!World.flat && World.sky(x, y + 1, z) < 1 && y < Gen.local.column(World.seed, x, z).h - 8) { const cb = Gen.local.caveBiome(World.seed, x, y, z); if (cb >= 0) return cb; } return World.biome(x, z); }
+// coordenada de textura dentro de su casilla del atlas, metida 1/16 de píxel hacia dentro en los bordes:
+// así nunca se cuela un píxel de la casilla de al lado (las rayitas blancas entre bloques)
+const inT = (v, TS) => Math.min(Math.max(Math.round(v), 1), TS * 16 - 1);
 const hexRGB = (h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
 const GRASS_C = ['#8eb971', '#91bd59', '#91bd59', '#79c05a', '#88bb67', '#86b783', '#80b497', '#bfb755', '#bfb755', '#6a7039', '#8ab689', '#80b497', '#80b497', '#79c05a', '#8eb971', '#80b497', '#83b593', '#8ab689', '#8eb971', '#8eb971', '#8eb971', '#8eb971', '#8eb971', '#8eb971', '#80b497', '#91bd59', '#80b497', '#6a7039', '#507a32', '#778272', '#88bb67', '#86b87f', '#86b783', '#80b497', '#bfb755', '#bfb755', '#8ab689', '#8ab689', '#8ab689', '#59c93c', '#64c73f', '#59c93c', '#90814d', '#90814d', '#90814d', '#83bb6d', '#b6db61', '#80b497', '#80b497', '#80b497', '#80b497', '#9abe4b', '#55c93f', '#91bd59', '#91bd59', '#91bd59'].map(hexRGB);
 const FOLI_C = ['#71a74d', '#77ab2f', '#77ab2f', '#59ae30', '#6ba941', '#68a464', '#60a17b', '#aea42a', '#aea42a', '#6a7039', '#6da36b', '#60a17b', '#60a17b', '#59ae30', '#71a74d', '#60a17b', '#64a278', '#6da36b', '#71a74d', '#71a74d', '#71a74d', '#71a74d', '#71a74d', '#71a74d', '#60a17b', '#77ab2f', '#60a17b', '#8db127', '#59ae30', '#878d76', '#6ba941', '#68a55f', '#68a464', '#60a17b', '#aea42a', '#aea42a', '#6da36b', '#6da36b', '#6da36b', '#30bb0b', '#3eb80f', '#30bb0b', '#9e814d', '#9e814d', '#9e814d', '#63a948', '#b6db61', '#60a17b', '#60a17b', '#60a17b', '#60a17b', '#82ac1e', '#2bbb0f', '#77ab2f', '#77ab2f', '#77ab2f'].map(hexRGB);
@@ -4414,7 +4436,7 @@ const Mesher = {
         let [u, vv] = this.uvOf(f, v[0] * 16, v[1] * 16, v[2] * 16);
         if (rot) { const t = u; u = vv; vv = 16 - t; }
         buf.v(kk, (x + v[0]) * POS_UNIT, (y + v[1]) * POS_UNIT, (z + v[2]) * POS_UNIT,
-          tx * 16 + u * TS, ty * 16 + vv * TS, r, g, b, Math.round(255 * sh * this.AOF[ao[k]]), ls[k], lb[k], d.fullbright ? 2 : part ? 4 : 0);
+          tx * 16 + inT(u * TS, TS), ty * 16 + inT(vv * TS, TS), r, g, b, Math.round(255 * sh * this.AOF[ao[k]]), ls[k], lb[k], d.fullbright ? 2 : part ? 4 : 0);
       }
       buf.end();
     }
@@ -4427,7 +4449,7 @@ const Mesher = {
     for (let k = 0; k < 4; k++) {
       const v = verts[k], uv = uvs[k];
       buf.v(k, Math.round((x + v[0] / 16) * POS_UNIT), Math.round((y + v[1] / 16) * POS_UNIT), Math.round((z + v[2] / 16) * POS_UNIT),
-        Math.round(tx * 16 + uv[0] * TS), Math.round(ty * 16 + uv[1] * TS), rgb[0], rgb[1], rgb[2], a, s, bl, fl || 0);
+        tx * 16 + inT(uv[0] * TS, TS), ty * 16 + inT(uv[1] * TS, TS), rgb[0], rgb[1], rgb[2], a, s, bl, fl || 0);
     }
     buf.end();
   },
@@ -8945,45 +8967,74 @@ const Input = {
 // 6 «fotos» de 90° (delante, derecha, detrás, izquierda, arriba y abajo). Después el menú solo
 // muestra ese cubo girando: no hay que generar ni dibujar chunks, así que va mucho más rápido.
 const Panorama = {
-  faces: null, ready: false, yaw: 0, capturing: false, t0: 0,
-  async sig() { const z = await Store.get('kv', 'texpack:zip').catch(() => null); return (z ? z.size + ':' + (z.name || '') : 'base') + ':' + Object.keys(Atlas.custom).length + ':p1'; }, // no cambia con cada versión del juego
+  faces: null, ready: false, yaw: 0, capturing: false, t0: 0, tex: null, FOV: 92 * DEG,
+  async sig() { const z = await Store.get('kv', 'texpack:zip').catch(() => null); return (z ? z.size + ':' + (z.name || '') : 'base') + ':' + Object.keys(Atlas.custom).length + ':p2'; },
   async load() {
-    try { const d = await Store.get('kv', 'panorama'); if (d && d.sig === await this.sig() && d.faces && d.faces.length === 6) { this.faces = d.faces; this.build(); return true; } } catch (e) { }
+    try { const d = await Store.get('kv', 'panorama'); if (d && d.sig === await this.sig() && d.faces && d.faces.length === 6) { this.faces = d.faces; await this.build(); return true; } } catch (e) { }
     return false;
   },
-  build() {
-    const cube = document.querySelector('#panoBg .cube'); cube.innerHTML = '';
-    const h = 'translateZ(calc(var(--panoS) / -2))';
-    const T = [h, 'rotateY(-90deg) ' + h, 'rotateY(180deg) ' + h, 'rotateY(90deg) ' + h, 'rotateX(-90deg) ' + h, 'rotateX(90deg) ' + h];
-    this.faces.forEach((src, i) => { const im = document.createElement('img'); im.src = src; im.style.transform = T[i]; cube.append(im); });
-    this.ready = true; this.resize(); if (!this._rs) { this._rs = true; addEventListener('resize', () => this.resize()); }
+  // direcciones de las 6 fotos (yaw, pitch): delante, derecha, detrás, izquierda, arriba y abajo
+  DIRS: [[0, 0], [-Math.PI / 2, 0], [Math.PI, 0], [Math.PI / 2, 0], [0, Math.PI / 2], [0, -Math.PI / 2]],
+  async build() {
+    const R = Renderer, gl = R.gl;
+    const ims = await Promise.all(this.faces.map(src => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; })));
+    if (ims.some(i => !i)) return;
+    if (this.tex) for (const t of this.tex) gl.deleteTexture(t);
+    this.tex = ims.map(im => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; });
+    if (!this.prog) {
+      this.prog = R.program(`#version 300 es
+in vec3 aPos; in vec2 aUV; uniform mat4 uVP; out vec2 vUV; void main() { vUV = aUV; vec4 p = uVP * vec4(aPos, 1.0); gl_Position = p.xyww; }`,
+        `#version 300 es
+precision mediump float; in vec2 vUV; uniform sampler2D uTex; out vec4 o; void main() { o = vec4(texture(uTex, vUV).rgb, 1.0); }`);
+      // las fotos se hicieron con un poco más de 90°: cada cara usa solo su parte central, así los bordes
+      // de las 6 caras encajan sin rayas
+      const k = 1 / Math.tan(this.FOV / 2), u0 = (1 - k) / 2, u1 = (1 + k) / 2;
+      const data = [];
+      for (const [yaw, pitch] of this.DIRS) {
+        const m = M4.identity(M4.create()); M4.rotY(m, yaw); M4.rotX(m, pitch);
+        const W = (x, y, z) => [m[0] * x + m[4] * y + m[8] * z, m[1] * x + m[5] * y + m[9] * z, m[2] * x + m[6] * y + m[10] * z];
+        const c = [[-1, -1, u0, u1], [1, -1, u1, u1], [1, 1, u1, u0], [-1, 1, u0, u0]];
+        for (const idx of [0, 1, 2, 0, 2, 3]) { const [x, y, u, v] = c[idx]; data.push(...W(x, y, -1), u, v); }
+      }
+      this.vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+      this.vao = gl.createVertexArray(); gl.bindVertexArray(this.vao);
+      const aP = gl.getAttribLocation(this.prog.p, 'aPos'), aU = gl.getAttribLocation(this.prog.p, 'aUV');
+      gl.enableVertexAttribArray(aP); gl.vertexAttribPointer(aP, 3, gl.FLOAT, false, 20, 0); gl.enableVertexAttribArray(aU); gl.vertexAttribPointer(aU, 2, gl.FLOAT, false, 20, 12);
+      gl.bindVertexArray(null);
+    }
+    this.ready = true;
   },
-  resize() { const el = document.getElementById('panoBg'); const P = (innerHeight / 2) / Math.tan(38 * DEG); this.P = P; el.style.setProperty('--panoP', P + 'px'); el.style.setProperty('--panoS', Math.ceil(P * 2 + 4) + 'px'); },
-  // se ve en el menú principal y en la pantalla de cargar mundo (ahí, desenfocado y oscurecido)
-  tick(dt) {
-    const el = document.getElementById('panoBg'); const show = this.ready && (Game.state === 'title' || Game.state === 'loading');
-    el.classList.toggle('on', show); el.classList.toggle('blur', Game.state === 'loading' || (Game.state === 'title' && !!UI.cur && UI.cur !== 'title'));
-    document.body.classList.toggle('panoOn', show);
-    if (!show) return;
-    this.yaw += dt * 0.0024; // una vuelta cada ~2,5 minutos
-    el.firstElementChild.style.transform = `translateZ(${this.P}px) rotateX(-8deg) rotateY(${this.yaw}deg)`;
+  // dibuja el cubo girando (en el menú principal y, desenfocado, en la pantalla de cargar mundo)
+  draw(dt) {
+    const R = Renderer, gl = R.gl; R.resize(); gl.viewport(0, 0, R.W, R.H);
+    this.yaw += dt * 0.00004; // una vuelta cada ~2,5 minutos
+    const proj = M4.persp(M4.create(), 70 * DEG, R.W / R.H, 0.05, 10), V = M4.identity(M4.create());
+    M4.rotX(V, 0.14); M4.rotY(V, -this.yaw); const VP = M4.mul(M4.create(), proj, V);
+    gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
+    gl.useProgram(this.prog.p); gl.uniformMatrix4fv(this.prog.u.uVP, false, VP); gl.uniform1i(this.prog.u.uTex, 0); gl.activeTexture(gl.TEXTURE0);
+    gl.bindVertexArray(this.vao);
+    for (let i = 0; i < 6; i++) { gl.bindTexture(gl.TEXTURE_2D, this.tex[i]); gl.drawArrays(gl.TRIANGLES, i * 6, 6); }
+    gl.bindVertexArray(null); gl.enable(gl.DEPTH_TEST);
   },
+  tick() { document.body.classList.toggle('panoReady', this.ready); document.body.classList.toggle('panoWait', Game.state === 'title' && !this.ready); document.getElementById('gl').classList.toggle('panoBlur', this.ready && (Game.state === 'loading' || (Game.state === 'title' && !!UI.cur && UI.cur !== 'title'))); },
   // ¿ya se ha cargado lo suficiente del mundo del menú para hacer las fotos?
   canCapture() {
     if (this.ready || this.capturing || Game.state !== 'title' || !Title.active) return false;
     if (!this.t0) this.t0 = performance.now();
     const cx = Title.cx >> 4, cz = Title.cz >> 4; let ok = 0, need = 0;
-    for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) { need++; const c = World.chunk(cx + dx, cz + dz); if (c && c.mesh && !c.dirty) ok++; }
-    return ok >= need || (performance.now() - this.t0 > 25000 && ok > need * 0.6);
+    for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) { need++; const c = World.chunk(cx + dx, cz + dz); if (c && c.mesh && !c.dirty) ok++; }
+    return ok >= need || (performance.now() - this.t0 > 15000 && ok > need * 0.6);
   },
   async capture() {
     this.capturing = true;
     const cv = Renderer.canvas, S = 512, faces = [];
-    const dirs = [[0, 0], [-Math.PI / 2, 0], [Math.PI, 0], [Math.PI / 2, 0], [0, Math.PI / 2 - 0.0001], [0, -Math.PI / 2 + 0.0001]];
-    try { for (const [yaw, pitch] of dirs) { Cam.override = { yaw, pitch, size: S }; renderFrame(); faces.push(cv.toDataURL('image/jpeg', 0.88)); } }
+    try { for (const [yaw, pitch] of this.DIRS) { Cam.override = { yaw, pitch: pitch === 0 ? 0 : pitch * 0.99999, size: S }; renderFrame(); faces.push(cv.toDataURL('image/jpeg', 0.9)); } }
     finally { Cam.override = null; }
     this.faces = faces; await Store.put('kv', 'panorama', { sig: await this.sig(), faces }).catch(() => { });
-    this.build(); this.capturing = false;
+    await this.build(); this.capturing = false;
     World.reset(); Entities.clear(); Title.active = false; // el mundo del menú ya no hace falta
   },
   async invalidate() { const was = this.ready; this.ready = false; this.faces = null; this.t0 = 0; try { await Store.del('kv', 'panorama'); } catch (e) { } if (was && Game.state === 'title' && !Title.active) Title.start(); },
@@ -9111,7 +9162,7 @@ function setupCamera() {
   // FOV
   let fm = 1; if (P && Game.state === 'play') { if (P.sprinting) fm *= 1.15; if (P.flying && P.mode !== 3) fm *= 1.1; if (P.usingItem && P.held && P.held.id === 'bow') fm *= 1 - Math.min(1, P.bowCharge / 20) * 0.15; if (P.eyeInWater) fm *= 0.86; }
   Cam.fovMul += (fm - Cam.fovMul) * 0.15;
-  const fov = Cam.override ? Math.PI / 2 : Settings.fov * Cam.fovMul * DEG;
+  const fov = Cam.override ? Panorama.FOV : Settings.fov * Cam.fovMul * DEG;
   const far = Math.max(260, Settings.renderDist * 16 * 1.6);
   M4.persp(R.proj, fov, R.W / R.H, 0.05, far);
   // tercera persona
@@ -9466,7 +9517,7 @@ function frame(now) {
   const dt = Math.min(250, now - lastT); lastT = now;
   try {
     const P = Game.player;
-    Panorama.tick(dt);
+    Panorama.tick();
     if (Game.state === 'title') {
       if (Title.active) Chunks.update(Title.cx, Title.cz, Math.min(Settings.renderDist, 6));
       if (Panorama.canCapture()) Panorama.capture();
@@ -9495,7 +9546,10 @@ function frame(now) {
       Sound.musicTick();
     }
     Net.tick(dt); Music.tick(); PackMusic.tick(); Jukebox.tick(); Sound.menuTick();
-    if (!(Game.state === 'title' && Panorama.ready)) renderFrame(); else Renderer.gl.clear(Renderer.gl.COLOR_BUFFER_BIT);
+    // en el menú no se dibuja el mundo: o el panorama (ya hecho) o nada mientras se hacen las fotos
+    if (Panorama.ready && (Game.state === 'title' || Game.state === 'loading')) Panorama.draw(dt);
+    else if (Game.state === 'title') { const gl = Renderer.gl; gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+    else renderFrame();
     HUD.draw();
   } catch (e) { console.error(e); if (!frame.errShown) { frame.errShown = true; Chat.add('§cError: ' + e.message); } }
 }

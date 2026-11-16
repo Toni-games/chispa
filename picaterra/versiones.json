@@ -1,8 +1,19 @@
 {
-  "latest": "1.9.9",
+  "latest": "1.9.10",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.9.10",
+      "date": "2026-11-16",
+      "title": "Panorama sin rayas y bloques sin rayitas",
+      "notes": [
+        "El panorama del menú se dibuja dentro del juego: gira sin rayas ni huecos, sin clics y sin ver el mundo generándose",
+        "Bloques del paquete sin rayitas blancas: los bordes de cada textura ya no cogen píxeles de la de al lado y los huecos transparentes de los bloques macizos se rellenan con el color de alrededor"
+      ],
+      "size": 240821,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.9.10.zip"
+    },
     {
       "id": "1.9.9",
       "date": "2026-11-16",
