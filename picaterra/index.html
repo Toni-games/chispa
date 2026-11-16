@@ -14,12 +14,20 @@
   #hud { image-rendering: pixelated; }
   #bootMsg { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 22px; color: #ccc; padding: 20px; text-align: center; }
   /* pantalla de carga del juego con el logo del paquete (fondo rojo y barra blanca, como el original) */
-  #bootMsg.mojang { background: #ef323d; flex-direction: column; z-index: 50; transition: opacity 0.6s; }
+  #bootMsg.mojang { background: #ef323d; flex-direction: column; z-index: 50; transition: opacity 1s; }
   #bootMsg.mojang img { width: min(50vw, 100vh); image-rendering: auto; }
-  #bootBar { width: min(50vw, 100vh); height: 10px; border: 2px solid #fff; margin-top: 4vh; padding: 2px; box-sizing: border-box; }
-  #bootBar div { height: 100%; width: 0; background: #fff; transition: width 0.3s; }
+  #bootBar { width: min(50vw, 100vh); height: clamp(26px, 5vh, 42px); border: 3px solid #fff; margin-top: 4vh; padding: 4px; box-sizing: border-box; }
+  #bootBar div { height: 100%; width: 0; background: #fff; }
   #logo img.packLogo { display: block; width: min(86vw, 640px); image-rendering: auto; margin: 0 auto; }
   #logo img.packEdition { display: block; width: min(40vw, 300px); margin: -1.6% auto 0; image-rendering: auto; }
+  #loadPano { position: absolute; inset: -20px; z-index: -1; display: none; background-repeat: repeat-x; background-size: auto 100%; filter: blur(5px) brightness(0.75); animation: panoSpin 240s linear infinite; }
+  @keyframes panoSpin { from { background-position-x: 0; } to { background-position-x: var(--panoW, -4000px); } }
+  body.panoTex #loadPano { display: block; }
+  body.panoTex #s_loading { background: var(--menubg) !important; background-size: 64px 64px !important; isolation: isolate; }
+  #s_loading { overflow: hidden; }
+  /* sin panorama en el paquete: se ve el mundo nuevo generándose detrás, girando, desenfocado y oscurecido */
+  body.menuTex:not(.panoTex) #s_loading { background: var(--menubg) !important; background-size: 64px 64px !important; backdrop-filter: blur(7px) brightness(0.62); -webkit-backdrop-filter: blur(7px) brightness(0.62); }
+  #loadMap { margin-top: 4px; }
   body.menuTex.dirtTex .screen.dirt, body.menuTex .screen.dirt { background: var(--menubg), var(--pano, #1b1b1b); background-size: 64px 64px, cover; background-position: 0 0, center; image-rendering: pixelated; }
   body.menuTex.playing .screen.dim, body.menuTex.playing.dirtTex .screen.dim { background: var(--inworld); background-size: 64px 64px; image-rendering: pixelated; }
   .screen { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; text-shadow: 2px 2px 0 #2a2a2a; z-index: 5; overflow: auto; padding: 16px 8px; }
@@ -77,7 +85,7 @@
   .file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
   #loadBox { width: 400px; max-width: 86vw; height: 8px; background: #333; border: 2px solid #000; margin-top: 14px; display: none; }
   #s_loading h2 { font-weight: normal; font-size: 20px; color: #fff; text-shadow: 2px 2px 0 #3f3f3f; margin: 0 0 18px; letter-spacing: 0; }
-  #loadMap { image-rendering: pixelated; width: 176px; height: 176px; }
+  #loadMap { image-rendering: pixelated; width: 272px; height: 272px; }
   #loadBar { height: 100%; width: 0; background: #7fd34a; transition: width 0.2s; }
   #chatGhost { position: fixed; left: 4px; right: 4px; bottom: 4px; height: 30px; line-height: 33px; padding: 0 6px; font: 18px 'Pixelify Sans', monospace; color: #8a8a8a; pointer-events: none; z-index: 7; white-space: pre; overflow: hidden; }
   #chatSug { position: fixed; left: 4px; bottom: 38px; min-width: 260px; max-width: 70vw; display: none; background: rgba(0, 0, 0, 0.8); font: 17px 'Pixelify Sans', monospace; z-index: 7; padding: 2px 0; }
@@ -294,7 +302,8 @@
 <div class="screen dirt" id="s_loading">
   <h2 id="loadText">Generando terreno…</h2>
   <div id="loadBox"><div id="loadBar"></div></div>
-  <canvas id="loadMap" width="88" height="88"></canvas>
+  <canvas id="loadMap" width="136" height="136"></canvas>
+  <div id="loadPano"></div>
 </div>
 
 <input id="chatInput" maxlength="256" autocomplete="off" spellcheck="false">
@@ -319,7 +328,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.9.7';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.9.8';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -3514,7 +3523,7 @@ const TexturePack = {
     for (const ph of MOON_PHASES) m['sky_moon_' + ph] = 'celestial/moon/' + ph;
     m.c_recipe_book = 'recipe_book';
     // pantalla de carga, logo del menú principal y fondos de menú (paquetes 1.20.5 en adelante)
-    Object.assign(m, { ui_mojang: 'mojangstudios', ui_logo: 'minecraft', ui_logo_alt: 'minceraft', ui_edition: 'edition', ui_menu_bg: 'menu_background', ui_inworld_bg: 'inworld_menu_background', ui_panorama: 'panorama_0' });
+    Object.assign(m, { ui_mojang: 'mojangstudios', ui_logo: 'minecraft', ui_logo_alt: 'minceraft', ui_edition: 'edition', ui_menu_bg: 'menu_background', ui_inworld_bg: 'inworld_menu_background', ui_panorama: 'panorama_0', ui_pano1: 'panorama_1', ui_pano2: 'panorama_2', ui_pano3: 'panorama_3' });
     for (const [k, f] of [['rb_button', 'button'], ['rb_button_hi', 'button_highlighted'], ['rb_slot_ok', 'slot_craftable'], ['rb_slot_no', 'slot_uncraftable'], ['rb_filter_on', 'filter_enabled'], ['rb_filter_on_hi', 'filter_enabled_highlighted'], ['rb_filter_off', 'filter_disabled'], ['rb_filter_off_hi', 'filter_disabled_highlighted'], ['rb_page_forward', 'page_forward'], ['rb_page_forward_hi', 'page_forward_highlighted'], ['rb_page_backward', 'page_backward'], ['rb_page_backward_hi', 'page_backward_highlighted']]) m[k] = 'sprites/recipe_book/' + f;
     for (let i = 1; i <= 3; i++) { m['ench_l' + i] = 'sprites/container/enchanting_table/level_' + i; m['ench_l' + i + '_off'] = 'sprites/container/enchanting_table/level_' + i + '_disabled'; }
     for (let i = 1; i <= 7; i++) for (const [a, b] of [['ts', 'top_selected'], ['tu', 'top_unselected'], ['bs', 'bottom_selected'], ['bu', 'bottom_unselected']]) m['tab_' + a + i] = 'sprites/container/creative_inventory/tab_' + b + '_' + i;
@@ -8752,11 +8761,14 @@ const UI = {
   },
   // mapa de chunks de la pantalla de carga (colores de los estados de generación del original)
   drawLoadMap(cx, cz) {
-    const cv = this.$('loadMap'); const g = cv.getContext('2d'); const R = 5, S = 8; // 11x11 chunks, 8 px cada uno (con separación)
+    // 17x17 chunks; colores del original: vacío, empezado, biomas, terreno, decoración, luz y completo
+    const cv = this.$('loadMap'); const g = cv.getContext('2d'); const R = 8, S = 8;
     g.clearRect(0, 0, cv.width, cv.height);
     for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
-      const c = World.chunk(cx + dx, cz + dz);
-      const col = !c ? '#545454' : c.mesh && !c.dirty ? '#ffffff' : c.mesh ? '#cccccc' : '#80b252';
+      const c = World.chunk(cx + dx, cz + dz), k = ckey(cx + dx, cz + dz);
+      let col = '#545454';
+      if (Gen.pending.has(k)) col = (performance.now() / 120 + dx * 3 + dz * 5) % 3 < 1 ? '#999999' : (performance.now() / 120 + dx + dz) % 3 < 2 ? '#80b252' : '#d1d1d1';
+      else if (c) col = c.mesh && !c.dirty ? '#ffffff' : c.mesh ? '#cccccc' : (c.light === false ? '#21c600' : '#726809');
       g.fillStyle = col; g.fillRect((dx + R) * S, (dz + R) * S, S - 1, S - 1);
     }
   },
@@ -8997,6 +9009,15 @@ function applyPackUI() {
     if (G.ui_panorama) { try { const c = document.createElement('canvas'); const w = 480, h = Math.round(w * G.ui_panorama.height / G.ui_panorama.width); c.width = w; c.height = h; const g = c.getContext('2d'); g.filter = 'blur(4px)'; g.drawImage(G.ui_panorama, -12, -12, w + 24, h + 24); st.setProperty('--pano', 'url(' + c.toDataURL('image/jpeg', 0.8) + ') center / cover'); } catch (e) { } }
     document.body.classList.add('menuTex');
   } else document.body.classList.remove('menuTex');
+  const faces = [G.ui_panorama, G.ui_pano1, G.ui_pano2, G.ui_pano3];
+  if (faces.every(im => im && im.width >= 64)) { try { // (algunos paquetes traen el panorama vacío, de 1 píxel)
+    const h = 256, c = document.createElement('canvas'); c.width = h * 4; c.height = h; const g = c.getContext('2d');
+    faces.forEach((im, i) => g.drawImage(im, i * h, 0, h, h));
+    const el = document.getElementById('loadPano'); el.style.backgroundImage = 'url(' + c.toDataURL('image/jpeg', 0.85) + ')';
+    // al girar, la tira se repite: el ancho real depende de la altura de la pantalla
+    const upd = () => el.style.setProperty('--panoW', -(el.offsetHeight || innerHeight) * 4 + 'px'); upd(); addEventListener('resize', upd);
+    document.body.classList.add('panoTex');
+  } catch (e) { } } else document.body.classList.remove('panoTex');
 }
 function applyDirtBg() { applyPackUI(); try { document.body.style.setProperty('--dirt', 'url(' + Atlas.tile('dirt').toDataURL() + ')'); document.body.classList.add('dirtTex'); } catch (e) { } }
 Game.reloadTextures = () => { FaceTex.apply(); Atlas.build(); applyDirtBg(); Renderer.uploadAtlas(); Renderer.makeCelestial(); Renderer.makeClouds(); ItemMeshes.clear(); Game.remeshAll(); for (const k in ICON_CACHE) delete ICON_CACHE[k]; for (const k in GLINT) delete GLINT[k]; };
@@ -9397,11 +9418,15 @@ function frame(now) {
       Game.partial = clamp(acc / 50, 0, 1);
       Chunks.update(P.x, P.z, Settings.renderDist);
       if (Game.state === 'loading') {
+        P.yaw -= dt * 0.00009; P.pitch = -0.28;
+        if (!P.placed && World.dim === 'o' && !World.flat && !P._loadCam) { P._loadCam = true; try { P.y = Math.max(P.y, Gen.local.column(World.seed, Math.floor(P.x), Math.floor(P.z)).h + 22); P.py = P.y; } catch (e) { } } // la vista gira despacio mientras se genera el mundo (como el panorama del original)
         const cx = Math.floor(P.x) >> 4, cz = Math.floor(P.z) >> 4; let ready = 0, need = 0;
         for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { need++; const c = World.chunk(cx + dx, cz + dz); if (c && c.mesh && !c.dirty) ready++; }
-        UI.setLoading(ready < need ? 'Generando terreno…' : 'Colocando al jugador…', ready / need); UI.drawLoadMap(cx, cz);
-        if (ready >= need) {
-          if (!P.placed) placePlayerOnGround(P);
+        UI.setLoading('Generando terreno…', ready / need); UI.drawLoadMap(cx, cz);
+        if (ready >= need) Game.readyAt = Game.readyAt || performance.now(); else Game.readyAt = 0;
+        if (ready >= need && performance.now() - Game.readyAt > 700) { // se queda un momento en el 100 %
+          Game.readyAt = 0;
+          if (!P.placed) placePlayerOnGround(P); P.pitch = 0;
           Game.state = 'play'; UI.show('pause'); UI.$('pauseTitle').textContent = '¡Listo! Haz clic para jugar'; World.chunks.forEach(c => { });
         }
       }
@@ -9419,7 +9444,11 @@ async function boot() {
     loadSettings();
     await Store.init(); await loadSettingsAsync();
     // si el paquete guardado trae el logo de carga, la pantalla de arranque es la del original (roja con barra)
-    let bootStep = 0; const bootSteps = 9; const bump = () => { const b = document.querySelector('#bootBar div'); if (b) b.style.width = Math.round(++bootStep / bootSteps * 100) + '%'; };
+    // barra de arranque: avanza suave hacia lo que lleva cargado (como el original) y no se va hasta llegar al final
+    let bootStep = 0; const bootSteps = 9, bootT0 = performance.now(); let shown = 0;
+    const bump = () => { bootStep++; };
+    const barLoop = () => { const b = document.querySelector('#bootBar div'); if (!b) return; const target = bootStep / bootSteps; const cap = Math.min(target, (performance.now() - bootT0) / 3000); shown += (cap - shown) * 0.05 + (cap > shown ? 0.0015 : 0); shown = Math.min(shown, cap); b.style.width = (shown * 100).toFixed(2) + '%'; requestAnimationFrame(barLoop); };
+    const bootDone = () => new Promise(res => { const chk = () => { if (shown >= 0.995) setTimeout(res, 600); else requestAnimationFrame(chk); }; chk(); });
     try {
       const lg = await Store.get('tex', 'gui:ui_mojang');
       if (lg) {
@@ -9428,7 +9457,7 @@ async function boot() {
           const c = document.createElement('canvas'); const hw = im.width, hh = im.height / 2; c.width = hw * 2; c.height = hh;
           const g = c.getContext('2d'); g.drawImage(im, 0, 0, hw, hh, 0, 0, hw, hh); g.drawImage(im, 0, hh, hw, hh, hw, 0, hw, hh);
           status.textContent = ''; status.className = 'mojang'; const a = document.createElement('img'); a.src = c.toDataURL(); status.append(a);
-          const bar = document.createElement('div'); bar.id = 'bootBar'; bar.append(document.createElement('div')); status.append(bar);
+          const bar = document.createElement('div'); bar.id = 'bootBar'; bar.append(document.createElement('div')); status.append(bar); requestAnimationFrame(barLoop);
         }
       }
     } catch (e) { }
@@ -9445,7 +9474,7 @@ async function boot() {
     Renderer.init(document.getElementById('gl')); Renderer.uploadAtlas(); Mesher.init();
     HUD.init(); Skins.init(); UI.init(); Input.init(); bump();
     if (document.fonts && document.fonts.load) { try { await Promise.race([document.fonts.load('16px "Pixelify Sans"'), new Promise(r => setTimeout(r, 1500))]); } catch (e) { } }
-    bump(); if (status.classList.contains('mojang')) { status.style.opacity = '0'; setTimeout(() => status.remove(), 700); } else status.remove();
+    bump(); if (status.classList.contains('mojang')) { await bootDone(); status.style.opacity = '0'; setTimeout(() => status.remove(), 1100); } else status.remove();
     Title.start();
     if (await TexturePack.stale()) document.getElementById('texNotice').hidden = false;
     Net.init();

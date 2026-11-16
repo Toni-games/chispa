@@ -1,8 +1,19 @@
 {
-  "latest": "1.9.7",
+  "latest": "1.9.8",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.9.8",
+      "date": "2026-11-16",
+      "title": "Cargas más bonitas",
+      "notes": [
+        "Pantalla de arranque: barra más gorda y fluida que llega al final antes de desaparecer (y se desvanece despacio)",
+        "Cargar mundo: el mundo nuevo se ve detrás girando despacio, desenfocado y oscurecido, con el mapa de chunks más grande y de colores, y se queda un momento en el 100 %"
+      ],
+      "size": 237925,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.9.8.zip"
+    },
     {
       "id": "1.9.7",
       "date": "2026-11-16",
