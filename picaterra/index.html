@@ -16,8 +16,8 @@
   /* pantalla de carga del juego con el logo del paquete (fondo rojo y barra blanca, como el original) */
   #bootMsg.mojang { background: #ef323d; flex-direction: column; z-index: 50; transition: opacity 1s; }
   #bootMsg.mojang img { width: min(50vw, 100vh); image-rendering: auto; }
-  #bootBar { width: min(50vw, 100vh); height: clamp(26px, 5vh, 42px); border: 3px solid #fff; margin-top: 4vh; padding: 4px; box-sizing: border-box; }
-  #bootBar div { height: 100%; width: 0; background: #fff; }
+  #bootBar { width: min(50vw, 100vh); height: clamp(26px, 5vh, 42px); border: 3px solid #fff; margin-top: 4vh; padding: 4px; box-sizing: border-box; overflow: hidden; }
+  #bootBar div { height: 100%; width: 0; max-width: 100%; background: #fff; }
   #logo img.packLogo { display: block; width: min(86vw, 640px); image-rendering: auto; margin: 0 auto; }
   #logo img.packEdition { display: block; width: min(40vw, 300px); margin: -1.6% auto 0; image-rendering: auto; }
   #loadPano { position: absolute; inset: -20px; z-index: -1; display: none; background-repeat: repeat-x; background-size: auto 100%; filter: blur(5px) brightness(0.75); animation: panoSpin 240s linear infinite; }
@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.13.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.14.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -4129,7 +4129,7 @@ const TexturePack = {
     for (const name in EMBEDDED_TEXTURES) if (!Atlas.custom[name] && TEX[name]) await new Promise(r => { const im = new Image(); im.onload = () => { Atlas.custom[name] = im; r(); }; im.onerror = r; im.src = EMBEDDED_TEXTURES[name]; });
   },
   // firma de las casillas del juego: si cambia (versión nueva con bloques nuevos), el paquete guardado se vuelve a aplicar
-  sig() { return GAME_VERSION + ':' + TEX_NAMES.length; },
+  sig() { return GAME_VERSION + ':' + TEX_NAMES.filter(n => !n.startsWith('jm/')).length; },
   async refreshStored() {
     try {
       const zip = await Store.get('kv', 'texpack:zip'); if (!zip || !zip.size) return 0;
@@ -4795,7 +4795,7 @@ const Mesher = {
   },
 
   build(c) {
-    this.fillPadded(c);
+    this.fillPadded(c); this.cx = c.cx; this.cz = c.cz; const bedCEM = false; const beds = [];
     const O = this.O, T = this.T; O.reset(); T.reset();
     const pb = this.pb, pm = this.pm, pl = this.pl;
     const fancy = Settings.fancy && Atlas.leavesAlpha;
@@ -4804,6 +4804,8 @@ const Mesher = {
       const id = pb[p]; if (!id) continue;
       const rt = RENDER[id]; const d = BLOCKS[id];
       if (WET[id]) this.liquid(T, p, B.water, BLOCKS[B.water], x, y, z);
+      if (bedCEM && d.bedPart) { beds.push([c.cx * 16 + x, y, c.cz * 16 + z, d.bedPart === 'head' ? 1 : 0, pm[p] & 3]); continue; }
+      const jb = JM.block[id]; if (jb && this.jmodel(O, T, p, id, d, x, y, z, jb, fancy, pm[p])) continue;
       if (rt === 1) this.cube(O, T, p, id, d, pm[p], x, y, z, fancy);
       else if (rt === 2) this.cross(O, p, id, d, x, y, z);
       else if (rt === 3) this.liquid(d.translucent ? T : O, p, id, d, x, y, z);
@@ -4812,6 +4814,7 @@ const Mesher = {
       else if (rt === 6) this.crop(O, p, d, pm[p], x, y, z);
       else if (rt === 7) this.ladder(O, p, d, pm[p], x, y, z);
     }
+    if (bedCEM || CEM.beds[c.cx + ',' + c.cz]) { if (beds.length) CEM.beds[c.cx + ',' + c.cz] = beds; else delete CEM.beds[c.cx + ',' + c.cz]; }
     return { o: O.q ? O.slice() : null, oq: O.q, t: T.q ? T.slice() : null, tq: T.q };
   },
 
@@ -4981,6 +4984,25 @@ const Mesher = {
         this.quad(O, x, y, z, verts, uvs, Atlas.index[tex[lf]] ?? 0, [255, 255, 255], this.SHADE[wf], (L >> 4) * 16, (L & 15) * 16, 0);
       }
     }
+  },
+  // bloque con modelo .json de un paquete (p. ej. hojas cúbicas)
+  jmodel(O, T, p, id, d, x, y, z, parts, fancy, meta) {
+    const pb = this.pb, pl = this.pl, own = pl[p]; const wx = this.cx * 16 + x, wz = this.cz * 16 + z;
+    let tint = null;
+    for (let pi = 0; pi < parts.length; pi++) {
+      const list = parts[pi]; let tot = 0; for (const o of list) tot += o.w;
+      let hh = Math.imul(wx, 73856093) ^ Math.imul(y * 7 + pi * 131, 19349663) ^ Math.imul(wz, 83492791); hh = Math.imul(hh ^ (hh >>> 13), 1274126177); let r = ((hh >>> 0) % 10007) / 10007 * tot, ch = list[0];
+      for (const o of list) { r -= o.w; if (r < 0) { ch = o; break; } }
+      if (ch.vanilla) { const rt = RENDER[id]; if (rt === 1) this.cube(O, T, p, id, d, meta, x, y, z, fancy); else if (rt === 2) this.cross(O, p, id, d, x, y, z); else if (rt === 5) this.boxes(O, p, id, d, meta, x, y, z); continue; }
+      for (const q of ch.quads) {
+        let L = own;
+        if (q.cull >= 0) { const np = p + this.NOFF[q.cull]; const n = pb[np]; if (OPAQUE[n] && n !== id) continue; if (n === id && !d.leaves && OPAQUE[id]) continue; const nl = pl[np]; L = Math.max(nl >> 4, own >> 4) << 4 | Math.max(nl & 15, own & 15); }
+        const ti = Atlas.index[q.tex] ?? 0;
+        let rgb = [255, 255, 255]; if (q.tint) { tint = tint || this.tintOf(d, x, z) || (d.leaves ? this.tintOf({ tint: 'foliage' }, x, z) : null) || [255, 255, 255]; rgb = tint; }
+        this.quad(d.translucent ? this.T : O, x, y, z, q.verts, q.uvs, ti, rgb, q.shade < 0 ? 1 : this.SHADE[q.shade], (L >> 4) * 16, (L & 15) * 16, 0);
+      }
+    }
+    return true;
   },
   boxes(O, p, id, d, meta, x, y, z) {
     const pb = this.pb, pl = this.pl, NO = this.NOFF;
@@ -6171,7 +6193,7 @@ const CEM = {
   draw(e, M, skinTex, base, Pw, light, tint) {
     const R = Renderer, gl = R.gl, pt = Game.partial;
     // pose de serie de este juego (para las partes que el paquete no mueve)
-    const vm = getModel(e.kind); animate(e.kind, vm, e, pt);
+    const kind = e.kind || 'player'; const vm = getModel(kind); animate(kind, vm, e, pt);
     const vby = {}; for (const p of vm.parts) { vby[this.ALIAS[p.n] || p.n] = p; }
     for (const v of M.top) {
       const p = vby[v.id] || vby[this.ALIAS2[v.id]];
@@ -6213,9 +6235,30 @@ const CEM = {
     M4.translate(m, -n.tx / 16, -n.ty / 16, n.tz / 16);
     if (n.rz) M4.rotZ(m, n.rz); if (n.ry) M4.rotY(m, -n.ry); if (n.rx) M4.rotX(m, -n.rx);
     if (n.sx !== 1 || n.sy !== 1 || n.sz !== 1) M4.scale(m, n.sx, n.sy, n.sz);
+    if (n.vanilla && this.cap) this.cap[n.id] = M4.copy(new Float32Array(16), m);
     if (n.mesh && n.vbox) Renderer.drawMesh(n.mesh, m, Pw);
     for (const k of n.kids) this.drawNode(k, m, Pw, depth + 1);
   },
+};
+// camas con modelo CEM (se dibujan como en el original: cada mitad con su pieza)
+CEM.beds = {};
+CEM.drawBeds = function (Pw, cam) {
+  const M = this.get('bed'); if (!M) return; const R = Renderer, gl = R.gl;
+  const tex = this.textureFor({ texture: 'textures/entity/bed/red.png' }) || (M.texture && this.textureFor(M)) || bedFallbackSheet();
+  gl.uniform2f(Pw.u.uAtlas, 1024, 1024); gl.bindTexture(gl.TEXTURE_2D, R.skinTexture('cem_bed', tex)); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
+  const rd = (Settings.renderDist * 16) ** 2; const m = this._bm || (this._bm = new Float32Array(16));
+  for (const k in this.beds) for (const [x, y, z, head, f] of this.beds[k]) {
+    if ((x - cam.x) ** 2 + (z - cam.z) ** 2 > rd) continue;
+    if (!World.chunk(x >> 4, z >> 4)) continue;
+    const L = entLight(x + 0.5, y + 0.6, z + 0.5); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]);
+    const bm = CEM.bedMode || 0;
+    M4.identity(m); M4.translate(m, x, y + 9 / 16, z); M4.rotX(m, [1, -1, 0, 0][bm] * Math.PI / 2); M4.translate(m, 0.5, 0.5, 0.5); M4.rotZ(m, Math.PI + f * Math.PI / 2); M4.translate(m, -0.5, -0.5, -0.5); M4.scale(m, -1, -1, 1);
+    for (const v of M.top) {
+      const isHead = v.id === 'head' || v.id === 'leg1' || v.id === 'leg2'; if (isHead !== !!head) continue;
+      v.tx = v.ty = v.tz = 0; v.rx = v.ry = v.rz = 0; v.sx = v.sy = v.sz = 1; v.visible = true; v.vbox = true; this.reset(v.kids);
+      this.drawNode(v, m, Pw, 0);
+    }
+  }
 };
 const wrapPI = (a) => { a %= Math.PI * 2; if (a > Math.PI) a -= Math.PI * 2; if (a < -Math.PI) a += Math.PI * 2; return a; };
 
@@ -10551,6 +10594,7 @@ const ItemMeshes = {
   get(id) {
     if (this.cache[id]) return this.cache[id];
     const it = ITEMS[id]; let vb, sprite = false;
+    if (JM.item[id]) { const vb2 = new VB(64); for (const q of JM.item[id].quads) Mesher.quad(vb2, 0, 0, 0, q.verts, q.uvs, Atlas.index[q.tex] ?? 0, [255, 255, 255], q.shade < 0 ? 1 : Mesher.SHADE[q.shade], 240, 240, 0); const m = Renderer.meshFromVB(vb2); m.sprite = true; m.jm = true; this.cache[id] = m; return m; }
     if (it && it.iconBlock) vb = Mesher.blockItem(B[it.block], it.block && BLOCKS[B[it.block]].facing ? 2 : 0);
     else { vb = it && it.block && !it.iconBlock ? Mesher.spriteItem(BLOCKS[B[it.block]].faceTex[0], BLOCKS[B[it.block]].tint && TINTED_TEX.has(BLOCKS[B[it.block]].faceTex[0]) ? [110, 180, 80] : null) : Mesher.spriteItem(it ? it.icon || id : 'stone'); sprite = true; }
     const m = Renderer.meshFromVB(vb); m.sprite = sprite || !!vb.sprite; this.cache[id] = m; return m;
@@ -10655,6 +10699,7 @@ function drawModel(kind, e, skinTex, base, Pw, light, tint, animKind) {
 function drawEntities(Pw, cam) {
   const R = Renderer, gl = R.gl; const pt = Game.partial;
   gl.disable(gl.CULL_FACE);
+  try { CEM.drawBeds(Pw, cam); } catch (e) { }
   const list = [...Entities.list]; const P = Game.player;
   for (const e of list) {
     const x = lerp(e.px, e.x, pt), y = lerp(e.py, e.y, pt), z = lerp(e.pz, e.z, pt);
@@ -10743,14 +10788,19 @@ function drawPlayerModel(Pw, P) {
   M4.identity(_m); M4.translate(_m, x, y, z); M4.rotY(_m, lerpAngle(P.prevBodyYaw ?? P.bodyYaw, P.bodyYaw, pt));
   if (P.dead) M4.rotZ(_m, Math.min(1, Math.sqrt((P.deathTime + pt) / 20)) * Math.PI / 2);
   M4.scale(_m, 0.9375, 0.9375, 0.9375);
-  const m = drawModel('player', P, tex, _m, Pw, L, P.hurt > 0 || P.dead ? [1, 0, 0, 0.4] : null);
+  const cm = CEM.enabled && CEM.count() ? (CEM.get(Skins.slim ? 'player_slim' : 'player') || CEM.get('player')) : null;
+  let m = null; CEM.cap = null;
+  if (cm) { CEM.cap = {}; CEM.draw(P, cm, tex, _m, Pw, L, P.hurt > 0 || P.dead ? [1, 0, 0, 0.4] : null); }
+  else m = drawModel('player', P, tex, _m, Pw, L, P.hurt > 0 || P.dead ? [1, 0, 0, 0.4] : null);
+  const CAPN = { head: 'head', body: 'body', rarm: 'right_arm', larm: 'left_arm', rleg: 'right_leg', lleg: 'left_leg' };
+  const PMX = (pn) => cm ? M4.copy(_m2, CEM.cap[CAPN[pn]] || _m) : partMatrix(_m2, _m, m.by[pn]);
   if (EndDim.hasElytra(P)) { gl.bindTexture(gl.TEXTURE_2D, R.skinTexture('mob_elytra', MobSkins.get('elytra'))); drawModel('elytra', P, R.skinTexture('mob_elytra', MobSkins.get('elytra')), _m, Pw, L, null); }
   // armadura
   const A = armorModel();
   for (let i = 0; i < 4; i++) {
     const st = P.armor[i]; if (!st || ITEMS[st.id].elytra) continue; const mat = ITEMS[st.id].mat;
     gl.bindTexture(gl.TEXTURE_2D, R.skinTexture('armor_' + mat, Skins.armorSkin(mat))); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
-    const pm = (pn, mesh) => { partMatrix(_m2, _m, m.by[pn]); R.drawMesh(mesh, _m2, Pw); };
+    const pm = (pn, mesh) => { PMX(pn); R.drawMesh(mesh, _m2, Pw); };
     if (i === 0) pm('head', A.helmet);
     if (i === 1) { pm('body', A.chest); pm('rarm', A.rarm); pm('larm', A.larm); }
     if (i === 2) { pm('body', A.legs); pm('rleg', A.rleg); pm('lleg', A.lleg); }
@@ -10760,7 +10810,7 @@ function drawPlayerModel(Pw, P) {
   const st = P.held; if (!st) return;
   gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
   const mesh = ItemMeshes.get(st.id);
-  partMatrix(_m2, _m, m.by.rarm); M4.translate(_m2, 1 / 16, -9.5 / 16, -1 / 16);
+  PMX('rarm'); M4.translate(_m2, 1 / 16, -9.5 / 16, -1 / 16);
   if (mesh.sprite) { M4.rotX(_m2, -Math.PI / 2 + 0.3); M4.rotY(_m2, Math.PI / 2); M4.rotZ(_m2, Math.PI / 4 * 0); M4.translate(_m2, 0, 0.15, 0); M4.scale(_m2, 0.6, 0.6, 0.6); }
   else { M4.translate(_m2, 0, -0.05, -0.08); M4.rotX(_m2, 0.4); M4.rotY(_m2, Math.PI / 4); M4.scale(_m2, 0.3, 0.3, 0.3); }
   R.drawMesh(mesh, _m2, Pw);
@@ -11841,6 +11891,134 @@ const Jukebox = {
 };
 
 
+// ---- extra/models114.js ----
+// ============================================================
+//  1.14: modelos .json de los paquetes de recursos (bloques y objetos)
+//  — hojas cúbicas, objetos en 3D en la mano, etc. — y camas con modelo CEM
+// ============================================================
+const JM = {
+  models: {}, states: {}, items: {}, texFiles: {},
+  block: {},   // id de bloque -> [partes: [{ w, quads }]]
+  item: {},    // id de objeto -> quads
+  clear() { this.models = {}; this.states = {}; this.items = {}; this.texFiles = {}; this.block = {}; this.item = {}; },
+  key(ref, kind) { // "minecraft:block/x" -> "minecraft:block/x"
+    ref = String(ref || ''); if (!ref.includes(':')) ref = 'minecraft:' + ref; return ref.toLowerCase();
+  },
+  // lee del zip lo que sirve: modelos, estados de bloque, definiciones de objeto y texturas
+  async absorb(z) {
+    const dec = new TextDecoder();
+    for (const p of z.names) {
+      const m = p.match(/(?:^|\/)assets\/([^/]+)\/(models|blockstates|items|textures)\/(.+)\.(json|png)$/i); if (!m || /__MACOSX/.test(p)) continue;
+      const [, ns, kind, path, ext] = m; const k = (ns + ':' + path).toLowerCase();
+      if (ext.toLowerCase() === 'png') { if (kind === 'textures') this.texFiles[k] = { z, p }; continue; }
+      let j = null; try { j = JSON.parse(dec.decode(await z.get(p)).replace(/^﻿/, '')); } catch (e) { continue; }
+      if (kind === 'models') this.models[k] = j; else if (kind === 'blockstates' && ns === 'minecraft') this.states[path.toLowerCase()] = j; else if (kind === 'items' && ns === 'minecraft') this.items[path.toLowerCase()] = j;
+    }
+  },
+  // modelo con sus padres resueltos
+  resolve(ref, depth = 0) {
+    const k = this.key(ref); const j = this.models[k]; if (!j || depth > 12) return null;
+    const par = j.parent ? this.resolve(j.parent, depth + 1) : null;
+    return { textures: Object.assign({}, par ? par.textures : {}, j.textures || {}), elements: j.elements || (par && par.elements) || null, display: Object.assign({}, par ? par.display : {}, j.display || {}), generated: !j.elements && ((par && par.generated) || /item\/(generated|handheld)/.test(j.parent || '')) };
+  },
+  texName(textures, ref) {
+    let r = ref, n = 0; while (r && r[0] === '#' && n++ < 10) r = textures[r.slice(1)]; if (!r || r[0] === '#') return null;
+    const k = this.key(r); const [ns, path] = k.split(':'); const base = path.split('/').pop();
+    // si el juego ya tiene esa casilla (y el paquete no trae otra distinta), se usa la del juego
+    if (ns === 'minecraft' && TEX[base] && /^(block|item)\//.test(path)) return base;
+    const name = 'jm/' + k;
+    if (!TEX[name]) { addTex(name, (c) => { c.fillStyle = '#a0a'; c.fillRect(0, 0, 16, 16); }); this.pendingTex.push([name, k]); }
+    return name;
+  },
+  pendingTex: [],
+  async loadTextures() {
+    for (const [name, k] of this.pendingTex) { const f = this.texFiles[k]; if (!f) continue; try { const im = await loadImg(await blobToURL(new Blob([await f.z.get(f.p)], { type: 'image/png' }))); if (im) Atlas.custom[name] = im.height > im.width * 1.5 ? cropFirst(im) : im; } catch (e) { } }
+    this.pendingTex = [];
+  },
+  // cubos del modelo -> quads (coordenadas 0..16 del bloque)
+  DIRS: { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 },
+  compile(model, rx, ry) {
+    if (!model || !model.elements) return null; const out = [];
+    for (const el of model.elements) {
+      const [x0, y0, z0] = el.from, [x1, y1, z1] = el.to;
+      const fv = [
+        [[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]],
+        [[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]],
+        [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]],
+      ];
+      // coordenada de textura por defecto de cada vértice (0..1 dentro del cubo)
+      const nz = (a, b) => (b - a) || 1;
+      const st = [
+        (v) => [(z1 - v[2]) / nz(z0, z1), (y1 - v[1]) / nz(y0, y1)], (v) => [(v[2] - z0) / nz(z0, z1), (y1 - v[1]) / nz(y0, y1)],
+        (v) => [(v[0] - x0) / nz(x0, x1), (v[2] - z0) / nz(z0, z1)], (v) => [(v[0] - x0) / nz(x0, x1), (z1 - v[2]) / nz(z0, z1)],
+        (v) => [(v[0] - x0) / nz(x0, x1), (y1 - v[1]) / nz(y0, y1)], (v) => [(x1 - v[0]) / nz(x0, x1), (y1 - v[1]) / nz(y0, y1)],
+      ];
+      const defUV = [[16 - z1, 16 - y1, 16 - z0, 16 - y0], [z0, 16 - y1, z1, 16 - y0], [x0, z0, x1, z1], [x0, 16 - z1, x1, 16 - z0], [x0, 16 - y1, x1, 16 - y0], [16 - x1, 16 - y1, 16 - x0, 16 - y0]];
+      const R = el.rotation;
+      for (const fname in el.faces || {}) {
+        const f = this.DIRS[fname]; if (f === undefined) continue; const fc = el.faces[fname];
+        const tex = this.texName(model.textures, fc.texture); if (!tex) continue;
+        const uv = fc.uv || defUV[f]; const rot = ((fc.rotation || 0) / 90) & 3;
+        let verts = fv[f].map(v => v.slice());
+        const uvs = fv[f].map(v => { let [s, t] = st[f](v); for (let i = 0; i < rot; i++) [s, t] = [t, 1 - s]; return [uv[0] + (uv[2] - uv[0]) * s, uv[1] + (uv[3] - uv[1]) * t]; });
+        if (R && R.angle) { const a = R.angle * Math.PI / 180, o = R.origin || [8, 8, 8]; verts = verts.map(v => rotAxis(v, R.axis, a, o)); }
+        let cull = fc.cullface ? this.DIRS[fc.cullface === 'bottom' ? 'down' : fc.cullface] : -1; let shadeF = f;
+        if (rx || ry) { verts = verts.map(v => rotBlock(v, rx, ry)); cull = cull >= 0 ? rotDir(cull, rx, ry) : -1; shadeF = rotDir(f, rx, ry); }
+        out.push({ verts, uvs, tex, cull, tint: fc.tintindex !== undefined && fc.tintindex >= 0, shade: el.shade === false ? -1 : shadeF });
+      }
+    }
+    return out;
+  },
+  pickVariant(v) { // un estado de «variants»
+    const keys = Object.keys(v); if (!keys.length) return null;
+    const pref = keys.find(k => k === '') || keys.find(k => /axis=y/.test(k)) || keys.find(k => /facing=north|snowy=false|persistent=false|half=bottom|type=bottom/.test(k)) || keys[0];
+    return v[pref];
+  },
+  // prepara los bloques y objetos con modelo del paquete
+  build() {
+    for (const name in this.states) {
+      const id = B[name]; if (id === undefined) continue; const d = BLOCKS[id]; if (!d || d.liquid || d.bedPart) continue;
+      const st = this.states[name]; const parts = [];
+      const opts = (a) => (Array.isArray(a) ? a : [a]).map(o => ({ w: o.weight || 1, ref: o.model, rx: (o.x || 0) / 90 & 3, ry: (o.y || 0) / 90 & 3 }));
+      if (st.variants) { const v = this.pickVariant(st.variants); if (v) parts.push(opts(v)); }
+      if (st.multipart) for (const mp of st.multipart) if (!mp.when) parts.push(opts(mp.apply));
+      const cparts = parts.map((list, pi) => list.map(o => { const r = this.resolve(o.ref); const q = this.compile(r, o.rx, o.ry) || []; return { w: o.w, quads: q, vanilla: !r && pi === 0 && !/empty/.test(o.ref || '') }; }));
+      if (cparts.some(l => l.some(o => o.quads.length))) this.block[id] = cparts;
+    }
+    for (const name in ITEMS) {
+      let ref = null; const def = this.items[name];
+      if (def && def.model) ref = this.handModel(def.model);
+      if (!ref && this.models['minecraft:item/' + name]) ref = 'minecraft:item/' + name;
+      if (!ref) continue; const m = this.resolve(ref); if (!m || !m.elements) continue;
+      const q = this.compile(m, 0, 0); if (q && q.length) this.item[name] = { quads: q, display: m.display };
+    }
+  },
+  handModel(n, depth = 0) {
+    if (!n || depth > 8) return null; const t = (n.type || '').replace('minecraft:', '');
+    if (t === 'model') return n.model;
+    if (t === 'select') { const c = (n.cases || []).find(c => [].concat(c.when).some(w => /firstperson_righthand|thirdperson_righthand/.test(w))); return this.handModel(c ? c.model : n.fallback, depth + 1) || (n.cases && n.cases[0] && this.handModel(n.cases[0].model, depth + 1)); }
+    if (t === 'condition') return this.handModel(n.on_false, depth + 1) || this.handModel(n.on_true, depth + 1);
+    if (t === 'range_dispatch') return this.handModel(n.fallback, depth + 1) || (n.entries && n.entries[0] && this.handModel(n.entries[0].model, depth + 1));
+    if (t === 'composite') return n.models && this.handModel(n.models[0], depth + 1);
+    return n.fallback ? this.handModel(n.fallback, depth + 1) : null;
+  },
+};
+function cropFirst(im) { const c = document.createElement('canvas'); c.width = c.height = im.width; c.getContext('2d').drawImage(im, 0, 0, im.width, im.width, 0, 0, im.width, im.width); return c; }
+function rotAxis(v, axis, a, o) {
+  const c = Math.cos(a), s = Math.sin(a); let [x, y, z] = [v[0] - o[0], v[1] - o[1], v[2] - o[2]];
+  if (axis === 'y') [x, z] = [x * c + z * s, -x * s + z * c]; else if (axis === 'x') [y, z] = [y * c - z * s, y * s + z * c]; else [x, y] = [x * c - y * s, x * s + y * c];
+  return [x + o[0], y + o[1], z + o[2]];
+}
+// giros de 90° del estado del bloque (x primero, luego y), alrededor del centro
+function rotBlock(v, rx, ry) {
+  let [x, y, z] = [v[0] - 8, v[1] - 8, v[2] - 8];
+  for (let i = 0; i < rx; i++) [y, z] = [-z, y];
+  for (let i = 0; i < ry; i++) [x, z] = [-z, x];
+  return [x + 8, y + 8, z + 8];
+}
+function rotDir(f, rx, ry) { const N = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]; const r = rotBlock(N[f].map(a => a * 8 + 8), rx, ry).map(a => Math.round((a - 8) / 8)); return N.findIndex(n => n[0] === r[0] && n[1] === r[1] && n[2] === r[2]); }
+
+
 // ---- extra/addons113.js ----
 // ============================================================
 //  1.13: Mods y paquetes — sube .zip de paquetes de recursos (texturas, criaturas,
@@ -11898,12 +12076,13 @@ const Addons = {
       gui: N.filter(p => /textures\/gui\/.+\.png$/i.test(p)).length,
       snd: N.filter(p => /\.ogg$/i.test(p)).length,
       spl: N.some(p => /splashes\.txt$/i.test(p)),
-      models: N.filter(p => /models\/(block|item)\/.+\.json$/i.test(p)).length,
+      models: N.filter(p => /assets\/[^/]+\/models\/.+\.json$/i.test(p) && !/__MACOSX/.test(p)).length,
     };
     const parts = [];
     if (info.cem) parts.push(info.cem + ' modelos animados de criaturas');
     if (info.ent) parts.push(info.ent + ' texturas de criaturas');
     if (info.tex) parts.push(info.tex + ' texturas de bloques y objetos');
+    if (info.models) parts.push(info.models + ' modelos 3D de bloques y objetos');
     if (info.gui) parts.push('interfaz');
     if (info.spl) parts.push('frases del menú');
     if (!parts.length) return null;
@@ -11916,7 +12095,7 @@ const Addons = {
   async remove(id) { this.list = this.list.filter(a => a.id !== id); await Store.del('kv', 'addon:' + id).catch(() => { }); await this.save(); },
   // ---------- aplicar al arrancar (encima del paquete de texturas normal) ----------
   async applyAll() {
-    await this.load(); CEM.clear(); this.applied = [];
+    await this.load(); CEM.clear(); JM.clear(); this.applied = [];
     for (const a of this.list) {
       if (!a.enabled) continue;
       try {
@@ -11934,9 +12113,11 @@ const Addons = {
         // interfaz y frases
         try { await TexturePack.gui(N, url, true); } catch (e) { }
         const sp = N.find(p => /splashes\.txt$/i.test(p)); if (sp) Splashes.list = new TextDecoder().decode(await z.get(sp)).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        await JM.absorb(z);
         this.applied.push(a.name);
       } catch (e) { console.warn('addon', a.name, e); }
     }
+    try { JM.build(); await JM.loadTextures(); } catch (e) { console.warn('JM', e); }
   },
 };
 CEM.texFiles = {}; CEM.texCache = {};

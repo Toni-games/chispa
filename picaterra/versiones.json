@@ -1,8 +1,21 @@
 {
-  "latest": "1.13.1",
+  "latest": "1.14.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.14.0",
+      "date": "2026-11-19",
+      "title": "Modelos 3D de los paquetes",
+      "notes": [
+        "Bloques con modelo .json de los paquetes (hojas cúbicas de Cubic Leaves, etc.)",
+        "Objetos en 3D en la mano (Weskerson's 3D Items)",
+        "Jugador animado con Fresh Animations Player (FAPlayer)",
+        "Arreglada la barra de carga que se salía del marco"
+      ],
+      "size": 286137,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.14.0.zip"
+    },
     {
       "id": "1.13.1",
       "date": "2026-11-19",
