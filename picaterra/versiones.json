@@ -1,8 +1,19 @@
 {
-  "latest": "1.15.0",
+  "latest": "1.15.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.15.1",
+      "date": "2026-11-19",
+      "title": "Texturas HD y animación al andar en diagonal",
+      "notes": [
+        "Paquetes de texturas HD de 128 px (como Default HD 128x) se ven con toda su resolución",
+        "Arreglada la animación del jugador (FAPlayer) al andar en diagonal (W + A o D)"
+      ],
+      "size": 292492,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.15.1.zip"
+    },
     {
       "id": "1.15.0",
       "date": "2026-11-19",

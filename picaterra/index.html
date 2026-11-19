@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.15.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.15.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -3709,9 +3709,12 @@ const Atlas = {
   build() {
     // tamaño de casilla según las texturas personalizadas
     let T = 16;
-    for (const k in this.custom) { const im = this.custom[k]; T = Math.max(T, Math.min(64, im.width)); }
+    for (const k in this.custom) { const im = this.custom[k]; T = Math.max(T, Math.min(Settings.hdTex === false ? 64 : 128, im.width)); }
+    // si la tarjeta gráfica no admite un atlas tan grande, se baja a 64 px
+    if (T > 64) { if (!Atlas.maxTex) { try { const g = document.createElement('canvas').getContext('webgl2'); Atlas.maxTex = g ? g.getParameter(g.MAX_TEXTURE_SIZE) : 4096; } catch (e) { Atlas.maxTex = 4096; } } if (Math.ceil(TEX_NAMES.length / this.cols) * T > Atlas.maxTex) T = 64; }
     this.T = T;
     const rows = Math.ceil(TEX_NAMES.length / this.cols);
+    { const big = Math.max(this.cols * T, rows * T); let s = 16; while (s > 1 && big * s > 65535) s >>= 1; this.SUB = s; ASUB = s; }
     const cv = document.createElement('canvas'); cv.width = this.cols * T; cv.height = Math.max(1, rows) * T;
     // la altura debe ser potencia de 2 para evitar sorpresas: redondear
     let h = 1; while (h < cv.height) h *= 2; cv.height = h;
@@ -4696,7 +4699,8 @@ const BIOME_NAMES = ['Océano', 'Playa', 'Llanura', 'Bosque', 'Bosque de abedule
 function biomeHere(x, y, z) { if (!World.flat && World.sky(x, y + 1, z) < 1 && y < Gen.local.column(World.seed, x, z).h - 8) { const cb = Gen.local.caveBiome(World.seed, x, y, z); if (cb >= 0) return cb; } return World.biome(x, z); }
 // coordenada de textura dentro de su casilla del atlas, metida 1/16 de píxel hacia dentro en los bordes:
 // así nunca se cuela un píxel de la casilla de al lado (las rayitas blancas entre bloques)
-const inT = (v, TS) => Math.min(Math.max(Math.round(v), 1), TS * 16 - 1);
+let ASUB = 16; // subdivisiones por píxel de la UV del atlas (menos con texturas HD muy grandes)
+const inT = (v, TS) => Math.min(Math.max(Math.round(v * ASUB / 16), 1), TS * ASUB - 1);
 const hexRGB = (h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
 const GRASS_C = ['#8eb971', '#91bd59', '#91bd59', '#79c05a', '#88bb67', '#86b783', '#80b497', '#bfb755', '#bfb755', '#6a7039', '#8ab689', '#80b497', '#80b497', '#79c05a', '#8eb971', '#80b497', '#83b593', '#8ab689', '#8eb971', '#8eb971', '#8eb971', '#8eb971', '#8eb971', '#8eb971', '#80b497', '#91bd59', '#80b497', '#6a7039', '#507a32', '#778272', '#88bb67', '#86b87f', '#86b783', '#80b497', '#bfb755', '#bfb755', '#8ab689', '#8ab689', '#8ab689', '#59c93c', '#64c73f', '#59c93c', '#90814d', '#90814d', '#90814d', '#83bb6d', '#b6db61', '#80b497', '#80b497', '#80b497', '#80b497', '#9abe4b', '#55c93f', '#91bd59', '#91bd59', '#91bd59'].map(hexRGB);
 const FOLI_C = ['#71a74d', '#77ab2f', '#77ab2f', '#59ae30', '#6ba941', '#68a464', '#60a17b', '#aea42a', '#aea42a', '#6a7039', '#6da36b', '#60a17b', '#60a17b', '#59ae30', '#71a74d', '#60a17b', '#64a278', '#6da36b', '#71a74d', '#71a74d', '#71a74d', '#71a74d', '#71a74d', '#71a74d', '#60a17b', '#77ab2f', '#60a17b', '#8db127', '#59ae30', '#878d76', '#6ba941', '#68a55f', '#68a464', '#60a17b', '#aea42a', '#aea42a', '#6da36b', '#6da36b', '#6da36b', '#30bb0b', '#3eb80f', '#30bb0b', '#9e814d', '#9e814d', '#9e814d', '#63a948', '#b6db61', '#60a17b', '#60a17b', '#60a17b', '#60a17b', '#82ac1e', '#2bbb0f', '#77ab2f', '#77ab2f', '#77ab2f'].map(hexRGB);
@@ -4887,7 +4891,7 @@ const Mesher = {
         let [u, vv] = this.uvOf(f, v[0] * 16, v[1] * 16, v[2] * 16);
         if (rot) { const t = u; u = vv; vv = 16 - t; }
         buf.v(kk, (x + v[0]) * POS_UNIT, (y + v[1]) * POS_UNIT, (z + v[2]) * POS_UNIT,
-          tx * 16 + inT(u * TS, TS), ty * 16 + inT(vv * TS, TS), r, g, b, Math.round(255 * sh * this.AOF[ao[k]]), ls[k], lb[k], d.fullbright ? 2 : part ? 4 : 0);
+          tx * ASUB + inT(u * TS, TS), ty * ASUB + inT(vv * TS, TS), r, g, b, Math.round(255 * sh * this.AOF[ao[k]]), ls[k], lb[k], d.fullbright ? 2 : part ? 4 : 0);
       }
       buf.end();
     }
@@ -4900,7 +4904,7 @@ const Mesher = {
     for (let k = 0; k < 4; k++) {
       const v = verts[k], uv = uvs[k];
       buf.v(k, Math.round((x + v[0] / 16) * POS_UNIT), Math.round((y + v[1] / 16) * POS_UNIT), Math.round((z + v[2] / 16) * POS_UNIT),
-        tx * 16 + inT(uv[0] * TS, TS), ty * 16 + inT(uv[1] * TS, TS), rgb[0], rgb[1], rgb[2], a, s, bl, fl || 0);
+        tx * ASUB + inT(uv[0] * TS, TS), ty * ASUB + inT(uv[1] * TS, TS), rgb[0], rgb[1], rgb[2], a, s, bl, fl || 0);
     }
     buf.end();
   },
@@ -5284,7 +5288,7 @@ const Renderer = {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, Atlas.canvas);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    this.atlasW = Atlas.canvas.width * 16; this.atlasH = Atlas.canvas.height * 16;
+    this.atlasW = Atlas.canvas.width * ASUB; this.atlasH = Atlas.canvas.height * ASUB;
   },
   skinTexture(key, canvas) {
     if (this.skinTex[key] && this.skinTex[key].src === canvas) return this.skinTex[key].t;
@@ -6220,7 +6224,7 @@ const CEM = {
     const g = {
       limb_swing: lerp(e.prevLimb || 0, e.limb || 0, pt), limb_speed: Math.min(1, lerp(e.prevLimbAmt || 0, e.limbAmt || 0, pt)),
       age: (e.age || 0) + pt, head_yaw: -wrapPI(headYaw) * D, head_pitch: -lerp(e.prevPitch ?? e.pitch, e.pitch, pt) * D,
-      pos_x: e.x, pos_y: e.y, pos_z: e.z, rot_x: 0, rot_y: e.bodyYaw * D,
+      pos_x: e.x, pos_y: e.y, pos_z: e.z, rot_x: -(e.pitch || 0) * D, rot_y: 180 - lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt) * D,
       is_on_ground: !!e.onGround, is_in_water: !!e.inWater, is_in_lava: !!e.inLava, is_burning: e.fire > 0, is_hurt: e.hurt > 0, hurt_time: Math.max(0, e.hurt || 0),
       death_time: e.deathTime || 0, is_alive: !e.dead, is_child: !!e.baby, is_riding: false, is_ridden: false, is_sitting: !!e.sitting, is_tamed: !!e.tame,
       is_aggressive: !!(e.target || e.angry), is_sneaking: !!e.sneaking, is_sprinting: !!e.sprinting, is_on_shoulder: false, is_in_ground: false, is_wet: !!e.inWater, is_glowing: false, is_invisible: false,
