@@ -1,8 +1,20 @@
 {
-  "latest": "1.13.0",
+  "latest": "1.13.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.13.1",
+      "date": "2026-11-19",
+      "title": "Arreglos del mar",
+      "notes": [
+        "El agua ya no rompe las algas al cargar el mar: se acabaron las algas flotando por el aire",
+        "Los peces ya no sacan las aletas fuera del agua",
+        "Las escaleras de mano de las torres en ruinas van pegadas a la pared"
+      ],
+      "size": 281559,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.13.1.zip"
+    },
     {
       "id": "1.13.0",
       "date": "2026-11-19",

@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.13.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.13.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -1708,7 +1708,7 @@ function GEN_MODULE(B) {
         else if (!ring && Math.max(Math.abs(u), Math.abs(v)) < 3) L.set(u, gy + y, v, (y === 5 || y === top - 1) && r() > 0.15 ? B.spruce_planks : 0);
       }
       L.clear(0, gy, -3, 0, gy + 1, -3);
-      for (let y = 0; y < top - 1; y++) L.set(2, gy + y, 2 - (y % 2), B.ladder ?? 0, L.face(0));
+      for (let y = 0; y < top - 1; y++) L.set(2, gy + y, 0, B.ladder ?? 0, L.face(3));
       L.chest(-1, gy + 6, -1, 7, 1); L.chest(0, gy + top, 0, 6, 2); L.torch(-2, gy + 6, 2);
     },
     swamp_hut(s, P) {
@@ -4594,7 +4594,7 @@ function RandomTick(x, y, z, id, meta) {
 // ---------------- fluidos ----------------
 const Fluids = {
   level(id, m, fluid) { return id === fluid ? m : -1; },
-  canFlow(id) { return id === 0 || (REPLACE[id] && !LIQUID[id]) || (BLOCKS[id].render === 'cross' && !BLOCKS[id].sapling && id !== B.sugar_cane) || id === B.torch || id === B.wheat; },
+  canFlow(id) { if (typeof WET !== 'undefined' && WET[id]) return false; return id === 0 || (REPLACE[id] && !LIQUID[id]) || (BLOCKS[id].render === 'cross' && !BLOCKS[id].sapling && id !== B.sugar_cane) || id === B.torch || id === B.wheat; },
   tick(x, y, z, id) {
     const W = LIQUID[id] === 1; const step = W ? 1 : 2; const maxL = 7;
     let m = World.getMeta(x, y, z);
@@ -7038,7 +7038,7 @@ const MobMove = {
     const [gx, gy, gz] = m.goal; const dx = gx - m.x, dz = gz - m.z, h = Math.hypot(dx, dz) || 1;
     m.yaw = lerpAngle(m.yaw, Math.atan2(-dx, -dz), 0.1);
     const sp = d.speed * (m.panic > 0 ? 0.25 : 0.12); m.vx += dx / h * sp * 0.2; m.vz += dz / h * sp * 0.2;
-    const top = LIQUID[World.get(Math.floor(m.x), Math.floor(m.y + m.h + 0.3), Math.floor(m.z))] === 1; m.vy += clamp((gy - m.y) * 0.01, -0.01, top ? 0.01 : -0.002);
+    const top = LIQUID[World.get(Math.floor(m.x), Math.floor(m.y + m.h + 0.7), Math.floor(m.z))] === 1; m.vy += clamp((gy - m.y) * 0.01, -0.01, top ? 0.01 : -0.004); if (!top && m.vy > 0) m.vy = -0.01;
     m.move(m.vx, m.vy, m.vz); m.vx *= 0.9; m.vy *= 0.9; m.vz *= 0.9;
     m.updateLimbs(); m.bodyYaw = lerpAngle(m.bodyYaw, m.yaw, 0.3); m.headYaw = m.bodyYaw;
     return true;
