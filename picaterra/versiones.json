@@ -1,8 +1,18 @@
 {
-  "latest": "1.16.1",
+  "latest": "1.16.2",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.16.2",
+      "date": "2026-11-19",
+      "title": "Brazo animado en primera persona",
+      "notes": [
+        "El brazo en primera persona usa las animaciones del paquete del jugador (Fresh Animations Player): se mueve al andar, saltar y caer"
+      ],
+      "size": 302256,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.16.2.zip"
+    },
     {
       "id": "1.16.1",
       "date": "2026-11-19",
