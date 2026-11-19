@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.14.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.15.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2918,9 +2918,17 @@ const DISCS = ['13', 'cat', 'blocks', 'chirp', 'far', 'mall', 'mellohi', 'stal',
 for (const n of DISCS) defItem('music_disc_' + n, 'Disco de música', { stack: 1, cat: 'misc', disc: n, desc: 'C418 - ' + n });
 // la redstone se coloca como polvo
 ITEMS.redstone.places = 'redstone_wire'; ITEMS.redstone.cat = 'redstone';
+// objetos de las criaturas nuevas (1.14)
+for (const [k, n, o] of [['blaze_rod', 'Vara de blaze', { fuel: 2400 }], ['blaze_powder', 'Polvo de blaze', {}], ['ghast_tear', 'Lágrima de ghast', {}], ['glow_ink_sac', 'Saco de tinta brillante', {}], ['ink_sac', 'Saco de tinta', {}],
+  ['fire_charge', 'Carga ígnea', {}], ['saddle', 'Silla de montar', { stack: 1 }], ['golden_carrot', 'Zanahoria dorada', { food: { h: 6, s: 14.4 }, cat: 'food' }], ['name_tag', 'Etiqueta', {}], ['lead', 'Rienda', {}]]) if (!ITEMS[k]) defItem(k, n, Object.assign({ cat: 'misc' }, o));
+shapeless(['blaze_rod'], 'blaze_powder', 2);
+shapeless(['blaze_powder', 'coal', 'gunpowder'], 'fire_charge', 3);
+if (ITEMS.carrot) shaped(['NNN', 'NCN', 'NNN'], { N: 'gold_nugget', C: 'carrot' }, 'golden_carrot');
+shaped(['SSS', 'S S'], { S: 'leather' }, 'saddle');
 // huevos para hacer aparecer criaturas
 const MOBS_LIST13 = { pig: 'cerdo', cow: 'vaca', sheep: 'oveja', chicken: 'gallina', zombie: 'zombi', skeleton: 'esqueleto', spider: 'araña', husk: 'zombi momificado', drowned: 'ahogado', stray: 'esqueleto glacial', wither_skeleton: 'esqueleto oscuro', cave_spider: 'araña de cueva', slime: 'slime', magma_cube: 'cubo de magma' };
 Object.assign(MOBS_LIST13, { wolf: 'lobo', cat: 'gato', ocelot: 'ocelote', fox: 'zorro', polar_bear: 'oso polar', panda: 'panda', llama: 'llama', bee: 'abeja', parrot: 'loro', cod: 'bacalao', salmon: 'salmón', squid: 'calamar', turtle: 'tortuga', silverfish: 'lepisma', witch: 'bruja', bogged: 'esqueleto pantanoso' });
+Object.assign(MOBS_LIST13, { horse: 'caballo', donkey: 'burro', mule: 'mula', villager: 'aldeano', zombie_villager: 'aldeano zombi', iron_golem: 'gólem de hierro', glow_squid: 'calamar brillante', mooshroom: 'champiñaca', blaze: 'blaze', ghast: 'ghast', piglin: 'piglin', zombified_piglin: 'piglin zombificado' });
 for (const k of Object.keys(MOBS_LIST13)) defItem(k + '_spawn_egg', 'Huevo generador de ' + MOBS_LIST13[k], { cat: 'misc', egg: k });
 // herramientas y armaduras de cobre y de netherita
 for (const [m, mn, tier, speed, dur, c1, c2, mi] of [['copper', 'de cobre', 2, 5, 190, '#e0734d', '#9a4a2a', 1], ['netherite', 'de netherita', 4, 9, 2031, '#4a4245', '#2a2426', 4]]) {
@@ -3482,7 +3490,7 @@ function eggIcon(base, spot) {
     '................',
   ], { o: shade(base, -0.6), b: base, h: shade(base, 0.35), s: spot, d: shade(base, -0.2) });
 }
-const EGG_COLORS = { wolf: ['#d7d3d3', '#ceaf96'], cat: ['#efc88e', '#957256'], ocelot: ['#efde7d', '#564434'], fox: ['#d5b69f', '#cc6920'], polar_bear: ['#f2f2f2', '#959590'], panda: ['#e7e7e7', '#1b1b22'], llama: ['#c09e7d', '#995f40'], bee: ['#edc343', '#43241b'], parrot: ['#0da70b', '#ff0000'], cod: ['#c1a76a', '#e5c48b'], salmon: ['#a00f10', '#0e8474'], squid: ['#223b4d', '#708899'], turtle: ['#e7e7e7', '#00afaf'], silverfish: ['#6e6e6e', '#303030'], witch: ['#340000', '#51a03e'], bogged: ['#8a9a73', '#314d1b'], pig: ['#f0a5a2', '#db6e6e'], cow: ['#4a3828', '#b8b0a8'], sheep: ['#e8e6e0', '#f2b8b6'], chicken: ['#e8e8e0', '#d83a2a'], zombie: ['#2e9a9a', '#6e9a4e'], skeleton: ['#c8c8c4', '#5a5a5a'], spider: ['#3a2f26', '#b02020'], husk: ['#8a7a52', '#c8b07a'], drowned: ['#5fb0a8', '#8a6a3a'], stray: ['#5f7a7e', '#d8e4e8'], wither_skeleton: ['#1a1a1a', '#4a4a4a'], cave_spider: ['#0e3a44', '#a8122a'], slime: ['#5aa848', '#2e6a24'], magma_cube: ['#3a0e04', '#e8a018'] };
+const EGG_COLORS = { horse: ['#c09e7d', '#eee500'], donkey: ['#534539', '#867566'], mule: ['#1b0200', '#51331d'], villager: ['#563c33', '#bd8b72'], zombie_villager: ['#563c33', '#799c65'], iron_golem: ['#dbcfb2', '#74a332'], glow_squid: ['#095656', '#85f1bc'], mooshroom: ['#a00f10', '#b7b7b7'], blaze: ['#f6b201', '#fff87e'], ghast: ['#f9f9f9', '#bcbcbc'], piglin: ['#995f40', '#f9f3a4'], zombified_piglin: ['#ea9393', '#4c7129'], wolf: ['#d7d3d3', '#ceaf96'], cat: ['#efc88e', '#957256'], ocelot: ['#efde7d', '#564434'], fox: ['#d5b69f', '#cc6920'], polar_bear: ['#f2f2f2', '#959590'], panda: ['#e7e7e7', '#1b1b22'], llama: ['#c09e7d', '#995f40'], bee: ['#edc343', '#43241b'], parrot: ['#0da70b', '#ff0000'], cod: ['#c1a76a', '#e5c48b'], salmon: ['#a00f10', '#0e8474'], squid: ['#223b4d', '#708899'], turtle: ['#e7e7e7', '#00afaf'], silverfish: ['#6e6e6e', '#303030'], witch: ['#340000', '#51a03e'], bogged: ['#8a9a73', '#314d1b'], pig: ['#f0a5a2', '#db6e6e'], cow: ['#4a3828', '#b8b0a8'], sheep: ['#e8e6e0', '#f2b8b6'], chicken: ['#e8e8e0', '#d83a2a'], zombie: ['#2e9a9a', '#6e9a4e'], skeleton: ['#c8c8c4', '#5a5a5a'], spider: ['#3a2f26', '#b02020'], husk: ['#8a7a52', '#c8b07a'], drowned: ['#5fb0a8', '#8a6a3a'], stray: ['#5f7a7e', '#d8e4e8'], wither_skeleton: ['#1a1a1a', '#4a4a4a'], cave_spider: ['#0e3a44', '#a8122a'], slime: ['#5aa848', '#2e6a24'], magma_cube: ['#3a0e04', '#e8a018'] };
 const bowlRows = (top) => [
   '................',
   '................',
@@ -6005,7 +6013,7 @@ const CEM = {
   },
   // compila una expresión a una función (ctx) => valor, sin eval
   compile(src, M) {
-    const T = this.tokens(String(src)); let p = 0;
+    const T = this.tokens(String(src).replace(/\b(nbt|player_equipment|exists)\s*\((?:[^()]|\([^()]*\))*\)/g, '0')); let p = 0;
     const peek = () => T[p], eat = (v) => { if (T[p] && T[p].v === v) { p++; return true; } return false; };
     const num = (x) => typeof x === 'boolean' ? (x ? 1 : 0) : x;
     const bin = (ops, next) => () => {
@@ -6128,11 +6136,12 @@ const CEM = {
     for (const el of j.models || []) {
       const part = el.part || el.id; if (!part) continue;
       // parte «de serie» (la del juego) con el modelo personalizado colgando de ella
-      const v = mk(part); v.vanilla = true; v.attach = !!el.attach;
+      // la misma parte puede salir varias veces (p. ej. «root» con varios .jpm): todas cuelgan de la misma
+      let v = M.top.find(t => t.id === part); const isNew = !v;
+      if (!v) { v = mk(part); v.vanilla = true; v.attach = !!el.attach; }
       const custom = parseNode(Object.assign({}, el), tw, th);
       v.kids.push(custom); M.byId[part] = v; // el id de la parte apunta a la de serie (como OptiFine)
-      if (custom.id === part) { /* mismo id: lo usa la parte de serie */ }
-      M.top.push(v);
+      if (isNew) M.top.push(v);
     }
     // compilar las animaciones en orden
     M.prog = [];
@@ -6214,9 +6223,11 @@ const CEM = {
       pos_x: e.x, pos_y: e.y, pos_z: e.z, rot_x: 0, rot_y: e.bodyYaw * D,
       is_on_ground: !!e.onGround, is_in_water: !!e.inWater, is_in_lava: !!e.inLava, is_burning: e.fire > 0, is_hurt: e.hurt > 0, hurt_time: Math.max(0, e.hurt || 0),
       death_time: e.deathTime || 0, is_alive: !e.dead, is_child: !!e.baby, is_riding: false, is_ridden: false, is_sitting: !!e.sitting, is_tamed: !!e.tame,
-      is_aggressive: !!(e.target || e.angry), is_sneaking: false, is_sprinting: false, is_on_shoulder: false, is_in_ground: false, is_wet: !!e.inWater, is_glowing: false, is_invisible: false,
+      is_aggressive: !!(e.target || e.angry), is_sneaking: !!e.sneaking, is_sprinting: !!e.sprinting, is_on_shoulder: false, is_in_ground: false, is_wet: !!e.inWater, is_glowing: false, is_invisible: false,
       health: e.health || 0, max_health: e.maxHealth || 20, id: e.id || 0, swing_progress: e.swinging ? clamp(((e.swingTime || 0) + pt) / 6, 0, 1) : 0,
       frame_time: this.ft, frame_counter: this.frame, time: (World.time || 0) + pt, day_time: World.time % 24000, day_count: Math.floor((World.time || 0) / 24000), dimension: World.dim === 'n' ? -1 : World.dim === 'e' ? 1 : 0,
+      is_right_handed: true, is_first_person_hand: false, is_in_gui: false, is_paused: false, is_jumping: !e.onGround && (e.vy || 0) > 0, is_climbing: !!(e.climbing && e.climbing()), is_swimming: false, is_gliding: !!e.gliding, is_crawling: false, is_blocking: false,
+      is_using_item: !!e.eating, is_holding_item_right: !!e.held, is_holding_item_left: false, is_swinging_right_arm: !!e.swinging, is_swinging_left_arm: false, fluid_depth_up: 0, fluid_depth_down: 0, is_spectator: e.mode === 3,
       player_pos_x: P ? P.x : 0, player_pos_y: P ? P.y : 0, player_pos_z: P ? P.z : 0, rule_index: 0, anger_time: e.angry ? 100 : 0, move_forward: 0, move_strafing: 0,
     };
     const ctx = { g, v: S.v, b: S.b };
@@ -6541,7 +6552,8 @@ class Player extends Entity {
       // élitros: saltar en el aire mientras caes para planear
       if (input.jump && !this.prevJumpIn && !this.onGround && !this.inWater && !this.climbing() && this.vy < 0 && EndDim.hasElytra(this)) { this.gliding = !this.gliding; if (this.gliding) Sound.play('elytra'); }
       if (this.gliding && (this.onGround || this.inWater || this.inLava || !EndDim.hasElytra(this))) this.gliding = false;
-      if (this.gliding) EndDim.glide(this);
+      if (Riding.tick(this, input)) { }
+      else if (this.gliding) EndDim.glide(this);
       else {
         this.travel(fwd, str, speed, input.jump);
         if (this.inWater) this.fall = 0;
@@ -6647,6 +6659,7 @@ class Mob extends Entity {
     const P = Game.player; const d = this.def;
     const dx = P.x - this.x, dz = P.z - this.z, dist = Math.hypot(dx, dz, P.y - this.y);
     if (d.boss) { BossAI.tick(this, P, dist); return; }
+    if (MobsExtra.tick(this, d, P, dist)) return;
     // desaparecer lejos
     if (!this.persistent && dist > 128) { this.remove = true; return; }
     if (!this.persistent && dist > 32 && Math.random() < 1 / 800) { this.remove = true; return; }
@@ -7113,7 +7126,7 @@ const BIOME_ANIMALS = (sb) => {
   const B_ = Gen.local.BI; const L = [];
   const add = (k, w, n = [2, 4], v) => L.push({ k, w, n, v });
   switch (sb) {
-    case B_.PLAINS: case B_.SUNFLOWER_PLAINS: case B_.MEADOW: add('pig', 10); add('cow', 8); add('sheep', 12); add('chicken', 10); add('bee', 3, [2, 3]); add('cat', 1, [1, 1]); break;
+    case B_.PLAINS: case B_.SUNFLOWER_PLAINS: case B_.MEADOW: add('pig', 10); add('cow', 8); add('sheep', 12); add('chicken', 10); add('bee', 3, [2, 3]); add('cat', 1, [1, 1]); add('horse', 5, [2, 5]); add('donkey', 1, [1, 2]); add('villager', 1, [1, 2]); add('iron_golem', 0.3, [1, 1]); break;
     case B_.FOREST: case B_.BIRCH: case B_.OLD_BIRCH: case B_.FLOWER: case B_.CHERRY: add('pig', 8); add('sheep', 8); add('chicken', 8); add('cow', 6); add('wolf', sb === B_.FOREST ? 4 : 0, [2, 4], 'woods'); add('bee', sb === B_.FLOWER || sb === B_.CHERRY ? 8 : 2, [2, 3]); break;
     case B_.DARK_FOREST: case B_.PALE_GARDEN: add('pig', 4); add('cow', 4); add('chicken', 4); break;
     case B_.TAIGA: add('wolf', 6, [2, 4], null); add('fox', 8, [2, 3]); add('sheep', 6); add('pig', 4); add('chicken', 4); break;
@@ -7122,7 +7135,7 @@ const BIOME_ANIMALS = (sb) => {
     case B_.SNOWY_TAIGA: add('wolf', 6, [2, 4], 'ashen'); add('fox', 8, [2, 3], 'snow'); break;
     case B_.GROVE: add('wolf', 6, [2, 4], 'snowy'); add('fox', 6, [2, 3], 'snow'); break;
     case B_.SNOWY: case B_.ICE_SPIKES: case B_.SNOWY_SLOPES: add('polar_bear', 5, [1, 2]); add('fox', 2, [1, 2], 'snow'); break;
-    case B_.SAVANNA: add('cow', 6); add('sheep', 6); add('chicken', 6); add('llama', 6, [2, 4]); break;
+    case B_.SAVANNA: add('cow', 6); add('sheep', 6); add('chicken', 6); add('llama', 6, [2, 4]); add('horse', 1, [2, 4]); add('donkey', 1, [1, 2]); add('villager', 1, [1, 2]); break;
     case B_.SAVANNA_PLATEAU: case B_.WINDSWEPT_SAVANNA: add('llama', 8, [2, 4]); add('wolf', 4, [2, 4], 'spotted'); add('cow', 4); break;
     case B_.WINDSWEPT_HILLS: case B_.WINDSWEPT_FOREST: case B_.WINDSWEPT_GRAVELLY: add('llama', 5, [2, 3]); add('sheep', 8); add('cow', 4); break;
     case B_.JUNGLE: case B_.SPARSE_JUNGLE: add('parrot', 8, [1, 2]); add('ocelot', 4, [1, 2]); add('chicken', 6); add('pig', 4); add('panda', sb === B_.JUNGLE ? 2 : 0, [1, 2]); if (sb === B_.SPARSE_JUNGLE) add('wolf', 3, [2, 3], 'rusty'); break;
@@ -7130,7 +7143,7 @@ const BIOME_ANIMALS = (sb) => {
     case B_.WOODED_BADLANDS: add('wolf', 5, [2, 3], 'striped'); break;
     case B_.SWAMP: case B_.MANGROVE: add('pig', 3); add('chicken', 3); break;
     case B_.BEACH: add('turtle', 6, [2, 4]); break;
-    case B_.MUSHROOM: add('cow', 8, [3, 5]); break;
+    case B_.MUSHROOM: add('mooshroom', 8, [3, 5]); break;
     default: add('pig', 6); add('sheep', 6); add('cow', 5); add('chicken', 6);
   }
   return L.filter(e => e.w > 0);
@@ -7151,6 +7164,7 @@ const WOLF_MEAT = ['beef', 'cooked_beef', 'porkchop', 'cooked_porkchop', 'chicke
 Object.assign(Mob.prototype, {
   // clic derecho sobre la criatura (antes que dar de comer)
   interact(P, held) {
+    if (this.def.rideable && !P.sneaking && !P.riding && !(held && breedFood(this.kind, held.id))) { this.persistent = true; Riding.mount(P, this); return true; }
     if (this.kind !== 'wolf' || this.dead) return false;
     const id = held && held.id, use1 = () => { if (P.mode !== 1) { held.n--; if (held.n <= 0) P.inv[P.sel] = null; } };
     if (!this.tame) {
@@ -7423,6 +7437,174 @@ SKIN_RECOLOR.elytra = SKIN_RECOLOR.elytra || null; delete SKIN_RECOLOR.elytra;
 MOB_COLORS.elytra = '#8a8aa8';
 TexturePack.ENT.push(['elytra', /(^|\/)(wings\/)?elytra\.png$/]);
 
+
+// ---- extra/mobs114.js ----
+// ============================================================
+//  1.14: más criaturas — caballos, burros y mulas (se pueden montar), gólem de hierro,
+//  aldeanos, aldeano zombi, calamar brillante, champiñaca, y del Nether: blaze, ghast,
+//  piglin y piglin zombificado. Modelos con las cajas y UV del original.
+// ============================================================
+const HORSE = (ears) => [
+  MCB('body', [0, 32], [-5, -8, -17, 10, 10, 22], [0, 11, 5], { inf: 0.05 }),
+  MCB('head', [0, 35], [-2, -11, -2, 4, 12, 7], [0, 4, -12], { brx: -Math.PI / 6 }),
+  MCB('skull', [0, 13], [-3, -11, -2, 6, 5, 7], [0, 4, -12], { brx: -Math.PI / 6, follow: 'head' }),
+  MCB('mane', [56, 36], [-1, -11, 5.01, 2, 16, 2], [0, 4, -12], { brx: -Math.PI / 6, follow: 'head' }),
+  MCB('mouth', [0, 25], [-2, -11, -7, 4, 5, 5], [0, 4, -12], { brx: -Math.PI / 6, follow: 'head' }),
+  ...(ears === 'long' ? [
+    MCB('ear1', [0, 12], [-0.5, -18, 2.5, 3, 7, 2], [0, 4, -12], { brx: -Math.PI / 6, follow: 'head' }), MCB('ear2', [0, 12], [-2.5, -18, 2.5, 3, 7, 2], [0, 4, -12], { brx: -Math.PI / 6, follow: 'head', mirror: true }),
+  ] : [
+    MCB('ear1', [19, 16], [0.55, -13, 4, 2, 3, 1], [0, 4, -12], { brx: -Math.PI / 6, follow: 'head' }), MCB('ear2', [19, 16], [-2.55, -13, 4, 2, 3, 1], [0, 4, -12], { brx: -Math.PI / 6, follow: 'head' }),
+  ]),
+  MCB('leg0', [48, 21], [-1, -1.01, -1, 4, 11, 4], [-4, 14, 7], { mirror: true }), MCB('leg1', [48, 21], [-3, -1.01, -1, 4, 11, 4], [4, 14, 7]),
+  MCB('leg2', [48, 21], [-1, -1.01, -1.9, 4, 11, 4], [-4, 14, -12], { mirror: true }), MCB('leg3', [48, 21], [-3, -1.01, -1.9, 4, 11, 4], [4, 14, -12]),
+  MCB('tail', [42, 36], [-1.5, 0, 0, 3, 14, 4], [0, 4, 11], { brx: -Math.PI / 6 }),
+];
+const VILLAGER_PARTS = () => [
+  MCB('head', [0, 0], [-4, -10, -4, 8, 10, 8], [0, 0, 0]),
+  MCB('nose', [24, 0], [-1, -1, -6, 2, 4, 2], [0, -2, 0], { follow: 'head' }),
+  MCB('body', [16, 20], [-4, 0, -3, 8, 12, 6], [0, 0, 0]), MCB('robe', [0, 38], [-4, 0, -3, 8, 18, 6], [0, 0, 0], { inf: 0.5 }),
+  MCB('arms', [44, 22], [-8, -2, -2, 4, 8, 4], [0, 3, -1], { brx: 0.75 }), MCB('arms2', [44, 22], [4, -2, -2, 4, 8, 4], [0, 3, -1], { brx: 0.75, mirror: true }),
+  MCB('arms3', [40, 38], [-4, 2, -2, 8, 4, 4], [0, 3, -1], { brx: 0.75 }),
+  MCB('rleg', [0, 22], [-2, 0, -2, 4, 12, 4], [-2, 12, 0]), MCB('lleg', [0, 22], [-2, 0, -2, 4, 12, 4], [2, 12, 0], { mirror: true }),
+];
+Object.assign(MODELS, {
+  horse: HORSE('short'),
+  donkey: HORSE('long'),
+  villager: VILLAGER_PARTS(),
+  zombie_villager: [
+    MCB('head', [0, 0], [-4, -10, -4, 8, 10, 8], [0, 0, 0]), MCB('nose', [24, 0], [-1, -1, -6, 2, 4, 2], [0, -2, 0], { follow: 'head' }),
+    MCB('body', [16, 20], [-4, 0, -3, 8, 12, 6], [0, 0, 0]), MCB('robe', [0, 38], [-4, 0, -3, 8, 18, 6], [0, 0, 0], { inf: 0.05 }),
+    MCB('rarm', [44, 22], [-3, -2, -2, 4, 12, 4], [-5, 2, 0]), MCB('larm', [44, 22], [-1, -2, -2, 4, 12, 4], [5, 2, 0], { mirror: true }),
+    MCB('rleg', [0, 22], [-2, 0, -2, 4, 12, 4], [-2, 12, 0]), MCB('lleg', [0, 22], [-2, 0, -2, 4, 12, 4], [2, 12, 0], { mirror: true }),
+  ],
+  iron_golem: [
+    MCB('head', [0, 0], [-4, -12, -5.5, 8, 10, 8], [0, -7, -2]), MCB('nose', [24, 0], [-1, -5, -7.5, 2, 4, 2], [0, -7, -2], { follow: 'head' }),
+    MCB('body', [0, 40], [-9, -2, -6, 18, 12, 11], [0, -7, 0]), MCB('waist', [0, 70], [-4.5, 10, -3, 9, 5, 6], [0, -7, 0], { inf: 0.5 }),
+    MCB('rarm', [60, 21], [-13, -2.5, -3, 4, 30, 6], [0, -7, 0]), MCB('larm', [60, 58], [9, -2.5, -3, 4, 30, 6], [0, -7, 0]),
+    MCB('rleg', [37, 0], [-3.5, -3, -3, 6, 16, 5], [-4, 11, 0]), MCB('lleg', [60, 0], [-3.5, -3, -3, 6, 16, 5], [5, 11, 0], { mirror: true }),
+  ],
+  blaze: [
+    MCB('head', [0, 0], [-4, -4, -4, 8, 8, 8], [0, 0, 0]),
+    ...Array.from({ length: 12 }, (_, i) => MCB('rod' + i, [0, 16], [0, 0, 0, 2, 8, 2], [0, 0, 0])),
+  ],
+  ghast: [
+    MCB('body', [0, 0], [-8, -8, -8, 16, 16, 16], [0, 17.6, 0]),
+    ...[[-3.8, 1.1, 8], [1.3, 1.1, 10], [4.3, 1.1, 9], [-6.8, 5.1, 11], [-1.3, 5.1, 10], [4.3, 5.1, 9], [-3.8, 9.1, 12], [1.3, 9.1, 11], [6.3, 9.1, 10]].map(([x, z, l], i) => MCB('t' + i, [0, 0], [-1, 0, -1, 2, l, 2], [x, 24.6, z - 5])),
+  ],
+  piglin: [
+    MCB('body', [16, 16], [-4, 0, -2, 8, 12, 4], [0, 0, 0]), MCB('jacket', [16, 32], [-4, 0, -2, 8, 12, 4], [0, 0, 0], { inf: 0.25 }),
+    MCB('head', [0, 0], [-5, -8, -4, 10, 8, 8], [0, 0, 0]),
+    MCB('snout', [31, 1], [-2, -4, -5, 4, 4, 1], [0, 0, 0], { follow: 'head' }), MCB('tusk1', [2, 4], [2, -2, -5, 1, 2, 1], [0, 0, 0], { follow: 'head' }), MCB('tusk2', [2, 0], [-3, -2, -5, 1, 2, 1], [0, 0, 0], { follow: 'head' }),
+    MCB('ear1', [51, 6], [0, 0, -2, 1, 5, 4], [4.5, -6, 0], { brz: 0.5236 }), MCB('ear2', [39, 6], [-1, 0, -2, 1, 5, 4], [-4.5, -6, 0], { brz: -0.5236 }),
+    MCB('rarm', [40, 16], [-3, -2, -2, 4, 12, 4], [-5, 2, 0]), MCB('larm', [32, 48], [-1, -2, -2, 4, 12, 4], [5, 2, 0]),
+    MCB('rleg', [0, 16], [-2, 0, -2, 4, 12, 4], [-1.9, 12, 0]), MCB('lleg', [16, 48], [-2, 0, -2, 4, 12, 4], [1.9, 12, 0]),
+  ],
+});
+Object.assign(MODEL_TEXW, { horse: 64, donkey: 64, villager: 64, zombie_villager: 64, iron_golem: 128, blaze: 64, ghast: 64, piglin: 64 });
+Object.assign(MOB_COLORS, { horse: '#8a5a32', donkey: '#8a7a6a', villager: '#b4805a', zombie_villager: '#5a8a4a', iron_golem: '#d8d2c8', blaze: '#f0b020', ghast: '#f0f0f0', piglin: '#e8a090' });
+// animaciones
+Object.assign(ANIM_EXTRA, {
+  horse(P, sw, age, e) { this._quad(P, sw * 0.8); P.tail.rx = -Math.PI / 6 - Math.abs(sw) * 0.3 - Math.sin(age * 0.1) * 0.05; if (e.eating > 0) { for (const n of ['head', 'skull', 'mane', 'mouth', 'ear1', 'ear2']) P[n].rx = -2.2; } },
+  donkey(P, sw, age, e) { ANIM_EXTRA.horse(P, sw, age, e); },
+  villager(P, sw) { P.rleg.rx = sw * 0.5; P.lleg.rx = -sw * 0.5; },
+  zombie_villager(P, sw, age, e) { P.rleg.rx = sw; P.lleg.rx = -sw; P.rarm.rx = P.larm.rx = -QP + Math.sin(age * 0.07) * 0.05; },
+  iron_golem(P, sw, age, e) { P.rleg.rx = -sw * 0.8; P.lleg.rx = sw * 0.8; P.rarm.rx = sw * 0.6; P.larm.rx = -sw * 0.6; if (e.swinging) { const k = Math.sin(clamp((e.swingTime || 0) / 6, 0, 1) * Math.PI); P.rarm.rx = P.larm.rx = 2 * k; } },
+  blaze(P, sw, age) {
+    for (let i = 0; i < 12; i++) { const ring = i < 4 ? 0 : i < 8 ? 1 : 2, k = i % 4; const a = age * [0.11, -0.07, 0.05][ring] + k * Math.PI / 2 + ring * 0.6; const r = [9, 7, 5][ring];
+      P['rod' + i].dx = Math.cos(a) * r; P['rod' + i].dz = Math.sin(a) * r; P['rod' + i].dy = [-2, 2, 11][ring] - 8 + Math.cos(age * 0.1 + i) * 1.5; }
+  },
+  ghast(P, sw, age) { for (let i = 0; i < 9; i++) P['t' + i].rx = -(0.2 * Math.sin(age * 0.3 + i) + 0.4); },
+  piglin(P, sw, age, e) { P.rleg.rx = sw; P.lleg.rx = -sw; P.rarm.rx = -Math.cos(e.limb * 0.6662) * 0.8 * Math.min(1, e.limbAmt || 0); P.larm.rx = -P.rarm.rx; P.ear1.rz = 0.5236 + Math.sin(age * 0.2) * 0.05; P.ear2.rz = -P.ear1.rz; },
+});
+MODELS.zombified_piglin = MODELS.piglin;
+// texturas del paquete
+TexturePack.ENT.push(
+  ['horse', /(^|\/)horse_(chestnut|brown)\.png$/], ['horse_white', /(^|\/)horse_white\.png$/], ['horse_black', /(^|\/)horse_black\.png$/], ['horse_gray', /(^|\/)horse_gray\.png$/], ['horse_creamy', /(^|\/)horse_creamy\.png$/], ['horse_darkbrown', /(^|\/)horse_darkbrown\.png$/],
+  ['donkey', /(^|\/)donkey\.png$/], ['mule', /(^|\/)mule\.png$/],
+  ['villager', /(^|\/)villager\/villager\.png$/], ['zombie_villager', /(^|\/)zombie_villager\/zombie_villager\.png$/],
+  ['iron_golem', /(^|\/)iron_golem\.png$/], ['glow_squid', /(^|\/)glow_squid\.png$/], ['mooshroom', /(^|\/)(red_mooshroom|mooshroom)\.png$/], ['mooshroom_brown', /(^|\/)brown_mooshroom\.png$/],
+  ['blaze', /(^|\/)blaze\.png$/], ['ghast', /(^|\/)ghast\.png$/], ['piglin', /(^|\/)piglin\/piglin\.png$/], ['zombified_piglin', /(^|\/)zombified_piglin\.png$/],
+);
+Object.assign(SKIN_RECOLOR, { mooshroom: ['cow', 'sepia(1) saturate(6) hue-rotate(-40deg) brightness(0.9)'], glow_squid: ['squid', 'hue-rotate(140deg) brightness(1.6)'], mule: ['donkey', 'brightness(0.6)'] });
+MOB_VARIANTS.horse = ['white', 'black', 'gray', 'creamy', 'darkbrown'];
+MOB_VARIANTS.mooshroom = ['brown'];
+// las criaturas
+Object.assign(MOBS, {
+  horse: { name: 'Caballo', hp: 22, w: 1.4, h: 1.6, speed: 0.3, passive: true, rideable: true, drops: (r) => [['leather', r() * 3 | 0]], xp: [1, 3], sound: 'horse' },
+  donkey: { name: 'Burro', hp: 20, w: 1.4, h: 1.5, speed: 0.22, passive: true, rideable: true, scale: 0.87, drops: (r) => [['leather', r() * 3 | 0]], xp: [1, 3], sound: 'donkey' },
+  mule: { name: 'Mula', model: 'donkey', hp: 20, w: 1.4, h: 1.6, speed: 0.22, passive: true, rideable: true, scale: 0.92, drops: (r) => [['leather', r() * 3 | 0]], xp: [1, 3], sound: 'mule' },
+  villager: { name: 'Aldeano', hp: 20, w: 0.6, h: 1.95, speed: 0.25, passive: true, scale: 0.9375, drops: () => [], xp: [0, 0], sound: 'villager' },
+  zombie_villager: { name: 'Aldeano zombi', hp: 20, w: 0.6, h: 1.95, speed: 0.23, hostile: true, undead: true, burns: true, dmg: 3, scale: 0.9375, drops: (r) => [['rotten_flesh', r() * 3 | 0]], xp: [5, 5], sound: 'zombie_villager' },
+  iron_golem: { name: 'Gólem de hierro', hp: 100, w: 1.4, h: 2.7, speed: 0.25, neutral: true, dmg: 10, kb: 1.5, drops: (r) => [['iron_ingot', 3 + (r() * 3 | 0)], ['poppy', r() * 3 | 0]], xp: [0, 0], sound: 'iron_golem' },
+  glow_squid: { name: 'Calamar brillante', model: 'squid', hp: 10, w: 0.8, h: 0.8, speed: 0.06, passive: true, aquatic: true, glow: true, drops: (r) => [['glow_ink_sac', 1 + (r() * 3 | 0)]], xp: [1, 3], sound: 'squid' },
+  mooshroom: { name: 'Champiñaca', model: 'cow', hp: 10, w: 0.9, h: 1.4, speed: 0.2, passive: true, drops: (r, fire) => [['leather', r() * 3 | 0], [fire ? 'cooked_beef' : 'beef', 1 + (r() * 3 | 0)]], xp: [1, 3], sound: 'cow' },
+  blaze: { name: 'Blaze', hp: 20, w: 0.6, h: 1.8, speed: 0.23, hostile: true, flies: true, fireImmune: true, fireballs: 1, dmg: 6, glow: true, drops: (r) => [['blaze_rod', r() < 0.5 ? 1 : 0]], xp: [10, 10], sound: 'blaze' },
+  ghast: { name: 'Ghast', hp: 10, w: 4, h: 4, speed: 0.12, hostile: true, flies: true, fireImmune: true, fireballs: 2, scale: 4.5, drops: (r) => [['ghast_tear', r() < 0.5 ? 1 : 0], ['gunpowder', r() * 3 | 0]], xp: [5, 5], sound: 'ghast' },
+  piglin: { name: 'Piglin', hp: 16, w: 0.6, h: 1.95, speed: 0.3, neutral: true, dmg: 5, scale: 0.9375, drops: (r) => [['gold_ingot', r() < 0.1 ? 1 : 0]], xp: [5, 5], sound: 'piglin' },
+  zombified_piglin: { name: 'Piglin zombificado', hp: 20, w: 0.6, h: 1.95, speed: 0.23, neutral: true, pack: true, undead: true, fireImmune: true, dmg: 5, scale: 0.9375, drops: (r) => [['rotten_flesh', r() * 2 | 0], ['gold_nugget', r() * 2 | 0]], xp: [5, 5], sound: 'zombified_piglin' },
+});
+Object.assign(BREED_FOOD, { horse: ['golden_carrot', 'golden_apple'], donkey: ['golden_carrot', 'golden_apple'], mooshroom: ['wheat'] });
+setTimeout(() => Object.assign(SoundPack.MOB, { horse: 'caballo', donkey: 'burro', mule: 'mula', villager: 'aldeano', zombie_villager: 'aldeano zombi', iron_golem: 'golem de hierro', blaze: 'blaze', ghast: 'ghast', piglin: 'piglin', zombified_piglin: 'piglin zombificado' }), 0);
+// ---------- montar a caballo ----------
+const Riding = {
+  mount(P, m) { if (P.riding) return; P.riding = m; m.rider = P; m.goal = null; Sound.play(m.kind + '_ambient', m.x, m.y, m.z); Chat.add('§7Pulsa Mayús para bajarte.'); },
+  dismount(P) { const m = P.riding; if (!m) return; P.riding = null; m.rider = null; P.x = m.x + 1; P.y = m.y + 0.5; P.savePrev(); },
+  // el jugador mueve al caballo
+  tick(P, input) {
+    const m = P.riding; if (!m) return false;
+    if (m.dead || m.remove || input.sneak) { this.dismount(P); return false; }
+    m._ride = { f: input.fwd || 0, s: input.str || 0, j: !!input.jump, yaw: P.yaw, sprint: !!input.sprint };
+    P.x = m.x; P.z = m.z; P.y = m.y + m.h * 0.75 * (m.def.scale || 1) - 0.4; P.vx = P.vy = P.vz = 0; P.fall = 0; P.onGround = true;
+    return true;
+  },
+};
+// ---------- bolas de fuego del blaze y el ghast ----------
+const Fireballs = {
+  shoot(m, t, big) {
+    const sx = m.x, sy = m.y + m.h * 0.6, sz = m.z, tx = t.x - sx, ty = t.y + 1 - sy, tz = t.z - sz, l = Math.hypot(tx, ty, tz) || 1, sp = big ? 0.9 : 1.1;
+    const n = big ? 1 : 3;
+    for (let i = 0; i < n; i++) { const j = big ? 0 : 0.12; const f = new Thrown('fire_charge', sx, sy, sz, tx / l * sp + (Math.random() - 0.5) * j, ty / l * sp + (Math.random() - 0.5) * j, tz / l * sp + (Math.random() - 0.5) * j, m); f.harm = big ? 6 : 5; f.fireball = big ? 2 : 1; Entities.add(f); }
+    Sound.play(big ? 'ghast_shoot' : 'blaze_shoot', sx, sy, sz);
+  },
+};
+{
+  const hit0 = Thrown.prototype.hit;
+  Thrown.prototype.hit = function () {
+    if (this.fireball) {
+      this.remove = true; const x = Math.floor(this.x - this.vx * 0.3), y = Math.floor(this.y - this.vy * 0.3), z = Math.floor(this.z - this.vz * 0.3);
+      if (this.fireball === 2) Game.explode(this.x, this.y, this.z, 1);
+      else { Fire.light(x, y, z); Particles.color(this.x, this.y, this.z, 1, 0.6, 0.1, 10, 0.15, 12, 0.01, 0.07); }
+      return;
+    }
+    return hit0.call(this);
+  };
+  const tick0 = Thrown.prototype.tick;
+  Thrown.prototype.tick = function () {
+    if (this.fireball) { this.vy += 0.03; if (this.age % 2 === 0) Particles.color(this.x, this.y, this.z, 1, 0.5, 0.1, 1, 0.02, 10, -0.01, 0.08); const P = Game.player; if (P && !P.dead && Math.hypot(P.x - this.x, P.y + 1 - this.y, P.z - this.z) < 1) P.fire = Math.max(P.fire || 0, 100); }
+    return tick0.call(this);
+  };
+}
+// IA extra: los que lanzan bolas de fuego, el gólem que defiende a los aldeanos, comer hierba
+const MobsExtra = {
+  tick(m, d, P, dist) {
+    if (m.rider) { // lo lleva el jugador
+      const r = m._ride || { f: 0, s: 0 }; m.yaw = r.yaw ?? m.yaw; const sp = d.speed * (r.sprint ? 1.3 : 1) * 1.2; const oy = m.y;
+      if (r.j && m.onGround) m.vy = 0.6;
+      m.travel(r.f * sp, r.s * sp * 0.5, sp, false); m.fallCheck(oy); m.updateLimbs(); m.bodyYaw = lerpAngle(m.bodyYaw, m.yaw, 0.5); m.headYaw = m.bodyYaw; m.savePrev && 0;
+      return true;
+    }
+    if (d.fireballs && P && !P.dead && P.mode !== 1 && P.mode !== 3 && dist < (d.fireballs === 2 ? 64 : 24)) {
+      if (m.shootT === undefined) m.shootT = 60;
+      if (--m.shootT <= 0) { m.shootT = d.fireballs === 2 ? 60 + (Math.random() * 40 | 0) : 100; m.target = P; Fireballs.shoot(m, P, d.fireballs === 2); }
+    }
+    if ((m.kind === 'horse' || m.kind === 'donkey' || m.kind === 'mule') && !m.eating && Math.random() < 0.002 && World.get(Math.floor(m.x), Math.floor(m.y) - 1, Math.floor(m.z)) === B.grass_block) m.eating = 40;
+    if (m.eating > 0) m.eating--;
+    return false;
+  },
+};
+// aparición en el Nether: blaze en las fortalezas, ghast y piglins zombificados en los páramos, piglins en los bosques carmesí
+const NetherMobs = (g, bio) => g === B.nether_bricks ? (Math.random() < 0.5 ? 'blaze' : 'wither_skeleton') : bio === 0 ? (Math.random() < 0.15 ? 'ghast' : Math.random() < 0.5 ? 'zombified_piglin' : null) : bio === 2 ? (Math.random() < 0.6 ? 'piglin' : null) : null;
+
 class ItemEntity extends Entity {
   constructor(x, y, z, item) { super('item', x, y, z); this.item = item; this.w = 0.25; this.h = 0.25; this.pickupDelay = 10; this.spin = Math.random() * 6.28; this.step = 0; }
   tick() {
@@ -7565,6 +7747,7 @@ const Entities = {
         if (deep && Math.random() < 0.04) kind = 'silverfish';
         if (kind === 'slime' && !(b === 9 || deep)) kind = 'zombie';
         if (kind === 'zombie' && b === 7 && !deep && Math.random() < 0.8) kind = 'husk';
+        if (kind === 'zombie' && Math.random() < 0.05) kind = 'zombie_villager';
         if (kind === 'skeleton' && (b === 6 || b === 12 || b === 11) && !deep && Math.random() < 0.8) kind = 'stray';
         if (kind === 'spider' && deep && Math.random() < 0.5) kind = 'cave_spider';
         const m = new Mob(kind, x + 0.5, y, z + 0.5); m.persistent = false;
@@ -7608,7 +7791,7 @@ const Entities = {
       const a = Math.random() * Math.PI * 2, r = 16 + Math.random() * 30, x = Math.floor(P.x + Math.cos(a) * r), z = Math.floor(P.z + Math.sin(a) * r);
       if (World.loaded(x, z) && LIQUID[World.get(x, 62, z)] === 1 && LIQUID[World.get(x, 59, z)] === 1) {
         const sb = World.flat ? 0 : Gen.local.column(World.seed, x, z).sb, BI_ = Gen.local.BI;
-        const kind = Math.random() < 0.25 ? 'squid' : (sb === BI_.RIVER || sb === BI_.FROZEN_RIVER || sb === BI_.COLD_OCEAN || sb === BI_.DEEP_COLD_OCEAN || sb === BI_.FROZEN_OCEAN) ? 'salmon' : 'cod';
+        const kind = Math.random() < 0.25 ? (Math.random() < 0.2 ? 'glow_squid' : 'squid') : (sb === BI_.RIVER || sb === BI_.FROZEN_RIVER || sb === BI_.COLD_OCEAN || sb === BI_.DEEP_COLD_OCEAN || sb === BI_.FROZEN_OCEAN) ? 'salmon' : 'cod';
         const n = kind === 'squid' ? 1 + (Math.random() * 2 | 0) : 3 + (Math.random() * 4 | 0);
         for (let k = 0; k < n; k++) { const m = new Mob(kind, x + 0.5 + (Math.random() - 0.5) * 3, 58 + Math.random() * 3, z + 0.5 + (Math.random() - 0.5) * 3); m.persistent = false; if (boxFree(m.bb())) this.add(m); }
       }
@@ -7621,7 +7804,7 @@ const Entities = {
       const sp = this.spot(P, 16, 48, false); if (!sp) continue;
       const g = World.get(sp.x, sp.y - 1, sp.z);
       const bio = Gen.local.netherBiomeAt(World.seed, sp.x, sp.z);
-      const kind = g === B.nether_bricks ? 'wither_skeleton' : bio === 4 ? 'magma_cube' : bio === 1 ? 'skeleton' : (Math.random() < 0.35 ? 'magma_cube' : Math.random() < 0.5 ? 'skeleton' : 'slime');
+      const kind = NetherMobs(g, bio) || (g === B.nether_bricks ? 'wither_skeleton' : bio === 4 ? 'magma_cube' : bio === 1 ? 'skeleton' : (Math.random() < 0.35 ? 'magma_cube' : Math.random() < 0.5 ? 'skeleton' : 'slime'));
       const m = new Mob(kind, sp.x + 0.5, sp.y, sp.z + 0.5); m.persistent = false; if (!boxFree(m.bb())) continue; this.add(m); return;
     }
   },
@@ -10622,7 +10805,7 @@ const ItemMeshes = {
   get(id) {
     if (this.cache[id]) return this.cache[id];
     const it = ITEMS[id]; let vb, sprite = false;
-    if (JM.item[id]) { const vb2 = new VB(64); for (const q of JM.item[id].quads) Mesher.quad(vb2, 0, 0, 0, q.verts, q.uvs, Atlas.index[q.tex] ?? 0, [255, 255, 255], q.shade < 0 ? 1 : Mesher.SHADE[q.shade], 240, 240, 0); const m = Renderer.meshFromVB(vb2); m.sprite = true; m.jm = true; this.cache[id] = m; return m; }
+    if (JM.item[id]) { const vb2 = new VB(64); for (const q of JM.item[id].quads) Mesher.quad(vb2, -0.5, -0.5, -0.5, q.verts, q.uvs, Atlas.index[q.tex] ?? 0, [255, 255, 255], q.shade < 0 ? 1 : Mesher.SHADE[q.shade], 240, 240, 0); const m = Renderer.meshFromVB(vb2); m.sprite = true; m.jm = true; this.cache[id] = m; return m; }
     if (it && it.iconBlock) vb = Mesher.blockItem(B[it.block], it.block && BLOCKS[B[it.block]].facing ? 2 : 0);
     else { vb = it && it.block && !it.iconBlock ? Mesher.spriteItem(BLOCKS[B[it.block]].faceTex[0], BLOCKS[B[it.block]].tint && TINTED_TEX.has(BLOCKS[B[it.block]].faceTex[0]) ? [110, 180, 80] : null) : Mesher.spriteItem(it ? it.icon || id : 'stone'); sprite = true; }
     const m = Renderer.meshFromVB(vb); m.sprite = sprite || !!vb.sprite; this.cache[id] = m; return m;
@@ -10733,7 +10916,7 @@ function drawEntities(Pw, cam) {
     const x = lerp(e.px, e.x, pt), y = lerp(e.py, e.y, pt), z = lerp(e.pz, e.z, pt);
     if ((x - cam.x) ** 2 + (z - cam.z) ** 2 > (Settings.renderDist * 16) ** 2) continue;
     if (!aabbInFrustum(R.planes, x - 1.5, y - 0.5, z - 1.5, x + 1.5, y + 2.5, z + 1.5)) continue;
-    const L = entLight(x, y + 0.5, z);
+    const L = e.mob && e.def.glow ? [1, 1] : entLight(x, y + 0.5, z);
     if (e.mob) {
       const sk = (e.variant ? e.kind + '_' + e.variant : e.kind) + (e.tame ? '_tame' : ''); const tex = R.skinTexture('mob_' + sk, MobSkins.get(sk));
       M4.identity(_m); M4.translate(_m, x, y, z); M4.rotY(_m, lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt));
@@ -10925,7 +11108,9 @@ function drawHand() {
     M4.rotY(M, (45 - f * 20) * DEG); M4.rotZ(M, f1 * -20 * DEG); M4.rotX(M, f1 * -80 * DEG); M4.rotY(M, -45 * DEG);
   }
   // transformación de presentación del modelo en la mano
-  if (!mesh.sprite) { M4.rotY(M, 45 * DEG); M4.scale(M, 0.4, 0.4, 0.4); }
+  const jd = mesh.jm && JM.item[st.id] && JM.item[st.id].display && JM.item[st.id].display.firstperson_righthand;
+  if (jd) { const t = jd.translation || [0, 0, 0], r = jd.rotation || [0, 0, 0], sc = jd.scale || [1, 1, 1]; M4.translate(M, t[0] / 16, t[1] / 16, t[2] / 16); if (r[0]) M4.rotX(M, r[0] * DEG); if (r[1]) M4.rotY(M, r[1] * DEG); if (r[2]) M4.rotZ(M, r[2] * DEG); M4.scale(M, sc[0], sc[1], sc[2]); }
+  else if (!mesh.sprite) { M4.rotY(M, 45 * DEG); M4.scale(M, 0.4, 0.4, 0.4); }
   else { M4.translate(M, 1.13 / 16, 3.2 / 16, 1.13 / 16); M4.rotY(M, -90 * DEG); M4.rotZ(M, 25 * DEG); M4.scale(M, 0.68, 0.68, 0.68); }
   gl.disable(gl.CULL_FACE); R.drawMesh(mesh, M, Pw); gl.enable(gl.CULL_FACE);
 }

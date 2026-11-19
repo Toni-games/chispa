@@ -1,8 +1,22 @@
 {
-  "latest": "1.14.1",
+  "latest": "1.15.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.15.0",
+      "date": "2026-11-19",
+      "title": "Criaturas nuevas y arreglos",
+      "notes": [
+        "Caballos, burros y mulas (se pueden montar), aldeanos, aldeano zombi, gólem de hierro, champiñaca y calamar brillante",
+        "Nether: blaze y ghast con bolas de fuego, piglin y piglin zombificado",
+        "Objetos nuevos: vara y polvo de blaze, lágrima de ghast, carga ígnea, silla de montar, zanahoria dorada, sacos de tinta",
+        "Objetos 3D (Weskerson) bien colocados en la mano",
+        "Animaciones del jugador (FAPlayer) más fluidas"
+      ],
+      "size": 292190,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.15.0.zip"
+    },
     {
       "id": "1.14.1",
       "date": "2026-11-19",
