@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.15.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.15.2';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -5907,7 +5907,9 @@ const ModelCache = {};
 function getModel(kind) {
   if (ModelCache[kind]) return ModelCache[kind];
   const parts = (MODELS[kind] || MODELS[mobModel(kind)] || MODELS.player).map(p => {
-    const vb = new VB(8); boxMesh(vb, p.s, p.o, p.uv, p.inf, (typeof MODEL_TEXW !== 'undefined' && MODEL_TEXW[mobModel(kind)]) || 64, p.mirror);
+    // las piezas pegadas a la cabeza (morro, nariz, hocico...) se separan un pelín para que no parpadeen con la cara
+    const inf = p.inf || (p.follow ? 0.13 : 0);
+    const vb = new VB(8); boxMesh(vb, p.s, p.o, p.uv, inf, (typeof MODEL_TEXW !== 'undefined' && MODEL_TEXW[mobModel(kind)]) || 64, p.mirror);
     return Object.assign({}, p, { mesh: Renderer.meshFromVB(vb), rx: p.brx || 0, ry: p.bry || 0, rz: p.brz || 0 });
   });
   const m = { parts, by: {} }; for (const p of parts) m.by[p.n] = p;
@@ -6161,7 +6163,7 @@ const CEM = {
   // caja con UV de piel (en el espacio del modelo original, y hacia abajo); se pasa al del juego (x e y invertidas)
   box(vb, x, y, z, w, h, d, b, inf, tw, th, mirror) {
     const ox = -(x + w), oy = -(y + h), oz = z; // al espacio del juego
-    const U = 8, i = inf;
+    const U = 8 * CEM.PREC, i = inf; // más precisión: las caras de los ojos van a 0,002 px de la cabeza
     const x0 = ox - i, y0 = oy - i, z0 = oz - i, x1 = ox + w + i, y1 = oy + h + i, z1 = oz + d + i;
     const su = 1024 / tw, sv = 1024 / Math.max(tw, th) * (th > tw ? 1 : tw / tw); // la piel se guarda en un lienzo cuadrado
     const SU = 1024 / Math.max(tw, th), SV = SU;
@@ -6252,7 +6254,7 @@ const CEM = {
     if (n.rz) M4.rotZ(m, n.rz); if (n.ry) M4.rotY(m, -n.ry); if (n.rx) M4.rotX(m, -n.rx);
     if (n.sx !== 1 || n.sy !== 1 || n.sz !== 1) M4.scale(m, n.sx, n.sy, n.sz);
     if (n.vanilla && this.cap) this.cap[n.id] = M4.copy(new Float32Array(16), m);
-    if (n.mesh && n.vbox) Renderer.drawMesh(n.mesh, m, Pw);
+    if (n.mesh && n.vbox) { const ms = this._ms || (this._ms = new Float32Array(16)); M4.copy(ms, m); M4.scale(ms, 1 / CEM.PREC, 1 / CEM.PREC, 1 / CEM.PREC); Renderer.drawMesh(n.mesh, ms, Pw); }
     for (const k of n.kids) this.drawNode(k, m, Pw, depth + 1);
   },
 };
@@ -6296,6 +6298,7 @@ CEM.drawBeds = function (Pw, cam) {
     for (const n of head ? BM.head : BM.foot) this.drawBedNode(n, m, Pw, 0);
   }
 };
+CEM.PREC = 64; // 512 unidades por píxel (±64 px de alcance)
 const wrapPI = (a) => { a %= Math.PI * 2; if (a > Math.PI) a -= Math.PI * 2; if (a < -Math.PI) a += Math.PI * 2; return a; };
 
 // ---- 08_entities.js ----
