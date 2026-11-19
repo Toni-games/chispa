@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.16.2';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.17.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -3861,11 +3861,35 @@ function boxIcon(g, d) {
     isoBox(g, x0, y0, z0, x1, y1, z1, top, south, east);
   }
 }
+// icono de un modelo 3D (armas de mods): proyección con pintor y texturas afines
+function quadIcon(g, quads) {
+  let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+  for (const q of quads) for (const v of q.verts) for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], v[i]); mx[i] = Math.max(mx[i], v[i]); }
+  const long = (mx[2] - mn[2]) > (mx[0] - mn[0]); const cx = (mn[0] + mx[0]) / 2, cy = (mn[1] + mx[1]) / 2, cz = (mn[2] + mx[2]) / 2;
+  const ya = (long ? Math.PI / 2 : 0) + 0.35, pa = 0.3, cyw = Math.cos(ya), syw = Math.sin(ya), cp = Math.cos(pa), sp = Math.sin(pa);
+  const pr = v => { const x = cx - v[0], y = v[1] - cy, z = v[2] - cz; const X = x * cyw - z * syw, Z = x * syw + z * cyw; const Y = y * cp - Z * sp, D = y * sp + Z * cp; return [X, -Y, D]; };
+  const P = quads.map(q => { const pts = q.verts.map(pr); return { q, pts, d: pts.reduce((a, p) => a + p[2], 0) / 4 }; });
+  let a = 1e9, b = -1e9, c2 = 1e9, d = -1e9; for (const o of P) for (const p of o.pts) { a = Math.min(a, p[0]); b = Math.max(b, p[0]); c2 = Math.min(c2, p[1]); d = Math.max(d, p[1]); }
+  const sc = 30 / Math.max(b - a, d - c2, 0.01), ox = 16 - (a + b) / 2 * sc, oy = 16 - (c2 + d) / 2 * sc;
+  P.sort((p1, p2) => p2.d - p1.d);
+  const tri = (img, s0, s1, s2, d0, d1, d2) => {
+    g.save(); g.beginPath(); g.moveTo(d0[0], d0[1]); g.lineTo(d1[0], d1[1]); g.lineTo(d2[0], d2[1]); g.closePath(); g.clip();
+    const [u0, v0] = s0, [u1, v1] = s1, [u2, v2] = s2; const den = (u1 - u0) * (v2 - v0) - (u2 - u0) * (v1 - v0); if (Math.abs(den) < 1e-9) { g.restore(); return; }
+    const A = ((d1[0] - d0[0]) * (v2 - v0) - (d2[0] - d0[0]) * (v1 - v0)) / den, C = ((d2[0] - d0[0]) * (u1 - u0) - (d1[0] - d0[0]) * (u2 - u0)) / den;
+    const B2 = ((d1[1] - d0[1]) * (v2 - v0) - (d2[1] - d0[1]) * (v1 - v0)) / den, D2 = ((d2[1] - d0[1]) * (u1 - u0) - (d1[1] - d0[1]) * (u2 - u0)) / den;
+    g.setTransform(A, B2, C, D2, d0[0] - A * u0 - C * v0, d0[1] - B2 * u0 - D2 * v0); g.drawImage(img, 0, 0); g.restore();
+  };
+  for (const o of P) {
+    const img = Atlas.tile(o.q.tex); if (!img) continue; const k = img.width / 16; const S = o.q.uvs.map(u => [u[0] * k, u[1] * k]); const D = o.pts.map(p => [ox + p[0] * sc, oy + p[1] * sc]);
+    tri(img, S[0], S[1], S[2], D[0], D[1], D[2]); tri(img, S[0], S[2], S[3], D[0], D[2], D[3]);
+  }
+}
 function itemIcon(id) { // canvas 32x32
   const key = id + '@' + Atlas.version;
   if (ICON_CACHE[key]) return ICON_CACHE[key];
   const it = ITEMS[id]; const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
   if (!it) { ICON_CACHE[key] = c; return c; }
+  if (it.gun && typeof JM !== 'undefined' && JM.item[id]) { try { quadIcon(g, JM.item[id].quads); } catch (e) { } ICON_CACHE[key] = c; return c; }
   const bd = it.block ? BLOCKS[B[it.block]] : null;
   if (bd && bd.iconAlias && Atlas.custom[bd.iconAlias]) { const src = Atlas.tile(bd.iconAlias); g.drawImage(src, 0, 0, src.width, src.height, 0, 0, 32, 32); ICON_CACHE[key] = c; return c; }
   if (it.iconBlock && bd && RENDER[bd.id] === 5 && !bd.slab && bd.key !== 'bed' && bd.key !== 'chest') { boxIcon(g, bd); ICON_CACHE[key] = c; return c; }
@@ -8585,7 +8609,7 @@ const Game = {
         if (P.useTime >= 32) { P.food = Math.min(20, P.food + hit.food.h); P.sat = Math.min(P.food, P.sat + hit.food.s); if (held.id === 'golden_apple') P.health = Math.min(20, P.health + 4); if (held.id === 'chorus_fruit') EndDim.chorusTeleport(P); if (P.mode !== 1) { held.n--; if (!held.n) P.inv[P.sel] = null; const back = hit.bowl ? 'bowl' : hit.returns; if (back) { if (!P.inv[P.sel]) P.inv[P.sel] = { id: back, n: 1 }; else if (P.give(back, 1)) Entities.dropItem(P.x, P.y + 1, P.z, { id: back, n: 1 }); } } P.useTime = 0; P.usingItem = false; Sound.play('burp'); Input.mouse[2] = false; }
       } else if (hit && held.id === 'bow') {
         if (P.mode === 1 || P.count('arrow') > 0) { P.usingItem = true; P.bowCharge++; }
-      } else if (this.useCD <= 0) { this.use(); this.useCD = 4; }
+      } else if (this.useCD <= 0) { this.useCD = 4; this.use(); }
     } else {
       if (P.usingItem && held && held.id === 'bow' && P.bowCharge > 3) this.shootBow();
       P.usingItem = false; P.useTime = 0; P.bowCharge = 0; this.useCD = 0;
@@ -8614,6 +8638,7 @@ const Game = {
     // dar de comer a un animal (cría)
     const fe = this.targetEnt; if (fe && fe.mob && fe.interact && fe.interact(P, held)) { P.swinging = true; P.swingTime = 0; return; }
     if (fe && fe.mob && fe.feed && held && fe.feed(P, held)) { P.swinging = true; P.swingTime = 0; return; }
+    if (held && ITEMS[held.id] && ITEMS[held.id].gun !== false && (Guns.init(), Guns.byKey[held.id])) { Guns.fire(P, held); return; }
     if (T && Kinetic.ids[T.id] && Kinetic.ids[T.id].src === 'crank' && !P.sneaking) { Kinetic.useCrank(T.x, T.y, T.z); P.swinging = true; P.swingTime = 0; this.useCD = 4; return; }
     if (held && held.id === 'map') { Maps.use(P, held); P.swinging = true; P.swingTime = 0; this.useCD = 6; return; }
     // cosas del End: ojos en el marco, ojos voladores, cohetes
@@ -9469,13 +9494,13 @@ const HUD = {
 };
 
 // ---------------- inventarios (dibujados en el lienzo) ----------------
-const TAB_ROWS = { top: ['build', 'color', 'nature', 'func', 'redstone', 'search'], bottom: ['tools', 'combat', 'food', 'misc', ...(DYN_SPEC && DYN_SPEC.blocks && DYN_SPEC.blocks.length ? ['mods'] : []), 'inv'] };
+const TAB_ROWS = { top: ['build', 'color', 'nature', 'func', 'redstone', 'search'], bottom: ['tools', 'combat', 'food', 'misc', ...(DYN_SPEC && ((DYN_SPEC.blocks && DYN_SPEC.blocks.length) || (DYN_SPEC.items && DYN_SPEC.items.length)) ? ['mods'] : []), 'inv'] };
 const CREATIVE_TABS = [
   { id: 'build', name: 'Bloques de construcción', icon: 'bricks' }, { id: 'color', name: 'Bloques de colores', icon: 'red_wool' },
   { id: 'nature', name: 'Bloques naturales', icon: 'grass_block' }, { id: 'func', name: 'Bloques funcionales', icon: 'crafting_table' },
   { id: 'tools', name: 'Herramientas', icon: 'iron_pickaxe' }, { id: 'combat', name: 'Combate', icon: 'iron_sword' },
   { id: 'redstone', name: 'Redstone', icon: 'redstone' }, { id: 'food', name: 'Comida', icon: 'apple' }, { id: 'misc', name: 'Ingredientes', icon: 'iron_ingot' },
-  { id: 'mods', name: 'Mods', icon: (DYN_SPEC && DYN_SPEC.blocks && DYN_SPEC.blocks[0] && DYN_SPEC.blocks.find(b => /cogwheel|shaft|casing/.test(b.k)) || {}).k || 'stone' },
+  { id: 'mods', name: 'Mods', icon: (DYN_SPEC && DYN_SPEC.blocks && DYN_SPEC.blocks[0] && DYN_SPEC.blocks.find(b => /cogwheel|shaft|casing/.test(b.k)) || {}).k || (DYN_SPEC && DYN_SPEC.guns && DYN_SPEC.guns[0] && DYN_SPEC.guns[0].k) || 'stone' },
   { id: 'search', name: 'Buscar objetos', icon: 'compass' }, { id: 'inv', name: 'Inventario', icon: 'chest' },
 ];
 // brillo morado de los objetos encantados (solo sobre los píxeles del objeto)
@@ -11075,7 +11100,13 @@ function drawPlayerModel(Pw, P) {
   const st = P.held; if (!st) return;
   gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
   const mesh = ItemMeshes.get(st.id);
-  PMX('rarm'); M4.translate(_m2, 1 / 16, -9.5 / 16, -1 / 16);
+  PMX('rarm');
+  const jd3 = mesh.jm && JM.item[st.id] && JM.item[st.id].display && JM.item[st.id].display.thirdperson_righthand;
+  if (jd3 && ITEMS[st.id] && ITEMS[st.id].gun) { // como Minecraft: brazo -> mano -> presentación del modelo
+    M4.translate(_m2, 1 / 16, -9.5 / 16, -1 / 16); M4.translate(_m2, 0, 0.05, 0); M4.rotY(_m2, 90 * DEG); const SS = (jd3.scale && jd3.scale[0]) || 0.5; M4.scale(_m2, SS, SS, SS);
+    gl.disable(gl.CULL_FACE); R.drawMesh(mesh, _m2, Pw); gl.enable(gl.CULL_FACE); return;
+  }
+  M4.translate(_m2, 1 / 16, -9.5 / 16, -1 / 16);
   if (mesh.sprite) { M4.rotX(_m2, -Math.PI / 2 + 0.3); M4.rotY(_m2, Math.PI / 2); M4.rotZ(_m2, Math.PI / 4 * 0); M4.translate(_m2, 0, 0.15, 0); M4.scale(_m2, 0.6, 0.6, 0.6); }
   else { M4.translate(_m2, 0, -0.05, -0.08); M4.rotX(_m2, 0.4); M4.rotY(_m2, Math.PI / 4); M4.scale(_m2, 0.3, 0.3, 0.3); }
   R.drawMesh(mesh, _m2, Pw);
@@ -12180,6 +12211,7 @@ const JM = {
   async absorb(z) {
     const dec = new TextDecoder();
     for (const p of z.names) {
+      const ge = p.match(/(?:^|\/)assets\/([^/]+)\/(geo\/.+\.json)$/i); if (ge) { this.geoFiles = this.geoFiles || {}; try { this.geoFiles[(ge[1] + ':' + ge[2]).toLowerCase()] = JSON.parse(dec.decode(await z.get(p))); } catch (e) { } continue; }
       const ob = p.match(/(?:^|\/)assets\/([^/]+)\/(models\/.+\.(obj|mtl))$/i); if (ob) { this.objFiles = this.objFiles || {}; this.objFiles[(ob[1] + ':' + ob[2]).toLowerCase()] = { z, p }; continue; }
       const m = p.match(/(?:^|\/)assets\/([^/]+)\/(models|blockstates|items|textures)\/(.+)\.(json|png)$/i); if (!m || /__MACOSX/.test(p)) continue;
       const [, ns, kind, path, ext] = m; const k = (ns + ':' + path).toLowerCase();
@@ -12200,7 +12232,8 @@ const JM = {
     // si el juego ya tiene esa casilla (y el paquete no trae otra distinta), se usa la del juego
     if (ns === 'minecraft' && TEX[base] && /^(block|item)\//.test(path)) return base;
     const name = 'jm/' + k;
-    if (!TEX[name]) { addTex(name, (c) => { c.fillStyle = '#a0a'; c.fillRect(0, 0, 16, 16); }); this.pendingTex.push([name, k]); }
+    if (!TEX[name]) addTex(name, (c) => { c.fillStyle = '#a0a'; c.fillRect(0, 0, 16, 16); });
+    if (!Atlas.custom[name] && !this.pendingTex.some(e => e[0] === name)) this.pendingTex.push([name, k]);
     return name;
   },
   pendingTex: [],
@@ -12279,6 +12312,9 @@ const JM = {
       let ref = null; const def = this.items[name];
       if (def && def.model) ref = this.handModel(def.model);
       if (!ref && this.models['minecraft:item/' + name]) ref = 'minecraft:item/' + name;
+      const dynNs = ITEMS[name].cat === 'mods' && DYN_SPEC && (DYN_SPEC.guns || []).find(g => g.k === name);
+      if (dynNs && dynNs.geo && this.geoFiles && this.geoFiles[dynNs.geo]) { const g = this.geoQuads(dynNs); const mr = this.resolve(dynNs.model); if (g.length) this.item[name] = { quads: g, display: (mr && mr.display) || {} }; continue; }
+      if (!ref && ITEMS[name].cat === 'mods') { const i = name.indexOf('_'); for (let j = i; j > 0 && !ref; j = name.indexOf('_', j + 1)) { const r = name.slice(0, j) + ':item/' + name.slice(j + 1); if (this.models[r]) ref = r; if (j < 0) break; } }
       if (!ref) continue; const m = this.resolve(ref); if (!m || !m.elements) continue;
       const q = this.compile(m, 0, 0); if (q && q.length) this.item[name] = { quads: q, display: m.display };
     }
@@ -12341,7 +12377,7 @@ const DYN = {
   load() { try { return JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch (e) { return null; } },
   // a partir de los paquetes activos: qué bloques, objetos y recetas trae cada mod
   async spec(zips) {
-    const out = { v: 2, blocks: [], items: [], recipes: [] }; const dec = new TextDecoder();
+    const out = { v: 3, blocks: [], items: [], recipes: [] }; const dec = new TextDecoder();
     const lang = {}; const models = {}; const states = {}; const itemModels = {}; const recipes = [];
     for (const z of zips) {
       for (const p of z.names) {
@@ -12391,6 +12427,8 @@ const DYN = {
       else if (t === 'crafting_shapeless') { const l = (r.ingredients || []).map(ing); if (l.every(Boolean) && l.length) out.recipes.push({ l, o: outK, c: cnt }); }
     }
     void itemKeys;
+    // armas de mods hechos con MCreator + GeckoLib: se leen los nombres que hay dentro del código compilado
+    try { out.guns = await DYN.guns(zips, out); } catch (e) { console.warn('guns', e); out.guns = []; }
     return out;
   },
 };
@@ -12424,6 +12462,93 @@ JM.objQuads = function (model, rx, ry) {
   return out;
 };
 
+// modelos «geo» de GeckoLib (formato de Bedrock): cubos con UV por cara, huesos con giro
+JM.geoQuads = function (g) {
+  const j = this.geoFiles[g.geo]; const geo = j && (j['minecraft:geometry'] || [])[0]; if (!geo) return [];
+  const TW = (geo.description && geo.description.texture_width) || 16, TH = (geo.description && geo.description.texture_height) || 16;
+  const tex = this.texName({}, g.tex); const out = []; const bones = {}; for (const b of geo.bones || []) bones[b.name] = b;
+  const rot = (v, piv, r) => { // giro de Bedrock (grados, orden Z·Y·X), con la x espejada
+    if (!r || (!r[0] && !r[1] && !r[2])) return v; let [x, y, z] = [v[0] - piv[0], v[1] - piv[1], v[2] - piv[2]];
+    const a = r[0] * Math.PI / 180, b = -r[1] * Math.PI / 180, c = -r[2] * Math.PI / 180;
+    [y, z] = [y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
+    [x, z] = [x * Math.cos(b) + z * Math.sin(b), -x * Math.sin(b) + z * Math.cos(b)];
+    [x, y] = [x * Math.cos(c) - y * Math.sin(c), x * Math.sin(c) + y * Math.cos(c)];
+    return [x + piv[0], y + piv[1], z + piv[2]];
+  };
+  const J = (p) => [8 - p[0], p[1], p[2] + 8]; // de Bedrock al espacio del bloque
+  const chain = (b) => { const L = []; while (b) { L.push(b); b = b.parent ? bones[b.parent] : null; } return L; };
+  for (const b of geo.bones || []) {
+    const ch = chain(b);
+    for (const c of b.cubes || []) {
+      const [ox, oy, oz] = c.origin, [w, h, d] = c.size, inf = c.inflate || 0;
+      const x0 = 8 - (ox + w) - inf, x1 = 8 - ox + inf, y0 = oy - inf, y1 = oy + h + inf, z0 = oz + 8 - inf, z1 = oz + d + 8 + inf;
+      let F = c.uv;
+      if (Array.isArray(F)) { const [u, v] = F; const R = boxRects(u, v, w, h, d); F = { north: { uv: [R.front[0], R.front[1]], uv_size: [w, h] }, south: { uv: [R.back[0], R.back[1]], uv_size: [w, h] }, east: { uv: [R.left[0], R.left[1]], uv_size: [d, h] }, west: { uv: [R.right[0], R.right[1]], uv_size: [d, h] }, up: { uv: [R.top[0], R.top[1]], uv_size: [w, d] }, down: { uv: [R.bottom[0], R.bottom[1] + d], uv_size: [w, -d] } }; }
+      // caras (vértices en el orden del mallador) — en el espacio del bloque, este/oeste cambian por el espejo
+      const faces = {
+        west: [[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], east: [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]],
+        up: [[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], down: [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]],
+        south: [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], north: [[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]],
+      };
+      const SH = { west: 0, east: 1, up: 2, down: 3, south: 4, north: 5 };
+      for (const fn in faces) {
+        const f = F && F[fn]; if (!f || !f.uv) continue; const [u, v] = f.uv, [us, vs] = f.uv_size || [0, 0];
+        const UV = [[u + us, v + vs], [u, v + vs], [u, v], [u + us, v]].map(([a, b2]) => [a / TW * 16, b2 / TH * 16]);
+        let verts = faces[fn];
+        if (c.rotation) { const pv = c.pivot ? J(c.pivot) : [8, 8, 8]; verts = verts.map(p => rot(p, pv, [c.rotation[0], c.rotation[1], c.rotation[2]])); }
+        for (const bb of ch) if (bb.rotation) { const pv = J(bb.pivot || [0, 0, 0]); verts = verts.map(p => rot(p, pv, bb.rotation)); }
+        out.push({ verts, uvs: fn === 'up' || fn === 'down' ? [UV[1], UV[0], UV[3], UV[2]] : UV, tex, cull: -1, tint: false, shade: SH[fn] });
+      }
+    }
+  }
+  return out;
+};
+
+// textos (constantes UTF-8) de un .class de Java
+function classStrings(u8) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength); if (dv.getUint32(0) !== 0xCAFEBABE) return [];
+  const n = dv.getUint16(8); let o = 10; const out = []; const dec = new TextDecoder();
+  for (let i = 1; i < n; i++) {
+    const t = u8[o++];
+    if (t === 1) { const l = dv.getUint16(o); out.push(dec.decode(u8.subarray(o + 2, o + 2 + l))); o += 2 + l; }
+    else if (t === 7 || t === 8 || t === 16 || t === 19 || t === 20) o += 2; else if (t === 15) o += 3;
+    else if (t === 3 || t === 4 || t === 9 || t === 10 || t === 11 || t === 12 || t === 17 || t === 18) o += 4;
+    else if (t === 5 || t === 6) { o += 8; i++; } else break;
+  }
+  return out;
+}
+DYN.guns = async function (zips, out) {
+  const guns = []; const norm = (s) => s.toLowerCase().replace(/_/g, '');
+  for (const z of zips) {
+    const cls = z.names.filter(p => /^net\/mcreator\/[^/]+\/.+\.class$/.test(p)); if (!cls.length) continue;
+    const ns = cls[0].split('/')[2];
+    const items = out.items.filter(i => i.k.startsWith(ns + '_'));
+    const byNorm = {}; for (const i of items) byNorm[norm(i.k.slice(ns.length + 1))] = i.k;
+    const read = async (p) => classStrings(await z.get(p));
+    // modelo geo y textura de cada arma
+    const geo = {};
+    for (const p of cls.filter(p => /\/item\/model\/\w+ItemModel\.class$/.test(p))) {
+      const S = await read(p); const name = p.match(/(\w+)ItemModel\.class$/)[1]; const k = byNorm[norm(name)]; if (!k) continue;
+      const g = S.find(s => /^geo\/.+\.geo\.json$/.test(s)), t = S.find(s => /^textures\/.+\.png$/.test(s)); if (!g) continue;
+      geo[k] = { geo: (ns + ':' + g).toLowerCase(), tex: ns + ':' + t.replace(/^textures\//, '').replace(/\.png$/, '') };
+    }
+    // qué hace cada arma al usarla: munición, sonido, bala y ráfaga
+    const procs = cls.filter(p => /\/procedures\/\w+Procedure\.class$/.test(p));
+    for (const p of procs) {
+      const S = await read(p); const base = p.replace(/\.class$/, '');
+      const gunRefs = S.map(s => (s.match(new RegExp('^' + ns + '\\/item\\/(\\w+)Item$')) || [])[1]).filter(Boolean).map(n => byNorm[norm(n)]).filter(k => k && geo[k]);
+      const k = gunRefs[0] || Object.keys(geo).find(k => norm(p).includes(norm(k.slice(ns.length + 1)).slice(0, 4))); if (!k || guns.some(g => g.k === k)) continue;
+      const ammo = S.filter(s => /^[A-Z][A-Z0-9_]{3,}$/.test(s)).map(s => byNorm[norm(s)]).find(a => a && !geo[a]) || null;
+      const sound = S.find(s => s.startsWith(ns + ':')) || null;
+      const bullet = (S.map(s => (s.match(/entity\/(\w+)Entity$/) || [])[1]).find(Boolean)) || 'Bullet';
+      const burst = Math.max(1, z.names.filter(q => q.startsWith(base + '$')).length);
+      guns.push(Object.assign({ k, model: ns + ':item/' + k.slice(ns.length + 1), ammo, sound, bullet, burst }, geo[k]));
+    }
+    for (const k in geo) if (!guns.some(g => g.k === k)) guns.push(Object.assign({ k, model: ns + ':item/' + k.slice(ns.length + 1), ammo: null, sound: null, bullet: 'Bullet', burst: 1 }, geo[k]));
+  }
+  return guns;
+};
+
 
 // ---- extra/addons113.js ----
 // ============================================================
@@ -12445,7 +12570,7 @@ const Addons = {
       try {
         if (low.endsWith('.jar')) {
           onMsg && onMsg('Leyendo «' + f.name + '»…'); const buf = await f.arrayBuffer(); const z = await readZip(buf);
-          if (!z.names.some(p => /^assets\/[^/]+\/(blockstates|models|textures)\//.test(p))) { out.push('«' + f.name + '» es un mod de Java sin bloques ni objetos que se puedan sacar: su código no puede funcionar en un navegador.'); continue; }
+          if (!z.names.some(p => /^assets\/[^/]+\/(blockstates|models|textures|geo)\//.test(p))) { out.push('«' + f.name + '» es un mod de Java sin bloques ni objetos que se puedan sacar: su código no puede funcionar en un navegador.'); continue; }
           const r = await this.addPack(f.name.replace(/\.jar$/i, ''), buf, true); out.push('«' + f.name + '»: ' + (r || 'nada aprovechable.') + ' Su código Java no funciona en un navegador: las máquinas todavía no se mueven ni hacen su trabajo.'); continue;
         }
         if (!/\.(zip|mrpack|rpo)$/.test(low)) { out.push('«' + f.name + '»: solo se admiten .zip, .mrpack o .jar.'); continue; }
@@ -12491,6 +12616,8 @@ const Addons = {
     const parts = [];
     const modBlocks = N.filter(p => /^assets\/(?!minecraft\/)[^/]+\/blockstates\/.+\.json$/i.test(p)).length;
     if (modBlocks) parts.push(modBlocks + ' bloques nuevos con sus objetos y recetas');
+    const modItems = N.filter(p => /^assets\/(?!minecraft\/)[^/]+\/models\/item\/.+\.json$/i.test(p)).length; if (!modBlocks && modItems) parts.push(modItems + ' objetos nuevos');
+    const geos = N.filter(p => /^assets\/[^/]+\/geo\/.+\.json$/i.test(p)).length; if (geos) parts.push(geos + ' modelos 3D animados');
     if (info.cem) parts.push(info.cem + ' modelos animados de criaturas');
     if (info.ent) parts.push(info.ent + ' texturas de criaturas');
     if (info.tex) parts.push(info.tex + ' texturas de bloques y objetos');
@@ -12507,7 +12634,7 @@ const Addons = {
   // lista de bloques/objetos/recetas de los mods activos (se lee al arrancar, antes de crear los bloques)
   async saveSpec() {
     await this.load(); const zips = [];
-    for (const a of this.list) { if (!a.enabled || !a.mod) continue; try { const blob = await Store.get('kv', 'addon:' + a.id); if (!blob) continue; const z = await readZip(await blob.arrayBuffer()); if (z.names.some(p => /^assets\/(?!minecraft\/)[^/]+\/blockstates\//.test(p))) zips.push(z); } catch (e) { } }
+    for (const a of this.list) { if (!a.enabled || !a.mod) continue; try { const blob = await Store.get('kv', 'addon:' + a.id); if (!blob) continue; const z = await readZip(await blob.arrayBuffer()); if (z.names.some(p => /^assets\/(?!minecraft\/)[^/]+\/(blockstates|models)\//.test(p))) zips.push(z); } catch (e) { } }
     if (!zips.length) { localStorage.removeItem(DYN.KEY); return 0; }
     const sp = await DYN.spec(zips); try { localStorage.setItem(DYN.KEY, JSON.stringify(sp)); } catch (e) { console.warn(e); } return sp.blocks.length;
   },
@@ -12532,12 +12659,12 @@ const Addons = {
         // interfaz y frases
         try { await TexturePack.gui(N, url, true); } catch (e) { }
         const sp = N.find(p => /splashes\.txt$/i.test(p)); if (sp) Splashes.list = new TextDecoder().decode(await z.get(sp)).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        await JM.absorb(z);
+        await JM.absorb(z); if (a.mod) await Guns.loadSounds(z);
         this.applied.push(a.name);
       } catch (e) { console.warn('addon', a.name, e); }
     }
     // lista de bloques de mods hecha con una versión anterior: rehacerla y recargar una vez
-    if (DYN_SPEC && DYN_SPEC.v !== 2 && !sessionStorage.getItem('dynfix')) { sessionStorage.setItem('dynfix', '1'); await this.saveSpec(); location.reload(); await new Promise(() => { }); }
+    if (DYN_SPEC && DYN_SPEC.v !== 3 && !sessionStorage.getItem('dynfix3')) { sessionStorage.setItem('dynfix3', '1'); await this.saveSpec(); location.reload(); await new Promise(() => { }); }
     try { await JM.loadObjs(); JM.build(); await JM.loadTextures(); } catch (e) { console.warn('JM', e); }
   },
 };
@@ -12681,6 +12808,91 @@ const Kinetic = {
     }
   },
 };
+
+
+// ---- extra/guns117.js ----
+// ============================================================
+//  1.17: armas de mods (MCreator + GeckoLib, p. ej. Greenboy's Weapons)
+//  disparan balas de verdad, gastan su munición, suenan con sus sonidos y se ven en 3D.
+// ============================================================
+const Guns = {
+  byKey: {}, sounds: {}, buffers: {}, ready: false,
+  init() {
+    if (this.ready) return; this.ready = true;
+    for (const g of (DYN_SPEC && DYN_SPEC.guns) || []) if (ITEMS[g.k]) { this.byKey[g.k] = Object.assign({}, g, this.stats(g)); ITEMS[g.k].stack = 1; ITEMS[g.k].gun = true; }
+  },
+  stats(g) {
+    const n = g.k + ' ' + (g.bullet || '').toLowerCase();
+    if (/bazoo|rocket/.test(n)) return { dmg: 4, explode: 2.5, cd: 40, speed: 1.6, pellets: 1 };
+    if (/snip|woodpecker|idk|awm/.test(n)) return { dmg: 20, cd: 30, speed: 6, pellets: 1 };
+    if (/shot|spas/.test(n)) return { dmg: 4, cd: 20, speed: 3.5, pellets: 6, spread: 0.12 };
+    if (/machine|mg_34|mg34/.test(n)) return { dmg: 5, cd: 2, speed: 5, pellets: 1, spread: 0.03 };
+    if (/uzi|tec|_gun\b|mp5|smg/.test(n)) return { dmg: 4, cd: 3, speed: 5, pellets: 1, spread: 0.03 };
+    if (/pistol|desert|eagle/.test(n)) return { dmg: 7, cd: 8, speed: 5, pellets: 1, spread: 0.01 };
+    return { dmg: 6, cd: 4, speed: 5, pellets: 1, spread: 0.015 };
+  },
+  // sonidos del mod (sounds.json -> .ogg)
+  async loadSounds(z) {
+    const sj = z.names.find(p => /^assets\/(?!minecraft\/)[^/]+\/sounds\.json$/.test(p)); if (!sj) return;
+    const ns = sj.split('/')[1]; let j; try { j = JSON.parse(new TextDecoder().decode(await z.get(sj))); } catch (e) { return; }
+    for (const ev in j) { const s = (j[ev].sounds || [])[0]; const name = typeof s === 'string' ? s : s && s.name; if (!name) continue; const [n2, path] = name.includes(':') ? name.split(':') : [ns, name]; const p = 'assets/' + n2 + '/sounds/' + path + '.ogg'; if (z.names.includes(p)) this.sounds[ns + ':' + ev] = { z, p }; }
+  },
+  async play(ev, x, y, z) {
+    const s = this.sounds[ev]; if (!s || !Sound.ctx) return;
+    try {
+      if (!this.buffers[ev]) { const d = await s.z.get(s.p); this.buffers[ev] = await Sound.ctx.decodeAudioData(d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength)); }
+      const src = Sound.ctx.createBufferSource(); src.buffer = this.buffers[ev]; const g = Sound.ctx.createGain(); const P = Game.player;
+      g.gain.value = 0.8 / (1 + (P ? Math.hypot(P.x - x, P.y - y, P.z - z) / 8 : 0)); src.connect(g); g.connect(Sound.master || Sound.ctx.destination); src.start();
+    } catch (e) { }
+  },
+  // disparar
+  fire(P, held) {
+    this.init(); const g = this.byKey[held.id]; if (!g) return false;
+    if (P.mode !== 1 && g.ammo && ITEMS[g.ammo]) {
+      const i = P.inv.findIndex(s => s && s.id === g.ammo);
+      if (i < 0) { if (!this._warn || Date.now() - this._warn > 1500) { this._warn = Date.now(); Chat.add('§c¡No te quedan balas! (' + ITEMS[g.ammo].name + ')'); Sound.play('click'); } return true; }
+      P.inv[i].n--; if (P.inv[i].n <= 0) P.inv[i] = null;
+    }
+    const shots = g.burst > 2 ? Math.min(4, g.burst) : 1;
+    for (let s = 0; s < shots; s++) setTimeout(() => this.shoot(P, g), s * 70);
+    Game.useCD = g.cd; return true;
+  },
+  shoot(P, g) {
+    if (P.dead) return;
+    const [ex, ey, ez] = Game.eyePos(1);
+    for (let k = 0; k < g.pellets; k++) {
+      let [dx, dy, dz] = lookDir(P.yaw, P.pitch); const sp = g.spread || 0;
+      dx += (Math.random() - 0.5) * sp * 2; dy += (Math.random() - 0.5) * sp * 2; dz += (Math.random() - 0.5) * sp * 2; const l = Math.hypot(dx, dy, dz);
+      Entities.add(new Bullet(ex + dx / l * 0.5, ey - 0.1 + dy / l * 0.5, ez + dz / l * 0.5, dx / l * g.speed, dy / l * g.speed, dz / l * g.speed, P, g));
+    }
+    P.pitch = Math.min(1.5, P.pitch + (g.dmg > 10 ? 0.06 : 0.015)); P.swinging = true; P.swingTime = 0;
+    const [lx, ly, lz] = lookDir(P.yaw, P.pitch); Particles.color(ex + lx * 0.9, ey - 0.15 + ly * 0.9, ez + lz * 0.9, 1, 0.85, 0.4, 4, 0.04, 4, 0, 0.05);
+    if (g.sound) this.play(g.sound, P.x, P.y, P.z); else Sound.play('bow', P.x, P.y, P.z);
+  },
+};
+class Bullet extends Entity {
+  constructor(x, y, z, vx, vy, vz, shooter, g) { super('thrown', x, y, z); this.item = { id: g.ammo && ITEMS[g.ammo] ? g.ammo : 'iron_nugget', n: 1 }; this.vx = vx; this.vy = vy; this.vz = vz; this.shooter = shooter; this.g = g; this.w = this.h = 0.1; this.small = true; }
+  tick() {
+    this.savePrev(); this.age++; const steps = Math.ceil(Math.hypot(this.vx, this.vy, this.vz) / 0.25);
+    for (let s = 0; s < steps; s++) {
+      const nx = this.x + this.vx / steps, ny = this.y + this.vy / steps, nz = this.z + this.vz / steps;
+      for (const e of Entities.list) {
+        if (!e.mob || e.dead || e === this.shooter) continue;
+        if (Math.abs(e.x - nx) < e.w / 2 + 0.1 && ny > e.y - 0.1 && ny < e.y + e.h + 0.1 && Math.abs(e.z - nz) < e.w / 2 + 0.1) {
+          if (this.g.explode) { this.boom(); return; }
+          e.invul = 0; e.lastDmg = 0;
+          e.hurtByPlayer ? e.hurtByPlayer(this.g.dmg, this.shooter, false) : e.damage(this.g.dmg, { x: this.x, z: this.z }); this.remove = true; return;
+        }
+      }
+      const id = World.get(Math.floor(nx), Math.floor(ny), Math.floor(nz));
+      if (SOLID[id] && !REPLACE[id]) { if (this.g.explode) { this.boom(); return; } this.remove = true; Particles.color(this.x, this.y, this.z, 0.5, 0.5, 0.5, 4, 0.06, 8, 0.02, 0.04); return; }
+      this.x = nx; this.y = ny; this.z = nz;
+    }
+    if (this.g.explode) { this.vy -= 0.01; Particles.color(this.x, this.y, this.z, 0.7, 0.7, 0.7, 1, 0.02, 12, -0.005, 0.08); }
+    if (this.age > 60) this.remove = true;
+  }
+  boom() { this.remove = true; Game.explode(this.x, this.y, this.z, this.g.explode); }
+}
 
 // ---------------- pieles personalizadas de las criaturas ----------------
 const MOB_PART_NAMES = { muzzle: 'Morro', udder: 'Ubre', legL0: 'Patas', jacket: 'Chaqueta', head: 'Cabeza', body: 'Cuerpo', snout: 'Hocico', leg0: 'Patas', horn1: 'Cuernos', rarm: 'Brazo derecho', larm: 'Brazo izquierdo', rleg: 'Pierna derecha', lleg: 'Pierna izquierda', beak: 'Pico', wattle: 'Barba', rwing: 'Alas', neck: 'Cuello', legR0: 'Patas' };

@@ -1,8 +1,19 @@
 {
-  "latest": "1.16.2",
+  "latest": "1.17.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.17.0",
+      "date": "2026-11-19",
+      "title": "Armas de mods",
+      "notes": [
+        "Las armas de mods MCreator/GeckoLib (como Greenboy's Weapons) disparan balas, gastan su munición, suenan con sus sonidos y se ven en 3D en la mano y en el inventario",
+        "Bazuca con explosión, escopeta con perdigones, francotirador potente"
+      ],
+      "size": 307891,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.17.0.zip"
+    },
     {
       "id": "1.16.2",
       "date": "2026-11-19",
