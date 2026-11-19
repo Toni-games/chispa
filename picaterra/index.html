@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.16.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.16.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2541,6 +2541,7 @@ if (DYN_SPEC && DYN_SPEC.blocks && DYN_SPEC.blocks.length) {
     const t = b.tex ? 'jm/' + b.tex : 'stone', box = b.box || [0, 0, 0, 16, 16, 16];
     const o = { tex: t, hardness: 2, tool: b.tool, opaque: false, cutout: true, cat: 'mods', emit: b.lamp || 0, dyn: true, color: '#8a8a8a', sound: b.tool === 'axe' ? 'wood' : 'metal' };
     if (!b.full) Object.assign(o, { render: 'box', box: [box] });
+    if (b.or === 'axis') o.axis = true; else if (b.or === 'f6') o.facing6 = true; else if (b.or === 'f4') o.facing = true;
     defBlock(b.k, b.n, o);
   }
 }
@@ -4834,7 +4835,7 @@ const Mesher = {
   },
 
   build(c) {
-    this.fillPadded(c); this.cx = c.cx; this.cz = c.cz; const bedCEM = !!CEM.files['bed.jem']; const beds = [];
+    this.fillPadded(c); this.cx = c.cx; this.cz = c.cz; Kinetic.begin(c); const bedCEM = !!CEM.files['bed.jem']; const beds = [];
     const O = this.O, T = this.T; O.reset(); T.reset();
     const pb = this.pb, pm = this.pm, pl = this.pl;
     const fancy = Settings.fancy && Atlas.leavesAlpha;
@@ -4844,7 +4845,9 @@ const Mesher = {
       const rt = RENDER[id]; const d = BLOCKS[id];
       if (WET[id]) this.liquid(T, p, B.water, BLOCKS[B.water], x, y, z);
       if (bedCEM && d.bedPart) { beds.push([c.cx * 16 + x, y, c.cz * 16 + z, d.bedPart === 'head' ? 1 : 0, pm[p] & 3]); continue; }
-      const jb = JM.block[id]; if (jb && this.jmodel(O, T, p, id, d, x, y, z, jb, fancy, pm[p])) continue;
+      if (Kinetic.ids[id]) Kinetic.note(c, x, y, z, id, pm[p]);
+      if (Kinetic.dynamicOnly[id]) continue;
+      const jb0 = JM.block[id]; const jb = jb0 && jb0.byMeta ? (jb0.byMeta[pm[p] & jb0.mask] || jb0) : jb0; if (jb && this.jmodel(O, T, p, id, d, x, y, z, jb, fancy, pm[p])) continue;
       if (rt === 1) this.cube(O, T, p, id, d, pm[p], x, y, z, fancy);
       else if (rt === 2) this.cross(O, p, id, d, x, y, z);
       else if (rt === 3) this.liquid(d.translucent ? T : O, p, id, d, x, y, z);
@@ -4853,6 +4856,7 @@ const Mesher = {
       else if (rt === 6) this.crop(O, p, d, pm[p], x, y, z);
       else if (rt === 7) this.ladder(O, p, d, pm[p], x, y, z);
     }
+    Kinetic.done(c);
     if (bedCEM || CEM.beds[c.cx + ',' + c.cz]) { if (beds.length) CEM.beds[c.cx + ',' + c.cz] = beds; else delete CEM.beds[c.cx + ',' + c.cz]; }
     return { o: O.q ? O.slice() : null, oq: O.q, t: T.q ? T.slice() : null, tq: T.q };
   },
@@ -6231,6 +6235,8 @@ const CEM = {
     for (const n of names) { const m = this.get(n); if (m) return m; }
     return null;
   },
+  // giro del cuerpo en radianes y sin saltos de 2π (como el original), para que las animaciones no tiemblen
+  unwrapYaw(S, a) { if (S._yaw === undefined) { S._yaw = a; S._yawRaw = a; return a; } S._yaw += wrapPI(a - S._yawRaw); S._yawRaw = a; return S._yaw; },
   tick(now) { this.frame++; this.ft = clamp((now - (this.lastT || now)) / 1000, 0.001, 0.1); this.lastT = now; },
   draw(e, M, skinTex, base, Pw, light, tint) {
     const R = Renderer, gl = R.gl, pt = Game.partial;
@@ -6252,7 +6258,7 @@ const CEM = {
     const g = {
       limb_swing: lerp(e.prevLimb || 0, e.limb || 0, pt), limb_speed: Math.min(1, lerp(e.prevLimbAmt || 0, e.limbAmt || 0, pt)),
       age: (e.age || 0) + pt, head_yaw: -wrapPI(headYaw) * D, head_pitch: -lerp(e.prevPitch ?? e.pitch, e.pitch, pt) * D,
-      pos_x: e.x, pos_y: e.y, pos_z: e.z, rot_x: -(e.pitch || 0) * D, rot_y: 180 - lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt) * D,
+      pos_x: e.x, pos_y: e.y, pos_z: e.z, rot_x: -(e.pitch || 0), rot_y: this.unwrapYaw(S, Math.PI - lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt)),
       is_on_ground: !!e.onGround, is_in_water: !!e.inWater, is_in_lava: !!e.inLava, is_burning: e.fire > 0, is_hurt: e.hurt > 0, hurt_time: Math.max(0, e.hurt || 0),
       death_time: e.deathTime || 0, is_alive: !e.dead, is_child: !!e.baby, is_riding: false, is_ridden: false, is_sitting: !!e.sitting, is_tamed: !!e.tame,
       is_aggressive: !!(e.target || e.angry), is_sneaking: !!e.sneaking, is_sprinting: !!e.sprinting, is_on_shoulder: false, is_in_ground: false, is_wet: !!e.inWater, is_glowing: false, is_invisible: false,
@@ -6551,6 +6557,7 @@ class Player extends Entity {
     if (!canSprint || this.horizCol || input.fwd <= 0) this.sprinting = false;
     // altura del cuerpo
     this.h = this.sneaking ? 1.5 : 1.8; this.eye = this.sneaking ? 1.27 : 1.62;
+    if (this.sleeping && this.bed) { if (input.sneak || input.jump) { this.sleeping = 0; this.y = this.bed.y + 0.6; this.bed = null; UI.sleepFade = 0; } else { this.eye = 0.2; } }
     this.eyeSmooth += (this.eye - this.eyeSmooth) * 0.5;
     let fwd = input.fwd * 0.98, str = input.str * 0.98;
     if (this.sneaking) { fwd *= 0.3; str *= 0.3; }
@@ -6585,7 +6592,8 @@ class Player extends Entity {
       // élitros: saltar en el aire mientras caes para planear
       if (input.jump && !this.prevJumpIn && !this.onGround && !this.inWater && !this.climbing() && this.vy < 0 && EndDim.hasElytra(this)) { this.gliding = !this.gliding; if (this.gliding) Sound.play('elytra'); }
       if (this.gliding && (this.onGround || this.inWater || this.inLava || !EndDim.hasElytra(this))) this.gliding = false;
-      if (Riding.tick(this, input)) { }
+      if (this.sleeping && this.bed) { this.x = this.bed.x + 0.5; this.z = this.bed.z + 0.5; this.y = this.bed.y + 0.5625; this.vx = this.vy = this.vz = 0; this.fall = 0; }
+      else if (Riding.tick(this, input)) { }
       else if (this.gliding) EndDim.glide(this);
       else {
         this.travel(fwd, str, speed, input.jump);
@@ -8437,6 +8445,7 @@ const Game = {
       RS.process();
       if (World.tickCount % 1 === 0) World.randomTicks(Math.floor(P.x), Math.floor(P.z));
       if (World.tickCount % 10 === 0) Fire.tick();
+      try { Kinetic.tick(); } catch (e) { }
       if (World.tickCount % 2 === 0) Maps.tick(P);
       this.furnaceTick();
       for (const e of Entities.list) { if (!World.loaded(Math.floor(e.x), Math.floor(e.z)) && e.type !== 'arrow') { e.savePrev(); continue; } }
@@ -8446,7 +8455,7 @@ const Game = {
       if (World.tickCount % 20 === 0) Entities.spawnTick();
       this.ambientTick();
       if (++this.autosaveT >= 20 * 45) { this.autosaveT = 0; this.save(true); }
-      if (P.sleeping) { P.sleeping++; if (P.sleeping > 100) { World.time = 0; World.day++; P.sleeping = 0; Chat.add('§7Buenos días.'); UI.sleepFade = 0; } }
+      if (P.sleeping) { P.sleeping++; if (P.sleeping > 100) { World.time = 0; World.day++; P.sleeping = 0; Chat.add('§7Buenos días.'); UI.sleepFade = 0; if (P.bed) { P.y = P.bed.y + 0.6; P.savePrev(); } P.bed = null; } }
     }
   },
   ambientTick() {
@@ -8601,6 +8610,7 @@ const Game = {
     // dar de comer a un animal (cría)
     const fe = this.targetEnt; if (fe && fe.mob && fe.interact && fe.interact(P, held)) { P.swinging = true; P.swingTime = 0; return; }
     if (fe && fe.mob && fe.feed && held && fe.feed(P, held)) { P.swinging = true; P.swingTime = 0; return; }
+    if (T && Kinetic.ids[T.id] && Kinetic.ids[T.id].src === 'crank' && !P.sneaking) { Kinetic.useCrank(T.x, T.y, T.z); P.swinging = true; P.swingTime = 0; this.useCD = 4; return; }
     if (held && held.id === 'map') { Maps.use(P, held); P.swinging = true; P.swingTime = 0; this.useCD = 6; return; }
     // cosas del End: ojos en el marco, ojos voladores, cohetes
     if (held && held.id === 'ender_eye' && T && T.id === B.end_portal_frame) { if (EndDim.putEye(T, P, held)) { P.swinging = true; P.swingTime = 0; this.useCD = 4; } return; }
@@ -8832,6 +8842,10 @@ const Game = {
     const near = Entities.list.some(e => e.mob && e.def.hostile && !e.dead && Math.hypot(e.x - T.x, e.y - T.y, e.z - T.z) < 8);
     if (near) { Chat.add('§cNo puedes descansar ahora: hay monstruos cerca.'); return; }
     P.spawnPoint = [T.x + 0.5, T.y + 1, T.z + 0.5]; P.sleeping = 1; Chat.add('§7Punto de aparición establecido.');
+    // tumbarse en la cama: la cabeza en la almohada
+    const m = World.getMeta(T.x, T.y, T.z) & 3, D = [[0, 1], [-1, 0], [0, -1], [1, 0]][m]; const head = BLOCKS[T.id].bedPart === 'head';
+    const hx = head ? T.x : T.x + D[0], hz = head ? T.z : T.z + D[1];
+    P.bed = { x: hx, y: T.y, z: hz, d: D }; P.x = hx + 0.5; P.z = hz + 0.5; P.y = T.y + 0.5625; P.vx = P.vy = P.vz = 0; P.savePrev();
   },
   growTree(x, y, z, type) {
     const r = mulberry32((x * 31 + z * 17 + World.tickCount) | 0);
@@ -10945,6 +10959,7 @@ function drawEntities(Pw, cam) {
   const R = Renderer, gl = R.gl; const pt = Game.partial;
   gl.disable(gl.CULL_FACE);
   try { CEM.drawBeds(Pw, cam); } catch (e) { }
+  try { Kinetic.draw(Pw, cam); } catch (e) { console.warn(e); }
   const list = [...Entities.list]; const P = Game.player;
   for (const e of list) {
     const x = lerp(e.px, e.x, pt), y = lerp(e.py, e.y, pt), z = lerp(e.pz, e.z, pt);
@@ -11031,6 +11046,7 @@ function drawPlayerModel(Pw, P) {
   const L = entLight(x, y + 1, z);
   const tex = R.skinTexture('player', Skins.canvas);
   M4.identity(_m); M4.translate(_m, x, y, z); M4.rotY(_m, lerpAngle(P.prevBodyYaw ?? P.bodyYaw, P.bodyYaw, pt));
+  if (P.sleeping && P.bed) { const D = P.bed.d; M4.identity(_m); M4.translate(_m, P.bed.x + 0.5 - D[0] * 1.45, P.bed.y + 0.5625 + 0.1, P.bed.z + 0.5 - D[1] * 1.45); M4.rotY(_m, Math.atan2(D[0], D[1])); M4.rotX(_m, Math.PI / 2); }
   if (P.dead) M4.rotZ(_m, Math.min(1, Math.sqrt((P.deathTime + pt) / 20)) * Math.PI / 2);
   M4.scale(_m, 0.9375, 0.9375, 0.9375);
   const cm = CEM.enabled && CEM.count() ? (CEM.get(Skins.slim ? 'player_slim' : 'player') || CEM.get('player')) : null;
@@ -12144,6 +12160,7 @@ const Jukebox = {
 //  — hojas cúbicas, objetos en 3D en la mano, etc. — y camas con modelo CEM
 // ============================================================
 const JM = {
+  objCache: {},
   models: {}, states: {}, items: {}, texFiles: {},
   block: {},   // id de bloque -> [partes: [{ w, quads }]]
   item: {},    // id de objeto -> quads
@@ -12155,6 +12172,7 @@ const JM = {
   async absorb(z) {
     const dec = new TextDecoder();
     for (const p of z.names) {
+      const ob = p.match(/(?:^|\/)assets\/([^/]+)\/(models\/.+\.(obj|mtl))$/i); if (ob) { this.objFiles = this.objFiles || {}; this.objFiles[(ob[1] + ':' + ob[2]).toLowerCase()] = { z, p }; continue; }
       const m = p.match(/(?:^|\/)assets\/([^/]+)\/(models|blockstates|items|textures)\/(.+)\.(json|png)$/i); if (!m || /__MACOSX/.test(p)) continue;
       const [, ns, kind, path, ext] = m; const k = (ns + ':' + path).toLowerCase();
       if (ext.toLowerCase() === 'png') { if (kind === 'textures') this.texFiles[k] = { z, p }; continue; }
@@ -12166,7 +12184,7 @@ const JM = {
   resolve(ref, depth = 0) {
     const k = this.key(ref); const j = this.models[k] || JM_TEMPLATES(k); if (!j || depth > 12) return null;
     const par = j.parent ? this.resolve(j.parent, depth + 1) : null;
-    return { textures: Object.assign({}, par ? par.textures : {}, j.textures || {}), elements: j.elements || (par && par.elements) || null, display: Object.assign({}, par ? par.display : {}, j.display || {}), generated: !j.elements && ((par && par.generated) || /item\/(generated|handheld)/.test(j.parent || '')) };
+    return { obj: j.loader && /obj/.test(j.loader) ? j.model : (par && par.obj) || null, flipV: j.flip_v || (par && par.flipV), textures: Object.assign({}, par ? par.textures : {}, j.textures || {}), elements: j.elements || (par && par.elements) || null, display: Object.assign({}, par ? par.display : {}, j.display || {}), generated: !j.elements && ((par && par.generated) || /item\/(generated|handheld)/.test(j.parent || '')) };
   },
   texName(textures, ref) {
     let r = ref, n = 0; while (r && r[0] === '#' && n++ < 10) r = textures[r.slice(1)]; if (!r || r[0] === '#') return null;
@@ -12185,6 +12203,7 @@ const JM = {
   // cubos del modelo -> quads (coordenadas 0..16 del bloque)
   DIRS: { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 },
   compile(model, rx, ry) {
+    if (model && model.obj && this.objCache && this.objCache[model.obj]) return this.objQuads(model, rx, ry);
     if (!model || !model.elements) return null; const out = [];
     for (const el of model.elements) {
       const [x0, y0, z0] = el.from, [x1, y1, z1] = el.to;
@@ -12234,8 +12253,19 @@ const JM = {
       const opts = (a) => (Array.isArray(a) ? a : [a]).map(o => ({ w: o.weight || 1, ref: o.model, rx: (o.x || 0) / 90 & 3, ry: (o.y || 0) / 90 & 3 }));
       if (st.variants) { const v = this.pickVariant(st.variants); if (v) parts.push(opts(v)); }
       if (st.multipart) for (const mp of st.multipart) if (!mp.when) parts.push(opts(mp.apply));
-      const cparts = parts.map((list, pi) => list.map(o => { const r = this.resolve(o.ref); const q = this.compile(r, o.rx, o.ry) || []; return { w: o.w, quads: q, vanilla: !r && pi === 0 && !/empty/.test(o.ref || '') }; }));
+      const comp = (parts) => parts.map((list, pi) => list.map(o => { const r = this.resolve(o.ref); const q = this.compile(r, o.rx, o.ry) || []; return { w: o.w, quads: q, vanilla: !r && pi === 0 && !/empty/.test(o.ref || '') }; }));
+      const cparts = comp(parts);
       if (cparts.some(l => l.some(o => o.quads.length))) this.block[id] = cparts;
+      // variantes según la orientación del bloque (eje o hacia dónde mira)
+      if (st.variants && (d.axis || d.facing || d.facing6)) {
+        const MAP = d.axis ? [[0, 'axis=y'], [4, 'axis=x'], [8, 'axis=z']] : d.facing6 ? [[0, 'facing=east'], [1, 'facing=west'], [2, 'facing=up'], [3, 'facing=down'], [4, 'facing=south'], [5, 'facing=north']] : [[0, 'facing=north'], [1, 'facing=east'], [2, 'facing=south'], [3, 'facing=west']];
+        const by = {};
+        for (const [m, kv] of MAP) {
+          const keys = Object.keys(st.variants).filter(k => k.split(',').includes(kv)); if (!keys.length) continue;
+          const k = keys.find(k => !/=true/.test(k)) || keys[0]; const cp = comp([opts(st.variants[k])]); if (cp.some(l => l.some(o => o.quads.length))) by[m] = cp;
+        }
+        if (Object.keys(by).length) { this.block[id] = cparts.some(l => l.some(o => o.quads.length)) ? cparts : Object.values(by)[0]; this.block[id].byMeta = by; this.block[id].mask = d.axis ? 12 : d.facing6 ? 7 : 3; }
+      }
     }
     for (const name in ITEMS) {
       let ref = null; const def = this.items[name];
@@ -12303,7 +12333,7 @@ const DYN = {
   load() { try { return JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch (e) { return null; } },
   // a partir de los paquetes activos: qué bloques, objetos y recetas trae cada mod
   async spec(zips) {
-    const out = { blocks: [], items: [], recipes: [] }; const dec = new TextDecoder();
+    const out = { v: 2, blocks: [], items: [], recipes: [] }; const dec = new TextDecoder();
     const lang = {}; const models = {}; const states = {}; const itemModels = {}; const recipes = [];
     for (const z of zips) {
       for (const p of z.names) {
@@ -12333,7 +12363,8 @@ const DYN = {
       }
       const n = lang['block.' + ns + '.' + path] || nice(path);
       const wood = /wood|plank|log|window|scaffold|table|chair|seat|cart|crate/.test(path) && !/andesite|brass|copper|iron/.test(path);
-      out.blocks.push({ k: ns + '_' + path, n, box, full, tex: particle, tool: wood ? 'axe' : 'pickaxe', lamp: /lamp|light|nixie/.test(path) ? 12 : 0 });
+      const vk = st.variants ? Object.keys(st.variants).join('|') : ''; const or = /axis=/.test(vk) ? 'axis' : /facing=(up|down)/.test(vk) ? 'f6' : /facing=/.test(vk) ? 'f4' : null;
+      out.blocks.push({ k: ns + '_' + path, n, or, box, full, tex: particle, tool: wood ? 'axe' : 'pickaxe', lamp: /lamp|light|nixie/.test(path) ? 12 : 0 });
     }
     const blockKeys = new Set(out.blocks.map(b => b.k));
     for (const k in models) {
@@ -12354,6 +12385,35 @@ const DYN = {
     void itemKeys;
     return out;
   },
+};
+
+// modelos .obj (la rueda hidráulica de Create, etc.)
+JM.loadObjs = async function () {
+  const dec = new TextDecoder();
+  for (const k in this.models) { const m = this.models[k]; if (!m || !m.loader || !/obj/.test(m.loader) || !m.model) continue; const ref = m.model.toLowerCase(); if (this.objCache[ref]) continue;
+    const f = this.objFiles && this.objFiles[ref]; if (!f) continue;
+    try { const txt = dec.decode(await f.z.get(f.p)); const mtlRef = ref.replace(/\.obj$/, '.mtl'); const mf = this.objFiles[mtlRef]; const mtl = mf ? dec.decode(await mf.z.get(mf.p)) : ''; this.objCache[ref] = { txt, mtl }; } catch (e) { } }
+};
+JM.objQuads = function (model, rx, ry) {
+  const { txt, mtl } = this.objCache[model.obj]; const mats = {}; let cur = null;
+  for (const l of mtl.split(/\r?\n/)) { const a = l.trim().split(/\s+/); if (a[0] === 'newmtl') cur = a[1]; else if (a[0] === 'map_Kd' && cur) mats[cur] = a[1]; }
+  const V = [], T = [], out = []; let tex = null;
+  for (const l of txt.split(/\r?\n/)) {
+    const a = l.trim().split(/\s+/);
+    if (a[0] === 'v') V.push([+a[1] * 16 + 8, +a[2] * 16, +a[3] * 16 + 8]);
+    else if (a[0] === 'vt') T.push([+a[1], model.flipV ? 1 - +a[2] : +a[2]]);
+    else if (a[0] === 'usemtl') { const mk = mats[a[1]] || ('#' + a[1]); tex = this.texName(model.textures, mk); }
+    else if (a[0] === 'f' && tex) {
+      const idx = a.slice(1).map(s => s.split('/').map(n => parseInt(n, 10) - 1));
+      for (let i = 1; i + 1 < idx.length; i += 2) {
+        const tri = [idx[0], idx[i], idx[i + 1], idx[i + 2] || idx[i + 1]];
+        let verts = tri.map(t => V[t[0]].slice()); const uvs = tri.map(t => { const q = T[t[1]] || [0, 0]; return [q[0] * 16, q[1] * 16]; });
+        if (rx || ry) verts = verts.map(v => rotBlock(v, rx, ry));
+        out.push({ verts, uvs, tex, cull: -1, tint: false, shade: -1 });
+      }
+    }
+  }
+  return out;
 };
 
 
@@ -12468,7 +12528,9 @@ const Addons = {
         this.applied.push(a.name);
       } catch (e) { console.warn('addon', a.name, e); }
     }
-    try { JM.build(); await JM.loadTextures(); } catch (e) { console.warn('JM', e); }
+    // lista de bloques de mods hecha con una versión anterior: rehacerla y recargar una vez
+    if (DYN_SPEC && DYN_SPEC.v !== 2 && !sessionStorage.getItem('dynfix')) { sessionStorage.setItem('dynfix', '1'); await this.saveSpec(); location.reload(); await new Promise(() => { }); }
+    try { await JM.loadObjs(); JM.build(); await JM.loadTextures(); } catch (e) { console.warn('JM', e); }
   },
 };
 CEM.texFiles = {}; CEM.texCache = {};
@@ -12479,6 +12541,137 @@ CEM.textureFor = function (M) {
   const f = this.texFiles[key]; this.texCache[key] = null; if (!f) return null;
   (async () => { const im = await loadImg(await blobToURL(new Blob([await f.z.get(f.p)], { type: 'image/png' }))); if (im) this.texCache[key] = MobTex.toCanvas(im); })();
   return null;
+};
+
+
+// ---- extra/kinetics116.js ----
+// ============================================================
+//  1.16: energía de giro al estilo de Create (con los bloques del mod cargado)
+//  fuentes: rueda hidráulica (con agua al lado), motor creativo, manivela (clic);
+//  transmisión: ejes, engranajes (pequeños y grandes), cajas de engranajes y ejes con carcasa;
+//  máquinas: prensa mecánica (hace láminas) y piedra de moler (muele).
+// ============================================================
+const Kinetic = {
+  ids: {}, dynamicOnly: {}, info: {}, chunks: {}, speed: new Map(), _cur: null, ready: false,
+  // qué hace cada bloque de Create (se activa si el mod está cargado)
+  DEFS: {
+    create_shaft: { kind: 'shaft', rot: 'self' },
+    create_cogwheel: { kind: 'cog', rot: 'self' },
+    create_large_cogwheel: { kind: 'bigcog', rot: 'self' },
+    create_andesite_encased_shaft: { kind: 'shaft', part: 'create:block/shaft' },
+    create_brass_encased_shaft: { kind: 'shaft', part: 'create:block/shaft' },
+    create_andesite_encased_cogwheel: { kind: 'cog', part: 'create:block/cogwheel_shaftless' },
+    create_brass_encased_cogwheel: { kind: 'cog', part: 'create:block/cogwheel_shaftless' },
+    create_gearbox: { kind: 'gearbox' },
+    create_water_wheel: { kind: 'source', src: 'water', rpm: 8, rot: 'create:block/water_wheel/wheel' },
+    create_large_water_wheel: { kind: 'source', src: 'water', rpm: 4, rot: 'create:block/large_water_wheel/wheel' },
+    create_creative_motor: { kind: 'source', src: 'always', rpm: 32, part: 'create:block/shaft_half' },
+    create_hand_crank: { kind: 'source', src: 'crank', rpm: 32, part: 'create:block/hand_crank/handle' },
+    create_mechanical_press: { kind: 'press', part: 'create:block/shaft' },
+    create_millstone: { kind: 'mill', part: 'create:block/millstone/inner' },
+  },
+  init() {
+    for (const k in this.DEFS) { const id = B[k]; if (id === undefined) continue; this.ids[id] = this.DEFS[k]; this.info[id] = k; if (this.DEFS[k].rot === 'self') this.dynamicOnly[id] = true; }
+    this.ready = true;
+  },
+  // el mallador avisa de los bloques de giro que hay en cada trozo
+  begin(c) { if (!this.ready) this.init(); this._cur = []; },
+  note(c, x, y, z, id, meta) { if (this._cur) this._cur.push([c.cx * 16 + x, y, c.cz * 16 + z, id, meta]); },
+  done(c) { const k = c.cx + ',' + c.cz; if (this._cur && this._cur.length) this.chunks[k] = this._cur; else delete this.chunks[k]; this._cur = null; this.dirty = true; },
+  axisOf(id, meta) {
+    const d = BLOCKS[id];
+    if (d.axis) return (meta & 12) === 4 ? 0 : (meta & 12) === 8 ? 2 : 1;
+    if (d.facing6) { const f = meta & 7; return f < 2 ? 0 : f < 4 ? 1 : 2; }
+    if (d.facing) { const f = meta & 3; return (f === 0 || f === 2) ? 0 : 2; } // la prensa: eje de lado a lado
+    return 1;
+  },
+  // calcula la velocidad de cada bloque (búsqueda desde las fuentes)
+  tick() {
+    if (!this.ready) return;
+    if (World.tickCount % 5) return;
+    const nodes = new Map(); const key = (x, y, z) => x + ',' + y + ',' + z;
+    for (const k in this.chunks) for (const n of this.chunks[k]) { const [x, y, z, id, meta] = n; if (World.get(x, y, z) !== id) continue; nodes.set(key(x, y, z), { x, y, z, id, meta: World.getMeta(x, y, z), def: this.ids[id], ax: this.axisOf(id, World.getMeta(x, y, z)) }); }
+    const sp = new Map(); const q = [];
+    for (const [k, n] of nodes) if (n.def.kind === 'source') {
+      let on = n.def.src === 'always' || (n.def.src === 'crank' && (n.crankT = this.crank.get(k) || 0) > World.tickCount);
+      if (n.def.src === 'water') { const A = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]; for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) { if (A[n.ax][0] === Math.abs(dx) && A[n.ax][1] === Math.abs(dy) && A[n.ax][2] === Math.abs(dz)) continue; if (LIQUID[World.get(n.x + dx, n.y + dy, n.z + dz)] === 1) { on = true; break; } } }
+      if (on) { sp.set(k, n.def.rpm); q.push(n); }
+    }
+    const AX = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+    const isCog = (n) => n.def.kind === 'cog' || n.def.kind === 'bigcog';
+    while (q.length) {
+      const n = q.shift(); const s = sp.get(key(n.x, n.y, n.z)); if (sp.size > 4000) break;
+      const push = (m, v) => { const k = key(m.x, m.y, m.z); if (sp.has(k)) return; sp.set(k, v); q.push(m); };
+      // a lo largo del eje
+      for (const sg of [1, -1]) {
+        const a = AX[n.ax]; const m = nodes.get(key(n.x + a[0] * sg, n.y + a[1] * sg, n.z + a[2] * sg)); if (!m) continue;
+        if (m.def.kind === 'gearbox' || n.def.kind === 'gearbox' || m.ax === n.ax) push(m, s);
+      }
+      if (n.def.kind === 'gearbox') for (let ax = 0; ax < 3; ax++) if (ax !== n.ax) for (const sg of [1, -1]) { const a = AX[ax]; const m = nodes.get(key(n.x + a[0] * sg, n.y + a[1] * sg, n.z + a[2] * sg)); if (m && m.ax === ax) push(m, -s); }
+      // engranajes: los de al lado (mismo eje) giran al revés; grande con pequeño en diagonal, al doble
+      if (isCog(n)) {
+        const pl = [0, 1, 2].filter(i => i !== n.ax);
+        for (const [u, v] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const o = [0, 0, 0]; o[pl[0]] = u; o[pl[1]] = v; const m = nodes.get(key(n.x + o[0], n.y + o[1], n.z + o[2])); if (m && isCog(m) && m.ax === n.ax && (m.def.kind === 'cog') === (n.def.kind === 'cog')) push(m, -s); }
+        for (const [u, v] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) { const o = [0, 0, 0]; o[pl[0]] = u; o[pl[1]] = v; const m = nodes.get(key(n.x + o[0], n.y + o[1], n.z + o[2])); if (m && isCog(m) && m.ax === n.ax && m.def.kind !== n.def.kind) push(m, m.def.kind === 'cog' ? -s * 2 : -s / 2); }
+      }
+    }
+    this.speed = sp; this.nodes = nodes;
+    // máquinas trabajando
+    for (const [k, n] of nodes) { const s = sp.get(k) || 0; if (!s) continue; if (n.def.kind === 'press') this.press(n, s); else if (n.def.kind === 'mill') this.mill(n, s); }
+  },
+  crank: new Map(),
+  useCrank(x, y, z) { this.crank.set(x + ',' + y + ',' + z, World.tickCount + 60); Sound.play('click', x, y, z); },
+  PRESS: { iron_ingot: 'create_iron_sheet', copper_ingot: 'create_copper_sheet', gold_ingot: 'create_golden_sheet', create_brass_ingot: 'create_brass_sheet', sugar_cane: 'paper' },
+  MILL: { wheat: ['create_wheat_flour', 1], gravel: ['flint', 1], cobblestone: ['gravel', 1], bone: ['bone_meal', 3], sand: ['create_cinder_flour', 1], granite: ['red_sand', 1], andesite: ['cobblestone', 1], diorite: ['cobblestone', 1], sugar_cane: ['sugar', 2], dandelion: ['yellow_dye', 2], poppy: ['red_dye', 2], cornflower: ['blue_dye', 2] },
+  items(x0, y0, z0, x1, y1, z1) { return Entities.list.filter(e => e.type === 'item' && !e.dead && !e.remove && e.x >= x0 && e.x <= x1 && e.y >= y0 && e.y <= y1 && e.z >= z0 && e.z <= z1); },
+  convert(e, out, n) { if (!ITEMS[out]) return false; e.item.n--; if (e.item.n <= 0) e.remove = true; Entities.dropItem(e.x, e.y + 0.2, e.z, { id: out, n: n || 1 }); return true; },
+  press(n, s) {
+    const T = World.tickCount; if (!n.next) this.pressT[n.x + ',' + n.y + ',' + n.z] = this.pressT[n.x + ',' + n.y + ',' + n.z] || 0;
+    const k = n.x + ',' + n.y + ',' + n.z; if (T < (this.pressT[k] || 0)) return;
+    const it = this.items(n.x, n.y - 2.2, n.z, n.x + 1, n.y, n.z + 1).find(e => this.PRESS[e.item.id]);
+    if (!it) return; this.pressT[k] = T + Math.max(10, 640 / Math.abs(s)); this.pressAnim[k] = T;
+    this.convert(it, this.PRESS[it.item.id]); Sound.play('anvil_land', n.x, n.y, n.z);
+  },
+  pressT: {}, pressAnim: {},
+  mill(n, s) {
+    const k = n.x + ',' + n.y + ',' + n.z, T = World.tickCount; if (T < (this.pressT[k] || 0)) return;
+    const it = this.items(n.x - 0.2, n.y, n.z - 0.2, n.x + 1.2, n.y + 1.6, n.z + 1.2).find(e => this.MILL[e.item.id]);
+    if (!it) return; this.pressT[k] = T + Math.max(10, 1600 / Math.abs(s));
+    const [o, c] = this.MILL[it.item.id]; const out = ITEMS[o] ? o : null; if (!out) return;
+    it.item.n--; if (it.item.n <= 0) it.remove = true; Entities.dropItem(n.x + 0.5, n.y - 0.3 < 1 ? n.y + 1.1 : n.y + 1.1, n.z + 1.3, { id: out, n: c });
+    Sound.play('grindstone', n.x, n.y, n.z);
+  },
+  // ---------- dibujo de las piezas que giran ----------
+  meshes: {},
+  meshFor(ref, id, meta) {
+    const key = ref + '|' + meta; if (key in this.meshes) return this.meshes[key];
+    let quads = null;
+    if (ref === 'self') { const jb0 = JM.block[id]; const jb = jb0 && jb0.byMeta ? (jb0.byMeta[meta & jb0.mask] || jb0) : jb0; if (jb) quads = [].concat(...jb.map(list => list[0] ? list[0].quads : [])); }
+    else { const m = JM.resolve(ref); quads = m ? JM.compile(m, 0, 0) : null; }
+    if (!quads || !quads.length) return (this.meshes[key] = null);
+    const vb = new VB(64); for (const q of quads) Mesher.quad(vb, -0.5, -0.5, -0.5, q.verts, q.uvs, Atlas.index[q.tex] ?? 0, [255, 255, 255], q.shade < 0 ? 1 : Mesher.SHADE[q.shade], 240, 240, 0);
+    return (this.meshes[key] = Renderer.meshFromVB(vb));
+  },
+  draw(Pw, cam) {
+    if (!this.ready || !this.nodes) return; const R = Renderer, gl = R.gl; const pt = Game.partial;
+    gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
+    const m = this._m || (this._m = new Float32Array(16)); const t = (World.tickCount + pt) / 20; const rd = (Settings.renderDist * 16) ** 2;
+    for (const [k, n] of this.nodes) {
+      const d = n.def; const ref = d.rot || d.part; if (!ref) continue;
+      if ((n.x - cam.x) ** 2 + (n.z - cam.z) ** 2 > rd) continue;
+      const s = this.speed.get(k) || 0; const ang = s * Math.PI * 2 / 60 * t + (d.kind === 'cog' && ((n.x + n.y + n.z) & 1) ? Math.PI / 8 : 0);
+      // la pieza propia del bloque ya viene girada a su eje; las piezas sueltas (eje, cabeza...) se colocan en el eje del bloque
+      const own = ref === 'self'; const mesh = this.meshFor(ref, n.id, own ? n.meta : 0); if (!mesh) continue;
+      const L = entLight(n.x + 0.5, n.y + 0.5, n.z + 0.5); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]);
+      M4.identity(m); M4.translate(m, n.x + 0.5, n.y + 0.5, n.z + 0.5);
+      if (d.kind === 'press') { const a = this.pressAnim[k]; const ph = a ? Math.max(0, 1 - (World.tickCount + pt - a) / 12) : 0; M4.translate(m, 0, -Math.sin(ph * Math.PI) * 0.8, 0); const hm = this.meshFor('create:block/mechanical_press/head', n.id, 0); if (hm) R.drawMesh(hm, m, Pw); M4.translate(m, 0, Math.sin(ph * Math.PI) * 0.8, 0); }
+      if (n.ax === 0) M4.rotZ(m, -Math.PI / 2); else if (n.ax === 2) M4.rotX(m, Math.PI / 2);
+      if (own) { // ya orientada: girar alrededor de su eje
+        M4.identity(m); M4.translate(m, n.x + 0.5, n.y + 0.5, n.z + 0.5); if (n.ax === 0) M4.rotX(m, ang); else if (n.ax === 1) M4.rotY(m, ang); else M4.rotZ(m, ang);
+      } else M4.rotY(m, ang);
+      R.drawMesh(mesh, m, Pw);
+    }
+  },
 };
 
 // ---------------- pieles personalizadas de las criaturas ----------------

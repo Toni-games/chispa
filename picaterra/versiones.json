@@ -1,8 +1,21 @@
 {
-  "latest": "1.16.0",
+  "latest": "1.16.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.16.1",
+      "date": "2026-11-19",
+      "title": "Máquinas de Create y dormir",
+      "notes": [
+        "Create: rueda hidráulica, motor creativo y manivela generan giro; ejes, engranajes y cajas de engranajes lo transmiten girando de verdad; la prensa mecánica hace láminas y la piedra de moler muele",
+        "Los bloques de mods se colocan orientados (eje o dirección)",
+        "Animación de dormir: el personaje se tumba en la cama",
+        "Arreglado el temblor de las animaciones del personaje al girar y andar en diagonal"
+      ],
+      "size": 302047,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.16.1.zip"
+    },
     {
       "id": "1.16.0",
       "date": "2026-11-19",
