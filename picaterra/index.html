@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.15.2';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.16.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2529,6 +2529,22 @@ const TileAnim = {
   },
 };
 
+
+// ---- extra/dynblocks115.js ----
+// ---- bloques de mods (Create...) registrados a partir de la lista guardada al aplicar los mods ----
+// van a partir del número 2048 para que los bloques nuevos del juego no les cambien el número
+const DYN_SPEC = (() => { try { return JSON.parse(localStorage.getItem('picaterra_dyn') || 'null'); } catch (e) { return null; } })();
+if (DYN_SPEC && DYN_SPEC.blocks && DYN_SPEC.blocks.length) {
+  while (BLOCKS.length < 2048) defBlock('_pad' + BLOCKS.length, '', { render: 'none', solid: false, opaque: false, replaceable: true, hardness: 0, noItem: true });
+  for (const b of DYN_SPEC.blocks) {
+    if (B[b.k] !== undefined || BLOCKS.length >= 4090) continue;
+    const t = b.tex ? 'jm/' + b.tex : 'stone', box = b.box || [0, 0, 0, 16, 16, 16];
+    const o = { tex: t, hardness: 2, tool: b.tool, opaque: false, cutout: true, cat: 'mods', emit: b.lamp || 0, dyn: true, color: '#8a8a8a', sound: b.tool === 'axe' ? 'wood' : 'metal' };
+    if (!b.full) Object.assign(o, { render: 'box', box: [box] });
+    defBlock(b.k, b.n, o);
+  }
+}
+
 const NB = BLOCKS.length;
 if (NB > 4095) throw new Error('Demasiados bloques: ' + NB);
 // tablas rápidas
@@ -3097,6 +3113,16 @@ const Maps = {
     Sound.play('map_draw', P.x, P.y, P.z); return true;
   },
 };
+
+
+// ---- extra/dynitems115.js ----
+// ---- objetos y recetas de mods ----
+if (DYN_SPEC) {
+  for (const it of DYN_SPEC.items || []) if (!ITEMS[it.k]) defItem(it.k, it.n, { cat: 'mods', icon: 'jm/' + it.icon });
+  for (const r of DYN_SPEC.recipes || []) {
+    try { const need = r.s ? Object.values(r.k) : r.l; if (!ITEMS[r.o] || need.some(k => !ITEMS[k])) continue; if (r.s) shaped(r.s, r.k, r.o, r.c); else shapeless(r.l, r.o, r.c); } catch (e) { }
+  }
+}
 
 // ---- 03_textures.js ----
 // ============================================================
@@ -9425,12 +9451,13 @@ const HUD = {
 };
 
 // ---------------- inventarios (dibujados en el lienzo) ----------------
-const TAB_ROWS = { top: ['build', 'color', 'nature', 'func', 'redstone', 'search'], bottom: ['tools', 'combat', 'food', 'misc', 'inv'] };
+const TAB_ROWS = { top: ['build', 'color', 'nature', 'func', 'redstone', 'search'], bottom: ['tools', 'combat', 'food', 'misc', ...(DYN_SPEC && DYN_SPEC.blocks && DYN_SPEC.blocks.length ? ['mods'] : []), 'inv'] };
 const CREATIVE_TABS = [
   { id: 'build', name: 'Bloques de construcción', icon: 'bricks' }, { id: 'color', name: 'Bloques de colores', icon: 'red_wool' },
   { id: 'nature', name: 'Bloques naturales', icon: 'grass_block' }, { id: 'func', name: 'Bloques funcionales', icon: 'crafting_table' },
   { id: 'tools', name: 'Herramientas', icon: 'iron_pickaxe' }, { id: 'combat', name: 'Combate', icon: 'iron_sword' },
   { id: 'redstone', name: 'Redstone', icon: 'redstone' }, { id: 'food', name: 'Comida', icon: 'apple' }, { id: 'misc', name: 'Ingredientes', icon: 'iron_ingot' },
+  { id: 'mods', name: 'Mods', icon: (DYN_SPEC && DYN_SPEC.blocks && DYN_SPEC.blocks[0] && DYN_SPEC.blocks.find(b => /cogwheel|shaft|casing/.test(b.k)) || {}).k || 'stone' },
   { id: 'search', name: 'Buscar objetos', icon: 'compass' }, { id: 'inv', name: 'Inventario', icon: 'chest' },
 ];
 // brillo morado de los objetos encantados (solo sobre los píxeles del objeto)
@@ -10147,7 +10174,7 @@ const UI = {
       const out = await Addons.addFiles(fs, (t) => { msg.textContent = t; });
       msg.textContent = out.join('\n') + '\nPulsa «Aplicar» para usarlos.'; this.renderMods();
     };
-    $('modApply').onclick = async () => { Sound.play('click'); if (Game.state === 'play') await Game.save(true); location.reload(); };
+    $('modApply').onclick = async () => { Sound.play('click'); $('modMsg').textContent = 'Preparando los mods…'; if (Game.state === 'play') await Game.save(true); try { await Addons.saveSpec(); } catch (e) { console.warn(e); } location.reload(); };
     $('texNoticeGo').onclick = () => { Sound.play('click'); this.show('textures'); $('texZip').click(); };
     $('texNoticeNo').onclick = () => { Sound.play('click'); $('texNotice').hidden = true; Store.put('kv', 'texpack:noticeOff', TexturePack.sig()).catch(() => { }); };
     $('texOpenDir').onclick = () => { Sound.play('click'); TexturePack.openLauncherFolder(); $('texMsg').textContent = 'Deja tu .zip en esa carpeta y vuelve a abrir el juego: se cargará solo.'; };
@@ -12132,12 +12159,12 @@ const JM = {
       const [, ns, kind, path, ext] = m; const k = (ns + ':' + path).toLowerCase();
       if (ext.toLowerCase() === 'png') { if (kind === 'textures') this.texFiles[k] = { z, p }; continue; }
       let j = null; try { j = JSON.parse(dec.decode(await z.get(p)).replace(/^﻿/, '')); } catch (e) { continue; }
-      if (kind === 'models') this.models[k] = j; else if (kind === 'blockstates' && ns === 'minecraft') this.states[path.toLowerCase()] = j; else if (kind === 'items' && ns === 'minecraft') this.items[path.toLowerCase()] = j;
+      if (kind === 'models') this.models[k] = j; else if (kind === 'blockstates') this.states[ns === 'minecraft' ? path.toLowerCase() : (ns + '_' + path).toLowerCase()] = j; else if (kind === 'items' && ns === 'minecraft') this.items[path.toLowerCase()] = j;
     }
   },
   // modelo con sus padres resueltos
   resolve(ref, depth = 0) {
-    const k = this.key(ref); const j = this.models[k]; if (!j || depth > 12) return null;
+    const k = this.key(ref); const j = this.models[k] || JM_TEMPLATES(k); if (!j || depth > 12) return null;
     const par = j.parent ? this.resolve(j.parent, depth + 1) : null;
     return { textures: Object.assign({}, par ? par.textures : {}, j.textures || {}), elements: j.elements || (par && par.elements) || null, display: Object.assign({}, par ? par.display : {}, j.display || {}), generated: !j.elements && ((par && par.generated) || /item\/(generated|handheld)/.test(j.parent || '')) };
   },
@@ -12196,6 +12223,11 @@ const JM = {
   },
   // prepara los bloques y objetos con modelo del paquete
   build() {
+    // casillas de textura de los bloques y objetos de mods (para iconos y partículas)
+    try {
+      for (const d of BLOCKS) if (d && d.dyn && d.faceTex) for (const n of d.faceTex) if (typeof n === 'string' && n.startsWith('jm/')) this.texName({}, n.slice(3));
+      for (const k in ITEMS) { const it = ITEMS[k]; if (typeof it.icon === 'string' && it.icon.startsWith('jm/')) this.texName({}, it.icon.slice(3)); }
+    } catch (e) { console.warn('JM tex', e); }
     for (const name in this.states) {
       const id = B[name]; if (id === undefined) continue; const d = BLOCKS[id]; if (!d || d.liquid || d.bedPart) continue;
       const st = this.states[name]; const parts = [];
@@ -12238,6 +12270,92 @@ function rotBlock(v, rx, ry) {
 }
 function rotDir(f, rx, ry) { const N = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]; const r = rotBlock(N[f].map(a => a * 8 + 8), rx, ry).map(a => Math.round((a - 8) / 8)); return N.findIndex(n => n[0] === r[0] && n[1] === r[1] && n[2] === r[2]); }
 
+// modelos base del juego original que los mods usan como «padre» (no vienen en sus archivos)
+function JM_TEMPLATES(k) {
+  const f = (t, cull) => ({ texture: t, cullface: cull });
+  const cube = (from, to, tex, cull = true) => ({ from, to, faces: { down: f(tex.down, cull && 'down'), up: f(tex.up, cull && 'up'), north: f(tex.north, cull && 'north'), south: f(tex.south, cull && 'south'), west: f(tex.west, cull && 'west'), east: f(tex.east, cull && 'east') } });
+  const all = (t) => ({ down: t, up: t, north: t, south: t, west: t, east: t });
+  const name = k.replace(/^minecraft:/, '');
+  switch (name) {
+    case 'block/block': case 'block/air': case 'item/generated': case 'item/handheld': return { elements: null };
+    case 'block/cube': return { elements: [cube([0, 0, 0], [16, 16, 16], { down: '#down', up: '#up', north: '#north', south: '#south', west: '#west', east: '#east' })] };
+    case 'block/cube_all': return { parent: 'block/cube', textures: { particle: '#all', down: '#all', up: '#all', north: '#all', south: '#all', west: '#all', east: '#all' } };
+    case 'block/cube_column': return { parent: 'block/cube', textures: { particle: '#side', down: '#end', up: '#end', north: '#side', south: '#side', west: '#side', east: '#side' } };
+    case 'block/cube_column_horizontal': return { parent: 'block/cube', textures: { particle: '#side', down: '#side', up: '#side', north: '#end', south: '#end', west: '#side', east: '#side' } };
+    case 'block/cube_bottom_top': return { parent: 'block/cube', textures: { particle: '#side', down: '#bottom', up: '#top', north: '#side', south: '#side', west: '#side', east: '#side' } };
+    case 'block/orientable': return { parent: 'block/cube', textures: { particle: '#front', down: '#top', up: '#top', north: '#front', south: '#side', west: '#side', east: '#side' } };
+    case 'block/slab': return { elements: [cube([0, 0, 0], [16, 8, 16], { down: '#bottom', up: '#top', north: '#side', south: '#side', west: '#side', east: '#side' })] };
+    case 'block/slab_top': return { elements: [cube([0, 8, 0], [16, 16, 16], { down: '#bottom', up: '#top', north: '#side', south: '#side', west: '#side', east: '#side' })] };
+    case 'block/stairs': case 'block/inner_stairs': case 'block/outer_stairs': return { elements: [cube([0, 0, 0], [16, 8, 16], { down: '#bottom', up: '#top', north: '#side', south: '#side', west: '#side', east: '#side' }), cube([8, 8, 0], [16, 16, 16], { down: '#bottom', up: '#top', north: '#side', south: '#side', west: '#side', east: '#side' }, false)] };
+    case 'block/template_wall_post': case 'block/wall_inventory': return { elements: [cube([4, 0, 4], [12, 16, 12], all('#wall'), false)] };
+    case 'block/template_wall_side': case 'block/template_wall_side_tall': return { elements: [cube([5, 0, 0], [11, name.endsWith('tall') ? 16 : 14, 8], all('#wall'), false)] };
+    case 'block/thin_block': return { elements: null };
+    case 'block/cross': return { elements: [{ from: [0.8, 0, 8], to: [15.2, 16, 8], rotation: { origin: [8, 8, 8], axis: 'y', angle: 45 }, faces: { north: f('#cross'), south: f('#cross') } }, { from: [8, 0, 0.8], to: [8, 16, 15.2], rotation: { origin: [8, 8, 8], axis: 'y', angle: 45 }, faces: { west: f('#cross'), east: f('#cross') } }] };
+    case 'block/carpet': return { elements: [cube([0, 0, 0], [16, 1, 16], all('#wool'))] };
+    case 'block/template_glass_pane_post': return { elements: [cube([7, 0, 7], [9, 16, 9], { down: '#edge', up: '#edge', north: '#edge', south: '#edge', west: '#edge', east: '#edge' }, false)] };
+    case 'block/template_glass_pane_side': case 'block/template_glass_pane_side_alt': return { elements: [cube([7, 0, 0], [9, 16, 7], { down: '#edge', up: '#edge', north: '#pane', south: '#pane', west: '#pane', east: '#pane' }, false)] };
+  }
+  return null;
+}
+// ---------- bloques y objetos de mods (Create, etc.): se registran al arrancar a partir de una lista guardada ----------
+const DYN = {
+  KEY: 'picaterra_dyn',
+  load() { try { return JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch (e) { return null; } },
+  // a partir de los paquetes activos: qué bloques, objetos y recetas trae cada mod
+  async spec(zips) {
+    const out = { blocks: [], items: [], recipes: [] }; const dec = new TextDecoder();
+    const lang = {}; const models = {}; const states = {}; const itemModels = {}; const recipes = [];
+    for (const z of zips) {
+      for (const p of z.names) {
+        let m = p.match(/^assets\/([^/]+)\/lang\/(es_es|es_mx|en_us)\.json$/i);
+        if (m && m[1] !== 'minecraft') { try { const j = JSON.parse(dec.decode(await z.get(p))); for (const k in j) if (m[2] !== 'en_us' || !(k in lang)) lang[k] = j[k]; } catch (e) { } continue; }
+        m = p.match(/^assets\/([^/]+)\/(blockstates|models)\/(.+)\.json$/i);
+        if (m && m[1] !== 'minecraft') { let j; try { j = JSON.parse(dec.decode(await z.get(p))); } catch (e) { continue; } if (m[2] === 'blockstates') states[m[1] + ':' + m[3]] = j; else models[(m[1] + ':' + m[3]).toLowerCase()] = j; continue; }
+        m = p.match(/^data\/([^/]+)\/recipes?\/([^/]+)\.json$/i);
+        if (m && m[1] !== 'minecraft') { try { recipes.push(JSON.parse(dec.decode(await z.get(p)))); } catch (e) { } }
+      }
+    }
+    const res = (ref, d = 0) => { const k = JM.key(ref); const j = models[k] || JM_TEMPLATES(k); if (!j || d > 12) return null; const pr = j.parent ? res(j.parent, d + 1) : null; return { textures: Object.assign({}, pr ? pr.textures : {}, j.textures || {}), elements: j.elements || (pr && pr.elements) || null }; };
+    const tex = (t, r) => { let x = r, n = 0; while (x && x[0] === '#' && n++ < 10) x = t[x.slice(1)]; return x && x[0] !== '#' ? JM.key(x) : null; };
+    const nice = (s) => s.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+    for (const id in states) {
+      const [ns, path] = id.split(':'); const st = states[id]; let ref = null;
+      if (st.variants) { const v = JM.pickVariant(st.variants); ref = (Array.isArray(v) ? v[0] : v || {}).model; }
+      else if (st.multipart) { const pt = st.multipart.find(p => !p.when) || st.multipart[0]; const a = pt && pt.apply; ref = (Array.isArray(a) ? a[0] : a || {}).model; }
+      const md = ref ? res(ref) : null;
+      let box = null, full = false, particle = md ? tex(md.textures, '#particle') || tex(md.textures, '#all') || tex(md.textures, '#side') : null;
+      if (md && md.elements && md.elements.length) {
+        let a = [16, 16, 16], b = [0, 0, 0]; for (const el of md.elements) for (let i = 0; i < 3; i++) { a[i] = Math.min(a[i], el.from[i], el.to[i]); b[i] = Math.max(b[i], el.from[i], el.to[i]); }
+        a = a.map(v => Math.max(0, Math.min(16, v))); b = b.map(v => Math.max(0, Math.min(16, v)));
+        if (b[0] - a[0] < 2) { a[0] = Math.max(0, a[0] - 1); b[0] = Math.min(16, b[0] + 1); } if (b[1] - a[1] < 1) b[1] = Math.min(16, a[1] + 1); if (b[2] - a[2] < 2) { a[2] = Math.max(0, a[2] - 1); b[2] = Math.min(16, b[2] + 1); }
+        full = a.every(v => v === 0) && b.every(v => v === 16) && md.elements.length === 1; box = [a[0], a[1], a[2], b[0], b[1], b[2]];
+        if (!particle) for (const el of md.elements) { for (const fn in el.faces || {}) { particle = tex(md.textures, el.faces[fn].texture); if (particle) break; } if (particle) break; }
+      }
+      const n = lang['block.' + ns + '.' + path] || nice(path);
+      const wood = /wood|plank|log|window|scaffold|table|chair|seat|cart|crate/.test(path) && !/andesite|brass|copper|iron/.test(path);
+      out.blocks.push({ k: ns + '_' + path, n, box, full, tex: particle, tool: wood ? 'axe' : 'pickaxe', lamp: /lamp|light|nixie/.test(path) ? 12 : 0 });
+    }
+    const blockKeys = new Set(out.blocks.map(b => b.k));
+    for (const k in models) {
+      const [ns, path] = k.split(':'); const mm = path.match(/^item\/([^/]+)$/); if (!mm) continue; const key = ns + '_' + mm[1]; if (blockKeys.has(key)) continue;
+      const md = res(k); const t = md && (tex(md.textures, '#layer0') || tex(md.textures, '#particle')); if (!t) continue;
+      out.items.push({ k: key, n: lang['item.' + ns + '.' + mm[1]] || lang['block.' + ns + '.' + mm[1]] || nice(mm[1]), icon: t });
+    }
+    // recetas de mesa de trabajo
+    const itemKeys = new Set([...blockKeys, ...out.items.map(i => i.k)]);
+    const TAGS = { 'c:ingots/iron': 'iron_ingot', 'c:nuggets/iron': 'iron_nugget', 'c:ingots/copper': 'copper_ingot', 'c:ingots/gold': 'gold_ingot', 'c:nuggets/gold': 'gold_nugget', 'minecraft:planks': 'oak_planks', 'minecraft:logs': 'oak_log', 'c:rods/wooden': 'stick', 'minecraft:wool': 'white_wool', 'c:cobblestones': 'cobblestone', 'c:stones': 'stone', 'minecraft:wooden_slabs': 'oak_slab', 'c:glass_blocks': 'glass', 'c:glass_panes': 'glass_pane', 'c:gems/diamond': 'diamond', 'c:dusts/redstone': 'redstone', 'c:strings': 'string', 'c:leathers': 'leather', 'minecraft:logs_that_burn': 'oak_log', 'c:slime_balls': 'slime_ball', 'c:chests': 'chest', 'minecraft:wooden_buttons': 'oak_button', 'c:plates/iron': 'create_iron_sheet', 'c:plates/copper': 'create_copper_sheet', 'c:plates/gold': 'create_golden_sheet', 'c:plates/brass': 'create_brass_sheet', 'c:ingots/brass': 'create_brass_ingot', 'c:nuggets/copper': 'create_copper_nugget', 'c:nuggets/brass': 'create_brass_nugget', 'c:ingots/zinc': 'create_zinc_ingot', 'c:nuggets/zinc': 'create_zinc_nugget', 'c:dyes/white': 'white_dye', 'c:dyes/black': 'black_dye', 'c:obsidians': 'obsidian', 'minecraft:stone_crafting_materials': 'cobblestone' };
+    const ing = (x) => { if (Array.isArray(x)) x = x[0]; if (!x) return null; if (typeof x === 'string') { if (x[0] === '#') return TAGS[x.slice(1)] || null; const [a, b] = x.includes(':') ? x.split(':') : ['minecraft', x]; return a === 'minecraft' ? b : a + '_' + b; } if (x.tag) return TAGS[x.tag] || null; if (x.item) return ing(x.item); return null; };
+    for (const r of recipes) {
+      const t = (r.type || '').replace('minecraft:', ''); const resId = r.result && (r.result.id || r.result.item); if (!resId) continue;
+      const outK = ing(resId), cnt = (r.result && r.result.count) || 1; if (!outK) continue;
+      if (t === 'crafting_shaped') { const key = {}; let ok = true; for (const c in r.key || {}) { const v = ing(r.key[c]); if (!v) { ok = false; break; } key[c] = v; } if (ok) out.recipes.push({ s: r.pattern, k: key, o: outK, c: cnt }); }
+      else if (t === 'crafting_shapeless') { const l = (r.ingredients || []).map(ing); if (l.every(Boolean) && l.length) out.recipes.push({ l, o: outK, c: cnt }); }
+    }
+    void itemKeys;
+    return out;
+  },
+};
+
 
 // ---- extra/addons113.js ----
 // ============================================================
@@ -12257,7 +12375,11 @@ const Addons = {
     for (const f of files) {
       const low = f.name.toLowerCase();
       try {
-        if (low.endsWith('.jar')) { out.push('«' + f.name + '» es un mod de Java: solo funciona en el Minecraft de verdad, no en un navegador.'); continue; }
+        if (low.endsWith('.jar')) {
+          onMsg && onMsg('Leyendo «' + f.name + '»…'); const buf = await f.arrayBuffer(); const z = await readZip(buf);
+          if (!z.names.some(p => /^assets\/[^/]+\/(blockstates|models|textures)\//.test(p))) { out.push('«' + f.name + '» es un mod de Java sin bloques ni objetos que se puedan sacar: su código no puede funcionar en un navegador.'); continue; }
+          const r = await this.addPack(f.name.replace(/\.jar$/i, ''), buf, true); out.push('«' + f.name + '»: ' + (r || 'nada aprovechable.') + ' Su código Java no funciona en un navegador: las máquinas todavía no se mueven ni hacen su trabajo.'); continue;
+        }
         if (!/\.(zip|mrpack|rpo)$/.test(low)) { out.push('«' + f.name + '»: solo se admiten .zip, .mrpack o .jar.'); continue; }
         onMsg && onMsg('Leyendo «' + f.name + '»…');
         const buf = await f.arrayBuffer(); const z = await readZip(buf);
@@ -12287,7 +12409,7 @@ const Addons = {
     await this.save(); return out;
   },
   // guarda un paquete de recursos y describe lo que trae
-  async addPack(name, buf) {
+  async addPack(name, buf, isMod) {
     const z = await readZip(buf); const N = z.names;
     const info = {
       cem: N.filter(p => /\/(optifine|emf)\/cem\/[^/]+\.jem$/i.test(p)).length,
@@ -12299,6 +12421,8 @@ const Addons = {
       models: N.filter(p => /assets\/[^/]+\/models\/.+\.json$/i.test(p) && !/__MACOSX/.test(p)).length,
     };
     const parts = [];
+    const modBlocks = N.filter(p => /^assets\/(?!minecraft\/)[^/]+\/blockstates\/.+\.json$/i.test(p)).length;
+    if (modBlocks) parts.push(modBlocks + ' bloques nuevos con sus objetos y recetas');
     if (info.cem) parts.push(info.cem + ' modelos animados de criaturas');
     if (info.ent) parts.push(info.ent + ' texturas de criaturas');
     if (info.tex) parts.push(info.tex + ' texturas de bloques y objetos');
@@ -12309,8 +12433,15 @@ const Addons = {
     let desc = '';
     try { const mm = N.find(p => /(^|\/)pack\.mcmeta$/i.test(p)); if (mm) { const j = JSON.parse(new TextDecoder().decode(await z.get(mm)).replace(/^﻿/, '')); const d = j.pack && j.pack.description; desc = (typeof d === 'string' ? d : Array.isArray(d) ? d.map(x => x.text || x).join('') : (d && d.text) || '').replace(/§./g, ''); } } catch (e) { }
     const id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    await Store.put('kv', 'addon:' + id, new Blob([buf])); this.list.push({ id, name, desc, enabled: true, info, parts: parts.join(', ') });
+    await Store.put('kv', 'addon:' + id, new Blob([buf])); this.list.push({ id, name, desc, enabled: true, info, parts: parts.join(', '), mod: !!isMod });
     return parts.join(', ') + '.';
+  },
+  // lista de bloques/objetos/recetas de los mods activos (se lee al arrancar, antes de crear los bloques)
+  async saveSpec() {
+    await this.load(); const zips = [];
+    for (const a of this.list) { if (!a.enabled || !a.mod) continue; try { const blob = await Store.get('kv', 'addon:' + a.id); if (!blob) continue; const z = await readZip(await blob.arrayBuffer()); if (z.names.some(p => /^assets\/(?!minecraft\/)[^/]+\/blockstates\//.test(p))) zips.push(z); } catch (e) { } }
+    if (!zips.length) { localStorage.removeItem(DYN.KEY); return 0; }
+    const sp = await DYN.spec(zips); try { localStorage.setItem(DYN.KEY, JSON.stringify(sp)); } catch (e) { console.warn(e); } return sp.blocks.length;
   },
   async remove(id) { this.list = this.list.filter(a => a.id !== id); await Store.del('kv', 'addon:' + id).catch(() => { }); await this.save(); },
   // ---------- aplicar al arrancar (encima del paquete de texturas normal) ----------

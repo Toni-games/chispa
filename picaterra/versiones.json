@@ -1,8 +1,19 @@
 {
-  "latest": "1.15.2",
+  "latest": "1.16.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.16.0",
+      "date": "2026-11-19",
+      "title": "Bloques y objetos de mods",
+      "notes": [
+        "Los mods .jar con bloques (como Create) aportan sus bloques, objetos, nombres en español, modelos 3D y recetas de mesa de trabajo; pestaña «Mods» en el inventario creativo",
+        "El código Java de los mods no puede funcionar en un navegador: las máquinas aún no se mueven"
+      ],
+      "size": 296821,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.16.0.zip"
+    },
     {
       "id": "1.15.2",
       "date": "2026-11-19",
