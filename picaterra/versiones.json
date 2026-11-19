@@ -1,8 +1,19 @@
 {
-  "latest": "1.14.0",
+  "latest": "1.14.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.14.1",
+      "date": "2026-11-19",
+      "title": "Camas 3D y armaduras",
+      "notes": [
+        "Camas 3D con Better 3D Beds (almohada, manta y patas)",
+        "La armadura en F5 usa las texturas del pack (equipment/humanoid) con su forma original; el cuero se tiñe; las botas se ven bien"
+      ],
+      "size": 287066,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.14.1.zip"
+    },
     {
       "id": "1.14.0",
       "date": "2026-11-19",

@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.14.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.14.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -3929,6 +3929,7 @@ const TexturePack = {
   },
   // texturas de criatura del paquete: misma distribución de UV que nuestros modelos
   ENT: [
+    ...['leather', 'chainmail', 'iron', 'golden', 'diamond', 'netherite', 'copper', 'turtle'].flatMap(m => { const f = m === 'golden' ? 'gold' : m === 'turtle' ? '(turtle_scute|turtle)' : m; return [['armor_' + m + '_1', new RegExp('(equipment/humanoid/' + f + '|' + f + '_layer_1)\\.png$')], ['armor_' + m + '_2', new RegExp('(equipment/humanoid_leggings/' + f + '|' + f + '_layer_2)\\.png$')]]; }),
     ['pig', /(^|\/)(pig_temperate|temperate_pig|pig)\.png$/],
     ['cow', /(^|\/)(cow_temperate|temperate_cow|cow)\.png$/],
     ['chicken', /(^|\/)(chicken_temperate|temperate_chicken|chicken)\.png$/],
@@ -4795,7 +4796,7 @@ const Mesher = {
   },
 
   build(c) {
-    this.fillPadded(c); this.cx = c.cx; this.cz = c.cz; const bedCEM = false; const beds = [];
+    this.fillPadded(c); this.cx = c.cx; this.cz = c.cz; const bedCEM = !!CEM.files['bed.jem']; const beds = [];
     const O = this.O, T = this.T; O.reset(); T.reset();
     const pb = this.pb, pm = this.pm, pl = this.pl;
     const fancy = Settings.fancy && Atlas.leavesAlpha;
@@ -5902,12 +5903,12 @@ function getModel(kind) {
 }
 function armorModel() {
   if (ModelCache._armor) return ModelCache._armor;
-  const mk = (s, o, uv, inf) => { const vb = new VB(8); boxMesh(vb, s, o, uv, inf, 64); return Renderer.meshFromVB(vb); };
+  const mk = (s, o, uv, inf, mir) => { const vb = new VB(8); boxMesh(vb, s, o, uv, inf, 64, mir); return Renderer.meshFromVB(vb); };
   ModelCache._armor = {
     helmet: mk([8, 8, 8], [-4, 0, -4], [0, 0], 1.0),
-    chest: mk([8, 12, 4], [-4, -12, -2], [16, 16], 1.0), rarm: mk([4, 12, 4], [-1, -10, -2], [40, 16], 1.0), larm: mk([4, 12, 4], [-3, -10, -2], [40, 16], 1.0),
-    legs: mk([8, 12, 4], [-4, -12, -2], [16, 16], 0.5), rleg: mk([4, 12, 4], [-2, -12, -2], [0, 16], 0.5), lleg: mk([4, 12, 4], [-2, -12, -2], [0, 16], 0.5),
-    rboot: mk([4, 5, 4], [-2, -12, -2], [0, 16], 1.0), lboot: mk([4, 5, 4], [-2, -12, -2], [0, 16], 1.0),
+    chest: mk([8, 12, 4], [-4, -12, -2], [16, 16], 1.0), rarm: mk([4, 12, 4], [-1, -10, -2], [40, 16], 1.0), larm: mk([4, 12, 4], [-3, -10, -2], [40, 16], 1.0, true),
+    legs: mk([8, 12, 4], [-4, -12, -2], [16, 16], 0.5), rleg: mk([4, 12, 4], [-2, -12, -2], [0, 16], 0.5), lleg: mk([4, 12, 4], [-2, -12, -2], [0, 16], 0.5, true),
+    rboot: mk([4, 12, 4], [-2, -12, -2], [0, 16], 1.0), lboot: mk([4, 12, 4], [-2, -12, -2], [0, 16], 1.0, true),
   };
   return ModelCache._armor;
 }
@@ -6242,22 +6243,42 @@ const CEM = {
 };
 // camas con modelo CEM (se dibujan como en el original: cada mitad con su pieza)
 CEM.beds = {};
+// la cama se dibuja en el espacio de Blockbench: x -8..8, y hacia arriba, cabecera z 0..16 y pies z -16..0
+CEM.bedModel = function () {
+  if (this._bed !== undefined) return this._bed; this._bed = null;
+  const j = this.json('bed.jem'); if (!j) return null;
+  const tw = (j.textureSize && j.textureSize[0]) || 64;
+  const R3 = (r) => (r || [0, 0, 0]).map(a => a * Math.PI / 180);
+  const node = (el, top, rel) => {
+    const t = el.translate || [0, 0, 0]; const piv = top ? [-t[0], -t[1], -t[2]] : t.slice();
+    const vb = new VB(8);
+    for (const b of el.boxes || []) { const [x, y, z, w, h, d] = b.coordinates; const off = top ? [0, 0, 0] : piv; boxMesh(vb, [w, h, d], [x + off[0], y + off[1], z + off[2]], b.textureOffset || [0, 0], b.sizeAdd || 0, tw, /u/.test(el.mirrorTexture || '')); }
+    return { piv, rot: R3(el.rotate), mesh: vb.q ? Renderer.meshFromVB(vb) : null, kids: (el.submodels || []).map(c => node(c, false)) };
+  };
+  const parts = {}; for (const el of j.models || []) parts[el.part || el.id] = node(el, true);
+  return (this._bed = { head: ['head', 'leg1', 'leg2'].map(k => parts[k]).filter(Boolean), foot: ['foot', 'leg3', 'leg4'].map(k => parts[k]).filter(Boolean) });
+};
+CEM.drawBedNode = function (n, parent, Pw, depth) {
+  const m = this._st[depth] || (this._st[depth] = new Float32Array(16)); M4.copy(m, parent);
+  M4.translate(m, n.piv[0] / 16, n.piv[1] / 16, n.piv[2] / 16);
+  if (n.rot[2]) M4.rotZ(m, n.rot[2]); if (n.rot[1]) M4.rotY(m, n.rot[1]); if (n.rot[0]) M4.rotX(m, n.rot[0]);
+  M4.translate(m, -n.piv[0] / 16, -n.piv[1] / 16, -n.piv[2] / 16);
+  if (n.mesh) Renderer.drawMesh(n.mesh, m, Pw);
+  for (const k of n.kids) this.drawBedNode(k, m, Pw, depth + 1);
+};
 CEM.drawBeds = function (Pw, cam) {
-  const M = this.get('bed'); if (!M) return; const R = Renderer, gl = R.gl;
-  const tex = this.textureFor({ texture: 'textures/entity/bed/red.png' }) || (M.texture && this.textureFor(M)) || bedFallbackSheet();
-  gl.uniform2f(Pw.u.uAtlas, 1024, 1024); gl.bindTexture(gl.TEXTURE_2D, R.skinTexture('cem_bed', tex)); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
+  const BM = this.bedModel(); if (!BM) return; const R = Renderer, gl = R.gl;
+  const tex = this.textureFor({ texture: 'textures/entity/bed/red.png' }) || bedFallbackSheet();
+  gl.uniform2f(Pw.u.uAtlas, 1024, 1024); gl.bindTexture(gl.TEXTURE_2D, R.skinTexture('cem_bed' + (tex === bedFallbackSheet() ? 0 : 1), tex)); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
   const rd = (Settings.renderDist * 16) ** 2; const m = this._bm || (this._bm = new Float32Array(16));
+  const D = [[0, 1], [-1, 0], [0, -1], [1, 0]];
   for (const k in this.beds) for (const [x, y, z, head, f] of this.beds[k]) {
     if ((x - cam.x) ** 2 + (z - cam.z) ** 2 > rd) continue;
-    if (!World.chunk(x >> 4, z >> 4)) continue;
     const L = entLight(x + 0.5, y + 0.6, z + 0.5); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]);
-    const bm = CEM.bedMode || 0;
-    M4.identity(m); M4.translate(m, x, y + 9 / 16, z); M4.rotX(m, [1, -1, 0, 0][bm] * Math.PI / 2); M4.translate(m, 0.5, 0.5, 0.5); M4.rotZ(m, Math.PI + f * Math.PI / 2); M4.translate(m, -0.5, -0.5, -0.5); M4.scale(m, -1, -1, 1);
-    for (const v of M.top) {
-      const isHead = v.id === 'head' || v.id === 'leg1' || v.id === 'leg2'; if (isHead !== !!head) continue;
-      v.tx = v.ty = v.tz = 0; v.rx = v.ry = v.rz = 0; v.sx = v.sy = v.sz = 1; v.visible = true; v.vbox = true; this.reset(v.kids);
-      this.drawNode(v, m, Pw, 0);
-    }
+    // origen: el borde entre los pies y la cabecera
+    const [dx, dz] = D[f]; const s = head ? -1 : 1;
+    M4.identity(m); M4.translate(m, x + 0.5 + dx * 0.5 * s, y, z + 0.5 + dz * 0.5 * s); M4.rotY(m, -f * Math.PI / 2);
+    for (const n of head ? BM.head : BM.foot) this.drawBedNode(n, m, Pw, 0);
   }
 };
 const wrapPI = (a) => { a %= Math.PI * 2; if (a > Math.PI) a -= Math.PI * 2; if (a < -Math.PI) a += Math.PI * 2; return a; };
@@ -9848,7 +9869,14 @@ const Skins = {
     else { const a = AVATARS.find(a => a.id === Settings.avatar) || AVATARS[0]; this.canvas = makeAvatarSkin(a); }
     this.version = (this.version || 0) + 1;
   },
-  armorSkin(mat) {
+  armorSkin(mat, layer) {
+    // la del paquete (equipment/humanoid o models/armor/*_layer_1/2); el cuero gris se tiñe de marrón
+    const pk = MobTex.addon['armor_' + mat + '_' + (layer || 1)] || MobTex.custom['armor_' + mat + '_' + (layer || 1)];
+    if (pk) {
+      if (mat !== 'leather') return pk; const key = 'leather' + layer; if (this.armorSkins[key] && this.armorSkins[key]._src === pk) return this.armorSkins[key];
+      const c = document.createElement('canvas'); c.width = pk.width; c.height = pk.height; const g = c.getContext('2d'); g.drawImage(pk, 0, 0); g.globalCompositeOperation = 'multiply'; g.fillStyle = '#a06540'; g.fillRect(0, 0, c.width, c.height); g.globalCompositeOperation = 'destination-in'; g.drawImage(pk, 0, 0); c._src = pk; this.armorSkins[key] = c; return c;
+    }
+    if (layer === 2 && this.armorSkins[mat]) return this.armorSkins[mat];
     if (this.armorSkins[mat]) return this.armorSkins[mat];
     const base = mobSkin('armor'); const g = base.getContext('2d'); const col = { leather: '#8b5a2b', iron: '#d8d8d8', golden: '#f0c830', diamond: '#4adcd8' }[mat];
     g.globalCompositeOperation = 'source-atop'; g.fillStyle = col; g.fillRect(0, 0, 64, 64);
@@ -10799,7 +10827,7 @@ function drawPlayerModel(Pw, P) {
   const A = armorModel();
   for (let i = 0; i < 4; i++) {
     const st = P.armor[i]; if (!st || ITEMS[st.id].elytra) continue; const mat = ITEMS[st.id].mat;
-    gl.bindTexture(gl.TEXTURE_2D, R.skinTexture('armor_' + mat, Skins.armorSkin(mat))); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
+    const lay = i === 2 ? 2 : 1; const ask = Skins.armorSkin(mat, lay); gl.bindTexture(gl.TEXTURE_2D, R.skinTexture('armor_' + mat + '_' + lay + (ask._src ? 'p' : ask.width), ask)); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
     const pm = (pn, mesh) => { PMX(pn); R.drawMesh(mesh, _m2, Pw); };
     if (i === 0) pm('head', A.helmet);
     if (i === 1) { pm('body', A.chest); pm('rarm', A.rarm); pm('larm', A.larm); }
@@ -12137,7 +12165,7 @@ const MOB_FACES = [['front', 'Frente'], ['back', 'Detrás'], ['left', 'Izquierda
 const MobTex = {
   custom: {}, addon: {},
   async load() {
-    for (const k of MOB_SKIN_KINDS()) {
+    for (const k of [...MOB_SKIN_KINDS(), ...TexturePack.ENT.map(e => e[0]).filter(k => k.startsWith('armor_'))]) {
       try { const url = await Store.get('kv', 'mobskin:' + k); if (url) await new Promise(r => { const im = new Image(); im.onload = () => { this.custom[k] = this.toCanvas(im); r(); }; im.onerror = r; im.src = url; }); } catch (e) { }
     }
   },
