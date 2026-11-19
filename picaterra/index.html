@@ -34,7 +34,8 @@
   body.panoReady #s_loading, body.panoReady.menuTex #s_loading { background: var(--menubg, rgba(0,0,0,.3)) !important; background-size: 64px 64px !important; }
   body.panoReady:not(.menuTex) #s_loading { background: rgba(0,0,0,.35) !important; }
   /* sin panorama en el paquete: se ve el mundo nuevo generándose detrás, girando, desenfocado y oscurecido */
-  #loadMap { margin-top: 4px; }
+  #s_mods .modRow{display:flex;align-items:center;gap:6px;padding:6px;border-bottom:1px solid rgba(255,255,255,.15)} #s_mods .modInfo{flex:1;min-width:0} #s_mods .modDesc{font-size:12px;opacity:.8} #s_mods .modParts{font-size:12px;color:#9f9} #s_mods .btn.small{width:auto;padding:0 10px}
+#loadMap { margin-top: 4px; }
   body.menuTex.dirtTex .screen.dirt, body.menuTex .screen.dirt { background: var(--menubg), var(--pano, #1b1b1b); background-size: 64px 64px, cover; background-position: 0 0, center; image-rendering: pixelated; }
   body.menuTex.playing .screen.dim, body.menuTex.playing.dirtTex .screen.dim { background: var(--inworld); background-size: 64px 64px; image-rendering: pixelated; }
   .screen { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; text-shadow: 2px 2px 0 #2a2a2a; z-index: 5; overflow: auto; padding: 16px 8px; }
@@ -156,7 +157,7 @@
 <div class="screen" id="s_title">
   <div id="logo"><div id="logoName">Picaterra</div><div id="logoSub">HTML Edition</div><div id="splash"></div></div>
   <button class="btn" id="btnPlay">Un jugador</button>
-  <button class="btn" data-go="multi">Multijugador</button>
+  <div class="row"><button class="btn half" data-go="multi">Multijugador</button><button class="btn half" data-go="mods">Mods y paquetes…</button></div>
   <div class="row"><button class="btn half" data-go="avatar">Avatar y aspecto</button><button class="btn half" data-go="textures">Texturas…</button></div>
   <div class="row"><button class="btn half" data-go="options">Opciones…</button><button class="btn half" data-go="rename">Nombre del juego…</button></div>
   <div class="row"><button class="btn half" data-go="music">Música…</button><button class="btn half" data-go="controls">Controles</button></div>
@@ -221,6 +222,16 @@
   <div class="txt">Elige uno de los avatares o carga tu propia skin en formato PNG de 64×64 píxeles (la distribución estándar de las skins). Se verá con F5 y en la mano.</div>
   <div class="row"><span class="btn half file">Cargar skin PNG…<input type="file" id="skinFile" accept="image/png"></span><button class="btn half" data-go="title">Hecho</button></div>
   <div class="txt" id="skinMsg" style="text-align:center;color:#ffff88"></div>
+</div>
+
+<!-- Mods y paquetes -->
+<div class="screen dim" id="s_mods">
+  <h2>Mods y paquetes</h2>
+  <div class="txt">Sube <b>paquetes de recursos</b> (.zip) y se ponen encima de tus texturas: texturas de bloques, objetos y criaturas, interfaz, frases del menú y <b>modelos y animaciones de criaturas</b> (formato de OptiFine/EMF, como <i>Fresh Animations</i>). También puedes subir un <b>modpack</b> de CurseForge o Modrinth: se cogen los paquetes de recursos que trae. Los mods de Java (.jar) y los shaders solo funcionan en el Minecraft de verdad.</div>
+  <div class="row"><span class="btn file">Añadir mods o paquetes…<input type="file" id="modFiles" multiple accept=".zip,.mrpack,.jar,.rpo,application/zip"></span></div>
+  <div class="txt" id="modMsg" style="text-align:center;color:#ffff88;min-height:22px;max-height:16vh;overflow-y:auto;font-size:13px;white-space:pre-line"></div>
+  <div class="panel" style="max-height:30vh;overflow-y:auto"><div id="modList"></div></div>
+  <div class="row"><button class="btn half" id="modApply">Aplicar</button><button class="btn half" id="modBack" data-go="title">Hecho</button></div>
 </div>
 
 <!-- Texturas -->
@@ -336,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.12.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.13.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -3931,7 +3942,7 @@ const TexturePack = {
     ['pig_warm', /(^|\/)(pig_warm|warm_pig)\.png$/], ['pig_cold', /(^|\/)(pig_cold|cold_pig)\.png$/], ['cow_warm', /(^|\/)(cow_warm|warm_cow)\.png$/], ['cow_cold', /(^|\/)(cow_cold|cold_cow)\.png$/],
     ['chicken_warm', /(^|\/)(chicken_warm|warm_chicken)\.png$/], ['chicken_cold', /(^|\/)(chicken_cold|cold_chicken)\.png$/],
   ],
-  async entities(names, getURL) {
+  async entities(names, getURL, overlay) {
     let n = 0; const done = [];
     const ok = (p) => !/(^|\/)(gui|interfaz|items?|objetos|bloques|blocks?|textures\/item|particle)/i.test(p);
     const rank = (p) => (/temperate/i.test(p) ? 0 : 1) + (/entit|entidad/i.test(p) ? 0 : 2) + (/baby/i.test(p) ? 9 : 0);
@@ -3944,9 +3955,10 @@ const TexturePack = {
         const ep = names.find(p => /(^|\/)spider_eyes\.png$/i.test(p));
         if (ep) { const ei = await loadImg(await getURL(ep)); if (ei) { const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(ei, 0, 0, cv.width, Math.round(cv.width * ei.height / ei.width)); } }
       }
+      if (overlay) { MobTex.addon[k] = cv; n++; continue; }
       await MobTex.save(k, cv); done.push(k); n++;
     }
-    if (done.length) { const prev = (await Store.get('kv', 'texpack:mobs').catch(() => null)) || []; await Store.put('kv', 'texpack:mobs', [...new Set([...prev, ...done])]).catch(() => { }); }
+    if (done.length && !overlay) { const prev = (await Store.get('kv', 'texpack:mobs').catch(() => null)) || []; await Store.put('kv', 'texpack:mobs', [...new Set([...prev, ...done])]).catch(() => { }); }
     return n;
   },
   // sprites e imágenes de la interfaz del paquete (se guardan como 'gui:nombre')
@@ -3976,17 +3988,17 @@ const TexturePack = {
     for (let i = 1; i <= 7; i++) for (const [a, b] of [['ts', 'top_selected'], ['tu', 'top_unselected'], ['bs', 'bottom_selected'], ['bu', 'bottom_unselected']]) m['tab_' + a + i] = 'sprites/container/creative_inventory/tab_' + b + '_' + i;
     return m;
   })(),
-  async gui(names, getURL) {
+  async gui(names, getURL, overlay) {
     let n = 0;
     for (const k in this.GUI_SPRITES) {
       const want = '/' + this.GUI_SPRITES[k] + '.png';
       const p = names.find(x => { const l = '/' + x.toLowerCase().replace(/\\/g, '/'); return l.endsWith(want) && (want.startsWith('/sprites/') || !l.includes('/sprites/')); }); if (!p) continue;
       const url = await getURL(p); if (!url) continue;
       const im = await loadImg(url); if (!im) continue;
-      Atlas.gui[k] = im; Store.putTex('gui:' + k, url); n++;
+      Atlas.gui[k] = im; if (!overlay) Store.putTex('gui:' + k, url); n++;
     }
     if (n) Atlas.version++;
-    n += await this.extras(names, getURL);
+    if (!overlay) n += await this.extras(names, getURL);
     return n;
   },
   // texturas que hay que componer: polvo de redstone (punto + dos líneas, gris para teñirlo) y el farol
@@ -4058,6 +4070,8 @@ const TexturePack = {
     // el cofre, en los paquetes modernos, es una textura de criatura: recortarlo
     const chest = z.names.find(p => /(^|\/)chest\/normal\.png$/i.test(p));
     if (chest && !FaceTex.data.chest) { try { n += await this.chestFrom(await blobToURL(new Blob([await z.get(chest)], { type: 'image/png' }))); } catch (e) { } }
+    const ender = z.names.find(p => /(^|\/)chest\/ender\.png$/i.test(p));
+    if (ender) { try { n += await this.chestFrom(await blobToURL(new Blob([await z.get(ender)], { type: 'image/png' })), 'ender_chest'); } catch (e) { } }
     await Store.flushTex();
     return n;
   },
@@ -5936,6 +5950,274 @@ function partMatrix(out, base, p) {
   if (p.rz) M4.rotZ(out, p.rz); if (p.ry) M4.rotY(out, p.ry); if (p.rx) M4.rotX(out, p.rx);
   return out; // la malla ya está en bloques (8 unidades = 1 píxel; el shader divide por 128)
 }
+
+// ---- extra/cem113.js ----
+// ============================================================
+//  1.13: modelos y animaciones de criaturas de paquetes de recursos
+//  (formato CEM .jem/.jpm de OptiFine / Entity Model Features, como Fresh Animations)
+// ============================================================
+const CEM = {
+  files: {},     // nombre de archivo (sin carpeta) -> texto
+  models: {},    // nombre de modelo -> modelo construido (o null)
+  enabled: true,
+  frame: 0, ft: 0.016, lastT: 0,
+  clear() { this.files = {}; this.models = {}; },
+  add(name, text) { this.files[name.toLowerCase()] = text; this.models = {}; },
+  count() { return Object.keys(this.files).filter(n => n.endsWith('.jem')).length; },
+  // ---------- expresiones ----------
+  tokens(s) {
+    const out = []; let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (/\s/.test(c)) { i++; continue; }
+      if (/[0-9.]/.test(c) && /[0-9]/.test(s[i] === '.' ? s[i + 1] || '' : c)) { let j = i; while (j < s.length && /[0-9.eE]/.test(s[j])) { if (/[eE]/.test(s[j]) && /[+-]/.test(s[j + 1])) j++; j++; } out.push({ t: 'n', v: parseFloat(s.slice(i, j)) }); i = j; continue; }
+      if (/[A-Za-z_]/.test(c)) { let j = i; while (j < s.length && /[A-Za-z0-9_.]/.test(s[j])) j++; out.push({ t: 'i', v: s.slice(i, j) }); i = j; continue; }
+      const two = s.slice(i, i + 2);
+      if (['&&', '||', '==', '!=', '<=', '>='].includes(two)) { out.push({ t: 'o', v: two }); i += 2; continue; }
+      if ('+-*/%()!<>,'.includes(c)) { out.push({ t: 'o', v: c }); i++; continue; }
+      if (c === '=') { out.push({ t: 'o', v: '==' }); i++; continue; }
+      i++; // carácter desconocido: se ignora
+    }
+    return out;
+  },
+  // compila una expresión a una función (ctx) => valor, sin eval
+  compile(src, M) {
+    const T = this.tokens(String(src)); let p = 0;
+    const peek = () => T[p], eat = (v) => { if (T[p] && T[p].v === v) { p++; return true; } return false; };
+    const num = (x) => typeof x === 'boolean' ? (x ? 1 : 0) : x;
+    const bin = (ops, next) => () => {
+      let a = next();
+      for (;;) {
+        const t = peek(); if (!t || t.t !== 'o' || !ops.includes(t.v)) return a; p++;
+        const b = next(), op = t.v, A = a;
+        a = op === '||' ? (c) => !!A(c) || !!b(c) : op === '&&' ? (c) => !!A(c) && !!b(c)
+          : op === '==' ? (c) => num(A(c)) === num(b(c)) : op === '!=' ? (c) => num(A(c)) !== num(b(c))
+          : op === '<' ? (c) => num(A(c)) < num(b(c)) : op === '<=' ? (c) => num(A(c)) <= num(b(c))
+          : op === '>' ? (c) => num(A(c)) > num(b(c)) : op === '>=' ? (c) => num(A(c)) >= num(b(c))
+          : op === '+' ? (c) => num(A(c)) + num(b(c)) : op === '-' ? (c) => num(A(c)) - num(b(c))
+          : op === '*' ? (c) => num(A(c)) * num(b(c)) : op === '/' ? (c) => { const d = num(b(c)); return d === 0 ? 0 : num(A(c)) / d; }
+          : (c) => { const d = num(b(c)); return d === 0 ? 0 : num(A(c)) % d; };
+      }
+    };
+    let expr;
+    const unary = () => {
+      if (eat('!')) { const a = unary(); return (c) => !a(c); }
+      if (eat('-')) { const a = unary(); return (c) => -num(a(c)); }
+      if (eat('+')) return unary();
+      return primary();
+    };
+    const mul = bin(['*', '/', '%'], unary), add = bin(['+', '-'], mul), cmp = bin(['<', '<=', '>', '>='], add), eq = bin(['==', '!='], cmp), and = bin(['&&'], eq), or = bin(['||'], and);
+    expr = or;
+    const primary = () => {
+      const t = T[p++]; if (!t) return () => 0;
+      if (t.t === 'n') { const v = t.v; return () => v; }
+      if (t.v === '(') { const e = expr(); eat(')'); return e; }
+      if (t.t === 'i') {
+        if (peek() && peek().v === '(') { // función
+          p++; const args = []; if (!eat(')')) { do { args.push(expr()); } while (eat(',')); eat(')'); }
+          return this.fn(t.v.toLowerCase(), args, num);
+        }
+        return this.ident(t.v, M);
+      }
+      return () => 0;
+    };
+    try { const f = expr(); return f; } catch (e) { return () => 0; }
+  },
+  fn(name, a, num) {
+    const A = (i, c) => num(a[i] ? a[i](c) : 0);
+    const M = Math;
+    switch (name) {
+      case 'if': return (c) => { let i = 0; for (; i + 1 < a.length; i += 2) if (a[i](c)) return a[i + 1](c); return i < a.length ? a[i](c) : 0; };
+      case 'ifb': return (c) => { let i = 0; for (; i + 1 < a.length; i += 2) if (a[i](c)) return !!a[i + 1](c); return i < a.length ? !!a[i](c) : false; };
+      case 'sin': return (c) => M.sin(A(0, c)); case 'cos': return (c) => M.cos(A(0, c)); case 'tan': return (c) => M.tan(A(0, c));
+      case 'asin': return (c) => M.asin(clamp(A(0, c), -1, 1)); case 'acos': return (c) => M.acos(clamp(A(0, c), -1, 1)); case 'atan': return (c) => M.atan(A(0, c)); case 'atan2': return (c) => M.atan2(A(0, c), A(1, c));
+      case 'torad': return (c) => A(0, c) * M.PI / 180; case 'todeg': return (c) => A(0, c) * 180 / M.PI;
+      case 'min': return (c) => { let m = Infinity; for (let i = 0; i < a.length; i++) m = M.min(m, A(i, c)); return m; };
+      case 'max': return (c) => { let m = -Infinity; for (let i = 0; i < a.length; i++) m = M.max(m, A(i, c)); return m; };
+      case 'clamp': return (c) => M.min(A(2, c), M.max(A(1, c), A(0, c)));
+      case 'abs': return (c) => M.abs(A(0, c)); case 'floor': return (c) => M.floor(A(0, c)); case 'ceil': return (c) => M.ceil(A(0, c)); case 'round': return (c) => M.round(A(0, c));
+      case 'exp': return (c) => M.exp(A(0, c)); case 'log': return (c) => M.log(A(0, c)); case 'pow': return (c) => M.pow(A(0, c), A(1, c)); case 'sqrt': return (c) => M.sqrt(M.max(0, A(0, c)));
+      case 'frac': return (c) => { const x = A(0, c); return x - M.floor(x); }; case 'signum': return (c) => M.sign(A(0, c)); case 'fmod': return (c) => { const y = A(1, c); return y ? A(0, c) % y : 0; };
+      case 'lerp': return (c) => { const k = A(0, c); return A(1, c) + (A(2, c) - A(1, c)) * k; };
+      case 'random': return a.length ? (c) => { let x = M.sin(A(0, c) * 12.9898 + 78.233) * 43758.5453; return x - M.floor(x); } : () => M.random();
+      case 'between': return (c) => { const x = A(0, c); return x >= A(1, c) && x <= A(2, c); };
+      case 'equals': return (c) => M.abs(A(0, c) - A(1, c)) <= (a.length > 2 ? A(2, c) : 1e-6);
+      case 'in': return (c) => { const x = A(0, c); for (let i = 1; i < a.length; i++) if (x === A(i, c)) return true; return false; };
+      case 'wrapdeg': return (c) => { let x = A(0, c) % 360; if (x >= 180) x -= 360; if (x < -180) x += 360; return x; };
+      case 'wraprad': return (c) => { let x = A(0, c) % (2 * M.PI); if (x >= M.PI) x -= 2 * M.PI; if (x < -M.PI) x += 2 * M.PI; return x; };
+      case 'print': case 'printb': return (c) => a.length > 2 ? a[2](c) : 0;
+      default: return (c) => a.length ? A(0, c) : 0;
+    }
+  },
+  PROPS: { rx: 1, ry: 1, rz: 1, tx: 1, ty: 1, tz: 1, sx: 1, sy: 1, sz: 1, visible: 1, visible_boxes: 1 },
+  ident(id, M) {
+    if (id === 'pi') return () => Math.PI;
+    if (id === 'true') return () => true; if (id === 'false') return () => false;
+    const dot = id.lastIndexOf('.');
+    if (id.startsWith('var.')) { const k = id.slice(4); return (c) => c.v[k] || 0; }
+    if (id.startsWith('varb.')) { const k = id.slice(5); return (c) => !!c.b[k]; }
+    if (dot > 0 && this.PROPS[id.slice(dot + 1)]) {
+      const part = id.slice(0, dot), prop = id.slice(dot + 1); const nodeOf = M.ref(part);
+      return (c) => { const n = nodeOf(c); if (!n) return 0; return prop === 'visible' ? n.visible : prop === 'visible_boxes' ? n.vbox : n[prop]; };
+    }
+    return (c) => { const v = c.g[id]; return v === undefined ? 0 : v; };
+  },
+  // ---------- construcción del modelo ----------
+  json(name) { const t = this.files[name.toLowerCase()]; if (!t) return null; try { return JSON.parse(t.replace(/^﻿/, '')); } catch (e) { try { return JSON.parse(t.replace(/,\s*([}\]])/g, '$1')); } catch (e2) { return null; } } },
+  get(name) {
+    if (name in this.models) return this.models[name];
+    const j = this.json(name + '.jem'); let m = null;
+    try { if (j) m = this.build(name, j); } catch (e) { console.warn('CEM', name, e); m = null; }
+    this.models[name] = m; return m;
+  },
+  build(name, j) {
+    const tw = (j.textureSize && j.textureSize[0]) || 64, th = (j.textureSize && j.textureSize[1]) || 64;
+    const M = { name, tw, th, top: [], byId: {}, anims: [], texture: j.texture || null };
+    M.ref = (id) => { // devuelve el nodo por id (se resuelve al usarse, por si aún no existe)
+      return () => M.byId[id] || null;
+    };
+    const mk = (id) => ({ id, tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0, sx: 1, sy: 1, sz: 1, visible: true, vbox: true, kids: [], mesh: null, d: null });
+    const parseNode = (el, tws, ths) => {
+      if (el.model) { const ext = this.json(el.model.split('/').pop()); if (ext) el = Object.assign({}, ext, el, { model: null, boxes: el.boxes || ext.boxes, submodels: el.submodels || ext.submodels, animations: [...(ext.animations || []), ...(el.animations || [])] }); }
+      const inv = el.invertAxis || '', ix = inv.includes('x'), iy = inv.includes('y'), iz = inv.includes('z');
+      const n = mk(el.id || el.part || '');
+      const t = el.translate || [0, 0, 0], r = el.rotate || [0, 0, 0];
+      n.tx = ix ? -t[0] : t[0]; n.ty = iy ? -t[1] : t[1]; n.tz = iz ? -t[2] : t[2];
+      const rr = r.map(a => a * Math.PI / 180); n.rx = ix ? -rr[0] : rr[0]; n.ry = iy ? -rr[1] : rr[1]; n.rz = iz ? -rr[2] : rr[2];
+      if (el.scale) n.sx = n.sy = n.sz = el.scale;
+      const tW = (el.textureSize && el.textureSize[0]) || tws, tH = (el.textureSize && el.textureSize[1]) || ths;
+      const mir = /u/.test(el.mirrorTexture || '');
+      if (el.boxes && el.boxes.length) {
+        const vb = new VB(8);
+        for (const b of el.boxes) {
+          const c = b.coordinates || [0, 0, 0, 0, 0, 0]; let [x, y, z, w, h, d] = c;
+          if (ix) x = -x - w; if (iy) y = -y - h; if (iz) z = -z - d;
+          this.box(vb, x, y, z, w, h, d, b, b.sizeAdd || 0, tW, tH, mir);
+        }
+        if (vb.q) n.mesh = Renderer.meshFromVB(vb);
+      }
+      if (el.animations) for (const a of el.animations) M.anims.push(a);
+      if (n.id && !M.byId[n.id]) M.byId[n.id] = n;
+      for (const s of el.submodels || []) n.kids.push(parseNode(s, tW, tH));
+      n.d = { tx: n.tx, ty: n.ty, tz: n.tz, rx: n.rx, ry: n.ry, rz: n.rz, sx: n.sx, sy: n.sy, sz: n.sz };
+      return n;
+    };
+    for (const el of j.models || []) {
+      const part = el.part || el.id; if (!part) continue;
+      // parte «de serie» (la del juego) con el modelo personalizado colgando de ella
+      const v = mk(part); v.vanilla = true; v.attach = !!el.attach;
+      const custom = parseNode(Object.assign({}, el), tw, th);
+      v.kids.push(custom); M.byId[part] = v; // el id de la parte apunta a la de serie (como OptiFine)
+      if (custom.id === part) { /* mismo id: lo usa la parte de serie */ }
+      M.top.push(v);
+    }
+    // compilar las animaciones en orden
+    M.prog = [];
+    for (const a of M.anims) for (const k in a) {
+      const f = this.compile(a[k], M); const dot = k.lastIndexOf('.'); const tgt = k.slice(0, dot), prop = k.slice(dot + 1);
+      if (tgt === 'var') M.prog.push((c) => { const v = f(c); c.v[prop] = typeof v === 'boolean' ? (v ? 1 : 0) : (isFinite(v) ? v : 0); });
+      else if (tgt === 'varb') M.prog.push((c) => { c.b[prop] = !!f(c); });
+      else if (tgt === 'render' || !this.PROPS[prop]) continue;
+      else { const nodeOf = M.ref(tgt); M.prog.push((c) => { const n = nodeOf(c); if (!n) return; const v = f(c); if (prop === 'visible') n.visible = !!v; else if (prop === 'visible_boxes') n.vbox = !!v; else n[prop] = typeof v === 'boolean' ? (v ? 1 : 0) : (isFinite(v) ? v : 0); }); }
+    }
+    return M;
+  },
+  // caja con UV de piel (en el espacio del modelo original, y hacia abajo); se pasa al del juego (x e y invertidas)
+  box(vb, x, y, z, w, h, d, b, inf, tw, th, mirror) {
+    const ox = -(x + w), oy = -(y + h), oz = z; // al espacio del juego
+    const U = 8, i = inf;
+    const x0 = ox - i, y0 = oy - i, z0 = oz - i, x1 = ox + w + i, y1 = oy + h + i, z1 = oz + d + i;
+    const su = 1024 / tw, sv = 1024 / Math.max(tw, th) * (th > tw ? 1 : tw / tw); // la piel se guarda en un lienzo cuadrado
+    const SU = 1024 / Math.max(tw, th), SV = SU;
+    let R;
+    if (b.textureOffset) { const [u, v] = b.textureOffset; R = boxRects(u, v, w, h, d); if (mirror) { const t = R.right; R.right = R.left; R.left = t; } for (const k in R) R[k] = R[k].slice(); }
+    else {
+      const f = (a) => a ? [Math.min(a[0], a[2]), Math.min(a[1], a[3]), Math.abs(a[2] - a[0]), Math.abs(a[3] - a[1]), a[2] < a[0], a[3] < a[1]] : null;
+      R = { front: f(b.uvNorth), back: f(b.uvSouth), right: f(b.uvWest), left: f(b.uvEast), top: f(b.uvUp), bottom: f(b.uvDown) };
+    }
+    const face = (verts, rect, map, fw, fh, sh) => {
+      if (!rect || (!rect[2] && !rect[3])) return;
+      for (let k = 0; k < 4; k++) {
+        const [vx, vy, vz] = verts[k]; let [iu, iv] = map(vx, vy, vz);
+        iu = fw ? iu / fw * rect[2] : 0; iv = fh ? iv / fh * rect[3] : 0;
+        if (mirror && b.textureOffset) iu = rect[2] - iu; if (rect[4]) iu = rect[2] - iu; if (rect[5]) iv = rect[3] - iv;
+        vb.v(k, Math.round(vx * U), Math.round(vy * U), Math.round(vz * U), Math.max(0, Math.round((rect[0] + iu) * SU)), Math.max(0, Math.round((rect[1] + iv) * SV)), 255, 255, 255, Math.round(255 * sh), 240, 240, 0);
+      }
+      vb.end();
+    };
+    const lx = (X) => clamp(X - ox, 0, w), ly = (Y) => clamp(Y - oy, 0, h), lz = (Z) => clamp(Z - oz, 0, d);
+    face([[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], R.right, (X, Y, Z) => [d - lz(Z), h - ly(Y)], d, h, 0.6);
+    face([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], R.left, (X, Y, Z) => [lz(Z), h - ly(Y)], d, h, 0.6);
+    face([[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], R.top, (X, Y, Z) => [w - lx(X), d - lz(Z)], w, d, 1.0);
+    face([[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], R.bottom, (X, Y, Z) => [w - lx(X), lz(Z)], w, d, 0.5);
+    face([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], R.back, (X, Y, Z) => [lx(X), h - ly(Y)], w, h, 0.8);
+    face([[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]], R.front, (X, Y, Z) => [w - lx(X), h - ly(Y)], w, h, 0.8);
+    void su; void sv;
+  },
+  // nombres de las partes del juego -> nombres del original
+  ALIAS: { rarm: 'right_arm', larm: 'left_arm', rleg: 'right_leg', lleg: 'left_leg', hat: 'headwear', rwing: 'right_wing', lwing: 'left_wing', beak: 'bill', wattle: 'chin', leg0: 'leg1', leg1: 'leg2', leg2: 'leg3', leg3: 'leg4' },
+  ALIAS2: { leg1: 'right_hind_leg', leg2: 'left_hind_leg', leg3: 'right_front_leg', leg4: 'left_front_leg' },
+  // ---------- dibujo ----------
+  modelFor(e) {
+    if (!this.enabled || !this.count()) return null;
+    const base = mobModel(e.kind);
+    const names = e.baby ? [e.kind + '_baby', base + '_baby'] : [];
+    if (e.variant) names.push(e.variant + '_' + e.kind);
+    names.push(e.kind, base);
+    for (const n of names) { const m = this.get(n); if (m) return m; }
+    return null;
+  },
+  tick(now) { this.frame++; this.ft = clamp((now - (this.lastT || now)) / 1000, 0.001, 0.1); this.lastT = now; },
+  draw(e, M, skinTex, base, Pw, light, tint) {
+    const R = Renderer, gl = R.gl, pt = Game.partial;
+    // pose de serie de este juego (para las partes que el paquete no mueve)
+    const vm = getModel(e.kind); animate(e.kind, vm, e, pt);
+    const vby = {}; for (const p of vm.parts) { vby[this.ALIAS[p.n] || p.n] = p; }
+    for (const v of M.top) {
+      const p = vby[v.id] || vby[this.ALIAS2[v.id]];
+      if (p) { v.tx = -(p.p[0] + (p.dx || 0)); v.ty = 24 - (p.p[1] + (p.dy || 0)); v.tz = p.p[2] + (p.dz || 0); v.rx = -(p.rx || 0); v.ry = -(p.ry || 0); v.rz = p.rz || 0; }
+      else { v.tx = v.ty = v.tz = 0; v.rx = v.ry = v.rz = 0; }
+      v.sx = v.sy = v.sz = 1; v.visible = !/^(chest_left|chest_right|left_chest|right_chest|saddle|bridle|left_saddle|right_saddle|horns_left|horns_right)$/.test(v.id) || !!(vby[v.id]); v.vbox = true;
+      this.reset(v.kids);
+    }
+    // variables de la criatura
+    const st = e._cem || (e._cem = {}); const S = st[M.name] || (st[M.name] = { v: {}, b: {} });
+    const P = Game.player;
+    const headYaw = lerpAngle(e.prevHeadYaw ?? e.headYaw, e.headYaw, pt) - lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt);
+    const D = 180 / Math.PI;
+    const g = {
+      limb_swing: lerp(e.prevLimb || 0, e.limb || 0, pt), limb_speed: Math.min(1, lerp(e.prevLimbAmt || 0, e.limbAmt || 0, pt)),
+      age: (e.age || 0) + pt, head_yaw: -wrapPI(headYaw) * D, head_pitch: -lerp(e.prevPitch ?? e.pitch, e.pitch, pt) * D,
+      pos_x: e.x, pos_y: e.y, pos_z: e.z, rot_x: 0, rot_y: e.bodyYaw * D,
+      is_on_ground: !!e.onGround, is_in_water: !!e.inWater, is_in_lava: !!e.inLava, is_burning: e.fire > 0, is_hurt: e.hurt > 0, hurt_time: Math.max(0, e.hurt || 0),
+      death_time: e.deathTime || 0, is_alive: !e.dead, is_child: !!e.baby, is_riding: false, is_ridden: false, is_sitting: !!e.sitting, is_tamed: !!e.tame,
+      is_aggressive: !!(e.target || e.angry), is_sneaking: false, is_sprinting: false, is_on_shoulder: false, is_in_ground: false, is_wet: !!e.inWater, is_glowing: false, is_invisible: false,
+      health: e.health || 0, max_health: e.maxHealth || 20, id: e.id || 0, swing_progress: e.swinging ? clamp(((e.swingTime || 0) + pt) / 6, 0, 1) : 0,
+      frame_time: this.ft, frame_counter: this.frame, time: (World.time || 0) + pt, day_time: World.time % 24000, day_count: Math.floor((World.time || 0) / 24000), dimension: World.dim === 'n' ? -1 : World.dim === 'e' ? 1 : 0,
+      player_pos_x: P ? P.x : 0, player_pos_y: P ? P.y : 0, player_pos_z: P ? P.z : 0, rule_index: 0, anger_time: e.angry ? 100 : 0, move_forward: 0, move_strafing: 0,
+    };
+    const ctx = { g, v: S.v, b: S.b };
+    for (const f of M.prog) { try { f(ctx); } catch (er) { } }
+    // dibujar
+    gl.uniform2f(Pw.u.uAtlas, 1024, 1024); gl.bindTexture(gl.TEXTURE_2D, skinTex);
+    gl.uniform2f(Pw.u.uLightMul, light[0], light[1]);
+    if (tint) gl.uniform4fv(Pw.u.uTint, tint); else gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
+    const m0 = M4.copy(this._b || (this._b = new Float32Array(16)), base); if (e.baby && M.name.endsWith('_baby')) M4.scale(m0, 2, 2, 2); M4.translate(m0, 0, 1.5, 0);
+    for (const v of M.top) this.drawNode(v, m0, Pw, 0);
+  },
+  reset(list) { for (const n of list) { Object.assign(n, n.d); n.visible = true; n.vbox = true; this.reset(n.kids); } },
+  _st: [],
+  drawNode(n, parent, Pw, depth) {
+    if (!n.visible || depth > 40) return;
+    const m = this._st[depth] || (this._st[depth] = new Float32Array(16)); M4.copy(m, parent);
+    M4.translate(m, -n.tx / 16, -n.ty / 16, n.tz / 16);
+    if (n.rz) M4.rotZ(m, n.rz); if (n.ry) M4.rotY(m, -n.ry); if (n.rx) M4.rotX(m, -n.rx);
+    if (n.sx !== 1 || n.sy !== 1 || n.sz !== 1) M4.scale(m, n.sx, n.sy, n.sz);
+    if (n.mesh && n.vbox) Renderer.drawMesh(n.mesh, m, Pw);
+    for (const k of n.kids) this.drawNode(k, m, Pw, depth + 1);
+  },
+};
+const wrapPI = (a) => { a %= Math.PI * 2; if (a > Math.PI) a -= Math.PI * 2; if (a < -Math.PI) a += Math.PI * 2; return a; };
 
 // ---- 08_entities.js ----
 // ============================================================
@@ -9598,6 +9880,13 @@ const UI = {
       setTimeout(() => { if (!window.closed) $('exitMsg').hidden = false; }, 400);
     };
     // aviso: texturas guardadas con una versión antigua (sin el .zip guardado)
+    $('modFiles').onchange = async (e) => {
+      const fs = [...e.target.files]; e.target.value = ''; if (!fs.length) return;
+      const msg = $('modMsg'); msg.textContent = 'Leyendo…';
+      const out = await Addons.addFiles(fs, (t) => { msg.textContent = t; });
+      msg.textContent = out.join('\n') + '\nPulsa «Aplicar» para usarlos.'; this.renderMods();
+    };
+    $('modApply').onclick = async () => { Sound.play('click'); if (Game.state === 'play') await Game.save(true); location.reload(); };
     $('texNoticeGo').onclick = () => { Sound.play('click'); this.show('textures'); $('texZip').click(); };
     $('texNoticeNo').onclick = () => { Sound.play('click'); $('texNotice').hidden = true; Store.put('kv', 'texpack:noticeOff', TexturePack.sig()).catch(() => { }); };
     $('texOpenDir').onclick = () => { Sound.play('click'); TexturePack.openLauncherFolder(); $('texMsg').textContent = 'Deja tu .zip en esa carpeta y vuelve a abrir el juego: se cargará solo.'; };
@@ -9658,6 +9947,22 @@ const UI = {
     this.$('rName').value = n; this.$('rSub').value = sub; this.previewName();
   },
   previewName() { this.$('rPrevName').textContent = this.$('rName').value || 'Picaterra'; this.$('rPrevSub').textContent = this.$('rSub').value; },
+  async renderMods() {
+    await Addons.load(); const L = this.$('modList'); L.innerHTML = '';
+    if (!Addons.list.length) { L.innerHTML = '<div class="txt" style="text-align:center;opacity:.8">Todavía no has añadido nada.</div>'; return; }
+    Addons.list.forEach((a, i) => {
+      const row = document.createElement('div'); row.className = 'modRow';
+      const on = Addons.applied.includes(a.name) && a.enabled;
+      row.innerHTML = `<div class="modInfo"><b></b><div class="modDesc"></div><div class="modParts"></div></div>`;
+      row.querySelector('b').textContent = a.name + (a.enabled ? (on ? '  ✔ activo' : '  (se activa al aplicar)') : '  (desactivado)');
+      row.querySelector('.modDesc').textContent = a.desc || ''; row.querySelector('.modParts').textContent = a.parts || '';
+      const mk = (t, f) => { const b = document.createElement('button'); b.className = 'btn small'; b.textContent = t; b.onclick = async () => { Sound.play('click'); await f(); this.renderMods(); }; row.append(b); };
+      mk(a.enabled ? 'Desactivar' : 'Activar', async () => { a.enabled = !a.enabled; await Addons.save(); });
+      if (i > 0) mk('▲', async () => { Addons.list.splice(i, 1); Addons.list.splice(i - 1, 0, a); await Addons.save(); });
+      mk('Quitar', async () => { await Addons.remove(a.id); });
+      L.append(row);
+    });
+  },
   texMsg(n) { const spn = TexturePack.lastSplashes || 0; TexturePack.lastSplashes = 0; if (spn && !n) { this.$('texMsg').textContent = '¡' + spn + ' frases del menú cargadas!'; return; } const sn = TexturePack.lastSounds || 0, mn = TexturePack.lastMusic || 0; TexturePack.lastSounds = 0; TexturePack.lastMusic = 0; if (sn || mn) { this.$('texMsg').textContent = '¡' + [sn ? sn + ' sonidos' : '', mn ? mn + ' canciones' : ''].filter(Boolean).join(' y ') + ' cargad' + (sn ? 'os' : 'as') + '!' + (n ? ' Y ' + n + ' texturas.' : ''); Game.reloadTextures(); this.renderTexList(); return; } this.$('texMsg').textContent = n ? `¡${n} textura${n > 1 ? 's' : ''} cargada${n > 1 ? 's' : ''}!` : 'No se reconoció ningún nombre de archivo. Mira la lista de abajo.'; Game.reloadTextures(); this.renderTexList(); },
   renderTexList() {
     const box = this.$('texList'); box.innerHTML = '';
@@ -9861,6 +10166,7 @@ const UI = {
     document.body.classList.toggle('menu', !!name && name !== 'loading');
     document.body.classList.toggle('playing', Game.state === 'play');
     if (name === 'worlds') await this.renderWorlds();
+    if (name === 'mods') { this.renderMods(); this.$('modBack').dataset.go = Game.state === 'play' ? 'pause' : 'title'; }
     if (name === 'textures') { this.renderTexList(); this.$('texBack').dataset.go = Game.state === 'play' ? 'pause' : 'title'; }
     if (name === 'blocktex') this.renderBlockTex();
     if (name === 'mobtex') this.renderMobTex();
@@ -10361,6 +10667,16 @@ function drawEntities(Pw, cam) {
       if (e.dead) M4.rotZ(_m, Math.min(1, Math.sqrt((e.deathTime + pt) / 20)) * Math.PI / 2);
       const sc = mobScale(e.kind) * (e.baby ? 0.5 : 1); M4.scale(_m, sc, sc, sc);
       const tint = e.hurt > 0 || e.dead ? [1, 0, 0, 0.45] : e.fire > 0 ? [1, 0.5, 0.1, 0.3 + 0.2 * Math.sin(performance.now() / 60)] : null;
+      const cm = CEM.modelFor(e);
+      if (cm) {
+        CEM.draw(e, cm, (cm.texture && CEM.textureFor(cm) && R.skinTexture('cem_' + cm.name, CEM.textureFor(cm))) || tex, _m, Pw, L, tint);
+        // capas: lana de la oveja, collar, capa exterior del slime y de algunos esqueletos/ahogados
+        const layer = (suf, skin, ttint, blend) => { const lm = CEM.get(cm.name + suf) || (e.baby ? null : CEM.get(e.kind + suf)); if (!lm) return false; if (blend) { gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.uniform1f(Pw.u.uAlphaTest, 0.02); } CEM.draw(e, lm, R.skinTexture('mob_' + skin, MobSkins.get(skin)), _m, Pw, L, ttint || tint); if (blend) { gl.uniform1f(Pw.u.uAlphaTest, 0.5); gl.disable(gl.BLEND); } return true; };
+        if (e.kind === 'sheep' && !e.sheared) layer('_wool', 'sheep_wool');
+        if (e.tame && e.collar) { const c = DYE_RGB[e.collar] || DYE_RGB.red; layer('_collar', e.kind === 'cat' ? 'cat_collar' : 'wolf_collar', [c[0], c[1], c[2], 0.85]); }
+        if (e.kind === 'slime') layer('_outer', 'slime', null, true);
+        continue;
+      }
       const m = drawModel(e.kind, e, tex, _m, Pw, L, tint);
       if (e.kind === 'slime') { // capa exterior translúcida
         gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.uniform1f(Pw.u.uAlphaTest, 0.02);
@@ -10621,7 +10937,7 @@ function placePlayerOnGround(P) {
 // ---------------- bucle principal ----------------
 let lastT = performance.now(), acc = 0;
 function frame(now) {
-  requestAnimationFrame(frame);
+  requestAnimationFrame(frame); CEM.tick(now);
   if (Game.state === 'play') try { TileAnim.tick(now); } catch (e) { }
   const dt = Math.min(250, now - lastT); lastT = now;
   try {
@@ -10694,6 +11010,7 @@ async function boot() {
     await PackMusic.restore(); bump();
     await TexturePack.fromLauncher(); bump();
     await TexturePack.refreshStored(); bump();
+    try { await Addons.applyAll(); } catch (e) { console.warn(e); } bump();
     FaceTex.apply();
     Atlas.build(); applyDirtBg(); bump();
     Renderer.init(document.getElementById('gl')); Renderer.uploadAtlas(); Mesher.init();
@@ -11523,12 +11840,121 @@ const Jukebox = {
   near() { const P = Game.player; if (!P) return false; for (const e of this.playing.values()) if (Math.hypot(P.x - e.x, P.y - e.y, P.z - e.z) < 48) return true; return false; },
 };
 
+
+// ---- extra/addons113.js ----
+// ============================================================
+//  1.13: Mods y paquetes — sube .zip de paquetes de recursos (texturas, criaturas,
+//  modelos y animaciones CEM como Fresh Animations, interfaz, frases), y modpacks de
+//  CurseForge/Modrinth (se sacan sus paquetes de recursos). Los .jar (mods de Java)
+//  y los shaders no pueden funcionar en un navegador: se avisa.
+// ============================================================
+const Addons = {
+  list: [],      // [{ id, name, desc, enabled, kind, info }]
+  applied: [],   // resumen de lo aplicado
+  async load() { try { this.list = (await Store.get('kv', 'addons:list')) || []; } catch (e) { this.list = []; } },
+  save() { return Store.put('kv', 'addons:list', this.list).catch(() => { }); },
+  // ---------- añadir archivos ----------
+  async addFiles(files, onMsg) {
+    const out = [];
+    for (const f of files) {
+      const low = f.name.toLowerCase();
+      try {
+        if (low.endsWith('.jar')) { out.push('«' + f.name + '» es un mod de Java: solo funciona en el Minecraft de verdad, no en un navegador.'); continue; }
+        if (!/\.(zip|mrpack|rpo)$/.test(low)) { out.push('«' + f.name + '»: solo se admiten .zip, .mrpack o .jar.'); continue; }
+        onMsg && onMsg('Leyendo «' + f.name + '»…');
+        const buf = await f.arrayBuffer(); const z = await readZip(buf);
+        const isPack = z.names.some(p => /^([^/]+\/)?(pack\.mcmeta|assets\/)/i.test(p));
+        const isModpack = z.names.some(p => /^(manifest\.json|modrinth\.index\.json)$/i.test(p)) || z.names.some(p => /^overrides\//i.test(p));
+        const isShader = z.names.some(p => /^([^/]+\/)?shaders\/.*\.(fsh|vsh|glsl|properties)$/i.test(p)) && !isPack;
+        if (isShader) { out.push('«' + f.name + '» es un paquete de shaders (para OptiFine/Iris): no se puede usar aquí.'); continue; }
+        if (isModpack && !isPack) {
+          let mods = 0, shaders = 0, packs = 0;
+          for (const p of z.names) {
+            if (/^overrides\/mods\/.*\.jar$/i.test(p)) mods++;
+            if (/^overrides\/shaderpacks\/[^/]+\.zip$/i.test(p)) shaders++;
+            if (/^overrides\/resourcepacks\/[^/]+\.zip$/i.test(p)) {
+              const inner = await z.get(p); const nm = p.split('/').pop().replace(/#U00a7./gi, '').replace(/§./g, '').replace(/\.zip$/i, '').trim();
+              const r = await this.addPack(nm, inner.buffer.slice(inner.byteOffset, inner.byteOffset + inner.byteLength)); if (r) { packs++; out.push('Paquete del modpack: «' + nm + '» — ' + r); }
+            }
+          }
+          let idx = null; try { const t = z.names.find(p => /^(manifest|modrinth\.index)\.json$/i.test(p)); if (t) idx = JSON.parse(new TextDecoder().decode(await z.get(t))); } catch (e) { }
+          const listed = idx ? ((idx.files && idx.files.length) || 0) : 0;
+          out.push('Modpack «' + ((idx && idx.name) || f.name) + '»: ' + packs + ' paquetes de recursos añadidos.' + (mods + listed ? ' Sus ' + (mods + listed) + ' mods de Java no pueden funcionar en un navegador.' : '') + (shaders ? ' Los shaders tampoco.' : ''));
+          continue;
+        }
+        if (!isPack) { out.push('«' + f.name + '» no parece un paquete de recursos ni un modpack.'); continue; }
+        const r = await this.addPack(f.name.replace(/\.(zip|rpo)$/i, ''), buf); out.push('«' + f.name + '»: ' + (r || 'no tiene nada que este juego pueda usar.'));
+      } catch (e) { out.push('«' + f.name + '»: no se pudo leer (' + e.message + ').'); }
+    }
+    await this.save(); return out;
+  },
+  // guarda un paquete de recursos y describe lo que trae
+  async addPack(name, buf) {
+    const z = await readZip(buf); const N = z.names;
+    const info = {
+      cem: N.filter(p => /\/(optifine|emf)\/cem\/[^/]+\.jem$/i.test(p)).length,
+      ent: N.filter(p => /textures\/entity\/.+\.png$/i.test(p)).length,
+      tex: N.filter(p => /textures\/(block|item|blocks|items)\/[^/]+\.png$/i.test(p)).length,
+      gui: N.filter(p => /textures\/gui\/.+\.png$/i.test(p)).length,
+      snd: N.filter(p => /\.ogg$/i.test(p)).length,
+      spl: N.some(p => /splashes\.txt$/i.test(p)),
+      models: N.filter(p => /models\/(block|item)\/.+\.json$/i.test(p)).length,
+    };
+    const parts = [];
+    if (info.cem) parts.push(info.cem + ' modelos animados de criaturas');
+    if (info.ent) parts.push(info.ent + ' texturas de criaturas');
+    if (info.tex) parts.push(info.tex + ' texturas de bloques y objetos');
+    if (info.gui) parts.push('interfaz');
+    if (info.spl) parts.push('frases del menú');
+    if (!parts.length) return null;
+    let desc = '';
+    try { const mm = N.find(p => /(^|\/)pack\.mcmeta$/i.test(p)); if (mm) { const j = JSON.parse(new TextDecoder().decode(await z.get(mm)).replace(/^﻿/, '')); const d = j.pack && j.pack.description; desc = (typeof d === 'string' ? d : Array.isArray(d) ? d.map(x => x.text || x).join('') : (d && d.text) || '').replace(/§./g, ''); } } catch (e) { }
+    const id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    await Store.put('kv', 'addon:' + id, new Blob([buf])); this.list.push({ id, name, desc, enabled: true, info, parts: parts.join(', ') });
+    return parts.join(', ') + '.';
+  },
+  async remove(id) { this.list = this.list.filter(a => a.id !== id); await Store.del('kv', 'addon:' + id).catch(() => { }); await this.save(); },
+  // ---------- aplicar al arrancar (encima del paquete de texturas normal) ----------
+  async applyAll() {
+    await this.load(); CEM.clear(); this.applied = [];
+    for (const a of this.list) {
+      if (!a.enabled) continue;
+      try {
+        const blob = await Store.get('kv', 'addon:' + a.id); if (!blob) continue;
+        const z = await readZip(await blob.arrayBuffer()); const N = z.names;
+        const url = async (p) => blobToURL(new Blob([await z.get(p)], { type: 'image/png' }));
+        // modelos y animaciones de criaturas
+        for (const p of N) if (/\/(optifine|emf)\/cem\/[^/]+\.(jem|jpm)$/i.test(p)) CEM.add(p.split('/').pop(), new TextDecoder().decode(await z.get(p)));
+        // texturas de criaturas (encima de las del paquete normal, solo en memoria)
+        const entNames = N.filter(p => /textures\/entity\//i.test(p));
+        if (entNames.length) { await TexturePack.entities(entNames, url, true); for (const p of entNames) if (/\.png$/i.test(p)) CEM.texFiles[p.replace(/^.*?assets\/minecraft\//i, '').toLowerCase()] = { z, p }; }
+        // bloques y objetos
+        const want = TexturePack.pick(N.filter(p => /textures\/(block|item|blocks|items)\//i.test(p)));
+        await Promise.all([...want].map(async ([name, { path }]) => { const u = await url(path); const im = u && await loadImg(await TexturePack.prepare(name, u)); if (im) Atlas.custom[name] = im; }));
+        // interfaz y frases
+        try { await TexturePack.gui(N, url, true); } catch (e) { }
+        const sp = N.find(p => /splashes\.txt$/i.test(p)); if (sp) Splashes.list = new TextDecoder().decode(await z.get(sp)).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        this.applied.push(a.name);
+      } catch (e) { console.warn('addon', a.name, e); }
+    }
+  },
+};
+CEM.texFiles = {}; CEM.texCache = {};
+// textura propia de un modelo («texture» en el .jem), si el paquete la trae
+CEM.textureFor = function (M) {
+  if (!M.texture) return null; const key = M.texture.replace(/^.*?assets\/minecraft\//i, '').replace(/^minecraft:/, '').toLowerCase().replace(/^(?!textures\/)/, 'textures/').replace(/(?<!\.png)$/, '.png');
+  if (key in this.texCache) return this.texCache[key];
+  const f = this.texFiles[key]; this.texCache[key] = null; if (!f) return null;
+  (async () => { const im = await loadImg(await blobToURL(new Blob([await f.z.get(f.p)], { type: 'image/png' }))); if (im) this.texCache[key] = MobTex.toCanvas(im); })();
+  return null;
+};
+
 // ---------------- pieles personalizadas de las criaturas ----------------
 const MOB_PART_NAMES = { muzzle: 'Morro', udder: 'Ubre', legL0: 'Patas', jacket: 'Chaqueta', head: 'Cabeza', body: 'Cuerpo', snout: 'Hocico', leg0: 'Patas', horn1: 'Cuernos', rarm: 'Brazo derecho', larm: 'Brazo izquierdo', rleg: 'Pierna derecha', lleg: 'Pierna izquierda', beak: 'Pico', wattle: 'Barba', rwing: 'Alas', neck: 'Cuello', legR0: 'Patas' };
 const mobSkinName = (k) => k === 'sheep_wool' ? 'Lana de oveja' : (MOBS[k] ? MOBS[k].name : k);
 const MOB_FACES = [['front', 'Frente'], ['back', 'Detrás'], ['left', 'Izquierda'], ['right', 'Derecha'], ['top', 'Arriba'], ['bottom', 'Abajo']];
 const MobTex = {
-  custom: {},
+  custom: {}, addon: {},
   async load() {
     for (const k of MOB_SKIN_KINDS()) {
       try { const url = await Store.get('kv', 'mobskin:' + k); if (url) await new Promise(r => { const im = new Image(); im.onload = () => { this.custom[k] = this.toCanvas(im); r(); }; im.onerror = r; im.src = url; }); } catch (e) { }
@@ -11537,7 +11963,7 @@ const MobTex = {
   // la piel se guarda en un lienzo cuadrado: las de 64x32 ocupan la mitad de arriba (misma UV);
   // las de más resolución (128x64, 256x256...) conservan su detalle
   toCanvas(im) { const M = Math.max(im.width, im.height); const k = Math.max(1, Math.round(M / 64)); const c = document.createElement('canvas'); c.width = c.height = 64 * k; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(im, 0, 0, Math.round(64 * k * im.width / M), Math.round(64 * k * im.height / M)); return c; },
-  get(k) { return this.custom[k] || MobSkins.base(k); },
+  get(k) { return this.addon[k] || this.custom[k] || MobSkins.base(k); },
   parts(kind) {
     const out = [], seen = new Set();
     for (const p of MODELS[kind] || []) { const key = p.uv + '|' + p.s; if (seen.has(key)) continue; seen.add(key); out.push({ n: MOB_PART_NAMES[p.n] || p.n, uv: p.uv, s: p.s }); }
