@@ -1,8 +1,22 @@
 {
-  "latest": "1.17.0",
+  "latest": "1.18.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.18.0",
+      "date": "2026-11-20",
+      "title": "Rendimiento",
+      "notes": [
+        "Rendimiento automático: mantiene 60 FPS bajando la resolución interna y la distancia solo cuando hace falta",
+        "Mipmaps en las texturas: mucho más rápido con packs HD y sin parpadeo a lo lejos",
+        "Hojas inteligentes: ~55% menos triángulos en los bosques",
+        "Bloques macizos y recortados separados (la gráfica se salta los píxeles tapados)",
+        "Animaciones de mobs más rápidas y con nivel de detalle por distancia"
+      ],
+      "size": 312616,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.18.0.zip"
+    },
     {
       "id": "1.17.0",
       "date": "2026-11-19",

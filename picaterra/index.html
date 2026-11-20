@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.17.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.18.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -4862,7 +4862,7 @@ const Mesher = {
     this.fillPadded(c); this.cx = c.cx; this.cz = c.cz; Kinetic.begin(c); const bedCEM = !!CEM.files['bed.jem']; const beds = [];
     const O = this.O, T = this.T; O.reset(); T.reset();
     const pb = this.pb, pm = this.pm, pl = this.pl;
-    const fancy = Settings.fancy && Atlas.leavesAlpha;
+    const fancy = Settings.fancy && Atlas.leavesAlpha; this.smart = Settings.leaves !== 'fancy';
     for (let y = 0; y <= Math.min(c.maxY, WH - 1); y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
       const p = ((y + 1) * 18 + (z + 1)) * 18 + (x + 1);
       const id = pb[p]; if (!id) continue;
@@ -4882,7 +4882,26 @@ const Mesher = {
     }
     Kinetic.done(c);
     if (bedCEM || CEM.beds[c.cx + ',' + c.cz]) { if (beds.length) CEM.beds[c.cx + ',' + c.cz] = beds; else delete CEM.beds[c.cx + ',' + c.cz]; }
-    return { o: O.q ? O.slice() : null, oq: O.q, t: T.q ? T.slice() : null, tq: T.q };
+    const sp = this.splitCut(O);
+    return { o: sp.o, oq: sp.oq, c: sp.c, cq: sp.cq, t: T.q ? T.slice() : null, tq: T.q };
+  },
+  // separa las caras macizas de las recortadas (hojas, flores, cristal…) según si su casilla tiene transparencia
+  tileCut(tx, ty) {
+    if (this._cutCv !== Atlas.canvas || this._cutV !== Atlas.version) { this._cutCv = Atlas.canvas; this._cutV = Atlas.version; this._cut = new Uint8Array(Atlas.cols * (Math.ceil(Atlas.canvas.height / Atlas.T) + 1)); this._cutG = Atlas.canvas.getContext('2d', { willReadFrequently: true }); }
+    const i = ty * Atlas.cols + tx; let v = this._cut[i];
+    if (!v) { v = 1; try { const T = Atlas.T, d = this._cutG.getImageData(tx * T, ty * T, T, T).data; for (let k = 3; k < d.length; k += 4) if (d[k] < 250) { v = 2; break; } } catch (e) { v = 2; } this._cut[i] = v; }
+    return v === 2;
+  },
+  splitCut(O) {
+    if (!O.q) return { o: null, oq: 0, c: null, cq: 0 };
+    const u8 = O.slice(), u16 = new Uint16Array(u8.buffer), n = O.q, TS = Atlas.T * ASUB;
+    const cut = new Uint8Array(n); let nc = 0;
+    for (let q = 0; q < n; q++) { const b = q * 40 + 4; const u = (u16[b] + u16[b + 10] + u16[b + 20] + u16[b + 30]) / 4, v = (u16[b + 1] + u16[b + 11] + u16[b + 21] + u16[b + 31]) / 4; if (this.tileCut(Math.floor(u / TS), Math.floor(v / TS))) { cut[q] = 1; nc++; } }
+    if (!nc) return { o: u8, oq: n, c: null, cq: 0 };
+    if (nc === n) return { o: null, oq: 0, c: u8, cq: n };
+    const o = new Uint8Array((n - nc) * 80), c = new Uint8Array(nc * 80); let io = 0, ic = 0;
+    for (let q = 0; q < n; q++) { const src = u8.subarray(q * 80, q * 80 + 80); if (cut[q]) { c.set(src, ic); ic += 80; } else { o.set(src, io); io += 80; } }
+    return { o, oq: n - nc, c, cq: nc };
   },
 
   texFor(d, f, meta) {
@@ -4920,7 +4939,7 @@ const Mesher = {
       const lnp = gap ? pl[np + this.NOFF[this.pm[np] & 7]] : pl[np];
       if (n === id && (d.cullSelf || (d.leaves && !fancy))) continue;
       if (d.translucent && TRANSL[n] && n !== id) continue;
-      if (d.leaves && BLOCKS[n].leaves && !fancy) continue;
+      if (d.leaves && BLOCKS[n].leaves && (!fancy || this.smart)) continue; // hojas inteligentes: sin caras entre hojas
       const [ti, rot] = this.texFor(d, f, meta);
       const tx = (ti % Atlas.cols) * Atlas.T, ty = Math.floor(ti / Atlas.cols) * Atlas.T, TS = Atlas.T;
       const part = tint && d.tintFaces && f !== 3 && Atlas.partial[ti]; // borde de césped de los lados
@@ -5063,7 +5082,7 @@ const Mesher = {
       if (ch.vanilla) { const rt = RENDER[id]; if (rt === 1) this.cube(O, T, p, id, d, meta, x, y, z, fancy); else if (rt === 2) this.cross(O, p, id, d, x, y, z); else if (rt === 5) this.boxes(O, p, id, d, meta, x, y, z); continue; }
       for (const q of ch.quads) {
         let L = own;
-        if (q.cull >= 0) { const np = p + this.NOFF[q.cull]; const n = pb[np]; if (OPAQUE[n] && n !== id) continue; if (n === id && !d.leaves && OPAQUE[id]) continue; const nl = pl[np]; L = Math.max(nl >> 4, own >> 4) << 4 | Math.max(nl & 15, own & 15); }
+        if (q.cull >= 0) { const np = p + this.NOFF[q.cull]; const n = pb[np]; if (OPAQUE[n] && n !== id) continue; if (n === id && !d.leaves && OPAQUE[id]) continue; if (this.smart && d.leaves && BLOCKS[n] && BLOCKS[n].leaves) continue; const nl = pl[np]; L = Math.max(nl >> 4, own >> 4) << 4 | Math.max(nl & 15, own & 15); }
         const ti = Atlas.index[q.tex] ?? 0;
         let rgb = [255, 255, 255]; if (q.tint) { tint = tint || this.tintOf(d, x, z) || (d.leaves ? this.tintOf({ tint: 'foliage' }, x, z) : null) || [255, 255, 255]; rgb = tint; }
         this.quad(d.translucent ? this.T : O, x, y, z, q.verts, q.uvs, ti, rgb, q.shade < 0 ? 1 : this.SHADE[q.shade], (L >> 4) * 16, (L & 15) * 16, 0);
@@ -5287,6 +5306,8 @@ const Renderer = {
     if (!gl) throw new Error('WebGL2 no disponible');
     this.gl = gl;
     this.pw = this.program(SH_WORLD_VS, SH_WORLD_FS);
+    // variante sin «discard» para bloques macizos: la tarjeta puede saltarse los píxeles tapados (early-Z)
+    this.pws = this.program(SH_WORLD_VS, SH_WORLD_FS.replace('if (t.a < uAlphaTest) discard;', '').replace('t.a * uAlpha)', '1.0)'));
     this.pbsc = this.program(SH_BASIC_VS, SH_BASIC_FS);
     this.psky = this.program(SH_SKY_VS, SH_SKY_FS);
     // índices compartidos para quads
@@ -5340,7 +5361,10 @@ const Renderer = {
     const gl = this.gl; gl.bindTexture(gl.TEXTURE_2D, this.atlasTex);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, Atlas.canvas);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    // mipmaps (como Minecraft): a lo lejos se leen texturas pequeñas -> mucho más rápido y sin parpadeo
+    const lv = Math.max(0, Math.min(4, Math.round(Math.log2(Atlas.T || 16)) - 2)); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, lv);
+    if (lv > 0) { gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST); } else gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     this.atlasW = Atlas.canvas.width * ASUB; this.atlasH = Atlas.canvas.height * ASUB;
   },
@@ -5367,12 +5391,13 @@ const Renderer = {
     mesh.n = quads * 6; return mesh;
   },
   meshFromVB(vb) { return this.makeMesh(vb.slice(), vb.q); },
-  freeMesh(m) { if (!m) return; const gl = this.gl; for (const k of ['o', 't']) if (m[k]) { gl.deleteVertexArray(m[k].vao); gl.deleteBuffer(m[k].vbo); } if (m.vao) { gl.deleteVertexArray(m.vao); gl.deleteBuffer(m.vbo); } },
+  freeMesh(m) { if (!m) return; const gl = this.gl; for (const k of ['o', 't', 'c']) if (m[k]) { gl.deleteVertexArray(m[k].vao); gl.deleteBuffer(m[k].vbo); } if (m.vao) { gl.deleteVertexArray(m.vao); gl.deleteBuffer(m.vbo); } },
   uploadChunk(c, res) {
     const old = c.mesh || {};
     const m = { o: null, t: null };
     if (res.o) m.o = this.makeMesh(res.o, res.oq, old.o); else if (old.o) this.freeMesh({ o: old.o });
     if (res.t) m.t = this.makeMesh(res.t, res.tq, old.t); else if (old.t) this.freeMesh({ t: old.t });
+    if (res.c) m.c = this.makeMesh(res.c, res.cq, old.c); else if (old.c) this.freeMesh({ c: old.c });
     c.mesh = m;
   },
 
@@ -5466,15 +5491,15 @@ const Renderer = {
   },
 
   resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, Settings.hiRes ? 2 : 1.25);
+    const dpr = Math.min(window.devicePixelRatio || 1, Settings.hiRes ? 2 : 1.25) * (typeof Perf !== 'undefined' ? Perf.res() : 1);
     const w = Math.floor(this.canvas.clientWidth * dpr), h = Math.floor(this.canvas.clientHeight * dpr);
     if (w !== this.canvas.width || h !== this.canvas.height) { this.canvas.width = w; this.canvas.height = h; }
     this.W = w; this.H = h;
   },
 
   // ---------- uso del programa del mundo ----------
-  useWorld(alphaTest, alpha, tex, atlasW, atlasH) {
-    const gl = this.gl, P = this.pw; gl.useProgram(P.p);
+  useWorld(alphaTest, alpha, tex, atlasW, atlasH, solid) {
+    const gl = this.gl, P = solid ? this.pws : this.pw; gl.useProgram(P.p);
     gl.uniformMatrix4fv(P.u.uProj, false, this.proj); gl.uniformMatrix4fv(P.u.uView, false, this.view);
     gl.uniform2f(P.u.uAtlas, atlasW || this.atlasW, atlasH || this.atlasH);
     gl.uniform1f(P.u.uDay, Sky.skyFactor); gl.uniform1f(P.u.uGamma, Settings.gamma);
@@ -5539,7 +5564,7 @@ const Renderer = {
   },
   drawClouds(cam, mvp, mv) {
     if (!Settings.clouds || World.dim === 'n' || World.dim === 'e') return;
-    const gl = this.gl; const R = Math.max(Settings.renderDist * 16 + 96, 256);
+    const gl = this.gl; const R = Math.max(Perf.dist() * 16 + 96, 256);
     const y = 132 - cam[1] + cam[1]; const cx = cam[0], cz = cam[2];
     const drift = (World.time + World.day * 24000) * 0.03 + Game.partial * 0.03;
     const S = 12 * 256;
@@ -6054,7 +6079,7 @@ const CEM = {
   frame: 0, ft: 0.016, lastT: 0,
   clear() { this.files = {}; this.models = {}; },
   add(name, text) { this.files[name.toLowerCase()] = text; this.models = {}; },
-  count() { return Object.keys(this.files).filter(n => n.endsWith('.jem')).length; },
+  count() { if (this._cnF !== this.files || !(this.frame & 63)) { this._cnF = this.files; this._cnt = Object.keys(this.files).filter(n => n.endsWith('.jem')).length; } return this._cnt; },
   // ---------- expresiones ----------
   tokens(s) {
     const out = []; let i = 0;
@@ -6076,6 +6101,7 @@ const CEM = {
     const T = this.tokens(String(src).replace(/\b(nbt|player_equipment|exists)\s*\((?:[^()]|\([^()]*\))*\)/g, '0')); let p = 0;
     const peek = () => T[p], eat = (v) => { if (T[p] && T[p].v === v) { p++; return true; } return false; };
     const num = (x) => typeof x === 'boolean' ? (x ? 1 : 0) : x;
+    const K = (f) => { f.k = true; return f; }; const fold = (f, ...xs) => xs.every(x => x && x.k) ? (() => { let v; try { v = f({ g: {}, v: {}, b: {} }); } catch (e) { return f; } return K(() => v); })() : f;
     const bin = (ops, next) => () => {
       let a = next();
       for (;;) {
@@ -6088,12 +6114,13 @@ const CEM = {
           : op === '+' ? (c) => num(A(c)) + num(b(c)) : op === '-' ? (c) => num(A(c)) - num(b(c))
           : op === '*' ? (c) => num(A(c)) * num(b(c)) : op === '/' ? (c) => { const d = num(b(c)); return d === 0 ? 0 : num(A(c)) / d; }
           : (c) => { const d = num(b(c)); return d === 0 ? 0 : num(A(c)) % d; };
+        a = fold(a, A, b);
       }
     };
     let expr;
     const unary = () => {
-      if (eat('!')) { const a = unary(); return (c) => !a(c); }
-      if (eat('-')) { const a = unary(); return (c) => -num(a(c)); }
+      if (eat('!')) { const a = unary(); return fold((c) => !a(c), a); }
+      if (eat('-')) { const a = unary(); return fold((c) => -num(a(c)), a); }
       if (eat('+')) return unary();
       return primary();
     };
@@ -6101,44 +6128,120 @@ const CEM = {
     expr = or;
     const primary = () => {
       const t = T[p++]; if (!t) return () => 0;
-      if (t.t === 'n') { const v = t.v; return () => v; }
+      if (t.t === 'n') { const v = t.v; return K(() => v); }
       if (t.v === '(') { const e = expr(); eat(')'); return e; }
       if (t.t === 'i') {
         if (peek() && peek().v === '(') { // función
           p++; const args = []; if (!eat(')')) { do { args.push(expr()); } while (eat(',')); eat(')'); }
-          return this.fn(t.v.toLowerCase(), args, num);
+          const fnm = t.v.toLowerCase(); const fr = this.fn(fnm, args, num); return fnm === 'random' || fnm === 'print' || fnm === 'printb' ? fr : (args.length ? fold(fr, ...args) : fr);
         }
-        return this.ident(t.v, M);
+        const idf = this.ident(t.v, M); return t.v === 'pi' || t.v === 'true' || t.v === 'false' ? K(idf) : idf;
       }
       return () => 0;
     };
     try { const f = expr(); return f; } catch (e) { return () => 0; }
   },
   fn(name, a, num) {
-    const A = (i, c) => num(a[i] ? a[i](c) : 0);
+    const A = (i, c) => num(a[i] ? a[i](c) : 0); const Z = () => 0; const a0 = a[0] || Z, a1 = a[1] || Z, a2 = a[2] || Z;
     const M = Math;
     switch (name) {
       case 'if': return (c) => { let i = 0; for (; i + 1 < a.length; i += 2) if (a[i](c)) return a[i + 1](c); return i < a.length ? a[i](c) : 0; };
       case 'ifb': return (c) => { let i = 0; for (; i + 1 < a.length; i += 2) if (a[i](c)) return !!a[i + 1](c); return i < a.length ? !!a[i](c) : false; };
-      case 'sin': return (c) => M.sin(A(0, c)); case 'cos': return (c) => M.cos(A(0, c)); case 'tan': return (c) => M.tan(A(0, c));
-      case 'asin': return (c) => M.asin(clamp(A(0, c), -1, 1)); case 'acos': return (c) => M.acos(clamp(A(0, c), -1, 1)); case 'atan': return (c) => M.atan(A(0, c)); case 'atan2': return (c) => M.atan2(A(0, c), A(1, c));
-      case 'torad': return (c) => A(0, c) * M.PI / 180; case 'todeg': return (c) => A(0, c) * 180 / M.PI;
+      case 'sin': return (c) => M.sin(num(a0(c))); case 'cos': return (c) => M.cos(num(a0(c))); case 'tan': return (c) => M.tan(num(a0(c)));
+      case 'asin': return (c) => M.asin(clamp(num(a0(c)), -1, 1)); case 'acos': return (c) => M.acos(clamp(num(a0(c)), -1, 1)); case 'atan': return (c) => M.atan(num(a0(c))); case 'atan2': return (c) => M.atan2(num(a0(c)), num(a1(c)));
+      case 'torad': return (c) => num(a0(c)) * M.PI / 180; case 'todeg': return (c) => num(a0(c)) * 180 / M.PI;
       case 'min': return (c) => { let m = Infinity; for (let i = 0; i < a.length; i++) m = M.min(m, A(i, c)); return m; };
       case 'max': return (c) => { let m = -Infinity; for (let i = 0; i < a.length; i++) m = M.max(m, A(i, c)); return m; };
-      case 'clamp': return (c) => M.min(A(2, c), M.max(A(1, c), A(0, c)));
-      case 'abs': return (c) => M.abs(A(0, c)); case 'floor': return (c) => M.floor(A(0, c)); case 'ceil': return (c) => M.ceil(A(0, c)); case 'round': return (c) => M.round(A(0, c));
-      case 'exp': return (c) => M.exp(A(0, c)); case 'log': return (c) => M.log(A(0, c)); case 'pow': return (c) => M.pow(A(0, c), A(1, c)); case 'sqrt': return (c) => M.sqrt(M.max(0, A(0, c)));
-      case 'frac': return (c) => { const x = A(0, c); return x - M.floor(x); }; case 'signum': return (c) => M.sign(A(0, c)); case 'fmod': return (c) => { const y = A(1, c); return y ? A(0, c) % y : 0; };
-      case 'lerp': return (c) => { const k = A(0, c); return A(1, c) + (A(2, c) - A(1, c)) * k; };
-      case 'random': return a.length ? (c) => { let x = M.sin(A(0, c) * 12.9898 + 78.233) * 43758.5453; return x - M.floor(x); } : () => M.random();
-      case 'between': return (c) => { const x = A(0, c); return x >= A(1, c) && x <= A(2, c); };
-      case 'equals': return (c) => M.abs(A(0, c) - A(1, c)) <= (a.length > 2 ? A(2, c) : 1e-6);
-      case 'in': return (c) => { const x = A(0, c); for (let i = 1; i < a.length; i++) if (x === A(i, c)) return true; return false; };
-      case 'wrapdeg': return (c) => { let x = A(0, c) % 360; if (x >= 180) x -= 360; if (x < -180) x += 360; return x; };
-      case 'wraprad': return (c) => { let x = A(0, c) % (2 * M.PI); if (x >= M.PI) x -= 2 * M.PI; if (x < -M.PI) x += 2 * M.PI; return x; };
+      case 'clamp': return (c) => M.min(num(a2(c)), M.max(num(a1(c)), num(a0(c))));
+      case 'abs': return (c) => M.abs(num(a0(c))); case 'floor': return (c) => M.floor(num(a0(c))); case 'ceil': return (c) => M.ceil(num(a0(c))); case 'round': return (c) => M.round(num(a0(c)));
+      case 'exp': return (c) => M.exp(num(a0(c))); case 'log': return (c) => M.log(num(a0(c))); case 'pow': return (c) => M.pow(num(a0(c)), num(a1(c))); case 'sqrt': return (c) => M.sqrt(M.max(0, num(a0(c))));
+      case 'frac': return (c) => { const x = num(a0(c)); return x - M.floor(x); }; case 'signum': return (c) => M.sign(num(a0(c))); case 'fmod': return (c) => { const y = num(a1(c)); return y ? num(a0(c)) % y : 0; };
+      case 'lerp': return (c) => { const k = num(a0(c)); return num(a1(c)) + (num(a2(c)) - num(a1(c))) * k; };
+      case 'random': return a.length ? (c) => { let x = M.sin(num(a0(c)) * 12.9898 + 78.233) * 43758.5453; return x - M.floor(x); } : () => M.random();
+      case 'between': return (c) => { const x = num(a0(c)); return x >= num(a1(c)) && x <= num(a2(c)); };
+      case 'equals': return (c) => M.abs(num(a0(c)) - num(a1(c))) <= (a.length > 2 ? num(a2(c)) : 1e-6);
+      case 'in': return (c) => { const x = num(a0(c)); for (let i = 1; i < a.length; i++) if (x === A(i, c)) return true; return false; };
+      case 'wrapdeg': return (c) => { let x = num(a0(c)) % 360; if (x >= 180) x -= 360; if (x < -180) x += 360; return x; };
+      case 'wraprad': return (c) => { let x = num(a0(c)) % (2 * M.PI); if (x >= M.PI) x -= 2 * M.PI; if (x < -M.PI) x += 2 * M.PI; return x; };
       case 'print': case 'printb': return (c) => a.length > 2 ? a[2](c) : 0;
-      default: return (c) => a.length ? A(0, c) : 0;
+      default: return (c) => a.length ? num(a0(c)) : 0;
     }
+  },
+  // ---------- compilación a JavaScript nativo (mucho más rápida); si el navegador no deja, se usan cierres ----------
+  H: {
+    n: (x) => typeof x === 'boolean' ? (x ? 1 : 0) : x,
+    div: (a, b) => { b = typeof b === 'boolean' ? +b : b; return b === 0 ? 0 : a / b; }, mod: (a, b) => { b = typeof b === 'boolean' ? +b : b; return b === 0 ? 0 : a % b; },
+    fin: (v) => typeof v === 'boolean' ? (v ? 1 : 0) : (isFinite(v) ? v : 0),
+    sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: (x) => Math.asin(Math.max(-1, Math.min(1, x))), acos: (x) => Math.acos(Math.max(-1, Math.min(1, x))), atan: Math.atan, atan2: Math.atan2,
+    torad: (x) => x * Math.PI / 180, todeg: (x) => x * 180 / Math.PI, min: (...a) => a.length ? Math.min(...a) : Infinity, max: (...a) => a.length ? Math.max(...a) : -Infinity,
+    clamp: (x, a, b) => Math.min(b, Math.max(a, x)), abs: Math.abs, floor: Math.floor, ceil: Math.ceil, round: Math.round, exp: Math.exp, log: Math.log, pow: Math.pow, sqrt: (x) => Math.sqrt(Math.max(0, x)),
+    frac: (x) => x - Math.floor(x), signum: Math.sign, fmod: (x, y) => y ? x % y : 0, lerp: (k, a, b) => a + (b - a) * k,
+    random: (...a) => { if (!a.length) return Math.random(); const x = Math.sin(a[0] * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); },
+    between: (x, a, b) => x >= a && x <= b, equals: (x, y, e) => Math.abs(x - y) <= (e === undefined ? 1e-6 : e), in: (x, ...a) => a.some(y => y === x),
+    wrapdeg: (x) => { x %= 360; if (x >= 180) x -= 360; if (x < -180) x += 360; return x; }, wraprad: (x) => { const T = 2 * Math.PI; x %= T; if (x >= Math.PI) x -= T; if (x < -Math.PI) x += T; return x; },
+    print: (a, b, c) => c === undefined ? 0 : c, printb: (a, b, c) => c === undefined ? 0 : c,
+  },
+  canGen() { if (this._cg === undefined) { try { this._cg = new Function('return 7')() === 7; } catch (e) { this._cg = false; } } return this._cg; },
+  // expresión -> texto JS (números en n(), divisiones seguras); refs = lista de nodos usados
+  srcOf(src, M, refs) {
+    const T = this.tokens(String(src).replace(/\b(nbt|player_equipment|exists)\s*\((?:[^()]|\([^()]*\))*\)/g, '0')); let p = 0;
+    const peek = () => T[p], eat = (v) => { if (T[p] && T[p].v === v) { p++; return true; } return false; };
+    const N = (x) => 'n(' + x + ')';
+    const bin = (ops, next) => () => {
+      let a = next();
+      for (;;) {
+        const t = peek(); if (!t || t.t !== 'o' || !ops.includes(t.v)) return a; p++;
+        const b = next(), op = t.v;
+        a = op === '||' ? '(!!' + a + '||!!' + b + ')' : op === '&&' ? '(!!' + a + '&&!!' + b + ')' : op === '/' ? 'H.div(' + N(a) + ',' + b + ')' : op === '%' ? 'H.mod(' + N(a) + ',' + b + ')'
+          : op === '==' ? '(' + N(a) + '===' + N(b) + ')' : op === '!=' ? '(' + N(a) + '!==' + N(b) + ')' : '(' + N(a) + op + N(b) + ')';
+      }
+    };
+    let expr;
+    const unary = () => { if (eat('!')) return '(!' + unary() + ')'; if (eat('-')) return '(-' + N(unary()) + ')'; if (eat('+')) return unary(); return primary(); };
+    const mul = bin(['*', '/', '%'], unary), add = bin(['+', '-'], mul), cmp = bin(['<', '<=', '>', '>='], add), eq = bin(['==', '!='], cmp), and = bin(['&&'], eq), or = bin(['||'], and);
+    expr = or;
+    const ref = (part) => { let i = refs.indexOf(part); if (i < 0) { i = refs.length; refs.push(part); } return 'R[' + i + ']'; };
+    const primary = () => {
+      const t = T[p++]; if (!t) return '0';
+      if (t.t === 'n') return String(+t.v);
+      if (t.v === '(') { const e = expr(); eat(')'); return '(' + e + ')'; }
+      if (t.t === 'i') {
+        if (peek() && peek().v === '(') {
+          p++; const args = []; if (!eat(')')) { do { args.push(expr()); } while (eat(',')); eat(')'); }
+          const f = t.v.toLowerCase();
+          if (f === 'if' || f === 'ifb') { let out = '', i = 0; for (; i + 1 < args.length; i += 2) out += '(' + args[i] + ')?' + (f === 'ifb' ? '!!' : '') + '(' + args[i + 1] + '):'; return '(' + out + (i < args.length ? (f === 'ifb' ? '!!' : '') + '(' + args[i] + ')' : (f === 'ifb' ? 'false' : '0')) + ')'; }
+          if (!(f in this.H) || f === 'n' || f === 'div' || f === 'mod' || f === 'fin') return args.length ? N(args[0]) : '0';
+          return 'H.' + f + '(' + args.map(N).join(',') + ')';
+        }
+        const id = t.v;
+        if (id === 'pi') return String(Math.PI); if (id === 'true') return 'true'; if (id === 'false') return 'false';
+        if (id.startsWith('var.')) return '(v[' + JSON.stringify(id.slice(4)) + ']||0)';
+        if (id.startsWith('varb.')) return '(!!b[' + JSON.stringify(id.slice(5)) + '])';
+        const dot = id.lastIndexOf('.');
+        if (dot > 0 && this.PROPS[id.slice(dot + 1)]) { const r = ref(id.slice(0, dot)), pr = id.slice(dot + 1); return '(' + r + '?' + r + (pr === 'visible' ? '.visible' : pr === 'visible_boxes' ? '.vbox' : '.' + pr) + ':0)'; }
+        return '(g[' + JSON.stringify(id) + ']??0)';
+      }
+      return '0';
+    };
+    const e = expr(); if (p < T.length) throw new Error('resto'); return e;
+  },
+  genProg(M) {
+    if (!this.canGen()) return null;
+    try {
+      const refs = [], lines = [];
+      for (const a of M.anims) for (const k in a) {
+        const dot = k.lastIndexOf('.'); const tgt = k.slice(0, dot), prop = k.slice(dot + 1);
+        let e; try { e = this.srcOf(a[k], M, refs); } catch (er) { e = '0'; }
+        if (tgt === 'var') lines.push('v[' + JSON.stringify(prop) + ']=H.fin(' + e + ');');
+        else if (tgt === 'varb') lines.push('b[' + JSON.stringify(prop) + ']=!!(' + e + ');');
+        else if (tgt === 'render' || !this.PROPS[prop]) continue;
+        else { const r = refs.indexOf(tgt) >= 0 ? 'R[' + refs.indexOf(tgt) + ']' : (refs.push(tgt), 'R[' + (refs.length - 1) + ']'); lines.push('if(' + r + ')' + r + (prop === 'visible' ? '.visible=!!(' + e + ');' : prop === 'visible_boxes' ? '.vbox=!!(' + e + ');' : '.' + prop + '=H.fin(' + e + ');')); }
+      }
+      // en trozos pequeños: el navegador optimiza mejor funciones cortas
+      const fs = []; for (let i = 0; i < lines.length; i += 12) fs.push(new Function('c', 'H', 'R', 'const g=c.g,v=c.v,b=c.b,n=H.n;\n' + lines.slice(i, i + 12).map(l => 'try{' + l + '}catch(_){}').join('\n')));
+      const H = this.H; let R = null; const resolve = () => refs.map(id => M.byId[id] || null);
+      return (c) => { if (!R) R = resolve(); for (let i = 0; i < fs.length; i++) fs[i](c, H, R); };
+    } catch (e) { console.warn('CEM gen', M.name, e); return null; }
   },
   PROPS: { rx: 1, ry: 1, rz: 1, tx: 1, ty: 1, tz: 1, sx: 1, sy: 1, sz: 1, visible: 1, visible_boxes: 1 },
   ident(id, M) {
@@ -6165,7 +6268,7 @@ const CEM = {
     const tw = (j.textureSize && j.textureSize[0]) || 64, th = (j.textureSize && j.textureSize[1]) || 64;
     const M = { name, tw, th, top: [], byId: {}, anims: [], texture: j.texture || null };
     M.ref = (id) => { // devuelve el nodo por id (se resuelve al usarse, por si aún no existe)
-      return () => M.byId[id] || null;
+      let n = null; return () => n || (n = M.byId[id] || null);
     };
     const mk = (id) => ({ id, tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0, sx: 1, sy: 1, sz: 1, visible: true, vbox: true, kids: [], mesh: null, d: null });
     const parseNode = (el, tws, ths) => {
@@ -6260,40 +6363,60 @@ const CEM = {
     return null;
   },
   // giro del cuerpo en radianes y sin saltos de 2π (como el original), para que las animaciones no tiemblen
+  allNodes(M) { const out = []; const walk = (n) => { out.push(n); for (const k of n.kids || []) walk(k); }; for (const v of M.top) walk(v); return out; },
+  snapshot(nodes, buf) {
+    const N = nodes.length * 11; if (!buf || buf.length !== N) buf = new Float32Array(N);
+    for (let i = 0, j = 0; i < nodes.length; i++, j += 11) { const n = nodes[i]; buf[j] = n.tx; buf[j + 1] = n.ty; buf[j + 2] = n.tz; buf[j + 3] = n.rx; buf[j + 4] = n.ry; buf[j + 5] = n.rz; buf[j + 6] = n.sx; buf[j + 7] = n.sy; buf[j + 8] = n.sz; buf[j + 9] = n.visible === false ? 0 : 1; buf[j + 10] = n.vbox === false ? 0 : 1; }
+    return buf;
+  },
+  restore(nodes, b) {
+    for (let i = 0, j = 0; i < nodes.length; i++, j += 11) { const n = nodes[i]; n.tx = b[j]; n.ty = b[j + 1]; n.tz = b[j + 2]; n.rx = b[j + 3]; n.ry = b[j + 4]; n.rz = b[j + 5]; n.sx = b[j + 6]; n.sy = b[j + 7]; n.sz = b[j + 8]; n.visible = !!b[j + 9]; n.vbox = !!b[j + 10]; }
+  },
   unwrapYaw(S, a) { if (S._yaw === undefined) { S._yaw = a; S._yawRaw = a; return a; } S._yaw += wrapPI(a - S._yawRaw); S._yawRaw = a; return S._yaw; },
   tick(now) { this.frame++; this.ft = clamp((now - (this.lastT || now)) / 1000, 0.001, 0.1); this.lastT = now; },
   draw(e, M, skinTex, base, Pw, light, tint, opts) {
     const R = Renderer, gl = R.gl, pt = Game.partial;
-    // pose de serie de este juego (para las partes que el paquete no mueve)
-    const kind = e.kind || 'player'; const vm = getModel(kind); animate(kind, vm, e, pt);
-    const vby = {}; for (const p of vm.parts) { vby[this.ALIAS[p.n] || p.n] = p; }
-    for (const v of M.top) {
-      const p = vby[v.id] || vby[this.ALIAS2[v.id]];
-      if (p) { v.tx = -(p.p[0] + (p.dx || 0)); v.ty = 24 - (p.p[1] + (p.dy || 0)); v.tz = p.p[2] + (p.dz || 0); v.rx = -(p.rx || 0); v.ry = -(p.ry || 0); v.rz = p.rz || 0; }
-      else { v.tx = v.ty = v.tz = 0; v.rx = v.ry = v.rz = 0; }
-      v.sx = v.sy = v.sz = 1; v.visible = !/^(chest_left|chest_right|left_chest|right_chest|saddle|bridle|left_saddle|right_saddle|horns_left|horns_right)$/.test(v.id) || !!(vby[v.id]); v.vbox = true;
-      this.reset(v.kids);
-    }
-    // variables de la criatura
     const st = e._cem || (e._cem = {}); const S = st[M.name] || (st[M.name] = { v: {}, b: {} });
-    const P = Game.player;
-    const headYaw = lerpAngle(e.prevHeadYaw ?? e.headYaw, e.headYaw, pt) - lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt);
-    const D = 180 / Math.PI;
-    const g = {
-      limb_swing: lerp(e.prevLimb || 0, e.limb || 0, pt), limb_speed: Math.min(1, lerp(e.prevLimbAmt || 0, e.limbAmt || 0, pt)),
-      age: (e.age || 0) + pt, head_yaw: -wrapPI(headYaw) * D, head_pitch: -lerp(e.prevPitch ?? e.pitch, e.pitch, pt) * D,
-      pos_x: e.x, pos_y: e.y, pos_z: e.z, rot_x: -(e.pitch || 0), rot_y: this.unwrapYaw(S, Math.PI - lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt)),
-      is_on_ground: !!e.onGround, is_in_water: !!e.inWater, is_in_lava: !!e.inLava, is_burning: e.fire > 0, is_hurt: e.hurt > 0, hurt_time: Math.max(0, e.hurt || 0),
-      death_time: e.deathTime || 0, is_alive: !e.dead, is_child: !!e.baby, is_riding: false, is_ridden: false, is_sitting: !!e.sitting, is_tamed: !!e.tame,
-      is_aggressive: !!(e.target || e.angry), is_sneaking: !!e.sneaking, is_sprinting: !!e.sprinting, is_on_shoulder: false, is_in_ground: false, is_wet: !!e.inWater, is_glowing: false, is_invisible: false,
-      health: e.health || 0, max_health: e.maxHealth || 20, id: e.id || 0, swing_progress: e.swinging ? clamp(((e.swingTime || 0) + pt) / 6, 0, 1) : 0,
-      frame_time: this.ft, frame_counter: this.frame, time: (World.time || 0) + pt, day_time: World.time % 24000, day_count: Math.floor((World.time || 0) / 24000), dimension: World.dim === 'n' ? -1 : World.dim === 'e' ? 1 : 0,
-      is_right_handed: true, is_first_person_hand: !!(opts && opts.fp), is_in_gui: false, is_paused: false, is_jumping: !e.onGround && (e.vy || 0) > 0, is_climbing: !!(e.climbing && e.climbing()), is_swimming: false, is_gliding: !!e.gliding, is_crawling: false, is_blocking: false,
-      is_using_item: !!e.eating, is_holding_item_right: !!e.held, is_holding_item_left: false, is_swinging_right_arm: !!e.swinging, is_swinging_left_arm: false, fluid_depth_up: 0, fluid_depth_down: 0, is_spectator: e.mode === 3,
-      player_pos_x: P ? P.x : 0, player_pos_y: P ? P.y : 0, player_pos_z: P ? P.z : 0, rule_index: 0, anger_time: e.angry ? 100 : 0, move_forward: 0, move_strafing: 0,
-    };
-    const ctx = { g, v: S.v, b: S.b };
-    for (const f of M.prog) { try { f(ctx); } catch (er) { } }
+    // nivel de detalle: los lejanos recalculan la animación cada pocos fotogramas y reutilizan la pose
+    const Pl = Game.player; const dd = Pl && e !== Pl && !(opts && opts.fp) ? (e.x - Pl.x) ** 2 + (e.y - Pl.y) ** 2 + (e.z - Pl.z) ** 2 : 0;
+    const lq = typeof Perf !== 'undefined' && Perf.level >= 3 ? 2 : 1; // con el modo automático bajando calidad, más ahorro
+    const every = dd < 64 ? 1 : dd < 256 ? 2 * lq - (lq > 1 ? 1 : 0) : dd < 1024 ? 3 * lq : 4 * lq;
+    const nodes = M.all || (M.all = this.allNodes(M));
+    if (every > 1 && S.snap && S.snapM === M && this.frame - S.lastF < every && !e.hurt && !e.dead) this.restore(nodes, S.snap);
+    else {
+      // pose de serie de este juego (para las partes que el paquete no mueve)
+      const kind = e.kind || 'player'; const vm = getModel(kind); animate(kind, vm, e, pt);
+      const vby = {}; for (const p of vm.parts) { vby[this.ALIAS[p.n] || p.n] = p; }
+      for (const v of M.top) {
+        const p = vby[v.id] || vby[this.ALIAS2[v.id]];
+        if (p) { v.tx = -(p.p[0] + (p.dx || 0)); v.ty = 24 - (p.p[1] + (p.dy || 0)); v.tz = p.p[2] + (p.dz || 0); v.rx = -(p.rx || 0); v.ry = -(p.ry || 0); v.rz = p.rz || 0; }
+        else { v.tx = v.ty = v.tz = 0; v.rx = v.ry = v.rz = 0; }
+        v.sx = v.sy = v.sz = 1; v.visible = !/^(chest_left|chest_right|left_chest|right_chest|saddle|bridle|left_saddle|right_saddle|horns_left|horns_right)$/.test(v.id) || !!(vby[v.id]); v.vbox = true;
+        this.reset(v.kids);
+      }
+      // variables de la criatura
+      const P = Game.player;
+      const headYaw = lerpAngle(e.prevHeadYaw ?? e.headYaw, e.headYaw, pt) - lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt);
+      const D = 180 / Math.PI;
+      const g = {
+        limb_swing: lerp(e.prevLimb || 0, e.limb || 0, pt), limb_speed: Math.min(1, lerp(e.prevLimbAmt || 0, e.limbAmt || 0, pt)),
+        age: (e.age || 0) + pt, head_yaw: -wrapPI(headYaw) * D, head_pitch: -lerp(e.prevPitch ?? e.pitch, e.pitch, pt) * D,
+        pos_x: e.x, pos_y: e.y, pos_z: e.z, rot_x: -(e.pitch || 0), rot_y: this.unwrapYaw(S, Math.PI - lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt)),
+        is_on_ground: !!e.onGround, is_in_water: !!e.inWater, is_in_lava: !!e.inLava, is_burning: e.fire > 0, is_hurt: e.hurt > 0, hurt_time: Math.max(0, e.hurt || 0),
+        death_time: e.deathTime || 0, is_alive: !e.dead, is_child: !!e.baby, is_riding: false, is_ridden: false, is_sitting: !!e.sitting, is_tamed: !!e.tame,
+        is_aggressive: !!(e.target || e.angry), is_sneaking: !!e.sneaking, is_sprinting: !!e.sprinting, is_on_shoulder: false, is_in_ground: false, is_wet: !!e.inWater, is_glowing: false, is_invisible: false,
+        health: e.health || 0, max_health: e.maxHealth || 20, id: e.id || 0, swing_progress: e.swinging ? clamp(((e.swingTime || 0) + pt) / 6, 0, 1) : 0,
+        frame_time: this.ft, frame_counter: this.frame, time: (World.time || 0) + pt, day_time: World.time % 24000, day_count: Math.floor((World.time || 0) / 24000), dimension: World.dim === 'n' ? -1 : World.dim === 'e' ? 1 : 0,
+        is_right_handed: true, is_first_person_hand: !!(opts && opts.fp), is_in_gui: false, is_paused: false, is_jumping: !e.onGround && (e.vy || 0) > 0, is_climbing: !!(e.climbing && e.climbing()), is_swimming: false, is_gliding: !!e.gliding, is_crawling: false, is_blocking: false,
+        is_using_item: !!e.eating, is_holding_item_right: !!e.held, is_holding_item_left: false, is_swinging_right_arm: !!e.swinging, is_swinging_left_arm: false, fluid_depth_up: 0, fluid_depth_down: 0, is_spectator: e.mode === 3,
+        player_pos_x: P ? P.x : 0, player_pos_y: P ? P.y : 0, player_pos_z: P ? P.z : 0, rule_index: 0, anger_time: e.angry ? 100 : 0, move_forward: 0, move_strafing: 0,
+      };
+      const now = performance.now(); if (S.lastT) g.frame_time = clamp((now - S.lastT) / 1000, 0.001, 0.2); S.lastT = now; S.lastF = this.frame;
+      const ctx = { g, v: S.v, b: S.b };
+      if (M.fast === undefined) M.fast = window.__noGen ? null : this.genProg(M);
+      if (M.fast) M.fast(ctx); else for (const f of M.prog) { try { f(ctx); } catch (er) { } }
+      if (every > 1 || S.snap) { S.snap = this.snapshot(nodes, S.snap); S.snapM = M; }
+    }
     // dibujar
     gl.uniform2f(Pw.u.uAtlas, 1024, 1024); gl.bindTexture(gl.TEXTURE_2D, skinTex);
     gl.uniform2f(Pw.u.uLightMul, light[0], light[1]);
@@ -8001,7 +8124,7 @@ const Store = {
 
 const SETTINGS_DEFAULT = {
   fov: 70, sens: 0.5, renderDist: 7, gamma: 0.5, volume: 0.7, music: 0.4, fancy: true, clouds: true, bobbing: true, invertY: false,
-  guiScale: 0, hiRes: false, gameName: 'Picaterra', subtitle: 'HTML Edition', avatar: 'pico', particles: true, smooth: true, fpsLimit: 0, touch: 'auto',
+  guiScale: 0, hiRes: false, gameName: 'Picaterra', subtitle: 'HTML Edition', avatar: 'pico', particles: true, smooth: true, fpsLimit: 0, autoPerf: true, leaves: 'smart', touch: 'auto',
   nick: 'Jugador' + Math.floor(Math.random() * 900 + 100), musicMode: 'mix', shuffle: false, musicGap: false, packGap: 'mc',
 };
 const Settings = Object.assign({}, SETTINGS_DEFAULT);
@@ -9472,7 +9595,7 @@ const HUD = {
     const T = Game.target;
     const left = [
       `${Settings.gameName} ${Settings.subtitle} 1.0 (estilo Java)`,
-      `${this.fps} fps · ${World.chunks.size} chunks · ${Entities.list.length} entidades`,
+      `${this.fps} fps (${Perf.info()}) · ${World.chunks.size} chunks · ${Entities.list.length} entidades`,
       `Dimensión: superficie`, '',
       `XYZ: ${P.x.toFixed(3)} / ${P.y.toFixed(5)} / ${P.z.toFixed(3)}`,
       `Bloque: ${bx} ${by} ${bz}  [${bx & 15} ${by} ${bz & 15}]`,
@@ -10470,6 +10593,8 @@ const UI = {
       ['toggle', 'invertY', 'Invertir ratón', 'Sí', 'No'],
       ['toggle', 'hiRes', 'Alta resolución', 'Sí', 'No'],
       ['toggle', 'showFps', 'Mostrar FPS', 'Sí', 'No'],
+      ['toggle', 'autoPerf', 'Rendimiento automático (60 FPS)', 'Sí', 'No'],
+      ['cycle', 'leaves', 'Hojas', [['smart', 'Inteligentes'], ['fancy', 'Detalladas']]],
     ];
     for (const o of opts) {
       const row = document.createElement('div'); row.className = 'opt';
@@ -10479,6 +10604,11 @@ const UI = {
         const l = document.createElement('label'); const upd = () => l.textContent = label + ': ' + fmt(+r.value); upd();
         r.oninput = () => { Settings[k] = +r.value; upd(); saveSettings(); if (k === 'volume' || k === 'music') Sound.setVolume(); if (k === 'renderDist') Game.unloadFar && Game.unloadFar(); };
         row.appendChild(r); row.appendChild(l);
+      } else if (o[0] === 'cycle') {
+        const [, k, label, vals] = o; const b = document.createElement('button'); b.className = 'btn small';
+        const upd = () => b.textContent = label + ': ' + ((vals.find(v => v[0] === Settings[k]) || vals[0])[1]); upd();
+        b.onclick = () => { const i = vals.findIndex(v => v[0] === Settings[k]); Settings[k] = vals[(i + 1) % vals.length][0]; upd(); saveSettings(); Sound.play('click'); Game.remeshAll(); };
+        row.appendChild(b);
       } else {
         const [, k, label, on, off] = o;
         const b = document.createElement('button'); b.className = 'btn small'; const upd = () => b.textContent = label + ': ' + (Settings[k] ? on : off); upd();
@@ -10907,7 +11037,7 @@ function setupCamera() {
   let fm = 1; if (P && Game.state === 'play') { if (P.sprinting) fm *= 1.15; if (P.flying && P.mode !== 3) fm *= 1.1; if (P.usingItem && P.held && P.held.id === 'bow') fm *= 1 - Math.min(1, P.bowCharge / 20) * 0.15; if (P.eyeInWater) fm *= 0.86; }
   Cam.fovMul += (fm - Cam.fovMul) * 0.15;
   const fov = Cam.override ? Panorama.FOV : Settings.fov * Cam.fovMul * DEG;
-  const far = Math.max(260, Settings.renderDist * 16 * 1.6);
+  const far = Math.max(260, Perf.dist() * 16 * 1.6);
   M4.persp(R.proj, fov, R.W / R.H, 0.05, far);
   // tercera persona
   if (P && Game.state === 'play' && Game.cam > 0) {
@@ -10944,20 +11074,22 @@ function renderFrame() {
   const P = Game.player;
   const cam = setupCamera();
   const camBlock = World.get(Math.floor(cam.x), Math.floor(cam.y), Math.floor(cam.z));
-  Sky.update(World.time, Game.state === 'play' ? Game.partial : 0, LIQUID[camBlock] === 1, LIQUID[camBlock] === 2, Settings.renderDist);
+  Sky.update(World.time, Game.state === 'play' ? Game.partial : 0, LIQUID[camBlock] === 1, LIQUID[camBlock] === 2, Perf.dist());
   gl.clearColor(Sky.fogColor[0], Sky.fogColor[1], Sky.fogColor[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   if (!(LIQUID[camBlock])) R.drawSky(R.camRot);
   // chunks opacos
-  const vis = [];
+  const vis = []; const RDV = Perf.dist();
   for (const c of World.chunks.values()) {
-    if (!c.mesh) continue; const x0 = c.cx * 16, z0 = c.cz * 16;
+    if (!c.mesh) continue; const x0 = c.cx * 16, z0 = c.cz * 16; if (Math.max(Math.abs(c.cx - (cam.x >> 4)), Math.abs(c.cz - (cam.z >> 4))) > RDV) continue;
     if (!aabbInFrustum(R.planes, x0, 0, z0, x0 + 16, c.maxY + 2, z0 + 16)) continue;
     const d = (x0 + 8 - cam.x) ** 2 + (z0 + 8 - cam.z) ** 2; vis.push([d, c]);
   }
   vis.sort((a, b) => a[0] - b[0]);
-  const Pw = R.useWorld(0.5, 1);
   gl.disable(gl.BLEND);
-  for (const [, c] of vis) { if (!c.mesh.o) continue; M4.identity(_m); M4.translate(_m, c.cx * 16, 0, c.cz * 16); R.drawMesh(c.mesh.o, _m, Pw); }
+  const Ps = R.useWorld(0.5, 1, null, null, null, true); // macizos, de cerca a lejos
+  for (const [, c] of vis) { if (!c.mesh.o) continue; M4.identity(_m); M4.translate(_m, c.cx * 16, 0, c.cz * 16); R.drawMesh(c.mesh.o, _m, Ps); }
+  const Pw = R.useWorld(0.5, 1); // recortados (hojas, flores…)
+  for (const [, c] of vis) { if (!c.mesh.c) continue; M4.identity(_m); M4.translate(_m, c.cx * 16, 0, c.cz * 16); R.drawMesh(c.mesh.c, _m, Pw); }
   // entidades
   drawEntities(Pw, cam);
   // grietas y selección
@@ -10992,7 +11124,7 @@ function drawEntities(Pw, cam) {
   const list = [...Entities.list]; const P = Game.player;
   for (const e of list) {
     const x = lerp(e.px, e.x, pt), y = lerp(e.py, e.y, pt), z = lerp(e.pz, e.z, pt);
-    if ((x - cam.x) ** 2 + (z - cam.z) ** 2 > (Settings.renderDist * 16) ** 2) continue;
+    if ((x - cam.x) ** 2 + (z - cam.z) ** 2 > (Perf.dist() * 16) ** 2) continue;
     if (!aabbInFrustum(R.planes, x - 1.5, y - 0.5, z - 1.5, x + 1.5, y + 2.5, z + 1.5)) continue;
     const L = e.mob && e.def.glow ? [1, 1] : entLight(x, y + 0.5, z);
     if (e.mob) {
@@ -11291,7 +11423,7 @@ let lastT = performance.now(), acc = 0;
 function frame(now) {
   requestAnimationFrame(frame); CEM.tick(now);
   if (Game.state === 'play') try { TileAnim.tick(now); } catch (e) { }
-  const dt = Math.min(250, now - lastT); lastT = now;
+  const dt = Math.min(250, now - lastT); lastT = now; Perf.frame(now);
   try {
     const P = Game.player;
     Panorama.tick();
@@ -11308,7 +11440,7 @@ function frame(now) {
       Input.dx = Input.dy = 0;
       acc += dt; let n = 0; while (acc >= 50 && n < 5) { Game.tick(); acc -= 50; n++; } if (n >= 5) acc = 0;
       Game.partial = clamp(acc / 50, 0, 1);
-      Chunks.update(P.x, P.z, Settings.renderDist);
+      Chunks.update(P.x, P.z, Perf.dist());
       if (Game.state === 'loading') {
         const cx = Math.floor(P.x) >> 4, cz = Math.floor(P.z) >> 4; let ready = 0, need = 0;
         for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { need++; const c = World.chunk(cx + dx, cz + dz); if (c && c.mesh && !c.dirty) ready++; }
@@ -12893,6 +13025,43 @@ class Bullet extends Entity {
   }
   boom() { this.remove = true; Game.explode(this.x, this.y, this.z, this.g.explode); }
 }
+
+
+// ---- extra/perf118.js ----
+// ============================================================
+//  1.18: rendimiento automático. Mantiene 60 FPS bajando primero la
+//  resolución interna y luego la distancia de renderizado; cuando va
+//  sobrado, prueba a subirlas otra vez (y si vuelve a ir lento, se queda).
+// ============================================================
+const Perf = {
+  level: 0, scale: 1, cap: 99, t0: 0, n: 0, goodSince: 0, lastChange: 0, lockUntil: 0, tried: 0, fps: 60, noDownUntil: 0, down: null,
+  LEVELS: [[1, 0], [0.85, 0], [0.72, 0], [0.72, 2], [0.6, 3], [0.6, 5], [0.5, 7]], // [escala, chunks menos]
+  on() { return Settings.autoPerf !== false; },
+  dist() { const R = Settings.renderDist; return this.on() ? Math.max(Math.min(R, 4), R - this.LEVELS[this.level][1]) : R; },
+  res() { return this.on() ? this.LEVELS[this.level][0] : 1; },
+  set(l, now) { l = Math.max(0, Math.min(this.LEVELS.length - 1, l)); if (l === this.level) return; this.level = l; this.lastChange = now; this.goodSince = now; },
+  frame(now) {
+    if (!this.on() || Game.state !== 'play' || document.hidden) { this.t0 = now; this.n = 0; return; }
+    if (!this.t0) this.t0 = now; this.n++;
+    const el = now - this.t0; if (el < 1000) return;
+    const fps = this.n * 1000 / el; this.fps = fps; this.t0 = now; this.n = 0;
+    if (Gen.pending && Gen.pending.size > 6 && fps > 40) return; // generando mundo: no cuenta
+    if (fps < 56) {
+      if (now - this.lastChange > 1500 && now > this.noDownUntil) {
+        // si bajar calidad no sube los FPS, es un límite del navegador (ahorro de batería): se vuelve atrás
+        if (!this.down) this.down = { level: this.level, fps, steps: 0 };
+        else if (++this.down.steps >= 3 && fps < this.down.fps + 4) { this.set(this.down.level, now); this.down = null; this.noDownUntil = now + 120000; return; }
+        if (this.tried && now - this.tried < 4000) this.lockUntil = now + 60000; this.tried = 0; this.set(this.level + (fps < 40 ? 2 : 1), now);
+      }
+      this.goodSince = now;
+    } else if (fps >= 58.5) {
+      this.down = null;
+      if (!this.goodSince) this.goodSince = now;
+      if (this.level > 0 && now - this.goodSince > 8000 && now > this.lockUntil) { this.tried = now; this.set(this.level - 1, now); }
+    }
+  },
+  info() { return this.on() ? 'auto ' + Math.round(this.res() * 100) + '% · ' + this.dist() + ' chunks' : 'manual'; },
+};
 
 // ---------------- pieles personalizadas de las criaturas ----------------
 const MOB_PART_NAMES = { muzzle: 'Morro', udder: 'Ubre', legL0: 'Patas', jacket: 'Chaqueta', head: 'Cabeza', body: 'Cuerpo', snout: 'Hocico', leg0: 'Patas', horn1: 'Cuernos', rarm: 'Brazo derecho', larm: 'Brazo izquierdo', rleg: 'Pierna derecha', lleg: 'Pierna izquierda', beak: 'Pico', wattle: 'Barba', rwing: 'Alas', neck: 'Cuello', legR0: 'Patas' };
