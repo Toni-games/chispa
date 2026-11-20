@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.18.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.19.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -5362,7 +5362,7 @@ const Renderer = {
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, Atlas.canvas);
     // mipmaps (como Minecraft): a lo lejos se leen texturas pequeñas -> mucho más rápido y sin parpadeo
-    const lv = Math.max(0, Math.min(4, Math.round(Math.log2(Atlas.T || 16)) - 2)); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, lv);
+    const lv = Settings.mipmaps ? Math.max(0, Math.min(4, Math.round(Math.log2(Atlas.T || 16)) - 2)) : 0; gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, lv);
     if (lv > 0) { gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_NEAREST); } else gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -6380,7 +6380,7 @@ const CEM = {
     // nivel de detalle: los lejanos recalculan la animación cada pocos fotogramas y reutilizan la pose
     const Pl = Game.player; const dd = Pl && e !== Pl && !(opts && opts.fp) ? (e.x - Pl.x) ** 2 + (e.y - Pl.y) ** 2 + (e.z - Pl.z) ** 2 : 0;
     const lq = typeof Perf !== 'undefined' && Perf.level >= 3 ? 2 : 1; // con el modo automático bajando calidad, más ahorro
-    const every = dd < 64 ? 1 : dd < 256 ? 2 * lq - (lq > 1 ? 1 : 0) : dd < 1024 ? 3 * lq : 4 * lq;
+    const every = !Settings.autoPerf ? 1 : dd < 64 ? 1 : dd < 256 ? 2 * lq - (lq > 1 ? 1 : 0) : dd < 1024 ? 3 * lq : 4 * lq;
     const nodes = M.all || (M.all = this.allNodes(M));
     if (every > 1 && S.snap && S.snapM === M && this.frame - S.lastF < every && !e.hurt && !e.dead) this.restore(nodes, S.snap);
     else {
@@ -8124,7 +8124,7 @@ const Store = {
 
 const SETTINGS_DEFAULT = {
   fov: 70, sens: 0.5, renderDist: 7, gamma: 0.5, volume: 0.7, music: 0.4, fancy: true, clouds: true, bobbing: true, invertY: false,
-  guiScale: 0, hiRes: false, gameName: 'Picaterra', subtitle: 'HTML Edition', avatar: 'pico', particles: true, smooth: true, fpsLimit: 0, autoPerf: true, leaves: 'smart', touch: 'auto',
+  guiScale: 0, hiRes: false, gameName: 'Picaterra', subtitle: 'HTML Edition', avatar: 'pico', particles: true, smooth: true, fpsLimit: 0, autoPerf: false, leaves: 'fancy', mipmaps: false, fpArmItem: true, touch: 'auto',
   nick: 'Jugador' + Math.floor(Math.random() * 900 + 100), musicMode: 'mix', shuffle: false, musicGap: false, packGap: 'mc',
 };
 const Settings = Object.assign({}, SETTINGS_DEFAULT);
@@ -10594,7 +10594,9 @@ const UI = {
       ['toggle', 'hiRes', 'Alta resolución', 'Sí', 'No'],
       ['toggle', 'showFps', 'Mostrar FPS', 'Sí', 'No'],
       ['toggle', 'autoPerf', 'Rendimiento automático (60 FPS)', 'Sí', 'No'],
-      ['cycle', 'leaves', 'Hojas', [['smart', 'Inteligentes'], ['fancy', 'Detalladas']]],
+      ['cycle', 'leaves', 'Hojas', [['fancy', 'Detalladas'], ['smart', 'Inteligentes (más FPS)']]],
+      ['toggle', 'fpArmItem', 'Brazo con el objeto (1ª persona)', 'Sí', 'No'],
+      ['toggle', 'mipmaps', 'Mipmaps (más FPS con packs HD)', 'Sí', 'No'],
     ];
     for (const o of opts) {
       const row = document.createElement('div'); row.className = 'opt';
@@ -10612,7 +10614,7 @@ const UI = {
       } else {
         const [, k, label, on, off] = o;
         const b = document.createElement('button'); b.className = 'btn small'; const upd = () => b.textContent = label + ': ' + (Settings[k] ? on : off); upd();
-        b.onclick = () => { Settings[k] = !Settings[k]; upd(); saveSettings(); Sound.play('click'); if (k === 'fancy') Game.remeshAll(); };
+        b.onclick = () => { Settings[k] = !Settings[k]; upd(); saveSettings(); Sound.play('click'); if (k === 'fancy') Game.remeshAll(); if (k === 'mipmaps') { Renderer.uploadAtlas(); Renderer.atlasTex && 0; } };
         row.appendChild(b);
       }
       box.appendChild(row);
@@ -11232,16 +11234,20 @@ function drawPlayerModel(Pw, P) {
   const st = P.held; if (!st) return;
   gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
   const mesh = ItemMeshes.get(st.id);
-  PMX('rarm');
+  PMX('rarm'); drawItemOnArm(_m2, st, mesh, Pw);
+}
+// objeto colocado en la mano a partir de la matriz del brazo (tercera persona y primera persona con brazo animado)
+function drawItemOnArm(_m2, st, mesh, Pw) {
+  const R = Renderer, gl = R.gl;
   const jd3 = mesh.jm && JM.item[st.id] && JM.item[st.id].display && JM.item[st.id].display.thirdperson_righthand;
-  if (jd3 && ITEMS[st.id] && ITEMS[st.id].gun) { // como Minecraft: brazo -> mano -> presentación del modelo
+  if (jd3 && ITEMS[st.id] && ITEMS[st.id].gun) {
     M4.translate(_m2, 1 / 16, -9.5 / 16, -1 / 16); M4.translate(_m2, 0, 0.05, 0); M4.rotY(_m2, 90 * DEG); const SS = (jd3.scale && jd3.scale[0]) || 0.5; M4.scale(_m2, SS, SS, SS);
     gl.disable(gl.CULL_FACE); R.drawMesh(mesh, _m2, Pw); gl.enable(gl.CULL_FACE); return;
   }
   M4.translate(_m2, 1 / 16, -9.5 / 16, -1 / 16);
-  if (mesh.sprite) { M4.rotX(_m2, -Math.PI / 2 + 0.3); M4.rotY(_m2, Math.PI / 2); M4.rotZ(_m2, Math.PI / 4 * 0); M4.translate(_m2, 0, 0.15, 0); M4.scale(_m2, 0.6, 0.6, 0.6); }
+  if (mesh.sprite) { M4.rotX(_m2, -Math.PI / 2 + 0.3); M4.rotY(_m2, Math.PI / 2); M4.translate(_m2, 0, 0.15, 0); M4.scale(_m2, 0.6, 0.6, 0.6); }
   else { M4.translate(_m2, 0, -0.05, -0.08); M4.rotX(_m2, 0.4); M4.rotY(_m2, Math.PI / 4); M4.scale(_m2, 0.3, 0.3, 0.3); }
-  R.drawMesh(mesh, _m2, Pw);
+  gl.disable(gl.CULL_FACE); R.drawMesh(mesh, _m2, Pw); gl.enable(gl.CULL_FACE);
 }
 function drawRemote(Pw, r) {
   const R = Renderer, gl = R.gl;
@@ -11285,7 +11291,10 @@ function drawHand() {
   M4.rotX(M, (Input.handLagY || 0)); M4.rotY(M, (Input.handLagX || 0));
   // misma cadena de transformaciones que el juego original (mano derecha, campo de visión fijo de 70°)
   const sq = Math.sqrt(swing), PI = Math.PI;
-  if (!st) {
+  // con el paquete de animaciones del jugador: en primera persona se ve el brazo sujetando el objeto
+  const cmHold = st && Settings.fpArmItem !== false && CEM.enabled && CEM.count() ? (CEM.get(Skins.slim ? 'player_slim' : 'player') || CEM.get('player')) : null;
+  const holdFP = !!(cmHold && !P.usingItem && ITEMS[st.id] && !ITEMS[st.id].gun && !/map$/.test(st.id));
+  if (!st || holdFP) {
     // brazo vacío
     gl.disable(gl.CULL_FACE);
     const f2 = -0.3 * Math.sin(sq * PI), f3 = 0.4 * Math.sin(sq * PI * 2), f4 = -0.4 * Math.sin(swing * PI);
@@ -11302,7 +11311,12 @@ function drawHand() {
     const cmFP = CEM.enabled && CEM.count() ? (CEM.get(Skins.slim ? 'player_slim' : 'player') || CEM.get('player')) : null;
     if (cmFP) { // brazo animado del paquete (Fresh Animations Player): posición de serie del brazo = (-5, 2, 0)
       M4.translate(M, -arm.p[0] / 16, -arm.p[1] / 16, -arm.p[2] / 16);
+      const capPrev = CEM.cap; if (holdFP) CEM.cap = {};
       CEM.draw(P, cmFP, tex, M, Pw, L, null, { fp: true, only: ['right_arm', 'right_sleeve'] });
+      if (holdFP) {
+        const am = CEM.cap.right_arm; CEM.cap = capPrev;
+        if (am) { gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0); const am2 = M4.copy(new Float32Array(16), am); const o = [0, -0.04, -0.12]; M4.translate(am2, o[0], o[1], o[2]); drawItemOnArm(am2, st, ItemMeshes.get(st.id), Pw); }
+      } else CEM.cap = capPrev;
     } else { R.drawMesh(arm.mesh, M, Pw); if (m.by.rsleeve) R.drawMesh(m.by.rsleeve.mesh, M, Pw); }
     gl.enable(gl.CULL_FACE);
     return;
@@ -13062,6 +13076,9 @@ const Perf = {
   },
   info() { return this.on() ? 'auto ' + Math.round(this.res() * 100) + '% · ' + this.dist() + ' chunks' : 'manual'; },
 };
+
+// 1.19: vuelve el aspecto de antes (las opciones de rendimiento quedan apagadas; se pueden encender en Opciones)
+if (!Settings.v119) { Settings.v119 = true; Settings.autoPerf = false; Settings.leaves = 'fancy'; Settings.mipmaps = false; try { saveSettings(); } catch (e) { } }
 
 // ---------------- pieles personalizadas de las criaturas ----------------
 const MOB_PART_NAMES = { muzzle: 'Morro', udder: 'Ubre', legL0: 'Patas', jacket: 'Chaqueta', head: 'Cabeza', body: 'Cuerpo', snout: 'Hocico', leg0: 'Patas', horn1: 'Cuernos', rarm: 'Brazo derecho', larm: 'Brazo izquierdo', rleg: 'Pierna derecha', lleg: 'Pierna izquierda', beak: 'Pico', wattle: 'Barba', rwing: 'Alas', neck: 'Cuello', legR0: 'Patas' };

@@ -1,8 +1,19 @@
 {
-  "latest": "1.18.0",
+  "latest": "1.19.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.19.0",
+      "date": "2026-11-20",
+      "title": "Brazo con objeto",
+      "notes": [
+        "Con el paquete de animaciones del jugador, en primera persona se ve el brazo sujetando el objeto bien colocado",
+        "El aspecto vuelve a ser el de antes; las opciones de rendimiento quedan apagadas (se pueden activar en Opciones)"
+      ],
+      "size": 313090,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.19.0.zip"
+    },
     {
       "id": "1.18.0",
       "date": "2026-11-20",
