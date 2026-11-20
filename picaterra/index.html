@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.19.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.19.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -4894,6 +4894,7 @@ const Mesher = {
   },
   splitCut(O) {
     if (!O.q) return { o: null, oq: 0, c: null, cq: 0 };
+    if (!Settings.autoPerf) return { o: O.slice(), oq: O.q, c: null, cq: 0 }; // como antes: todo junto
     const u8 = O.slice(), u16 = new Uint16Array(u8.buffer), n = O.q, TS = Atlas.T * ASUB;
     const cut = new Uint8Array(n); let nc = 0;
     for (let q = 0; q < n; q++) { const b = q * 40 + 4; const u = (u16[b] + u16[b + 10] + u16[b + 20] + u16[b + 30]) / 4, v = (u16[b + 1] + u16[b + 11] + u16[b + 21] + u16[b + 31]) / 4; if (this.tileCut(Math.floor(u / TS), Math.floor(v / TS))) { cut[q] = 1; nc++; } }
@@ -6413,8 +6414,8 @@ const CEM = {
       };
       const now = performance.now(); if (S.lastT) g.frame_time = clamp((now - S.lastT) / 1000, 0.001, 0.2); S.lastT = now; S.lastF = this.frame;
       const ctx = { g, v: S.v, b: S.b };
-      if (M.fast === undefined) M.fast = window.__noGen ? null : this.genProg(M);
-      if (M.fast) M.fast(ctx); else for (const f of M.prog) { try { f(ctx); } catch (er) { } }
+      if (Settings.autoPerf && M.fast === undefined) M.fast = this.genProg(M);
+      if (Settings.autoPerf && M.fast) M.fast(ctx); else for (const f of M.prog) { try { f(ctx); } catch (er) { } }
       if (every > 1 || S.snap) { S.snap = this.snapshot(nodes, S.snap); S.snapM = M; }
     }
     // dibujar
@@ -10593,7 +10594,7 @@ const UI = {
       ['toggle', 'invertY', 'Invertir ratón', 'Sí', 'No'],
       ['toggle', 'hiRes', 'Alta resolución', 'Sí', 'No'],
       ['toggle', 'showFps', 'Mostrar FPS', 'Sí', 'No'],
-      ['toggle', 'autoPerf', 'Rendimiento automático (60 FPS)', 'Sí', 'No'],
+      ['toggle', 'autoPerf', 'Modo rendimiento (60 FPS)', 'Sí', 'No'],
       ['cycle', 'leaves', 'Hojas', [['fancy', 'Detalladas'], ['smart', 'Inteligentes (más FPS)']]],
       ['toggle', 'fpArmItem', 'Brazo con el objeto (1ª persona)', 'Sí', 'No'],
       ['toggle', 'mipmaps', 'Mipmaps (más FPS con packs HD)', 'Sí', 'No'],
@@ -10614,7 +10615,7 @@ const UI = {
       } else {
         const [, k, label, on, off] = o;
         const b = document.createElement('button'); b.className = 'btn small'; const upd = () => b.textContent = label + ': ' + (Settings[k] ? on : off); upd();
-        b.onclick = () => { Settings[k] = !Settings[k]; upd(); saveSettings(); Sound.play('click'); if (k === 'fancy') Game.remeshAll(); if (k === 'mipmaps') { Renderer.uploadAtlas(); Renderer.atlasTex && 0; } };
+        b.onclick = () => { Settings[k] = !Settings[k]; upd(); saveSettings(); Sound.play('click'); if (k === 'fancy') Game.remeshAll(); if (k === 'mipmaps') Renderer.uploadAtlas(); if (k === 'autoPerf') Game.remeshAll(); };
         row.appendChild(b);
       }
       box.appendChild(row);
@@ -11088,7 +11089,7 @@ function renderFrame() {
   }
   vis.sort((a, b) => a[0] - b[0]);
   gl.disable(gl.BLEND);
-  const Ps = R.useWorld(0.5, 1, null, null, null, true); // macizos, de cerca a lejos
+  const Ps = R.useWorld(0.5, 1, null, null, null, !!Settings.autoPerf); // macizos (sin recorte solo en modo rendimiento)
   for (const [, c] of vis) { if (!c.mesh.o) continue; M4.identity(_m); M4.translate(_m, c.cx * 16, 0, c.cz * 16); R.drawMesh(c.mesh.o, _m, Ps); }
   const Pw = R.useWorld(0.5, 1); // recortados (hojas, flores…)
   for (const [, c] of vis) { if (!c.mesh.c) continue; M4.identity(_m); M4.translate(_m, c.cx * 16, 0, c.cz * 16); R.drawMesh(c.mesh.c, _m, Pw); }

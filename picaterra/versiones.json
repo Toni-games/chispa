@@ -1,8 +1,18 @@
 {
-  "latest": "1.19.0",
+  "latest": "1.19.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.19.1",
+      "date": "2026-11-20",
+      "title": "Mundo como antes",
+      "notes": [
+        "El dibujado del mundo y de los mobs vuelve a ser exactamente el de antes; todo lo de rendimiento queda en el «Modo rendimiento» de Opciones (apagado)"
+      ],
+      "size": 313121,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.19.1.zip"
+    },
     {
       "id": "1.19.0",
       "date": "2026-11-20",
