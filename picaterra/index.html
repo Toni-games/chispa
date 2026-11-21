@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.19.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.20.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -6792,6 +6792,7 @@ class Player extends Entity {
     // recoger objetos
     if (!spect) for (const e of Entities.list) {
       if (e.type !== 'item' || e.pickupDelay > 0 || e.dead) continue;
+      if (e.mirror) { if (Math.abs(e.x - this.x) < 1.3 && Math.abs(e.z - this.z) < 1.3 && e.y > this.y - 0.8 && e.y < this.y + 2.2 && performance.now() - (e.pickReq || 0) > 700) { e.pickReq = performance.now(); NetSync.toHost({ t: 'pick', id: e.nid }); } continue; }
       if (Math.abs(e.x - this.x) < 1.3 && Math.abs(e.z - this.z) < 1.3 && e.y > this.y - 0.8 && e.y < this.y + 2.2) {
         const left = this.give(e.item.id, e.item.n, e.item.d);
         if (left < e.item.n) { Sound.play('pop'); e.pickedBy = this; e.pickT = 0; if (left > 0) { e.item.n = left; e.pickedBy = null; } else e.dead = true; if (!e.pickedBy) Particles.pickup(e, this); else Particles.pickup(e, this); }
@@ -7836,6 +7837,7 @@ class Arrow extends Entity {
           Sound.play('arrow_hit'); this.remove = true; return;
         }
       }
+      if (NetSync.arrowHits(this, nx, ny, nz, Math.ceil(Math.hypot(this.vx, this.vy, this.vz) * this.dmgK))) { Sound.play('arrow_hit'); this.remove = true; return; }
       const bx = Math.floor(nx), by = Math.floor(ny), bz = Math.floor(nz);
       const id = World.get(bx, by, bz);
       if (SOLID[id] && !REPLACE[id]) { this.stuck = true; this.sx = bx; this.sy = by; this.sz = bz; Sound.play('arrow_hit'); if (id === B.tnt) {} break; }
@@ -8601,10 +8603,10 @@ const Game = {
       if (World.tickCount % 2 === 0) Maps.tick(P);
       this.furnaceTick();
       for (const e of Entities.list) { if (!World.loaded(Math.floor(e.x), Math.floor(e.z)) && e.type !== 'arrow') { e.savePrev(); continue; } }
-      Entities.list.forEach(e => { if (World.loaded(Math.floor(e.x), Math.floor(e.z))) e.tick(); });
+      Entities.list.forEach(e => { if (e.mirror || World.loaded(Math.floor(e.x), Math.floor(e.z))) NetSync.tickEntity(e); });
       Entities.list = Entities.list.filter(e => !e.remove);
       Particles.tick();
-      if (World.tickCount % 20 === 0) Entities.spawnTick();
+      if (World.tickCount % 20 === 0 && !NetSync.guest()) { Entities.spawnTick(); NetSync.spawnAround(); }
       this.ambientTick();
       if (++this.autosaveT >= 20 * 45) { this.autosaveT = 0; this.save(true); }
       if (P.sleeping) { P.sleeping++; if (P.sleeping > 100) { World.time = 0; World.day++; P.sleeping = 0; Chat.add('§7Buenos días.'); UI.sleepFade = 0; if (P.bed) { P.y = P.bed.y + 0.6; P.savePrev(); } P.bed = null; } }
@@ -8759,6 +8761,8 @@ const Game = {
   },
   use() {
     const P = this.player; const T = this.target; const held = P.held; const it = held && ITEMS[held.id];
+    // dar el objeto de la mano a un amigo (clic derecho mirándole)
+    if (held && NetSync.full() && Net.started) { const rr = NetSync.lookAtRemote(4); if (rr) { NetSync.give(rr); this.useCD = 8; return; } }
     // dar de comer a un animal (cría)
     const fe = this.targetEnt; if (fe && fe.mob && fe.interact && fe.interact(P, held)) { P.swinging = true; P.swingTime = 0; return; }
     if (fe && fe.mob && fe.feed && held && fe.feed(P, held)) { P.swinging = true; P.swingTime = 0; return; }
@@ -9055,6 +9059,7 @@ const Game = {
     }
   },
   furnaceTick() {
+    if (NetSync.guest()) return; // los hornos los cocina el anfitrión
     for (const [k, be] of World.blockEnts) {
       if (be.type !== 'furnace') continue;
       const [x, y, z] = k.split(',').map(Number); if (!World.loaded(x, z)) continue;
@@ -9884,8 +9889,9 @@ const GUI = {
       const k = T.x + ',' + T.y + ',' + T.z; let be = World.blockEnts.get(k);
       const bd = BLOCKS[World.get(T.x, T.y, T.z)]; this.title = bd ? bd.name : 'Cofre';
       if (!be) { be = type === 'furnace' ? { type: 'furnace', slots: [null, null, null], burn: 0, burnMax: 0, cook: 0, xp: 0 } : { type: 'chest', slots: new Array((bd && bd.slots) || 27).fill(null) }; World.blockEnts.set(k, be); }
-      if (type === 'chest') { const m = World.getMeta(T.x, T.y, T.z); if (m & 0x10) { this.fillLoot(be, (m >> 5) & 7); World.set(T.x, T.y, T.z, B.chest, m & 3, 3); } }
+      if (type === 'chest' && !NetSync.guest()) { const m = World.getMeta(T.x, T.y, T.z); if (m & 0x10) { this.fillLoot(be, (m >> 5) & 7); World.set(T.x, T.y, T.z, B.chest, m & 3, 3); } }
       this.be = be;
+      if (NetSync.guest()) { be._ns = NetSync.beStr(be); NetSync.toHost({ t: 'beq', k }); } // el contenido de verdad lo tiene el anfitrión
     }
     this.result = null; Input.unlock(true);
   },
@@ -10934,16 +10940,17 @@ const Chunks = {
   update(fx, fz, R) {
     const t0 = performance.now();
     const pcx = Math.floor(fx) >> 4, pcz = Math.floor(fz) >> 4;
+    const anc = NetSync.anchors(); // el anfitrión también carga el mundo alrededor de sus amigos
     // recibir resultados
     while (Gen.results.length && performance.now() - t0 < 7) {
       const r = Gen.results.shift(); const k = ckey(r.cx, r.cz); Gen.pending.delete(k);
       if (r.gen !== Gen.gen || World.chunks.has(k)) continue;
-      if (Math.max(Math.abs(r.cx - pcx), Math.abs(r.cz - pcz)) > R + 3) continue;
+      if (Math.max(Math.abs(r.cx - pcx), Math.abs(r.cz - pcz)) > R + 3 && !(anc && anc.some(a => Math.max(Math.abs(r.cx - a[0]), Math.abs(r.cz - a[1])) <= 6))) continue;
       const c = new Chunk(r.cx, r.cz); c.blocks = r.blocks; c.meta = r.meta; c.biomes = r.biomes; c.state = 1;
       const ed = World.edits.get(k); if (ed) for (const [i, v] of ed) { const id = EID(v); c.blocks[i] = id < NB ? id : 0; c.meta[i] = EMETA(v); }
       World.chunks.set(k, c); World._lcx = 1e9;
       World.initLight(c);
-      if (Game.state !== 'title' && !World.generated.has(k)) { World.generated.add(k); Entities.spawnAnimalsInChunk(c); }
+      if (Game.state !== 'title' && !World.generated.has(k)) { World.generated.add(k); if (!NetSync.guest()) Entities.spawnAnimalsInChunk(c); }
       // reprogramar fluidos editados
       if (ed) for (const [i] of ed) { const id = c.blocks[i]; if (LIQUID[id]) World.schedule(c.cx * 16 + (i & 15), i >> 8, c.cz * 16 + ((i >> 4) & 15), 10); }
     }
@@ -10957,6 +10964,10 @@ const Chunks = {
         if (!Gen.canRequest()) break outer;
         Gen.request(cx, cz); if (++req > (Gen.noWorkers ? 1 : 8)) break outer;
       }
+    }
+    if (anc && req <= 4) outer2: for (const [ax, az] of anc) for (let r = 0; r <= 4; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; const k = ckey(ax + dx, az + dz);
+      if (World.chunks.has(k) || Gen.pending.has(k)) continue; if (!Gen.canRequest()) break outer2; Gen.request(ax + dx, az + dz); if (++req > 8) break outer2;
     }
     // mallas
     const cand = [];
@@ -10974,7 +10985,7 @@ const Chunks = {
     }
     // descargar lejanos
     if (World.tickCount % 40 === 0 || Math.random() < 0.02) for (const [k, c] of World.chunks) {
-      if (Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz)) > R + 3) { Renderer.freeMesh(c.mesh); World.chunks.delete(k); World._lcx = 1e9; }
+      if (Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz)) > R + 3 && !(anc && anc.some(a => Math.max(Math.abs(c.cx - a[0]), Math.abs(c.cz - a[1])) <= 7))) { Renderer.freeMesh(c.mesh); World.chunks.delete(k); World._lcx = 1e9; }
     }
   },
 };
@@ -11204,16 +11215,16 @@ function drawEntities(Pw, cam) {
 }
 const MobSkins = { c: {}, base(k) { return this.c[k] || (this.c[k] = mobSkin(k)); }, get(k) { return MobTex.get(k); } };
 const AvatarSkins = { c: {}, get(id) { const a = AVATARS.find(a => a.id === id) || AVATARS[0]; return this.c[a.id] || (this.c[a.id] = makeAvatarSkin(a)); } };
-function drawPlayerModel(Pw, P) {
+function drawPlayerModel(Pw, P, skin) {
   const R = Renderer, gl = R.gl; const pt = Game.partial;
   const x = lerp(P.px, P.x, pt), y = lerp(P.py, P.y, pt), z = lerp(P.pz, P.z, pt);
   const L = entLight(x, y + 1, z);
-  const tex = R.skinTexture('player', Skins.canvas);
+  const tex = skin ? skin.tex : R.skinTexture('player', Skins.canvas); const slim = skin ? skin.slim : Skins.slim;
   M4.identity(_m); M4.translate(_m, x, y, z); M4.rotY(_m, lerpAngle(P.prevBodyYaw ?? P.bodyYaw, P.bodyYaw, pt));
   if (P.sleeping && P.bed) { const D = P.bed.d; M4.identity(_m); M4.translate(_m, P.bed.x + 0.5 - D[0] * 1.45, P.bed.y + 0.5625 + 0.1, P.bed.z + 0.5 - D[1] * 1.45); M4.rotY(_m, Math.atan2(D[0], D[1])); M4.rotX(_m, Math.PI / 2); }
   if (P.dead) M4.rotZ(_m, Math.min(1, Math.sqrt((P.deathTime + pt) / 20)) * Math.PI / 2);
   M4.scale(_m, 0.9375, 0.9375, 0.9375);
-  const cm = CEM.enabled && CEM.count() ? (CEM.get(Skins.slim ? 'player_slim' : 'player') || CEM.get('player')) : null;
+  const cm = CEM.enabled && CEM.count() ? (CEM.get(slim ? 'player_slim' : 'player') || CEM.get('player')) : null;
   let m = null; CEM.cap = null;
   if (cm) { CEM.cap = {}; CEM.draw(P, cm, tex, _m, Pw, L, P.hurt > 0 || P.dead ? [1, 0, 0, 0.4] : null); }
   else m = drawModel('player', P, tex, _m, Pw, L, P.hurt > 0 || P.dead ? [1, 0, 0, 0.4] : null);
@@ -11251,18 +11262,14 @@ function drawItemOnArm(_m2, st, mesh, Pw) {
   gl.disable(gl.CULL_FACE); R.drawMesh(mesh, _m2, Pw); gl.enable(gl.CULL_FACE);
 }
 function drawRemote(Pw, r) {
-  const R = Renderer, gl = R.gl;
-  const L = entLight(r.x, r.y + 1, r.z);
-  M4.identity(_m); M4.translate(_m, r.x, r.y, r.z); M4.rotY(_m, r.bodyYaw || 0); if (r.dead) M4.rotZ(_m, Math.PI / 2); M4.scale(_m, 0.9375, 0.9375, 0.9375);
-  const e = { limb: r.limb, prevLimb: r.limb, limbAmt: r.limbAmt, prevLimbAmt: r.limbAmt, headYaw: r.headYaw, bodyYaw: r.bodyYaw, pitch: r.pitch, age: r.age, sneaking: r.sneaking, swinging: r.swinging, swingTime: r.swingTime, holding: r.holding, flying: r.flying };
-  const m = drawModel('player', e, R.skinTexture('av_' + r.av, AvatarSkins.get(r.av)), _m, Pw, L, null);
-  if (r.held) {
-    gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
-    const mesh = ItemMeshes.get(r.held); partMatrix(_m2, _m, m.by.rarm); M4.translate(_m2, 1 / 16, -9.5 / 16, -1 / 16);
-    if (mesh.sprite) { M4.rotX(_m2, -Math.PI / 2 + 0.3); M4.rotY(_m2, Math.PI / 2); M4.translate(_m2, 0, 0.15, 0); M4.scale(_m2, 0.6, 0.6, 0.6); }
-    else { M4.translate(_m2, 0, -0.05, -0.08); M4.rotX(_m2, 0.4); M4.rotY(_m2, Math.PI / 4); M4.scale(_m2, 0.3, 0.3, 0.3); }
-    R.drawMesh(mesh, _m2, Pw);
-  }
+  const R = Renderer; const sk = NetSync.skinOf(r);
+  const tex = sk ? R.skinTexture('rs_' + r.pid + '_' + sk.v, sk.canvas) : R.skinTexture('av_' + r.av, AvatarSkins.get(r.av));
+  const V = r.view || (r.view = { type: 'player', mob: false, eye: 1.62, w: 0.6, h: 1.8, health: 20, maxHealth: 20 });
+  const arm = (r.armorIds || []).map(id => id && ITEMS[id] ? { id, n: 1 } : null); while (arm.length < 4) arm.push(null);
+  Object.assign(V, { x: r.x, y: r.y, z: r.z, px: r.x, py: r.y, pz: r.z, yaw: r.yaw, headYaw: r.headYaw ?? r.yaw, pitch: r.pitch, bodyYaw: r.bodyYaw, prevBodyYaw: r.bodyYaw,
+    limb: r.limb, prevLimb: r.limb, limbAmt: r.limbAmt, prevLimbAmt: r.limbAmt, age: r.age, sneaking: r.sneaking, swinging: r.swinging, swingTime: r.swingTime, holding: !!r.held,
+    flying: r.flying, onGround: !r.flying, dead: r.dead, deathTime: r.dead ? 20 : 0, hurt: 0, sleeping: 0, armor: arm, held: r.held ? { id: r.held, n: 1 } : null, vx: 0, vy: 0, vz: 0 });
+  drawPlayerModel(Pw, V, { tex, slim: sk ? sk.slim : false });
 }
 function drawNameTags(cam) {
   if (!Net.active || !Net.remote.size) return; const R = Renderer, gl = R.gl; const V = R.view; const rx = [V[0], V[4], V[8]], uy = [V[1], V[5], V[9]];
@@ -11538,7 +11545,7 @@ boot();
 //   · «internet» → launcher o versión web: WebRTC con PeerJS (sin servidor propio).
 //   · «local»    → pestañas del mismo navegador (BroadcastChannel), para probar.
 // ============================================================
-const NET_VER = 3;
+const NET_VER = 4;
 const B36 = (n) => Math.trunc(n).toString(36);
 const NET_ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 function netCode() { let s = ''; for (let i = 0; i < 5; i++) s += NET_ALPHA[Math.floor(Math.random() * NET_ALPHA.length)]; return s; }
@@ -11596,6 +11603,7 @@ const PeerLink = {
     peer.on('error', (e) => console.warn('PeerJS', e && e.type));
     return {
       send(id, m) { const c = conns.get(id); if (c && c.open) { try { c.send(m); } catch (e) { } } },
+      buffered(id) { const c = conns.get(id); try { return c && c.dataChannel ? c.dataChannel.bufferedAmount + (c._buffer ? c._buffer.length * 16384 : 0) : 0; } catch (e) { return 0; } },
       close() { try { peer.destroy(); } catch (e) { } },
     };
   },
@@ -11708,6 +11716,11 @@ const Net = {
     if (this.mode !== 'room') this.startLocalLobby();
     this.ready = true; this.refreshUI();
     window.addEventListener('pagehide', () => { try { this.leave(); } catch (e) { } });
+    // volver a entrar en la partida después de instalar los mods del amigo; o devolver los míos si se cerró a medias
+    const rj = sessionStorage.getItem('mpRejoin');
+    if (rj) { sessionStorage.removeItem('mpRejoin'); setTimeout(() => { UI.show('multi'); this.join(rj); }, 800); }
+    else if (await NetSync.restore().catch(() => false)) { sessionStorage.setItem('mpRestored', '1'); location.reload(); return; }
+    if (sessionStorage.getItem('mpRestored')) { sessionStorage.removeItem('mpRestored'); setTimeout(() => { try { Chat.add('§7Se han vuelto a poner tus mods y paquetes.'); } catch (e) { } }, 3000); }
   },
   roomFailed(e) {
     const code = (e && e.code) || 'upstream_error';
@@ -11823,9 +11836,9 @@ const Net = {
         this.linkC = await this.link.join(code, { data: (m) => this.cData(m), close: () => this.cClose() });
         if (!this.active) { try { this.linkC.close(); } catch (e) { } return; }
         UI.setLoading('Recibiendo el mundo de tu amigo…', 0.3);
-        this.linkC.send({ t: 'hi', v: NET_VER, gv: GAME_VERSION, pid: this.pid, n: this.name(), av: this.avatar() });
+        this.linkC.send({ t: 'hi', v: NET_VER, gv: GAME_VERSION, pid: this.pid, n: this.name(), av: this.avatar(), sk: NetSync.mySkin() });
         const t0 = performance.now();
-        while (this.active && !this.started && performance.now() - t0 < 30000) await new Promise(r => setTimeout(r, 150));
+        while (this.active && !this.started && (performance.now() - t0 < 30000 || NetSync.packBusy)) await new Promise(r => setTimeout(r, 150));
         if (!this.active) return;
         if (!this.started) return fail('Tu amigo no ha mandado el mundo. Inténtalo otra vez.');
       }
@@ -11848,6 +11861,7 @@ const Net = {
     if (Array.isArray(w.sp) && w.sp.length === 3 && w.sp.every(v => typeof v === 'number' && isFinite(v))) { World.spawn = w.sp; Game.player.x = w.sp[0] + 0.5; Game.player.z = w.sp[2] + 0.5; Game.player.y = w.sp[1]; }
     this.started = true;
     for (const d of this.queued) this.applyArr(d); this.queued = [];
+    if (NetSync.pendingBE) { for (const [k, v] of NetSync.pendingBE) NetSync.beApply(k, v); NetSync.pendingBE = null; }
     Chat.add('§aTe has unido a la partida de ' + cleanName(w.hn) + '.');
   },
   leave() {
@@ -11862,7 +11876,9 @@ const Net = {
     if (this.linkH) { for (const id of this.clients.keys()) this.linkH.send(id, { t: 'bye' }); const l = this.linkH; setTimeout(() => l.close(), 200); }
     if (this.linkC) { try { this.linkC.close(); } catch (e) { } }
     if (wasHost && this.lobbyBC) { try { this.lobbyBC.postMessage({ pid: this.pid, gone: 1 }); } catch (e) { } }
-    this.reset();
+    const wasGuest = !wasHost && this.mode !== 'room';
+    this.reset(); NetSync.reset();
+    if (wasGuest) NetSync.restore().then(ok => { if (ok) { sessionStorage.setItem('mpRestored', '1'); setTimeout(() => location.reload(), 400); } });
   },
   kicked(why) {
     const inGame = Game.state === 'play' || Game.state === 'loading';
@@ -11874,7 +11890,7 @@ const Net = {
   },
 
   // ---------- jugadores remotos ----------
-  upd(pid, n, av, p, f, h, quiet) {
+  upd(pid, n, av, p, f, h, quiet, a) {
     let r = this.remote.get(pid);
     if (!r) {
       r = { pid, lastSeq: -1, chatSeq: -1, x: 0, y: 0, z: 0, tx: 0, ty: 0, tz: 0, yaw: 0, pitch: 0, bodyYaw: 0, limb: 0, limbAmt: 0, age: 0, n: 'Jugador', av: 'pico', flags: 0 };
@@ -11888,6 +11904,7 @@ const Net = {
       if (!r.placed) { r.x = r.tx; r.y = r.ty; r.z = r.tz; r.placed = true; }
     }
     r.flags = f | 0; r.held = typeof h === 'string' && ITEMS[h] ? h : null; r.dead = !!(r.flags & 8);
+    if (Array.isArray(a)) r.armorIds = a.slice(0, 4).map(x => typeof x === 'string' && ITEMS[x] ? x : null);
     return r;
   },
   drop(pid) {
@@ -11898,7 +11915,7 @@ const Net = {
   },
   myState() {
     const P = Game.player; const R = (v) => Math.round(v * 100) / 100;
-    return { p: [R(P.x), R(P.y), R(P.z), R(P.yaw), R(P.pitch), R(P.bodyYaw)], f: (P.sneaking ? 1 : 0) | (P.swinging ? 2 : 0) | (P.flying ? 4 : 0) | (P.dead ? 8 : 0), h: P.held ? P.held.id : null };
+    return { p: [R(P.x), R(P.y), R(P.z), R(P.yaw), R(P.pitch), R(P.bodyYaw)], f: (P.sneaking ? 1 : 0) | (P.swinging ? 2 : 0) | (P.flying ? 4 : 0) | (P.dead ? 8 : 0), h: P.held ? P.held.id : null, a: (P.armor || []).map(s => s ? s.id : null) };
   },
   worldInfo() { return { seed: World.seed, flat: !!World.flat, gv: World.genV, t: World.time, d: World.day, hn: this.name(), sp: World.spawn, dif: Game.difficulty }; },
   timeSync(t, d) { if (typeof t !== 'number' || this.host || !this.started) return; const df = Math.abs(t - World.time); if (df > 200 && df < 23800) { World.time = t; World.day = d | 0; } },
@@ -12039,18 +12056,28 @@ const Net = {
     if (m.t === 'hi') {
       if (m.v !== NET_VER) { this.linkH.send(id, { t: 'no', why: 'version' }); return; }
       c.pid = typeof m.pid === 'string' ? m.pid.slice(0, 12) : id; c.n = cleanName(m.n); c.av = m.av;
-      this.linkH.send(id, { t: 'w', w: this.worldInfo() });
-      for (const part of this.snapshotParts()) this.linkH.send(id, { t: 'snap', d: part });
-      this.linkH.send(id, { t: 'go' });
-      this.upd(c.pid, c.n, c.av, null, 0, null);
-      this.advertise();
+      if (m.sk && typeof m.sk.s === 'string') { c.skin = m.sk; NetSync.setSkin(c.pid, m.sk.s, m.sk.sl); }
+      (async () => {
+        // mods y paquetes del anfitrión (el invitado se los descarga si no los tiene)
+        let packs = []; try { packs = await NetSync.myPacks(); NetSync._mine = packs; } catch (e) { }
+        if (!this.clients.has(id)) return;
+        this.linkH.send(id, { t: 'w', w: this.worldInfo(), packs: packs.map(p => ({ kind: p.kind, name: p.name, size: p.size, h: p.h, mod: p.mod })) });
+        for (const part of this.snapshotParts()) this.linkH.send(id, { t: 'snap', d: part });
+        this.linkH.send(id, { t: 'bea', l: NetSync.allBlockEnts() });
+        const ms = NetSync.mySkin(); if (ms) this.linkH.send(id, { t: 'sk', pid: this.pid, s: ms.s, sl: ms.sl });
+        for (const o of this.clients.values()) if (o.id !== id && o.pid && o.skin) { this.linkH.send(id, { t: 'sk', pid: o.pid, s: o.skin.s, sl: o.skin.sl }); if (c.skin) this.linkH.send(o.id, { t: 'sk', pid: c.pid, s: c.skin.s, sl: c.skin.sl }); }
+        this.linkH.send(id, { t: 'go' });
+        this.upd(c.pid, c.n, c.av, null, 0, null);
+        this.advertise();
+      })();
       return;
     }
     if (!c.pid) return;
     switch (m.t) {
-      case 'st': this.upd(c.pid, c.n, c.av, m.p, m.f, m.h, true); break;
+      case 'st': this.upd(c.pid, c.n, c.av, m.p, m.f, m.h, true, m.a); break;
       case 'ed': if (Array.isArray(m.d)) { this.applyArr(m.d); this.relay({ t: 'ed', d: m.d }, id); } break;
       case 'chat': if (typeof m.m === 'string') { const t = m.m.slice(0, 200); Chat.add('<' + c.n + '> ' + t); this.relay({ t: 'chat', n: c.n, m: t }, id); } break;
+      default: NetSync.hostMsg(c, m);
     }
   },
   hClose(id) { const c = this.clients.get(id); this.clients.delete(id); if (c && c.pid) { this.drop(c.pid); this.advertise(); } },
@@ -12071,14 +12098,14 @@ const Net = {
   cData(m) {
     if (!m || typeof m !== 'object') return;
     switch (m.t) {
-      case 'w': if (m.w && typeof m.w.seed === 'number') { this.hostInfo = m.w; this.snapParts = []; } break;
+      case 'w': if (m.w && typeof m.w.seed === 'number') { this.hostInfo = m.w; this.snapParts = []; this.packCheck = NetSync.checkPacks(m.packs).catch(() => true); } break;
       case 'snap': if (typeof m.d === 'string' && !this.started) this.snapParts.push(m.d); break;
-      case 'go': if (this.hostInfo && !this.started) { UI.setLoading('Preparando el mundo…', 0.6); this.startJoined(); } break;
+      case 'go': (async () => { const ok = await (this.packCheck || true); if (ok && this.hostInfo && !this.started && this.active) { UI.setLoading('Preparando el mundo…', 0.6); this.startJoined(); } })(); break;
       case 'no': this.kicked('No se pudo entrar: ' + this.errText({ type: m.why }) + '.'); break;
       case 'ps': {
         if (!Array.isArray(m.l)) break;
         const seen = new Set();
-        for (const e of m.l) { if (!Array.isArray(e) || typeof e[0] !== 'string' || e[0] === this.pid) continue; seen.add(e[0]); this.upd(e[0], e[1], e[2], e[3], e[4], e[5], !this.psSeen); }
+        for (const e of m.l) { if (!Array.isArray(e) || typeof e[0] !== 'string' || e[0] === this.pid) continue; seen.add(e[0]); this.upd(e[0], e[1], e[2], e[3], e[4], e[5], !this.psSeen, e[6]); }
         for (const pid of [...this.remote.keys()]) if (!seen.has(pid)) this.drop(pid);
         this.psSeen = true; break;
       }
@@ -12086,6 +12113,7 @@ const Net = {
       case 'chat': if (typeof m.m === 'string') Chat.add('<' + cleanName(m.n) + '> ' + m.m.slice(0, 200)); break;
       case 'tm': this.timeSync(m.t2, m.d); break;
       case 'bye': this.kicked('Tu amigo ha cerrado la partida.'); break;
+      default: NetSync.guestMsg(m);
     }
   },
   cClose() { if (this.active) this.kicked('Se ha perdido la conexión con tu amigo.'); },
@@ -12110,16 +12138,17 @@ const Net = {
       const d = this.outEdits; this.outEdits = [];
       for (let i = 0; i < d.length; i += 6000) { const part = d.slice(i, i + 6000); if (this.linkH) this.relay({ t: 'ed', d: part }); else if (this.linkC) this.linkC.send({ t: 'ed', d: part }); }
     }
+    NetSync.tick(dt);
     this.sendT -= dt; if (this.sendT > 0) return;
     if (this.mode === 'room') { this.sendT = 150; this.pushRoom(false); return; }
     this.sendT = 110;
     const me = this.myState();
     if (this.linkH) {
-      const l = [[this.pid, this.name(), this.avatar(), me.p, me.f, me.h]];
-      for (const c of this.clients.values()) { const r = c.pid && this.remote.get(c.pid); if (r) l.push([c.pid, r.n, r.av, [r.tx, r.ty, r.tz, r.yaw, r.pitch, r.tBody ?? r.yaw], r.flags, r.held]); }
+      const l = [[this.pid, this.name(), this.avatar(), me.p, me.f, me.h, me.a]];
+      for (const c of this.clients.values()) { const r = c.pid && this.remote.get(c.pid); if (r) l.push([c.pid, r.n, r.av, [r.tx, r.ty, r.tz, r.yaw, r.pitch, r.tBody ?? r.yaw], r.flags, r.held, r.armorIds || null]); }
       this.relay({ t: 'ps', l });
       this.timeT -= 110; if (this.timeT <= 0) { this.timeT = 5000; this.relay({ t: 'tm', t2: World.time, d: World.day }); }
-    } else if (this.linkC) this.linkC.send({ t: 'st', p: me.p, f: me.f, h: me.h });
+    } else if (this.linkC) this.linkC.send({ t: 'st', p: me.p, f: me.f, h: me.h, a: me.a });
   },
 };
 
@@ -13080,6 +13109,391 @@ const Perf = {
 
 // 1.19: vuelve el aspecto de antes (las opciones de rendimiento quedan apagadas; se pueden encender en Opciones)
 if (!Settings.v119) { Settings.v119 = true; Settings.autoPerf = false; Settings.leaves = 'fancy'; Settings.mipmaps = false; try { saveSettings(); } catch (e) { } }
+
+
+// ---- extra/netsync120.js ----
+// ============================================================
+//  1.20: multijugador completo (por internet / pestañas)
+//  El anfitrión manda: cofres, hornos, criaturas y objetos sueltos viven en su mundo
+//  y los invitados ven una copia que se actualiza 10 veces por segundo.
+//  Lo que hace un invitado (abrir un cofre, pegar a un mob, tirar o recoger algo)
+//  se le manda al anfitrión. También viajan las skins, la armadura y los mods/paquetes.
+// ============================================================
+const NetSync = {
+  nid: 0, mirrors: new Map(), beT: 0, enT: 0, outQ: [], packBusy: false, skins: new Map(), hashCache: new Map(),
+  full() { return Net.active && Net.mode !== 'room'; },
+  guest() { return this.full() && !Net.host && Net.started; },
+  hosting() { return this.full() && Net.host && Net.started && Net.clients.size > 0; },
+  toHost(m) { if (Net.linkC) Net.linkC.send(m); },
+  toPid(pid, m) { for (const c of Net.clients.values()) if (c.pid === pid) { Net.linkH.send(c.id, m); return; } },
+  idOf(e) { return e.nid || (e.nid = ++this.nid); },
+
+  // ---------- jugadores remotos como «sustitutos» para la IA de los mobs del anfitrión ----------
+  proxies: new Map(),
+  proxy(r) {
+    let p = this.proxies.get(r.pid);
+    if (!p) {
+      const pid = r.pid;
+      p = { type: 'player', player: true, remote: true, pid, w: 0.6, h: 1.8, eye: 1.62, mode: 0, inv: [], armor: [], health: 20, score: 0, onGround: true, vx: 0, vy: 0, vz: 0,
+        bb() { return [this.x - 0.3, this.y, this.z - 0.3, this.x + 0.3, this.y + 1.8, this.z + 0.3]; },
+        hurtBy: (d, src) => { NetSync.toPid(pid, { t: 'hurt', d, sx: src && src.x, sz: src && src.z, kb: src && src.kb, mob: !!(src && src.mob) }); return true; },
+        give: (id, n) => n, addXP: (n) => NetSync.toPid(pid, { t: 'xp', n }), damage: () => false, hurtByPlayer: () => false };
+      this.proxies.set(pid, p);
+    }
+    p.x = r.tx; p.y = r.ty; p.z = r.tz; p.yaw = r.yaw; p.pitch = r.pitch; p.sneaking = !!(r.flags & 1); p.dead = !!r.dead; p.flying = !!(r.flags & 4);
+    p.held = r.held ? { id: r.held, n: 1 } : null; p.px = p.x; p.py = p.y; p.pz = p.z; p.bodyYaw = r.bodyYaw;
+    return p;
+  },
+  remotes() { const out = []; for (const r of Net.remote.values()) if (r.placed && !r.waiting) out.push(r); return out; },
+  // el jugador más cercano a una entidad (el del anfitrión o uno remoto)
+  nearest(e) {
+    const P = Game.player; let best = null, bd = P ? (P.x - e.x) ** 2 + (P.y - e.y) ** 2 + (P.z - e.z) ** 2 : 1e18;
+    if (P && (P.dead || P.mode === 1 || P.mode === 3)) bd += 1e6;
+    for (const r of this.remotes()) { if (r.dead) continue; const d = (r.tx - e.x) ** 2 + (r.ty - e.y) ** 2 + (r.tz - e.z) ** 2; if (d < bd) { bd = d; best = r; } }
+    return best ? this.proxy(best) : null;
+  },
+  // hace algo «como si» el jugador fuera el remoto (la IA de los mobs usa Game.player)
+  as(px, fn) { const real = Game.player; Game.player = px; try { return fn(); } catch (e) { return undefined; } finally { Game.player = real; } },
+  tickEntity(e) {
+    if (!this.hosting() || !e.mob) return e.tick();
+    const px = this.nearest(e); if (!px) return e.tick();
+    const real = Game.player; Game.player = px;
+    try { e.tick(); } catch (er) { Game.player = real; if (!this._errShown) { this._errShown = true; console.warn('NetSync IA', er); } } finally { Game.player = real; }
+  },
+  spawnAround() { if (!this.hosting()) return; for (const r of this.remotes()) if (!r.dead) this.as(this.proxy(r), () => Entities.spawnTick()); },
+  // chunks que el anfitrión debe tener cargados (alrededor de cada invitado)
+  anchors() { if (!this.hosting()) return null; return this.remotes().map(r => [Math.floor(r.tx) >> 4, Math.floor(r.tz) >> 4]); },
+  // flechas del anfitrión que dan a un jugador remoto
+  arrowHits(a, nx, ny, nz, dmg) {
+    if (!this.hosting()) return false;
+    for (const r of this.remotes()) {
+      if (r.dead || a.shooter && a.shooter.pid === r.pid) continue;
+      if (Math.abs(nx - r.tx) < 0.4 && ny > r.ty && ny < r.ty + 1.8 && Math.abs(nz - r.tz) < 0.4) { this.proxy(r).hurtBy(dmg, { x: a.x, z: a.z, mob: !!(a.shooter && a.shooter.mob), kb: 0.3 }); return true; }
+    }
+    return false;
+  },
+
+  // ---------- cofres y hornos ----------
+  beStr(be) { return JSON.stringify(be, (k, v) => k === '_ns' ? undefined : v); },
+  beApply(k, v) {
+    if (!v || typeof v !== 'object' || typeof k !== 'string' || !Array.isArray(v.slots) || v.slots.length > 64) return;
+    const clean = (s) => s && typeof s === 'object' && typeof s.id === 'string' && ITEMS[s.id] ? s : null;
+    let be = World.blockEnts.get(k);
+    if (!be) { be = { type: v.type, slots: [] }; World.blockEnts.set(k, be); }
+    for (const p in v) if (p !== 'slots' && p !== '_ns') be[p] = v[p];
+    be.slots.length = 0; for (const s of v.slots) be.slots.push(clean(s));
+    be._ns = this.beStr(be);
+  },
+  beTick(dt) {
+    this.beT -= dt; if (this.beT > 0) return; this.beT = 200;
+    if (Net.host) {
+      for (const [k, be] of World.blockEnts) { if (be.type === 'ender' || !be.slots) continue; const s = this.beStr(be); if (s !== be._ns) { be._ns = s; Net.relay({ t: 'be', k, v: JSON.parse(s) }); } }
+    } else if (typeof GUI !== 'undefined' && GUI.be && GUI.pos && GUI.be.type !== 'ender') {
+      const be = GUI.be, s = this.beStr(be); if (s !== be._ns) { be._ns = s; this.toHost({ t: 'bes', k: GUI.pos.join(','), v: JSON.parse(s) }); }
+    }
+  },
+  allBlockEnts() { const out = []; for (const [k, be] of World.blockEnts) if (be.type !== 'ender' && be.slots) out.push([k, JSON.parse(this.beStr(be))]); return out; },
+
+  // ---------- criaturas y objetos ----------
+  META: ['variant', 'color', 'sheared', 'size', 'baby', 'tame', 'sitting', 'saddled', 'saddle', 'chested', 'customName', 'angry', 'profession', 'type2', 'collar', 'horseArmor', 'charged', 'pumpkin', 'powered'],
+  metaOf(e) { const o = {}; for (const k of this.META) { const v = e[k]; if (v !== undefined && v !== null && typeof v !== 'object' && typeof v !== 'function') o[k] = v; } return JSON.stringify(o); },
+  R: (v) => Math.round(v * 100) / 100,
+  snapFor(c, r) {
+    const R = this.R, out = []; const x0 = r.tx, z0 = r.tz;
+    if (!c.meta) c.meta = new Map();
+    for (const e of Entities.list) {
+      if (e.remove || (e.x - x0) ** 2 + (e.z - z0) ** 2 > 80 * 80) continue;
+      const id = this.idOf(e);
+      if (e.mob) {
+        const f = (e.hurt > 0 ? 1 : 0) | (e.dead ? 2 : 0) | (e.swinging ? 4 : 0) | (e.baby ? 8 : 0) | (e.aiming ? 16 : 0) | (e.fire > 0 ? 32 : 0) | (e.eating > 0 ? 64 : 0) | (e.sitting ? 128 : 0);
+        const ms = this.metaOf(e); const row = ['m', id, e.kind, R(e.x), R(e.y), R(e.z), R(e.bodyYaw || 0), R(e.headYaw || 0), R(e.pitch || 0), f];
+        if (c.meta.get(id) !== ms) { c.meta.set(id, ms); row.push(ms); }
+        out.push(row);
+      } else if (e.type === 'item') { if (!e.dead) out.push(['i', id, e.item.id, e.item.n, R(e.x), R(e.y), R(e.z)]); }
+      else if (e.type === 'arrow') out.push(['a', id, R(e.x), R(e.y), R(e.z), R(e.yaw || 0), R(e.pitch || 0)]);
+      else if (e.type === 'tnt') out.push(['x', id, R(e.x), R(e.y), R(e.z), e.fuse | 0]);
+      else if (e.type === 'falling') out.push(['f', id, e.block | 0, e.meta | 0, R(e.x), R(e.y), R(e.z)]);
+      else if (e.type === 'thrown' && e.item && e.item.id) out.push(['t', id, e.item.id, R(e.x), R(e.y), R(e.z)]);
+    }
+    if (c.meta.size > 2000) c.meta.clear();
+    return out;
+  },
+  enTick(dt) {
+    this.enT -= dt; if (this.enT > 0) return; this.enT = 100;
+    for (const c of Net.clients.values()) { const r = c.pid && Net.remote.get(c.pid); if (r && r.placed) Net.linkH.send(c.id, { t: 'en', l: this.snapFor(c, r) }); }
+  },
+  // invitado: crear / mover las copias
+  mirrorTick() {
+    this.savePrev(); this.age++;
+    const k = 0.5; this.x += (this.tx - this.x) * k; this.y += (this.ty - this.y) * k; this.z += (this.tz - this.z) * k;
+    if (Math.hypot(this.tx - this.x, this.ty - this.y, this.tz - this.z) > 6) { this.x = this.tx; this.y = this.ty; this.z = this.tz; }
+    if (this.mob) {
+      this.bodyYaw = lerpAngle(this.bodyYaw, this.tBody, 0.5); this.yaw = this.bodyYaw; this.headYaw = lerpAngle(this.headYaw, this.tHead, 0.5); this.pitch = this.tPitch;
+      if (this.updateLimbs) this.updateLimbs();
+      if (this.hurt > 0) this.hurt--; if (this.dead) this.deathTime = Math.min(19, (this.deathTime || 0) + 1);
+      if (this.swinging) { this.swingTime = (this.swingTime || 0) + 1; if (this.swingTime >= 6) this.swingTime = 0; }
+    }
+  },
+  makeMirror(row) {
+    const [t, id] = row; let e = null;
+    try {
+      if (t === 'm' && MOBS[row[2]]) { e = new Mob(row[2], row[3], row[4], row[5]); e.persistent = true; }
+      else if (t === 'i' && ITEMS[row[2]]) { e = new ItemEntity(row[4], row[5], row[6], { id: row[2], n: row[3] }); e.pickupDelay = 0; }
+      else if (t === 'a') e = new Arrow(row[2], row[3], row[4], 0, 0, 0, null);
+      else if (t === 'x') e = new PrimedTNT(row[2], row[3], row[4]);
+      else if (t === 'f' && row[2] < NB) e = new FallingBlock(row[4], row[5], row[6], row[2], row[3]);
+      else if (t === 't' && ITEMS[row[2]]) e = new Thrown(row[2], row[3], row[4], row[5], 0, 0, 0, null);
+    } catch (er) { e = null; }
+    if (!e) return null;
+    e.mirror = true; e.nid = id; e.tick = this.mirrorTick; e.tBody = e.bodyYaw || 0; e.tHead = e.headYaw || 0; e.tPitch = 0;
+    Entities.list.push(e); this.mirrors.set(id, e); return e;
+  },
+  onEntities(l) {
+    if (!Array.isArray(l) || !Game.player) return;
+    const seen = new Set();
+    for (const row of l) {
+      if (!Array.isArray(row) || typeof row[1] !== 'number') continue; const id = row[1]; seen.add(id);
+      let e = this.mirrors.get(id); if (e && e.remove) { this.mirrors.delete(id); e = null; }
+      let fresh = false; if (!e) { e = this.makeMirror(row); if (!e) continue; fresh = true; }
+      const t = row[0];
+      if (t === 'm') {
+        e.tx = row[3]; e.ty = row[4]; e.tz = row[5]; e.tBody = row[6]; e.tHead = row[7]; e.tPitch = row[8]; const f = row[9] | 0;
+        if (f & 1 && !(e.hurt > 0)) e.hurt = 10; if (f & 2 && !e.dead) { e.dead = true; e.deathTime = 0; }
+        e.swinging = !!(f & 4); e.baby = !!(f & 8); e.aiming = !!(f & 16); e.fire = f & 32 ? 20 : 0; e.eating = f & 64 ? 2 : 0; e.sitting = !!(f & 128);
+        if (typeof row[10] === 'string') { try { const o = JSON.parse(row[10]); for (const k of this.META) if (k in o) e[k] = o[k]; } catch (er) { } }
+      } else if (t === 'i') { e.item.n = row[3]; e.tx = row[4]; e.ty = row[5]; e.tz = row[6]; }
+      else if (t === 'a') { e.tx = row[2]; e.ty = row[3]; e.tz = row[4]; e.yaw = row[5]; e.pitch = row[6]; }
+      else if (t === 'x') { e.tx = row[2]; e.ty = row[3]; e.tz = row[4]; e.fuse = row[5]; }
+      else if (t === 'f') { e.tx = row[4]; e.ty = row[5]; e.tz = row[6]; }
+      else if (t === 't') { e.tx = row[3]; e.ty = row[4]; e.tz = row[5]; }
+      if (fresh) { e.x = e.tx; e.y = e.ty; e.z = e.tz; e.savePrev(); if (e.mob) { e.bodyYaw = e.yaw = e.tBody; e.headYaw = e.tHead; } }
+    }
+    for (const [id, e] of this.mirrors) if (!seen.has(id)) { e.remove = true; this.mirrors.delete(id); }
+  },
+
+  // ---------- skins ----------
+  mySkin() { try { return { s: Skins.canvas.toDataURL('image/png'), sl: !!Skins.slim }; } catch (e) { return null; } },
+  setSkin(pid, s, slim) {
+    if (typeof s !== 'string' || !s.startsWith('data:image/png') || s.length > 200000) return;
+    const im = new Image(); im.onload = () => {
+      const c = document.createElement('canvas'); c.width = 64; c.height = 64; const g = c.getContext('2d');
+      if (im.height === 32) { g.drawImage(im, 0, 0); } else g.drawImage(im, 0, 0, 64, 64);
+      const prev = this.skins.get(pid); this.skins.set(pid, { canvas: c, slim: !!slim, v: (prev ? prev.v : 0) + 1 });
+    }; im.src = s;
+  },
+  skinOf(r) { return this.skins.get(r.pid); },
+
+  // ---------- mods y paquetes de texturas ----------
+  async hashBlob(b) {
+    const key = b.size + ':' + (b.lastModified || ''); if (b._h) return b._h;
+    const buf = await b.arrayBuffer(); let h;
+    try { const d = await crypto.subtle.digest('SHA-256', buf); h = [...new Uint8Array(d).slice(0, 12)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+    catch (e) { let a = 0x811c9dc5; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 7) { a ^= u[i]; a = Math.imul(a, 16777619); } h = 'f' + (a >>> 0).toString(16) + '_' + u.length; }
+    try { b._h = h; } catch (e) { } void key; return h;
+  },
+  async myPacks() {
+    const out = [];
+    try { const tz = await Store.get('kv', 'texpack:zip'); if (tz && tz.size) out.push({ kind: 'tex', name: 'Paquete de texturas', size: tz.size, h: await this.hashBlob(tz), src: 'texpack:zip' }); } catch (e) { }
+    await Addons.load(); let changed = false;
+    for (const a of Addons.list) {
+      if (!a.enabled) continue;
+      const b = await Store.get('kv', 'addon:' + a.id).catch(() => null); if (!b) continue;
+      if (!a.hash || a.hsize !== b.size) { a.hash = await this.hashBlob(b); a.hsize = b.size; changed = true; }
+      out.push({ kind: 'addon', name: a.name, size: b.size, h: a.hash, mod: !!a.mod, src: 'addon:' + a.id });
+    }
+    if (changed) await Addons.save();
+    return out;
+  },
+  sameSet(a, b) { return a.length === b.length && a.every((x, i) => x.kind === b[i].kind && x.h === b[i].h); },
+  // anfitrión: mandar un paquete a trozos
+  async sendPack(cid, h) {
+    const mine = this._mine || (this._mine = await this.myPacks()); const p = mine.find(x => x.h === h); if (!p) { Net.linkH.send(cid, { t: 'pkx', h }); return; }
+    const blob = await Store.get('kv', p.src); if (!blob) { Net.linkH.send(cid, { t: 'pkx', h }); return; }
+    const CH = 192 * 1024, n = Math.ceil(blob.size / CH);
+    for (let i = 0; i < n; i++) {
+      if (!Net.clients.has(cid)) return;
+      while (Net.linkH.buffered && Net.linkH.buffered(cid) > 2 * 1024 * 1024) await new Promise(r => setTimeout(r, 40));
+      const part = await blob.slice(i * CH, (i + 1) * CH).arrayBuffer();
+      Net.linkH.send(cid, { t: 'pk', h, i, n, d: part });
+      if (i % 8 === 7) await new Promise(r => setTimeout(r, 0));
+    }
+  },
+  // invitado: comprobar y descargar lo que falte
+  async checkPacks(list) {
+    if (!Array.isArray(list)) return true;
+    list = list.filter(p => p && typeof p.h === 'string' && (p.kind === 'tex' || p.kind === 'addon')).slice(0, 40);
+    const mine = await this.myPacks();
+    if (this.sameSet(mine, list)) { sessionStorage.removeItem('mpPackTry'); return true; }
+    if (sessionStorage.getItem('mpPackTry') === Net.code) { sessionStorage.removeItem('mpPackTry'); Chat.add('§eAviso: no se pudieron igualar del todo los mods/paquetes con los de tu amigo.'); return true; }
+    // ¿cuáles ya tengo guardados (aunque estén apagados)?
+    await Addons.load(); const have = new Map();
+    for (const a of Addons.list) { const b = await Store.get('kv', 'addon:' + a.id).catch(() => null); if (!b) continue; if (!a.hash || a.hsize !== b.size) { a.hash = await this.hashBlob(b); a.hsize = b.size; } have.set(a.hash, 'addon:' + a.id); }
+    const tz = await Store.get('kv', 'texpack:zip').catch(() => null); if (tz && tz.size) have.set(await this.hashBlob(tz), 'texpack:zip');
+    const need = list.filter(p => !have.has(p.h)); const total = need.reduce((s, p) => s + (p.size || 0), 0);
+    this.packBusy = true; this.got = new Map(); this.need = need;
+    UI.setLoading('Tu amigo usa ' + list.length + ' mods/paquetes. Descargando ' + need.length + ' (' + (total / 1048576).toFixed(1) + ' MB)…', 0.3);
+    for (const p of need) {
+      this.parts = []; this.curH = p.h; this.curDone = null;
+      const done = new Promise(r => this.curDone = r);
+      this.toHost({ t: 'pkq', h: p.h });
+      const ok = await Promise.race([done, new Promise(r => setTimeout(() => r(false), 600000))]);
+      if (!ok || !Net.active) { this.packBusy = false; return false; }
+      this.got.set(p.h, new Blob(this.parts)); this.parts = [];
+    }
+    // guardar mi configuración para devolverla al salir
+    if (!(await Store.get('kv', 'mpbak:list').catch(() => null))) {
+      await Store.put('kv', 'mpbak:list', JSON.parse(JSON.stringify(Addons.list)));
+      await Store.put('kv', 'mpbak:tex', tz && tz.size ? tz : 'none');
+    }
+    UI.setLoading('Instalando los mods y paquetes de tu amigo…', 0.8);
+    // texturas
+    const ht = list.find(p => p.kind === 'tex');
+    const texBlob = ht ? (this.got.get(ht.h) || (have.get(ht.h) === 'texpack:zip' ? tz : await Store.get('kv', have.get(ht.h)))) : null;
+    try { await TexturePack.clear(); if (texBlob) await TexturePack.loadZip(texBlob, null, true); } catch (e) { console.warn(e); }
+    // complementos: los del anfitrión, en su orden, encendidos; los míos, apagados
+    const nl = [];
+    for (const p of list.filter(p => p.kind === 'addon')) {
+      let a = Addons.list.find(x => x.hash === p.h);
+      if (!a) {
+        const b = this.got.get(p.h); if (!b) continue;
+        const id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        await Store.put('kv', 'addon:' + id, b); a = { id, name: String(p.name || 'Paquete').slice(0, 60) + ' (de tu amigo)', desc: '', enabled: true, info: {}, parts: '', mod: !!p.mod, hash: p.h, hsize: b.size, mpTemp: true };
+      }
+      a.enabled = true; nl.push(a);
+    }
+    for (const a of Addons.list) if (!nl.includes(a)) { a.enabled = false; nl.push(a); }
+    Addons.list = nl; await Addons.save(); try { await Addons.saveSpec(); } catch (e) { }
+    sessionStorage.setItem('mpPackTry', Net.code); sessionStorage.setItem('mpRejoin', Net.code);
+    UI.setLoading('Reiniciando para cargar los mods de tu amigo…', 1);
+    setTimeout(() => location.reload(), 300);
+    return false;
+  },
+  onPackPart(m) {
+    if (m.h !== this.curH || !(m.d instanceof ArrayBuffer || ArrayBuffer.isView(m.d))) return;
+    this.parts[m.i] = m.d; const n = this.parts.filter(Boolean).length;
+    if (m.i % 10 === 0) UI.setLoading('Descargando mods y paquetes de tu amigo… ' + Math.round(n / m.n * 100) + '%', 0.3 + 0.5 * n / m.n);
+    if (n >= m.n && this.curDone) this.curDone(true);
+  },
+  // al salir de la partida: devolver mis mods y paquetes
+  async restore() {
+    const bl = await Store.get('kv', 'mpbak:list').catch(() => null); if (!bl) return false;
+    const bt = await Store.get('kv', 'mpbak:tex').catch(() => null);
+    try { await TexturePack.clear(); if (bt && bt !== 'none' && bt.size) await TexturePack.loadZip(bt, null, true); } catch (e) { }
+    await Addons.load(); const keepIds = new Set(bl.map(a => a.id));
+    for (const a of Addons.list) if (!keepIds.has(a.id) && a.mpTemp) await Store.del('kv', 'addon:' + a.id).catch(() => { });
+    Addons.list = bl; await Addons.save(); try { await Addons.saveSpec(); } catch (e) { }
+    await Store.del('kv', 'mpbak:list').catch(() => { }); await Store.del('kv', 'mpbak:tex').catch(() => { });
+    sessionStorage.removeItem('mpPackTry');
+    return true;
+  },
+
+  // ---------- dar objetos ----------
+  lookAtRemote(maxD) {
+    const P = Game.player; const [ex, ey, ez] = Game.eyePos(1); const [dx, dy, dz] = lookDir(P.yaw, P.pitch); let best = null, bt = maxD;
+    for (const r of Net.remote.values()) {
+      if (!r.placed || r.dead) continue; const cx = r.x - ex, cy = r.y + 0.9 - ey, cz = r.z - ez;
+      const t = cx * dx + cy * dy + cz * dz; if (t < 0 || t > bt) continue;
+      const px = cx - dx * t, py = cy - dy * t, pz = cz - dz * t; if (Math.hypot(px, pz) < 0.45 && Math.abs(py) < 1) { best = r; bt = t; }
+    }
+    return best;
+  },
+  give(r) {
+    const P = Game.player; const st = P.inv[P.sel]; if (!st) return false;
+    const it = { id: st.id, n: st.n, d: st.d || 0 }; P.inv[P.sel] = null;
+    if (Net.host) this.toPid(r.pid, { t: 'got', it, from: Net.name() }); else this.toHost({ t: 'give', to: r.pid, it });
+    Chat.add('§aLe has dado ' + it.n + ' × ' + ITEMS[it.id].name + ' a ' + r.n + '.'); Sound.play('pop'); P.swinging = true; P.swingTime = 0;
+    return true;
+  },
+  receive(it, from) {
+    if (!it || typeof it.id !== 'string' || !ITEMS[it.id]) return; const n = Math.max(1, Math.min(64 * 36, it.n | 0));
+    const P = Game.player; const left = P.give(it.id, n, it.d | 0); Sound.play('pop');
+    if (from) Chat.add('§a' + cleanName(from) + ' te ha dado ' + n + ' × ' + ITEMS[it.id].name + '.');
+    if (left > 0) Entities.dropItem(P.x, P.y + 1, P.z, { id: it.id, n: left, d: it.d | 0 });
+  },
+
+  // ---------- mensajes ----------
+  // en el anfitrión, de un invitado
+  hostMsg(c, m) {
+    const r = Net.remote.get(c.pid); const P = Game.player;
+    switch (m.t) {
+      case 'beq': { const k = String(m.k || ''); const [x, y, z] = k.split(',').map(Number); if (![x, y, z].every(isFinite)) break;
+        let be = World.blockEnts.get(k); const id = World.get(x, y, z); const bd = BLOCKS[id];
+        if (!be && bd && (bd.interact === 'chest' || bd.interact === 'furnace')) { be = bd.interact === 'furnace' ? { type: 'furnace', slots: [null, null, null], burn: 0, burnMax: 0, cook: 0, xp: 0 } : { type: 'chest', slots: new Array(bd.slots || 27).fill(null) }; World.blockEnts.set(k, be); }
+        if (be && be.type === 'chest') { const mt = World.getMeta(x, y, z); if (mt & 0x10) { GUI.fillLoot(be, (mt >> 5) & 7); Net.track(() => World.set(x, y, z, B.chest, mt & 3, 3)); } }
+        if (be) { be._ns = this.beStr(be); Net.relay({ t: 'be', k, v: JSON.parse(be._ns) }); }
+        break; }
+      case 'bes': { const k = String(m.k || ''); if (!World.blockEnts.has(k) && !/^-?\d+,-?\d+,-?\d+$/.test(k)) break; this.beApply(k, m.v); const be = World.blockEnts.get(k); if (be) { be._ns = this.beStr(be); for (const o of Net.clients.values()) if (o.id !== c.id) Net.linkH.send(o.id, { t: 'be', k, v: m.v }); } break; }
+      case 'hit': { const e = Entities.list.find(e => e.nid === m.id); if (!e || !e.mob || e.dead) break; const d = Math.min(1000, Math.max(0, +m.d || 0)); if (!d) break;
+        e.netHitBy = c.pid; e.netHitAt = performance.now();
+        const src = { x: isFinite(m.sx) ? m.sx : r ? r.tx : e.x, z: isFinite(m.sz) ? m.sz : r ? r.tz : e.z, kb: isFinite(m.kb) ? m.kb : 0.4, player: !!m.p, sprinting: (m.kb || 0) > 0.5 };
+        if (m.p && r) this.as(this.proxy(r), () => e.hurtByPlayer(d, src, !!m.cr)); else e.damage(d, src);
+        if (m.fire) e.fire = Math.max(e.fire || 0, 100);
+        break; }
+      case 'drop': { const it = m.it; if (!it || !ITEMS[it.id]) break; const e = new ItemEntity(+m.x || 0, +m.y || 0, +m.z || 0, { id: it.id, n: Math.max(1, Math.min(64 * 36, it.n | 0)), d: it.d | 0 }); e.vx = +m.vx || 0; e.vy = +m.vy || 0; e.vz = +m.vz || 0; e.pickupDelay = Math.max(0, Math.min(80, m.pd | 0)); e.droppedBy = c.pid; NetSync._origAdd.call(Entities, e); break; }
+      case 'pick': { const e = Entities.list.find(e => e.nid === m.id); if (!e || e.type !== 'item' || e.dead || e.remove || e.pickupDelay > 0 || !r) break;
+        if (Math.hypot(e.x - r.tx, e.z - r.tz) > 4) break; e.dead = true; e.remove = true; Net.linkH.send(c.id, { t: 'got', it: e.item }); break; }
+      case 'spawn': { if (!MOBS[m.kind] || !r) break; if (Math.hypot((+m.x || 0) - r.tx, (+m.z || 0) - r.tz) > 12) break; const e = new Mob(m.kind, +m.x, +m.y, +m.z); if (m.baby) e.baby = true; if (typeof m.variant === 'string') e.variant = m.variant; NetSync._origAdd.call(Entities, e); break; }
+      case 'give': { const it = m.it; if (!it || !ITEMS[it.id]) break; if (m.to === Net.pid) this.receive(it, c.n); else this.toPid(m.to, { t: 'got', it, from: c.n }); break; }
+      case 'pkq': this.sendPack(c.id, m.h); break;
+      case 'sk': this.setSkin(c.pid, m.s, m.sl); for (const o of Net.clients.values()) if (o.id !== c.id) Net.linkH.send(o.id, { t: 'sk', pid: c.pid, s: m.s, sl: m.sl }); c.skin = { s: m.s, sl: m.sl }; break;
+    }
+  },
+  // en un invitado, del anfitrión
+  guestMsg(m) {
+    const P = Game.player;
+    switch (m.t) {
+      case 'be': if (Net.started) this.beApply(String(m.k), m.v); break;
+      case 'bea': if (Array.isArray(m.l)) this.pendingBE = m.l; break;
+      case 'en': if (Net.started) this.onEntities(m.l); break;
+      case 'hurt': if (P && !P.dead && Net.started) P.hurtBy(Math.min(100, +m.d || 0), { x: m.sx, z: m.sz, mob: !!m.mob, kb: isFinite(m.kb) ? m.kb : 0.4 }); break;
+      case 'xp': if (P && Net.started) P.addXP(Math.max(0, Math.min(1000, m.n | 0))); break;
+      case 'got': if (P && Net.started) this.receive(m.it, m.from); break;
+      case 'sk': this.setSkin(String(m.pid), m.s, m.sl); break;
+      case 'pk': this.onPackPart(m); break;
+      case 'pkx': if (this.curDone) this.curDone(false); break;
+    }
+  },
+  // cada fotograma
+  tick(dt) {
+    if (!this.full() || !Net.started || Game.state !== 'play') return;
+    if (Net.host) { if (Net.clients.size) { this.beTick(dt); this.enTick(dt); } }
+    else {
+      this.beTick(dt);
+      // objetos que ha tirado el invitado: se mandan al anfitrión (ya con su velocidad final)
+      if (this.outQ.length) { for (const e of this.outQ) { const R = this.R; if (e.mob) this.toHost({ t: 'spawn', kind: e.kind, x: R(e.x), y: R(e.y), z: R(e.z), baby: !!e.baby, variant: e.variant }); else this.toHost({ t: 'drop', it: e.item, x: R(e.x), y: R(e.y), z: R(e.z), vx: R(e.vx), vy: R(e.vy), vz: R(e.vz), pd: e.pickupDelay | 0 }); } this.outQ = []; }
+    }
+  },
+  reset() { this.mirrors.clear(); this.outQ = []; this.proxies.clear(); this.packBusy = false; this._mine = null; this.pendingBE = null; },
+};
+
+// ---------- enganches en las clases del juego ----------
+NetSync._origAdd = Entities.add;
+Entities.add = function (e) {
+  // en un invitado, las criaturas y los objetos nuevos los crea el anfitrión
+  if (NetSync.guest() && e && !e.mirror && (e.mob || e.type === 'item')) { NetSync.outQ.push(e); return e; }
+  return NetSync._origAdd.call(this, e);
+};
+{
+  const dmg0 = Mob.prototype.damage;
+  Mob.prototype.damage = function (amt, src) {
+    if (this.mirror) {
+      if (this.dead || amt <= 0) return false;
+      if (this.invul > 0) return false; this.invul = 10; this.hurt = 10;
+      NetSync.toHost({ t: 'hit', id: this.nid, d: amt, sx: src && src.x, sz: src && src.z, kb: src && src.kb, p: !!(src && src.player), fire: (Game.player && Ench.held && Ench.held('fire_aspect')) ? 1 : 0 });
+      return true;
+    }
+    return dmg0.call(this, amt, src);
+  };
+  const die0 = Mob.prototype.die;
+  Mob.prototype.die = function (src) {
+    if (this.mirror) { this.dead = true; return; }
+    // si lo ha matado un invitado, la experiencia es para él
+    if (this.netHitBy && performance.now() - (this.netHitAt || 0) < 3000) { const r = Net.remote.get(this.netHitBy); if (r) return NetSync.as(NetSync.proxy(r), () => die0.call(this, src)); }
+    return die0.call(this, src);
+  };
+  const tickMirrorSafe = Entity.prototype.tickCommon;
+  if (tickMirrorSafe) Entity.prototype.tickCommon = function () { if (this.mirror) return; return tickMirrorSafe.apply(this, arguments); };
+}
 
 // ---------------- pieles personalizadas de las criaturas ----------------
 const MOB_PART_NAMES = { muzzle: 'Morro', udder: 'Ubre', legL0: 'Patas', jacket: 'Chaqueta', head: 'Cabeza', body: 'Cuerpo', snout: 'Hocico', leg0: 'Patas', horn1: 'Cuernos', rarm: 'Brazo derecho', larm: 'Brazo izquierdo', rleg: 'Pierna derecha', lleg: 'Pierna izquierda', beak: 'Pico', wattle: 'Barba', rwing: 'Alas', neck: 'Cuello', legR0: 'Patas' };

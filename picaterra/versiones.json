@@ -1,8 +1,22 @@
 {
-  "latest": "1.19.1",
+  "latest": "1.20.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.20.0",
+      "date": "2026-11-21",
+      "title": "Multijugador completo",
+      "notes": [
+        "Cofres y hornos compartidos: ves lo que mete tu amigo y lo que se está cocinando",
+        "Ves la skin, la armadura y el objeto en la mano de tu amigo",
+        "Si el anfitrión tiene mods o paquetes de texturas, al invitado se le descargan e instalan solos (y al salir vuelve a tener los suyos)",
+        "Los mismos mobs para todos: atacan a cualquier jugador y los dos podéis pegarles",
+        "Objetos tirados visibles para todos; clic derecho a tu amigo para darle lo que llevas en la mano"
+      ],
+      "size": 322858,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.20.0.zip"
+    },
     {
       "id": "1.19.1",
       "date": "2026-11-20",
