@@ -1,8 +1,20 @@
 {
-  "latest": "1.20.0",
+  "latest": "1.21.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.21.0",
+      "date": "2026-11-21",
+      "title": "Shaders",
+      "notes": [
+        "Sombreadores propios al estilo Complementary: sombras del sol de verdad, agua con olas y reflejos, hojas y plantas con viento, rayos de sol, brillo y colores",
+        "Al subir un paquete de shaders (o un modpack que lo trae) se activan solos",
+        "Opciones: Sombreadores, calidad de sombras, rayos de sol y brillo"
+      ],
+      "size": 330833,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.21.0.zip"
+    },
     {
       "id": "1.20.0",
       "date": "2026-11-21",

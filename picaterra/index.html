@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.20.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.21.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -4883,7 +4883,7 @@ const Mesher = {
     Kinetic.done(c);
     if (bedCEM || CEM.beds[c.cx + ',' + c.cz]) { if (beds.length) CEM.beds[c.cx + ',' + c.cz] = beds; else delete CEM.beds[c.cx + ',' + c.cz]; }
     const sp = this.splitCut(O);
-    return { o: sp.o, oq: sp.oq, c: sp.c, cq: sp.cq, t: T.q ? T.slice() : null, tq: T.q };
+    return Shaders.tag({ o: sp.o, oq: sp.oq, c: sp.c, cq: sp.cq, t: T.q ? T.slice() : null, tq: T.q });
   },
   // separa las caras macizas de las recortadas (hojas, flores, cristal…) según si su casilla tiene transparencia
   tileCut(tx, ty) {
@@ -5500,13 +5500,14 @@ const Renderer = {
 
   // ---------- uso del programa del mundo ----------
   useWorld(alphaTest, alpha, tex, atlasW, atlasH, solid) {
-    const gl = this.gl, P = solid ? this.pws : this.pw; gl.useProgram(P.p);
+    const gl = this.gl, SX = Shaders.active() && Shaders.ok; const P = SX ? Shaders.px : solid ? this.pws : this.pw; gl.useProgram(P.p);
     gl.uniformMatrix4fv(P.u.uProj, false, this.proj); gl.uniformMatrix4fv(P.u.uView, false, this.view);
     gl.uniform2f(P.u.uAtlas, atlasW || this.atlasW, atlasH || this.atlasH);
     gl.uniform1f(P.u.uDay, Sky.skyFactor); gl.uniform1f(P.u.uGamma, Settings.gamma);
     gl.uniform1f(P.u.uAlpha, alpha); gl.uniform1f(P.u.uAlphaTest, alphaTest);
     gl.uniform3fv(P.u.uFogColor, Sky.fogColor); gl.uniform2f(P.u.uFog, Sky.fogStart, Sky.fogEnd);
     gl.uniform4f(P.u.uTint, 0, 0, 0, 0); gl.uniform2f(P.u.uLightMul, 1, 1); gl.uniform3fv(P.u.uSkyTint, Sky.lightTint); gl.uniform1f(P.u.uAmb, World.dim === 'n' ? 0.16 : World.dim === 'e' ? 0.12 : 0.02);
+    if (SX) Shaders.setup(P);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex || this.atlasTex); gl.uniform1i(P.u.uTex, 0);
     return P;
   },
@@ -8127,7 +8128,7 @@ const Store = {
 
 const SETTINGS_DEFAULT = {
   fov: 70, sens: 0.5, renderDist: 7, gamma: 0.5, volume: 0.7, music: 0.4, fancy: true, clouds: true, bobbing: true, invertY: false,
-  guiScale: 0, hiRes: false, gameName: 'Picaterra', subtitle: 'HTML Edition', avatar: 'pico', particles: true, smooth: true, fpsLimit: 0, autoPerf: false, leaves: 'fancy', mipmaps: false, fpArmItem: true, touch: 'auto',
+  guiScale: 0, hiRes: false, gameName: 'Picaterra', subtitle: 'HTML Edition', avatar: 'pico', particles: true, smooth: true, fpsLimit: 0, autoPerf: false, leaves: 'fancy', mipmaps: false, fpArmItem: true, shaders: false, shaderQ: 'alto', shaderShadows: true, shaderRays: true, shaderBloom: true, shaderPack: '', touch: 'auto',
   nick: 'Jugador' + Math.floor(Math.random() * 900 + 100), musicMode: 'mix', shuffle: false, musicGap: false, packGap: 'mc',
 };
 const Settings = Object.assign({}, SETTINGS_DEFAULT);
@@ -10602,6 +10603,10 @@ const UI = {
       ['toggle', 'showFps', 'Mostrar FPS', 'Sí', 'No'],
       ['toggle', 'autoPerf', 'Modo rendimiento (60 FPS)', 'Sí', 'No'],
       ['cycle', 'leaves', 'Hojas', [['fancy', 'Detalladas'], ['smart', 'Inteligentes (más FPS)']]],
+      ['toggle', 'shaders', 'Sombreadores (shaders)', 'Sí', 'No'],
+      ['cycle', 'shaderQ', 'Calidad de sombras', [['bajo', 'Baja'], ['medio', 'Media'], ['alto', 'Alta'], ['ultra', 'Ultra']]],
+      ['toggle', 'shaderRays', 'Rayos de sol', 'Sí', 'No'],
+      ['toggle', 'shaderBloom', 'Brillo (bloom)', 'Sí', 'No'],
       ['toggle', 'fpArmItem', 'Brazo con el objeto (1ª persona)', 'Sí', 'No'],
       ['toggle', 'mipmaps', 'Mipmaps (más FPS con packs HD)', 'Sí', 'No'],
     ];
@@ -10621,7 +10626,7 @@ const UI = {
       } else {
         const [, k, label, on, off] = o;
         const b = document.createElement('button'); b.className = 'btn small'; const upd = () => b.textContent = label + ': ' + (Settings[k] ? on : off); upd();
-        b.onclick = () => { Settings[k] = !Settings[k]; upd(); saveSettings(); Sound.play('click'); if (k === 'fancy') Game.remeshAll(); if (k === 'mipmaps') Renderer.uploadAtlas(); if (k === 'autoPerf') Game.remeshAll(); };
+        b.onclick = () => { Settings[k] = !Settings[k]; upd(); saveSettings(); Sound.play('click'); if (k === 'fancy') Game.remeshAll(); if (k === 'mipmaps') Renderer.uploadAtlas(); if (k === 'autoPerf' || k === 'shaders') Game.remeshAll(); };
         row.appendChild(b);
       }
       box.appendChild(row);
@@ -11089,6 +11094,9 @@ function renderFrame() {
   const cam = setupCamera();
   const camBlock = World.get(Math.floor(cam.x), Math.floor(cam.y), Math.floor(cam.z));
   Sky.update(World.time, Game.state === 'play' ? Game.partial : 0, LIQUID[camBlock] === 1, LIQUID[camBlock] === 2, Perf.dist());
+  // sombreadores: pase de sombras y escena en un búfer aparte
+  const SX = Settings.shaders && Game.state !== 'title' && !Cam.override && Shaders.init();
+  if (SX) { R.camPos = [cam.x, cam.y, cam.z]; const Lt = Shaders.light(); Sky.sunDir.set(Lt.sunDir); Shaders.shadowPass(cam); Shaders.begin(R); }
   gl.clearColor(Sky.fogColor[0], Sky.fogColor[1], Sky.fogColor[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   if (!(LIQUID[camBlock])) R.drawSky(R.camRot);
   // chunks opacos
@@ -11101,23 +11109,28 @@ function renderFrame() {
   vis.sort((a, b) => a[0] - b[0]);
   gl.disable(gl.BLEND);
   const Ps = R.useWorld(0.5, 1, null, null, null, !!Settings.autoPerf); // macizos (sin recorte solo en modo rendimiento)
+  if (SX) gl.uniform1f(Ps.u.uWaveOn, 1);
   for (const [, c] of vis) { if (!c.mesh.o) continue; M4.identity(_m); M4.translate(_m, c.cx * 16, 0, c.cz * 16); R.drawMesh(c.mesh.o, _m, Ps); }
   const Pw = R.useWorld(0.5, 1); // recortados (hojas, flores…)
+  if (SX) gl.uniform1f(Pw.u.uWaveOn, 1);
   for (const [, c] of vis) { if (!c.mesh.c) continue; M4.identity(_m); M4.translate(_m, c.cx * 16, 0, c.cz * 16); R.drawMesh(c.mesh.c, _m, Pw); }
   // entidades
+  if (SX) gl.uniform1f(Pw.u.uWaveOn, 0);
   drawEntities(Pw, cam);
   // grietas y selección
   if (P && Game.state === 'play') drawSelection();
   R.drawClouds([cam.x, cam.y, cam.z], R.pv, R.view);
   // translúcidos
-  const Pt = R.useWorld(0.01, 1);
+  const Pt = R.useWorld(0.01, 1); if (SX) gl.uniform1f(Pt.u.uWaveOn, 1);
   gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   for (let i = vis.length - 1; i >= 0; i--) { const c = vis[i][1]; if (!c.mesh.t) continue; M4.identity(_m); M4.translate(_m, c.cx * 16, 0, c.cz * 16); R.drawMesh(c.mesh.t, _m, Pt); }
+  if (SX) gl.uniform1f(Pt.u.uWaveOn, 0);
   gl.disable(gl.BLEND);
   drawParticles(cam);
   drawNameTags(cam);
   if (Game.chunkBorders && P) drawChunkBorders();
-  if (P && Game.state === 'play' && Game.cam === 0 && !Game.hideHud && !P.dead && P.mode !== 3) drawHand();
+  if (P && Game.state === 'play' && Game.cam === 0 && !Game.hideHud && !P.dead && P.mode !== 3) { Shaders.hand = true; try { drawHand(); } finally { Shaders.hand = false; } }
+  if (SX) Shaders.end(R);
 }
 
 function entLight(x, y, z) { const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z); return [World.sky(bx, by, bz) / 15, World.blk(bx, by, bz) / 15]; }
@@ -12755,12 +12768,12 @@ const Addons = {
         const isPack = z.names.some(p => /^([^/]+\/)?(pack\.mcmeta|assets\/)/i.test(p));
         const isModpack = z.names.some(p => /^(manifest\.json|modrinth\.index\.json)$/i.test(p)) || z.names.some(p => /^overrides\//i.test(p));
         const isShader = z.names.some(p => /^([^/]+\/)?shaders\/.*\.(fsh|vsh|glsl|properties)$/i.test(p)) && !isPack;
-        if (isShader) { out.push('«' + f.name + '» es un paquete de shaders (para OptiFine/Iris): no se puede usar aquí.'); continue; }
+        if (isShader) { const nm = Shaders.usePack(f.name); out.push('«' + nm + '» es un paquete de shaders: su código es para el Minecraft de Java, así que se activan los sombreadores propios del juego con efectos de su estilo (sombras, agua, viento, rayos de sol). Puedes ajustarlos en Opciones.'); continue; }
         if (isModpack && !isPack) {
           let mods = 0, shaders = 0, packs = 0;
           for (const p of z.names) {
             if (/^overrides\/mods\/.*\.jar$/i.test(p)) mods++;
-            if (/^overrides\/shaderpacks\/[^/]+\.zip$/i.test(p)) shaders++;
+            if (/^overrides\/shaderpacks\/[^/]+\.zip$/i.test(p)) { if (!shaders) Shaders.usePack(p.split('/').pop()); shaders++; }
             if (/^overrides\/resourcepacks\/[^/]+\.zip$/i.test(p)) {
               const inner = await z.get(p); const nm = p.split('/').pop().replace(/#U00a7./gi, '').replace(/§./g, '').replace(/\.zip$/i, '').trim();
               const r = await this.addPack(nm, inner.buffer.slice(inner.byteOffset, inner.byteOffset + inner.byteLength)); if (r) { packs++; out.push('Paquete del modpack: «' + nm + '» — ' + r); }
@@ -12768,7 +12781,7 @@ const Addons = {
           }
           let idx = null; try { const t = z.names.find(p => /^(manifest|modrinth\.index)\.json$/i.test(p)); if (t) idx = JSON.parse(new TextDecoder().decode(await z.get(t))); } catch (e) { }
           const listed = idx ? ((idx.files && idx.files.length) || 0) : 0;
-          out.push('Modpack «' + ((idx && idx.name) || f.name) + '»: ' + packs + ' paquetes de recursos añadidos.' + (mods + listed ? ' Sus ' + (mods + listed) + ' mods de Java no pueden funcionar en un navegador.' : '') + (shaders ? ' Los shaders tampoco.' : ''));
+          out.push('Modpack «' + ((idx && idx.name) || f.name) + '»: ' + packs + ' paquetes de recursos añadidos.' + (mods + listed ? ' Sus ' + (mods + listed) + ' mods de Java no pueden funcionar en un navegador.' : '') + (shaders ? ' Trae shaders («' + Shaders.packName + '»): se han activado los sombreadores del juego con efectos de su estilo.' : ''));
           continue;
         }
         if (!isPack) { out.push('«' + f.name + '» no parece un paquete de recursos ni un modpack.'); continue; }
@@ -13494,6 +13507,292 @@ Entities.add = function (e) {
   const tickMirrorSafe = Entity.prototype.tickCommon;
   if (tickMirrorSafe) Entity.prototype.tickCommon = function () { if (this.mirror) return; return tickMirrorSafe.apply(this, arguments); };
 }
+
+
+// ---- extra/shaders121.js ----
+// ============================================================
+//  1.21: Sombreadores (shaders) al estilo Complementary
+//  sombras del sol de verdad, luz cálida + ambiente azulado, agua con olas y reflejos,
+//  hojas y plantas que se mueven con el viento, rayos de sol, brillo y corrección de color.
+// ============================================================
+const SH_X_VS = `#version 300 es
+layout(location=0) in vec3 aPos; layout(location=1) in vec2 aUV; layout(location=2) in vec4 aCol; layout(location=3) in vec3 aLight;
+uniform mat4 uProj, uView, uModel; uniform vec2 uAtlas; uniform vec2 uLightMul; uniform float uTime, uWaveOn, uWind;
+out vec2 vUV; out vec4 vCol; out float vSky, vBlk, vDist, vFl, vWave; out vec3 vWorld;
+vec3 wave(vec3 p, float fl, out float wv, out float flo){
+  wv = 0.0; flo = fl; if (uWaveOn < 0.5) return p;
+  wv = floor(mod(fl, 32.0) / 8.0); float top = step(31.5, fl); flo = mod(fl, 8.0);
+  float t = uTime;
+  if (wv > 0.5 && wv < 1.5) p += vec3(sin(t*1.6 + p.x*0.8 + p.y*0.6), sin(t*1.9 + p.z*0.7)*0.5, cos(t*1.3 + p.z*0.9 + p.y*0.4)) * 0.035 * uWind;
+  else if (wv > 1.5 && wv < 2.5 && top > 0.5) p.xz += vec2(sin(t*2.0 + p.x*0.9 + p.z*0.4) + 0.4*sin(t*4.1 + p.x*2.3), cos(t*1.7 + p.z*0.8 + p.x*0.3)) * 0.075 * uWind;
+  else if (wv > 2.5) p.y += (sin(t*1.5 + p.x*0.9) + cos(t*1.2 + p.z*1.1)) * 0.022 - 0.04;
+  return p;
+}
+void main(){
+  vec4 wp = uModel * vec4(aPos / 128.0, 1.0); float wv, fl; wp.xyz = wave(wp.xyz, aLight.z, wv, fl);
+  vec4 vp = uView * wp; gl_Position = uProj * vp;
+  vUV = aUV / uAtlas; vCol = aCol; vSky = aLight.x / 240.0 * uLightMul.x; vBlk = aLight.y / 240.0 * uLightMul.y; vFl = fl; vWave = wv; vDist = length(vp.xyz); vWorld = wp.xyz;
+}`;
+const SH_X_FS = `#version 300 es
+precision highp float; precision highp sampler2DShadow;
+uniform sampler2D uTex; uniform sampler2DShadow uShadow;
+uniform float uDay, uGamma, uAlpha, uAlphaTest; uniform vec3 uFogColor; uniform vec2 uFog; uniform vec4 uTint; uniform vec3 uSkyTint; uniform float uAmb;
+uniform mat4 uShadowMat; uniform vec3 uLightDir, uSunCol, uAmbCol, uCam, uZen; uniform float uTime, uShadowOn, uSoft, uFlat, uWaveOn;
+in vec2 vUV; in vec4 vCol; in float vSky, vBlk, vDist, vFl, vWave; in vec3 vWorld; out vec4 o;
+float cv(float x){ return x / (4.0 - 3.0 * x); }
+float br(float x){ float c = cv(x); float d = 1.0 - c; return mix(c, 1.0 - d * d * d * d, uGamma); }
+const vec2 PD[8] = vec2[8](vec2(-0.94,-0.4), vec2(0.95,-0.77), vec2(-0.09,-0.93), vec2(0.34,0.29), vec2(-0.92,0.46), vec2(0.54,0.88), vec2(-0.26,0.67), vec2(0.79,0.19));
+float shadowAt(vec3 wp, vec3 N){
+  if (uShadowOn < 0.5) return 1.0;
+  vec4 sp = uShadowMat * vec4(wp + N * 0.07, 1.0); vec3 s = sp.xyz / sp.w * 0.5 + 0.5;
+  if (s.x < 0.0 || s.x > 1.0 || s.y < 0.0 || s.y > 1.0 || s.z > 1.0) return 1.0;
+  float tx = uSoft / float(textureSize(uShadow, 0).x); float k = 0.0;
+  float a = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.283; mat2 r = mat2(cos(a), sin(a), -sin(a), cos(a));
+  for (int i = 0; i < 8; i++) k += texture(uShadow, vec3(s.xy + r * PD[i] * tx, s.z - 0.0005));
+  k /= 8.0;
+  vec2 e = abs(s.xy - 0.5) * 2.0; return mix(k, 1.0, smoothstep(0.8, 1.0, max(e.x, e.y)));
+}
+void main(){
+  vec4 t = texture(uTex, vUV);
+  if (t.a < uAlphaTest) discard;
+  bool part = vFl > 3.5;
+  vec3 alb = (part && t.a > 0.997) ? t.rgb : t.rgb * vCol.rgb;
+  if (part) t.a = 1.0;
+  vec3 N = normalize(cross(dFdx(vWorld), dFdy(vWorld)));
+  float s = clamp(vSky, 0.0, 1.0), b = clamp(vBlk, 0.0, 1.0);
+  float NL = dot(N, uLightDir);
+  bool foliage = vWave > 0.5 && vWave < 2.5;
+  if (foliage) NL = abs(NL) * 0.55 + 0.35; // el follaje deja pasar la luz
+  if (uWaveOn < 0.5) NL = NL * 0.5 + 0.5; // criaturas: luz más suave
+  float open = smoothstep(0.5, 0.95, s);
+  float sh = uFlat > 0.5 ? 1.0 : (open > 0.0 && NL > 0.0 ? shadowAt(vWorld, N) : 0.0);
+  if (uFlat > 0.5) NL = 0.75; // la mano (está en otro espacio): sin sombras
+  vec3 direct = uSunCol * max(NL, 0.0) * sh * open;
+  vec3 amb = uAmbCol * br(s) * (0.78 + 0.22 * N.y) + vec3(1.0, 0.78, 0.52) * pow(b, 1.6) * 1.25 + vec3(uAmb);
+  vec3 L = amb + direct;
+  if (vFl > 1.5 && vFl < 3.5) L = vec3(1.1);
+  vec3 c = alb * L * vCol.a;
+  float alpha = t.a * uAlpha;
+  if (vWave > 2.5) { // agua: olas, reflejo del cielo y brillo del sol
+    vec3 V = normalize(uCam - vWorld); vec2 p = vWorld.xz; float tt = uTime;
+    vec3 wn = normalize(vec3((cos(p.x*1.3 + tt*1.6)*0.6 + cos((p.x + p.y)*2.1 + tt*2.3)*0.35 + cos(p.x*4.7 - tt*3.1)*0.15) * 0.08, 1.0,
+                             (cos(p.y*1.1 + tt*1.4)*0.6 + cos((p.y - p.x)*1.9 + tt*2.0)*0.35 + cos(p.y*5.3 + tt*2.7)*0.15) * 0.08));
+    if (N.y < 0.5) wn = N;
+    float fres = 0.03 + 0.97 * pow(1.0 - max(dot(wn, V), 0.0), 5.0);
+    vec3 R = reflect(-V, wn);
+    vec3 sky = mix(uFogColor, uZen, clamp(R.y * 1.6, 0.0, 1.0)) * (0.3 + 0.7 * open);
+    float spec = pow(max(dot(R, uLightDir), 0.0), 220.0) * open * 5.0 * (uShadowOn > 0.5 ? shadowAt(vWorld, vec3(0,1,0)) : 1.0);
+    c = mix(c, sky, fres * 0.85) + uSunCol * spec;
+    alpha = clamp(mix(alpha, 1.0, fres * 0.85) + spec, 0.0, 1.0);
+  }
+  c = mix(c, uTint.rgb, uTint.a);
+  float f = clamp((vDist - uFog.x) / (uFog.y - uFog.x), 0.0, 1.0);
+  o = vec4(mix(c, uFogColor, f), alpha);
+}`;
+const SH_SHADOW_VS = `#version 300 es
+layout(location=0) in vec3 aPos; layout(location=1) in vec2 aUV; layout(location=3) in vec3 aLight;
+uniform mat4 uShadowMat, uModel; uniform vec2 uAtlas; uniform float uTime, uWind; out vec2 vUV;
+void main(){
+  vec4 wp = uModel * vec4(aPos / 128.0, 1.0); float fl = aLight.z; float wv = floor(mod(fl, 32.0) / 8.0); float top = step(31.5, fl); float t = uTime;
+  if (wv > 0.5 && wv < 1.5) wp.xyz += vec3(sin(t*1.6 + wp.x*0.8 + wp.y*0.6), sin(t*1.9 + wp.z*0.7)*0.5, cos(t*1.3 + wp.z*0.9 + wp.y*0.4)) * 0.035 * uWind;
+  else if (wv > 1.5 && wv < 2.5 && top > 0.5) wp.xz += vec2(sin(t*2.0 + wp.x*0.9 + wp.z*0.4) + 0.4*sin(t*4.1 + wp.x*2.3), cos(t*1.7 + wp.z*0.8 + wp.x*0.3)) * 0.075 * uWind;
+  gl_Position = uShadowMat * wp; vUV = aUV / uAtlas;
+}`;
+const SH_SHADOW_FS = `#version 300 es
+precision mediump float; uniform sampler2D uTex; in vec2 vUV; out vec4 o;
+void main(){ if (texture(uTex, vUV).a < 0.5) discard; o = vec4(1.0); }`;
+const SH_COMP_VS = `#version 300 es
+layout(location=0) in vec2 aP; out vec2 vP; void main(){ vP = aP; gl_Position = vec4(aP, 0.0, 1.0); }`;
+const SH_COMP_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uCol, uDep; uniform vec2 uSun; uniform float uSunOn, uBloom, uSat, uVig; uniform vec3 uRayCol; uniform float uAspect;
+in vec2 vP; out vec4 o;
+vec3 tone(vec3 c){ vec3 k = 0.82 + 0.18 * (1.0 - exp(-(max(c, vec3(0.82)) - 0.82) / 0.18)); return mix(c, k, step(vec3(0.82), c)); }
+void main(){
+  vec2 uv = vP * 0.5 + 0.5;
+  vec3 c = texture(uCol, uv).rgb;
+  vec3 bl = textureLod(uCol, uv, 2.5).rgb * 0.45 + textureLod(uCol, uv, 4.0).rgb * 0.35 + textureLod(uCol, uv, 5.5).rgb * 0.2;
+  c += max(bl - 0.72, 0.0) * uBloom;
+  if (uSunOn > 0.001) {
+    vec2 d = (uSun - uv) / 28.0; vec2 q = uv; float acc = 0.0;
+    float j = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    q += d * j;
+    for (int i = 0; i < 28; i++) { q += d; if (q.x < 0.0 || q.y < 0.0 || q.x > 1.0 || q.y > 1.0) break; acc += step(0.99999, texture(uDep, q).r) * (1.0 - float(i) / 28.0); }
+    acc /= 14.0; vec2 dd = (uSun - uv) * vec2(uAspect, 1.0); float fall = clamp(1.0 - length(dd) * 0.9, 0.0, 1.0);
+    c += uRayCol * acc * fall * fall * uSunOn;
+  }
+  c = tone(c);
+  float l = dot(c, vec3(0.299, 0.587, 0.114)); c = mix(vec3(l), c, uSat);
+  vec2 v = uv - 0.5; c *= 1.0 - dot(v, v) * uVig;
+  o = vec4(clamp(c, 0.0, 1.0), 1.0);
+}`;
+
+const Shaders = {
+  ok: null, packName: '',
+  active() { return !!(Settings.shaders && this.ok !== false && Game.state !== 'title' && !Cam.override); },
+  wantTags() { return !!Settings.shaders && this.ok !== false; },
+  init() {
+    if (this.ok !== null) return this.ok;
+    const R = Renderer, gl = R.gl;
+    try {
+      this.hdr = !!gl.getExtension('EXT_color_buffer_float');
+      this.px = R.program(SH_X_VS, SH_X_FS);
+      this.ps = R.program(SH_SHADOW_VS, SH_SHADOW_FS);
+      this.pc = R.program(SH_COMP_VS, SH_COMP_FS);
+      // mapa de sombras
+      this.shTex = gl.createTexture(); this.shFbo = gl.createFramebuffer(); this.shSize = 0;
+      // escena
+      this.colTex = gl.createTexture(); this.depTex = gl.createTexture(); this.fbo = gl.createFramebuffer(); this.W = 0; this.H = 0;
+      // cuadrado de pantalla completa
+      this.vao = gl.createVertexArray(); gl.bindVertexArray(this.vao); const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); gl.bindVertexArray(null);
+      this.ok = true;
+    } catch (e) { console.warn('Shaders', e); this.ok = false; }
+    return this.ok;
+  },
+  quality() { const q = Settings.shaderQ || 'alto'; return q === 'bajo' ? { res: 1024, dist: 40, soft: 1.2 } : q === 'medio' ? { res: 2048, dist: 56, soft: 1.5 } : q === 'ultra' ? { res: 4096, dist: 80, soft: 2.2 } : { res: 2048, dist: 64, soft: 1.8 }; },
+  ensureShadow(S) {
+    if (this.shSize === S) return; const gl = Renderer.gl; this.shSize = S;
+    gl.bindTexture(gl.TEXTURE_2D, this.shTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, S, S, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.shFbo); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this.shTex, 0); gl.drawBuffers([gl.NONE]); gl.readBuffer(gl.NONE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  },
+  ensureScene(W, H) {
+    if (this.W === W && this.H === H) return; const gl = Renderer.gl; this.W = W; this.H = H;
+    gl.bindTexture(gl.TEXTURE_2D, this.colTex);
+    if (this.hdr) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, W, H, 0, gl.RGBA, gl.HALF_FLOAT, null); else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindTexture(gl.TEXTURE_2D, this.depTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, W, H, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colTex, 0); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this.depTex, 0);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE && this.hdr) { this.hdr = false; this.W = 0; gl.bindFramebuffer(gl.FRAMEBUFFER, null); return this.ensureScene(W, H); }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  },
+  // ---------- sol, luna y colores según la hora ----------
+  light() {
+    const a = Sky.celestialAngle; const tilt = -0.5; // inclinación del recorrido del sol (como los shaders de Java)
+    let sx = Math.cos(a), sy = Math.sin(a), sz = 0; const y2 = sy * Math.cos(tilt), z2 = sy * Math.sin(tilt); sy = y2; sz = z2;
+    const day = smoothSH(-0.08, 0.22, sy), moon = smoothSH(-0.05, 0.2, -sy);
+    const dir = sy > -0.02 ? [sx, sy, sz] : [-sx, -sy, -sz];
+    const warm = smoothSH(0.0, 0.42, sy);
+    const sun = [lerp(1.0, 0.95, warm) * day, lerp(0.5, 0.86, warm) * day, lerp(0.25, 0.72, warm) * day];
+    const mc = [0.1 * moon, 0.12 * moon, 0.19 * moon];
+    const amb = [lerp(0.07, 0.44, day), lerp(0.08, 0.5, day), lerp(0.13, 0.62, day)];
+    const rain = World.rain || 0; const k = 1 - rain * 0.7;
+    const L = sy > -0.02 ? sun : mc;
+    if (World.dim === 'n') return { dir: [0, 1, 0], sun: [0, 0, 0], amb: [0.55, 0.38, 0.3], day: 0, sunDir: [sx, sy, sz], shadows: false };
+    if (World.dim === 'e') return { dir: [0.3, 0.9, 0.3], sun: [0.12, 0.08, 0.16], amb: [0.32, 0.28, 0.4], day: 0, sunDir: [sx, sy, sz], shadows: false };
+    return { dir, sun: L.map(x => x * k), amb: amb.map(x => x * (1 - rain * 0.35)), day, sunDir: [sx, sy, sz], shadows: Math.abs(sy) > 0.04 };
+  },
+  // ---------- pase de sombras ----------
+  shadowPass(cam) {
+    const R = Renderer, gl = R.gl, q = this.quality(); const Lt = this.L = this.light();
+    this.shadowOn = Settings.shaderShadows !== false && Lt.shadows;
+    if (!this.shadowOn) return;
+    this.ensureShadow(q.res);
+    const H = q.dist, d = Lt.dir; const cx = cam.x, cy = Math.max(cam.y, 40), cz = cam.z;
+    // vista desde la luz (base ortonormal)
+    const f = norm3([-d[0], -d[1], -d[2]]); let up = Math.abs(f[1]) > 0.95 ? [1, 0, 0] : [0, 1, 0];
+    const r = norm3(cross3(f, up)); up = cross3(r, f);
+    // ajustar el centro a la rejilla de píxeles de la sombra (sin parpadeo al moverse)
+    const tex = 2 * H / q.res; let ox = r[0] * cx + r[1] * cy + r[2] * cz, oy = up[0] * cx + up[1] * cy + up[2] * cz;
+    ox = Math.round(ox / tex) * tex; oy = Math.round(oy / tex) * tex; const oz = -(f[0] * cx + f[1] * cy + f[2] * cz);
+    const view = new Float32Array([r[0], up[0], -f[0], 0, r[1], up[1], -f[1], 0, r[2], up[2], -f[2], 0, -ox, -oy, -oz, 1]);
+    const near = -200, far = 200; const proj = new Float32Array([1 / H, 0, 0, 0, 0, 1 / H, 0, 0, 0, 0, -2 / (far - near), 0, 0, 0, -(far + near) / (far - near), 1]);
+    this.shadowMat = M4.mul(new Float32Array(16), proj, view);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.shFbo); gl.viewport(0, 0, q.res, q.res); gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND); gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1.5, 2.0);
+    const P = this.ps; gl.useProgram(P.p); gl.uniformMatrix4fv(P.u.uShadowMat, false, this.shadowMat); gl.uniform2f(P.u.uAtlas, R.atlasW, R.atlasH);
+    gl.uniform1f(P.u.uTime, this.time()); gl.uniform1f(P.u.uWind, this.wind()); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform1i(P.u.uTex, 0);
+    const pcx = Math.floor(cx) >> 4, pcz = Math.floor(cz) >> 4, rc = Math.ceil(H / 16) + 1; const m = new Float32Array(16);
+    for (const c of World.chunks.values()) {
+      if (!c.mesh || Math.abs(c.cx - pcx) > rc || Math.abs(c.cz - pcz) > rc) continue;
+      M4.identity(m); M4.translate(m, c.cx * 16, 0, c.cz * 16);
+      if (c.mesh.o) R.drawMesh(c.mesh.o, m, P); if (c.mesh.c) R.drawMesh(c.mesh.c, m, P);
+    }
+    gl.disable(gl.POLYGON_OFFSET_FILL); gl.enable(gl.CULL_FACE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  },
+  time() { return (performance.now() / 1000) % 3600; },
+  wind() { return 1 + (World.rain || 0) * 1.2 + (World.thunder || 0) * 0.8; },
+  // ---------- escena en un búfer y mezcla final ----------
+  begin(R) {
+    const gl = R.gl; this.ensureScene(R.W, R.H);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo); gl.viewport(0, 0, R.W, R.H);
+  },
+  // uniformes extra del programa del mundo
+  setup(P) {
+    const R = Renderer, gl = R.gl, Lt = this.L || this.light(), q = this.quality(); const cam = R.camPos || [0, 0, 0];
+    gl.uniform3fv(P.u.uLightDir, Lt.dir); gl.uniform3fv(P.u.uSunCol, Lt.sun); gl.uniform3fv(P.u.uAmbCol, Lt.amb);
+    gl.uniform3fv(P.u.uCam, cam); gl.uniform3fv(P.u.uZen, Sky.zenith || [0.35, 0.55, 0.95]); gl.uniform1f(P.u.uTime, this.time()); gl.uniform1f(P.u.uWind, this.wind());
+    gl.uniform1f(P.u.uShadowOn, this.shadowOn ? 1 : 0); gl.uniform1f(P.u.uSoft, q.soft); gl.uniform1f(P.u.uWaveOn, 0); gl.uniform1f(P.u.uFlat, this.hand ? 1 : 0);
+    if (this.shadowMat) gl.uniformMatrix4fv(P.u.uShadowMat, false, this.shadowMat);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.shTex); gl.uniform1i(P.u.uShadow, 3); gl.activeTexture(gl.TEXTURE0);
+  },
+  end(R) {
+    const gl = R.gl; const Lt = this.L || this.light();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, R.W, R.H);
+    gl.bindTexture(gl.TEXTURE_2D, this.colTex); gl.generateMipmap(gl.TEXTURE_2D);
+    const P = this.pc; gl.useProgram(P.p); gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.colTex); gl.uniform1i(P.u.uCol, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.depTex); gl.uniform1i(P.u.uDep, 1); gl.activeTexture(gl.TEXTURE0);
+    // posición del sol en pantalla para los rayos
+    let on = 0, sx = 0.5, sy = 0.5; const sd = Lt.sunDir;
+    if (World.dim === 'o' || !World.dim) {
+      const v = [sd[0] * 1000, sd[1] * 1000, sd[2] * 1000, 0]; const rv = R.camRot; const pr = R.proj;
+      const e = [rv[0] * v[0] + rv[4] * v[1] + rv[8] * v[2], rv[1] * v[0] + rv[5] * v[1] + rv[9] * v[2], rv[2] * v[0] + rv[6] * v[1] + rv[10] * v[2]];
+      const cx = pr[0] * e[0] + pr[8] * e[2], cy = pr[5] * e[1] + pr[9] * e[2], cw = -e[2];
+      if (cw > 0 && sd[1] > -0.05) { sx = cx / cw * 0.5 + 0.5; sy = cy / cw * 0.5 + 0.5; const off = Math.max(Math.abs(sx - 0.5), Math.abs(sy - 0.5)); on = (1 - smoothSH(0.5, 1.1, off)) * smoothSH(-0.05, 0.15, sd[1]) * (1 - (World.rain || 0)) * (Settings.shaderRays === false ? 0 : 0.42); }
+    }
+    const warm = smoothSH(0.0, 0.45, sd[1]);
+    gl.uniform2f(P.u.uSun, sx, sy); gl.uniform1f(P.u.uSunOn, on); gl.uniform3f(P.u.uRayCol, 1.0, lerp(0.62, 0.88, warm), lerp(0.35, 0.7, warm));
+    gl.uniform1f(P.u.uBloom, Settings.shaderBloom === false ? 0 : 0.6); gl.uniform1f(P.u.uSat, 1.12); gl.uniform1f(P.u.uVig, 0.5); gl.uniform1f(P.u.uAspect, R.W / R.H);
+    gl.bindVertexArray(this.vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
+    gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE);
+  },
+  // ---------- marcar vértices de hojas, plantas y agua (para el viento y las olas) ----------
+  typeOfName(n) {
+    n = n.replace(/^jm\/[^:]*:/, '').replace(/^block\//, '');
+    if (/water_(still|flow)/.test(n)) return 3;
+    if (/leaves|vine|azalea(?!_)|mangrove_roots|hanging_roots/.test(n)) return 1;
+    if (/^(short_grass|grass$|tall_grass|fern|large_fern|dandelion|poppy|.*_tulip|allium|azure_bluet|oxeye_daisy|cornflower|lily_of_the_valley|wither_rose|sunflower|lilac|rose_bush|peony|.*_sapling|dead_bush|wheat_stage|carrots_stage|potatoes_stage|beetroots_stage|sugar_cane|seagrass|tall_seagrass|kelp|sweet_berry_bush|pink_petals|torchflower|pitcher|bamboo_stage|crimson_roots|warped_roots|nether_sprouts)/.test(n)) return 2;
+    return 0;
+  },
+  table() {
+    if (this._tV === Atlas.version && this._tC === Atlas.canvas && this._t) return this._t;
+    this._tV = Atlas.version; this._tC = Atlas.canvas; const t = new Uint8Array(Atlas.cols * (Math.ceil(Atlas.canvas.height / Atlas.T) + 1));
+    for (const name in Atlas.index) { const ty = this.typeOfName(name); if (ty) t[Atlas.index[name]] = ty; }
+    return (this._t = t);
+  },
+  tagBuf(u8, n) {
+    if (!u8 || !n) return; const t = this.table(), u16 = new Uint16Array(u8.buffer, u8.byteOffset, u8.byteLength >> 1), TS = Atlas.T * ASUB, cols = Atlas.cols;
+    for (let q = 0; q < n; q++) {
+      const b = q * 40 + 4; const u = (u16[b] + u16[b + 10] + u16[b + 20] + u16[b + 30]) / 4, v = (u16[b + 1] + u16[b + 11] + u16[b + 21] + u16[b + 31]) / 4;
+      const ty = t[Math.floor(v / TS) * cols + Math.floor(u / TS)]; if (!ty) continue;
+      const minV = Math.min(u16[b + 1], u16[b + 11], u16[b + 21], u16[b + 31]);
+      for (let k = 0; k < 4; k++) { const o = q * 80 + k * 20 + 18; const top = ty === 2 && u16[b + 1 + k * 10] <= minV + 1 ? 32 : 0; u8[o] = (u8[o] & 7) | (ty << 3) | top; }
+    }
+  },
+  tag(res) { if (!this.wantTags() || !res) return res; this.tagBuf(res.o, res.oq); this.tagBuf(res.c, res.cq); this.tagBuf(res.t, res.tq); return res; },
+  toggle() { Game.remeshAll(); },
+  usePack(fname) {
+    const nm = String(fname).replace(/\.zip$/i, '').replace(/[_+]/g, ' ').trim().slice(0, 60);
+    this.packName = nm; Settings.shaderPack = nm; const was = Settings.shaders; Settings.shaders = true; saveSettings();
+    // estilo según el paquete (Complementary: colores vivos; BSL: más cálido; SEUS: más contraste)
+    Settings.shaderStyle = /bsl/i.test(nm) ? 'bsl' : /seus|sildur/i.test(nm) ? 'seus' : 'comp'; saveSettings();
+    if (!was && Game.state === 'play') Game.remeshAll();
+    return nm;
+  },
+};
+function smoothSH(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+function norm3(v) { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
+function cross3(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
 
 // ---------------- pieles personalizadas de las criaturas ----------------
 const MOB_PART_NAMES = { muzzle: 'Morro', udder: 'Ubre', legL0: 'Patas', jacket: 'Chaqueta', head: 'Cabeza', body: 'Cuerpo', snout: 'Hocico', leg0: 'Patas', horn1: 'Cuernos', rarm: 'Brazo derecho', larm: 'Brazo izquierdo', rleg: 'Pierna derecha', lleg: 'Pierna izquierda', beak: 'Pico', wattle: 'Barba', rwing: 'Alas', neck: 'Cuello', legR0: 'Patas' };
