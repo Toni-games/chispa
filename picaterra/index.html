@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.22.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.22.2';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -6269,9 +6269,9 @@ const CEM = {
   models: {},    // nombre de modelo -> modelo construido (o null)
   enabled: true,
   frame: 0, ft: 0.016, lastT: 0,
-  clear() { this.files = {}; this.models = {}; },
-  add(name, text) { this.files[name.toLowerCase()] = text; this.models = {}; },
-  count() { if (this._cnF !== this.files || !(this.frame & 63)) { this._cnF = this.files; this._cnt = Object.keys(this.files).filter(n => n.endsWith('.jem')).length; } return this._cnt; },
+  clear() { this.files = {}; this.models = {}; this._cnDirty = true; },
+  add(name, text) { this.files[name.toLowerCase()] = text; this.models = {}; this._cnDirty = true; },
+  count() { if (this._cnF !== this.files || this._cnDirty) { this._cnF = this.files; this._cnDirty = false; this._cnt = Object.keys(this.files).filter(n => n.endsWith('.jem')).length; } return this._cnt; },
   // ---------- expresiones ----------
   tokens(s) {
     const out = []; let i = 0;
@@ -12864,6 +12864,14 @@ const JM = {
     }
     return out;
   },
+  // las máquinas de los mods (Create) dibujan aparte sus piezas (hélice, broca, sierra, brazo...);
+  // su modelo «item» trae la máquina entera: se usa ese, salvo en las que ya mueve el juego
+  KIN_PARTS: /(^|\/)(mechanical_press|mechanical_mixer|millstone|hand_crank|water_wheel|large_water_wheel)$/,
+  fullModel(ref) {
+    const m = typeof ref === 'string' && ref.match(/^([a-z0-9_.-]+):block\/(.+)\/block$/);
+    if (!m || m[1] === 'minecraft' || this.KIN_PARTS.test(m[2])) return ref;
+    const it = m[1] + ':block/' + m[2] + '/item'; return this.resolve(it) ? it : ref;
+  },
   pickVariant(v) { // un estado de «variants»
     const keys = Object.keys(v); if (!keys.length) return null;
     const pref = keys.find(k => k === '') || keys.find(k => /axis=y/.test(k)) || keys.find(k => /facing=north|snowy=false|persistent=false|half=bottom|type=bottom/.test(k)) || keys[0];
@@ -12879,7 +12887,7 @@ const JM = {
     for (const name in this.states) {
       const id = B[name]; if (id === undefined) continue; const d = BLOCKS[id]; if (!d || d.liquid || d.bedPart) continue;
       const st = this.states[name]; const parts = [];
-      const opts = (a) => (Array.isArray(a) ? a : [a]).map(o => ({ w: o.weight || 1, ref: o.model, rx: (o.x || 0) / 90 & 3, ry: (o.y || 0) / 90 & 3 }));
+      const opts = (a) => (Array.isArray(a) ? a : [a]).map(o => ({ w: o.weight || 1, ref: this.fullModel(o.model), rx: (o.x || 0) / 90 & 3, ry: (o.y || 0) / 90 & 3 }));
       if (st.variants) { const v = this.pickVariant(st.variants); if (v) parts.push(opts(v)); }
       if (st.multipart) for (const mp of st.multipart) if (!mp.when) parts.push(opts(mp.apply));
       const comp = (parts) => parts.map((list, pi) => list.map(o => { const r = this.resolve(o.ref); const q = this.compile(r, o.rx, o.ry) || []; return { w: o.w, quads: q, vanilla: !r && pi === 0 && !/empty/.test(o.ref || '') }; }));
@@ -13449,7 +13457,7 @@ const Kinetic = {
   // ---------- dibujo de las piezas que giran ----------
   meshes: {},
   meshFor(ref, id, meta) {
-    const key = ref + '|' + meta; if (key in this.meshes) return this.meshes[key];
+    const key = ref + '|' + (ref === 'self' ? id + '|' : '') + meta; if (key in this.meshes) return this.meshes[key];
     let quads = null;
     if (ref === 'self') { const jb0 = JM.block[id]; const jb = jb0 && jb0.byMeta ? (jb0.byMeta[meta & jb0.mask] || jb0) : jb0; if (jb) quads = [].concat(...jb.map(list => list[0] ? list[0].quads : [])); }
     else { const m = JM.resolve(ref); quads = m ? JM.compile(m, 0, 0) : null; }

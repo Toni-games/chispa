@@ -1,8 +1,20 @@
 {
-  "latest": "1.22.1",
+  "latest": "1.22.2",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.22.2",
+      "date": "2026-11-22",
+      "title": "Create completo en el suelo",
+      "notes": [
+        "Los engranajes de Create ya se ven con sus dientes (antes todos usaban la pieza del eje)",
+        "Las máquinas de Create se ven enteras: hélices, brocas, sierras, brazos, desplegadores...",
+        "Las animaciones de Fresh Animations se activan siempre aunque el paquete tarde en cargar"
+      ],
+      "size": 344244,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.22.2.zip"
+    },
     {
       "id": "1.22.1",
       "date": "2026-11-22",
