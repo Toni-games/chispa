@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.22.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.22.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -4004,12 +4004,80 @@ function quadIcon(g, quads) {
     tri(img, S[0], S[1], S[2], D[0], D[1], D[2]); tri(img, S[0], S[2], S[3], D[0], D[2], D[3]);
   }
 }
+// modelo para el icono de un objeto de un mod: el del objeto, o si no tiene, el del bloque
+function jmIconQuads(id) {
+  const it = ITEMS[id]; const j = JM.item[id];
+  if (j && j.quads && j.quads.length) return { quads: j.quads, disp: j.display && j.display.gui };
+  const bid = it.block !== undefined ? B[it.block] : undefined; const jb0 = bid !== undefined ? JM.block[bid] : null;
+  if (jb0) { const jb = jb0.byMeta ? (jb0.byMeta[0] || jb0) : jb0; const quads = [].concat(...jb.map(list => list && list[0] ? list[0].quads : [])); if (quads.length) return { quads, disp: null }; }
+  return null;
+}
+// dibuja un modelo (caras en coordenadas de bloque 0..16) como lo hace el inventario de Minecraft:
+// giro X·Y·Z de «display.gui» (por defecto 30°, 225°, 0° y escala 0,625 en los bloques), vista de frente, con sombreado por cara
+function guiIcon(g, quads, disp) {
+  let flat = true; for (const q of quads) for (const v of q.verts) if (Math.abs(v[2] - 8) > 1.2) { flat = false; break; }
+  const D = disp || (flat ? { rotation: [0, 0, 0], scale: [1, 1, 1] } : { rotation: [30, 225, 0], scale: [0.625, 0.625, 0.625] });
+  const r = (D.rotation || [0, 0, 0]).map(a => a * Math.PI / 180), sc = D.scale || [1, 1, 1], tr = D.translation || [0, 0, 0];
+  const [cx, sx] = [Math.cos(r[0]), Math.sin(r[0])], [cy, sy] = [Math.cos(r[1]), Math.sin(r[1])], [cz, sz] = [Math.cos(r[2]), Math.sin(r[2])];
+  const xf = (v) => {
+    let x = (v[0] - 8) * sc[0], y = (v[1] - 8) * sc[1], z = (v[2] - 8) * sc[2], t;
+    t = x * cz - y * sz; y = x * sz + y * cz; x = t;            // Z
+    t = x * cy + z * sy; z = -x * sy + z * cy; x = t;           // Y
+    t = y * cx - z * sx; z = y * sx + z * cx; y = t;            // X
+    return [x + tr[0], y + tr[1], z + tr[2]];
+  };
+  const K = 2; // 16 unidades = 32 px
+  const L = [-0.35, 0.85, 0.4]; const ll = Math.hypot(...L); L[0] /= ll; L[1] /= ll; L[2] /= ll;
+  const P = [];
+  for (const q of quads) {
+    const w = q.verts.map(xf);
+    const a = [w[1][0] - w[0][0], w[1][1] - w[0][1], w[1][2] - w[0][2]], b = [w[2][0] - w[0][0], w[2][1] - w[0][1], w[2][2] - w[0][2]];
+    let n = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; const nl = Math.hypot(...n) || 1; n = n.map(v => v / nl);
+    const lit = flat ? 1 : Math.min(1, 0.5 + 0.55 * Math.abs(n[0] * L[0] + n[1] * L[1] + n[2] * L[2]) + (n[1] > 0.6 ? 0.15 : 0));
+    P.push({ q, d: (w[0][2] + w[1][2] + w[2][2] + w[3][2]) / 4, pts: w.map(p => [16 + p[0] * K, 16 - p[1] * K]), lit });
+  }
+  // modelos diminutos (munición, piezas sueltas): se agrandan para que llenen el hueco
+  { let a = 1e9, b = -1e9, c = 1e9, d = -1e9; for (const o of P) for (const pt of o.pts) { a = Math.min(a, pt[0]); b = Math.max(b, pt[0]); c = Math.min(c, pt[1]); d = Math.max(d, pt[1]); }
+    const ext = Math.max(b - a, d - c); if (ext > 0.01 && ext < 14) { const k = 22 / ext, mx = (a + b) / 2, my = (c + d) / 2; for (const o of P) o.pts = o.pts.map(pt => [16 + (pt[0] - mx) * k, 16 + (pt[1] - my) * k]); } }
+  P.sort((p1, p2) => p1.d - p2.d); // de atrás hacia delante
+  const tri = (img, s0, s1, s2, d0, d1, d2, lit) => {
+    const den = (s1[0] - s0[0]) * (s2[1] - s0[1]) - (s2[0] - s0[0]) * (s1[1] - s0[1]); if (Math.abs(den) < 1e-9) return;
+    g.save(); g.beginPath(); g.moveTo(d0[0], d0[1]); g.lineTo(d1[0], d1[1]); g.lineTo(d2[0], d2[1]); g.closePath(); g.clip();
+    const A = ((d1[0] - d0[0]) * (s2[1] - s0[1]) - (d2[0] - d0[0]) * (s1[1] - s0[1])) / den, C = ((d2[0] - d0[0]) * (s1[0] - s0[0]) - (d1[0] - d0[0]) * (s2[0] - s0[0])) / den;
+    const B2 = ((d1[1] - d0[1]) * (s2[1] - s0[1]) - (d2[1] - d0[1]) * (s1[1] - s0[1])) / den, D2 = ((d2[1] - d0[1]) * (s1[0] - s0[0]) - (d1[1] - d0[1]) * (s2[0] - s0[0])) / den;
+    g.setTransform(A, B2, C, D2, d0[0] - A * s0[0] - C * s0[1], d0[1] - B2 * s0[0] - D2 * s0[1]); g.drawImage(img, 0, 0); g.restore();
+  };
+  // cada cara se pinta en una capa aparte (para oscurecerla sin manchar lo de detrás) y se pega encima
+  const lay = guiIcon.lay || (guiIcon.lay = document.createElement('canvas')); lay.width = lay.height = 32; const lg = lay.getContext('2d'); lg.imageSmoothingEnabled = false;
+  const g0 = g;
+  for (const o of P) {
+    const img = Atlas.tile(o.q.tex); if (!img) continue; const k = img.width / 16;
+    const S = o.q.uvs.map(u => [u[0] * k, u[1] * k]); const Dp = o.pts;
+    lg.setTransform(1, 0, 0, 1, 0, 0); lg.clearRect(0, 0, 32, 32);
+    g = lg; tri(img, S[0], S[1], S[2], Dp[0], Dp[1], Dp[2]); tri(img, S[0], S[2], S[3], Dp[0], Dp[2], Dp[3]); g = g0;
+    if (o.lit < 0.995) { lg.setTransform(1, 0, 0, 1, 0, 0); lg.globalCompositeOperation = 'source-atop'; lg.fillStyle = 'rgba(0,0,0,' + (1 - o.lit).toFixed(3) + ')'; lg.fillRect(0, 0, 32, 32); lg.globalCompositeOperation = 'source-over'; }
+    g.drawImage(lay, 0, 0);
+  }
+}
 function itemIcon(id) { // canvas 32x32
   const key = id + '@' + Atlas.version;
   if (ICON_CACHE[key]) return ICON_CACHE[key];
   const it = ITEMS[id]; const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
   if (!it) { ICON_CACHE[key] = c; return c; }
   if (it.gun && typeof JM !== 'undefined' && JM.item[id]) { try { quadIcon(g, JM.item[id].quads); } catch (e) { } ICON_CACHE[key] = c; return c; }
+  // objetos y bloques de los mods: el icono sale de su modelo, con el giro y la escala del inventario (como en Minecraft)
+  // paneles y barrotes de los mods: en el inventario se ven planos con su textura (como los de Minecraft)
+  if (typeof JM !== 'undefined' && it.cat === 'mods' && !JM.item[id] && /_(pane|bars)$/.test(id)) {
+    const path = id.replace(/^[^_]+_/, ''); const cands = [path.replace(/_pane$/, ''), path, path.replace(/_pane$/, '_pane_top')];
+    let tn = null; for (const cd of cands) { tn = Object.keys(Atlas.index).find(k => k.endsWith('/' + cd)); if (tn) break; }
+    const im = tn && Atlas.tile(tn); if (im) { g.imageSmoothingEnabled = false; g.drawImage(im, 0, 0, im.width, im.height, 2, 2, 28, 28); ICON_CACHE[key] = c; return c; }
+  }
+  if (typeof JM !== 'undefined' && (it.cat === 'mods' || (it.block && BLOCKS[B[it.block]] && BLOCKS[B[it.block]].dyn))) { const q = jmIconQuads(id); if (q) {
+    try { guiIcon(g, q.quads, q.disp); } catch (e) { console.warn('icono', id, e); }
+    // si casi no se ve nada (raíles, cosas planas en el suelo), su textura principal en plano
+    const dd = g.getImageData(0, 0, 32, 32).data; let px = 0; for (let i = 3; i < dd.length; i += 4) if (dd[i] > 20) px++;
+    if (px < 60) { const cnt = {}; for (const qq of q.quads) cnt[qq.tex] = (cnt[qq.tex] || 0) + 1; const tn = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0]; const im = tn && Atlas.tile(tn); if (im) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 32, 32); g.imageSmoothingEnabled = false; g.drawImage(im, 0, 0, im.width, im.height, 2, 2, 28, 28); } }
+    ICON_CACHE[key] = c; return c; } }
   const bd = it.block ? BLOCKS[B[it.block]] : null;
   if (bd && bd.iconAlias && Atlas.custom[bd.iconAlias]) { const src = Atlas.tile(bd.iconAlias); g.drawImage(src, 0, 0, src.width, src.height, 0, 0, 32, 32); ICON_CACHE[key] = c; return c; }
   if (it.iconBlock && bd && RENDER[bd.id] === 5 && !bd.slab && bd.key !== 'bed' && bd.key !== 'chest') { boxIcon(g, bd); ICON_CACHE[key] = c; return c; }

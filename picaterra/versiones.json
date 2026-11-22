@@ -1,8 +1,19 @@
 {
-  "latest": "1.22.0",
+  "latest": "1.22.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.22.1",
+      "date": "2026-11-22",
+      "title": "Iconos de los mods",
+      "notes": [
+        "Los objetos y bloques de los mods se ven en el inventario con su modelo de verdad, girados y a escala como en Minecraft",
+        "Paneles, barrotes y raíles planos con su textura; la munición pequeña se ve grande"
+      ],
+      "size": 343938,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.22.1.zip"
+    },
     {
       "id": "1.22.0",
       "date": "2026-11-22",
