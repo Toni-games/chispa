@@ -1,8 +1,21 @@
 {
-  "latest": "1.23.4",
+  "latest": "1.24.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.24.0",
+      "date": "2026-11-22",
+      "title": "Pociones",
+      "notes": [
+        "Soporte para pociones (vara de blaze + 3 adoquines) con su ventana: frascos, ingrediente y polvo de blaze",
+        "Todas las pociones del juego: rapidez, salto, fuerza, curación, daño, veneno, regeneración, resistencia al fuego, respiración acuática, visión nocturna, invisibilidad, debilidad, lentitud y caída lenta; versiones largas (redstone), II (piedra luminosa) y arrojadizas (pólvora)",
+        "Efectos de estado de verdad con iconos y tiempo en pantalla; la leche los quita y la manzana dorada da regeneración",
+        "Frascos: se llenan en el agua o en el caldero. Nuevos: ojo de araña fermentado, rodaja de sandía reluciente y pez globo"
+      ],
+      "size": 367901,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.24.0.zip"
+    },
     {
       "id": "1.23.4",
       "date": "2026-11-22",

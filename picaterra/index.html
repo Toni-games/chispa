@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.23.4';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.24.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2259,6 +2259,7 @@ for (const [k, n, top] of [['anvil', 'Yunque', 'anvil_top'], ['chipped_anvil', '
 def13('bell', 'Campana', BOX({ tex: { top: 'bell_top', bottom: 'bell_bottom', side: 'bell_side' }, shape: 'bell', facing: true, hardness: 5, tool: 'pickaxe', sound: 'metal', interact: 'bell', color: '#e8c040', cat: 'func' }));
 def13('loom', 'Telar', { tex: { top: 'loom_top', bottom: 'loom_bottom', side: 'loom_side', front: 'loom_front' }, facing: true, hardness: 2.5, tool: 'axe', sound: 'wood', interact: 'craft', color: '#a88a60', cat: 'func', fuel: 300 });
 def13('stonecutter', 'Cortapiedras', BOX({ tex: { top: 'stonecutter_top', bottom: 'stonecutter_bottom', side: 'stonecutter_side' }, shape: 'stonecutter', hardness: 3.5, tool: 'pickaxe', interact: 'craft', color: '#7a7a7a', cat: 'func' }));
+def13('brewing_stand', 'Soporte para pociones', BOX({ tex: 'brewing_stand_base', shape: 'brewing_stand', hardness: 0.5, tool: 'pickaxe', sound: 'metal', emit: 1, interact: 'brewing', color: '#6a6a5a', cat: 'func' }));
 def13('cauldron', 'Caldero', BOX({ tex: { top: 'cauldron_top', bottom: 'cauldron_bottom', side: 'cauldron_side' }, shape: 'cauldron', hardness: 2, tool: 'pickaxe', needsTool: true, sound: 'metal', color: '#3a3a3a', cat: 'func' }));
 def13('enchanting_table', 'Mesa de encantamientos', BOX({ tex: { top: 'enchanting_table_top', bottom: 'enchanting_table_bottom', side: 'enchanting_table_side' }, shape: 'enchant', interact: 'enchant', hardness: 5, tool: 'pickaxe', needsTool: true, emit: 7, color: '#6a2030', cat: 'func', resist: 1200 }));
 def13('jukebox', 'Tocadiscos', { tex: { top: 'jukebox_top', side: 'jukebox_side' }, interact: 'jukebox', hardness: 2, tool: 'axe', sound: 'wood', color: '#6a4a3a', cat: 'func', fuel: 300 });
@@ -3186,6 +3187,157 @@ const Anvil = {
   },
 };
 shaped(['BBB', ' I ', 'III'], { B: 'iron_block', I: 'iron_ingot' }, 'anvil');
+
+
+// ---- extra/potions124.js ----
+// ============================================================
+//  1.24: pociones, soporte para pociones y efectos de estado
+// ============================================================
+const EFFECTS = {
+  speed: { n: 'Rapidez', c: '#7cafc6' }, slowness: { n: 'Lentitud', c: '#5a6c81', bad: 1 }, jump_boost: { n: 'Salto', c: '#22ff4c' },
+  strength: { n: 'Fuerza', c: '#932423' }, weakness: { n: 'Debilidad', c: '#484d48', bad: 1 }, poison: { n: 'Veneno', c: '#4e9331', bad: 1 },
+  regeneration: { n: 'Regeneración', c: '#cd5cab' }, fire_resistance: { n: 'Resistencia al fuego', c: '#e49a3a' }, water_breathing: { n: 'Respiración acuática', c: '#2e5299' },
+  night_vision: { n: 'Visión nocturna', c: '#1f1fa1' }, invisibility: { n: 'Invisibilidad', c: '#7f8392' }, slow_falling: { n: 'Caída lenta', c: '#f3cfb9' },
+  instant_health: { n: 'Curación instantánea', c: '#f82423' }, instant_damage: { n: 'Daño instantáneo', c: '#430a09', bad: 1 },
+};
+// d = duración normal (ticks), L = larga (con redstone), S = [nivel extra, duración] (con piedra luminosa)
+const POTIONS = {
+  water: { n: 'Botella de agua', c: '#385dc6' }, awkward: { n: 'Poción rara', c: '#385dc6' }, mundane: { n: 'Poción mundana', c: '#385dc6' }, thick: { n: 'Poción espesa', c: '#385dc6' },
+  swiftness: { n: 'rapidez', e: 'speed', d: 3600, L: 9600, S: [1, 1800] },
+  slowness: { n: 'lentitud', e: 'slowness', d: 1800, L: 4800, S: [3, 400] },
+  leaping: { n: 'salto', e: 'jump_boost', d: 3600, L: 9600, S: [1, 1800] },
+  strength: { n: 'fuerza', e: 'strength', d: 3600, L: 9600, S: [1, 1800] },
+  healing: { n: 'curación', e: 'instant_health', d: 1, S: [1, 1] },
+  harming: { n: 'daño', e: 'instant_damage', d: 1, S: [1, 1] },
+  poison: { n: 'veneno', e: 'poison', d: 900, L: 1800, S: [1, 432] },
+  regeneration: { n: 'regeneración', e: 'regeneration', d: 900, L: 1800, S: [1, 450] },
+  fire_resistance: { n: 'resistencia al fuego', e: 'fire_resistance', d: 3600, L: 9600 },
+  water_breathing: { n: 'respiración acuática', e: 'water_breathing', d: 3600, L: 9600 },
+  night_vision: { n: 'visión nocturna', e: 'night_vision', d: 3600, L: 9600 },
+  invisibility: { n: 'invisibilidad', e: 'invisibility', d: 3600, L: 9600 },
+  weakness: { n: 'debilidad', e: 'weakness', d: 1800, L: 4800 },
+  slow_falling: { n: 'caída lenta', e: 'slow_falling', d: 1800, L: 4800 },
+};
+const Potions = {
+  list: [], // [clave del objeto, tipo, variante, arrojadiza]
+  info: {}, // clave -> { p, v, splash, color }
+  setup() {
+    for (const p in POTIONS) {
+      const P = POTIONS[p]; const vars = [''];
+      if (P.e) { if (P.L) vars.push('long'); if (P.S) vars.push('strong'); }
+      if (P.e) P.c = EFFECTS[P.e].c;
+      for (const v of vars) for (const splash of [false, true]) {
+        const key = (splash ? 'splash_potion_' : 'potion_') + p + (v ? '_' + v : '');
+        let name = P.e ? (splash ? 'Poción arrojadiza de ' : 'Poción de ') + P.n : (splash ? P.n.replace(/^Poción|^Botella de/, m => m === 'Poción' ? 'Poción arrojadiza' : 'Botella arrojadiza de') : P.n);
+        if (v === 'long') name += ' (larga)'; if (v === 'strong') name += ' II';
+        this.info[key] = { p, v, splash, color: P.c };
+        const o = { stack: 1, cat: splash ? 'tools' : 'food', icon: key, potion: true };
+        if (splash) o.throwable = true; else Object.assign(o, { food: { h: 0, s: 0 }, always: true, returns: 'glass_bottle', drink: true });
+        if (!ITEMS[key]) defItem(key, name, o);
+        this.list.push(key);
+      }
+    }
+    if (!ITEMS.glass_bottle) { defItem('glass_bottle', 'Frasco de cristal', { cat: 'misc' }); shaped(['G G', ' G '], { G: 'glass' }, 'glass_bottle', 3); }
+    if (!ITEMS.fermented_spider_eye) defItem('fermented_spider_eye', 'Ojo de araña fermentado', { cat: 'misc' });
+    if (!ITEMS.glistering_melon_slice) defItem('glistering_melon_slice', 'Rodaja de sandía reluciente', { cat: 'misc' });
+    if (!ITEMS.pufferfish) defItem('pufferfish', 'Pez globo', { cat: 'food', food: { h: 1, s: 0.2 } });
+    shapeless(['spider_eye', 'brown_mushroom', 'sugar'], 'fermented_spider_eye');
+    shaped(['NNN', 'NMN', 'NNN'], { N: 'gold_nugget', M: 'melon_slice' }, 'glistering_melon_slice');
+    if (ITEMS.brewing_stand && ITEMS.blaze_rod) shaped([' B ', 'CCC'], { B: 'blaze_rod', C: 'cobblestone' }, 'brewing_stand');
+  },
+  // ---------- alquimia ----------
+  BASE: { nether_wart: 'awkward', sugar: 'mundane', rabbit_foot: 'mundane', glistering_melon_slice: 'mundane', spider_eye: 'mundane', magma_cream: 'mundane', blaze_powder: 'mundane', ghast_tear: 'mundane', redstone: 'mundane', glowstone_dust: 'thick', fermented_spider_eye: 'weakness' },
+  AWK: { sugar: 'swiftness', rabbit_foot: 'leaping', glistering_melon_slice: 'healing', spider_eye: 'poison', pufferfish: 'water_breathing', magma_cream: 'fire_resistance', golden_carrot: 'night_vision', blaze_powder: 'strength', ghast_tear: 'regeneration', phantom_membrane: 'slow_falling' },
+  FERM: { swiftness: 'slowness', leaping: 'slowness', healing: 'harming', poison: 'harming', night_vision: 'invisibility' },
+  isIngredient(id) { return id in this.BASE || id in this.AWK || id === 'redstone' || id === 'glowstone_dust' || id === 'gunpowder' || id === 'fermented_spider_eye'; },
+  brew(bottle, ing) { // devuelve la clave del resultado o null
+    const inf = this.info[bottle]; if (!inf) return null; const pre = inf.splash ? 'splash_potion_' : 'potion_'; const P = POTIONS[inf.p];
+    if (ing === 'gunpowder') return inf.splash ? null : 'splash_potion_' + inf.p + (inf.v ? '_' + inf.v : '');
+    if (inf.p === 'water') { const r = this.BASE[ing]; return r ? pre + r : null; }
+    if (inf.p === 'awkward' && this.AWK[ing]) return pre + this.AWK[ing];
+    if (ing === 'fermented_spider_eye' && this.FERM[inf.p]) { const to = this.FERM[inf.p]; const T = POTIONS[to]; const v = inf.v === 'long' && T.L ? '_long' : inf.v === 'strong' && T.S ? '_strong' : ''; return pre + to + v; }
+    if (ing === 'redstone' && P.e && P.L && inf.v !== 'long') return pre + inf.p + '_long';
+    if (ing === 'glowstone_dust' && P.e && P.S && inf.v !== 'strong') return pre + inf.p + '_strong';
+    return null;
+  },
+  // ---------- efectos ----------
+  give(e, id, lv, t) {
+    if (id === 'instant_health') { if (e.health !== undefined) e.health = Math.min(e.maxHealth || 20, e.health + 4 * (2 ** lv)); return; }
+    if (id === 'instant_damage') { if (e.hurtBy && e === Game.player) e.hurtBy(6 * (2 ** lv), null, true); else e.damage && e.damage(6 * (2 ** lv), null); return; }
+    e.effects = e.effects || {}; const cur = e.effects[id];
+    if (!cur || cur.lv < lv || (cur.lv === lv && cur.t < t)) e.effects[id] = { lv, t, max: t };
+  },
+  apply(e, key, k = 1) {
+    const inf = this.info[key]; if (!inf) return; const P = POTIONS[inf.p]; if (!P.e) { if (e.fire) e.fire = 0; return; }
+    const lv = inf.v === 'strong' ? P.S[0] : 0; const t = Math.round((inf.v === 'long' ? P.L : inf.v === 'strong' ? P.S[1] : P.d) * (inf.splash ? 0.75 * k : 1));
+    this.give(e, P.e, lv, Math.max(1, t));
+  },
+  lv(e, id) { const x = e && e.effects && e.effects[id]; return x ? x.lv + 1 : 0; },
+  tickEnt(e) {
+    const E = e.effects; if (!E) return;
+    for (const id in E) {
+      const x = E[id]; x.t--;
+      if (id === 'regeneration' && e.age % Math.max(1, 50 >> x.lv) === 0 && e.health < (e.maxHealth || 20)) e.health = Math.min(e.maxHealth || 20, e.health + 1);
+      if (id === 'poison' && e.age % Math.max(1, 25 >> x.lv) === 0 && e.health > 1) { if (e === Game.player) { if (e.mode === 0 || e.mode === 2) { e.health -= 1; e.hurt = 10; Sound.play('hurt'); } } else e.health = Math.max(1, e.health - 1); }
+      if (id === 'slow_falling' && e.vy < -0.08) { e.vy = -0.08; e.fall = 0; }
+      if (x.t <= 0) delete E[id];
+    }
+    if (Settings.particles && e.age % 6 === 0) { const ids = Object.keys(E); if (ids.length && !(E.invisibility && e === Game.player)) { const c = EFFECTS[ids[e.age % ids.length]].c; const r = parseInt(c.slice(1, 3), 16) / 255, g = parseInt(c.slice(3, 5), 16) / 255, b = parseInt(c.slice(5, 7), 16) / 255; if (e !== Game.player || Game.cam) Particles.color(e.x + (Math.random() - 0.5) * (e.w || 0.6), e.y + Math.random() * (e.h || 1.8), e.z + (Math.random() - 0.5) * (e.w || 0.6), r, g, b, 1, 0.02, 14, -0.01, 0.06); } }
+  },
+  tick() {
+    const P = Game.player; if (P) this.tickEnt(P);
+    for (const e of Entities.list) if (e.effects && !e.dead) this.tickEnt(e);
+  },
+  splash(x, y, z, key) {
+    const inf = this.info[key]; const c = inf ? inf.color : '#385dc6';
+    const r = parseInt(c.slice(1, 3), 16) / 255, g = parseInt(c.slice(3, 5), 16) / 255, b = parseInt(c.slice(5, 7), 16) / 255;
+    Particles.color(x, y, z, r, g, b, 40, 0.3, 20, 0.01, 0.1); Sound.play('glass', x, y, z);
+    const list = Entities.list.filter(e => e.mob && !e.dead); if (Game.player) list.push(Game.player);
+    for (const e of list) { const d = Math.hypot(e.x - x, e.y + (e.h || 1.8) / 2 - y, e.z - z); if (d > 4) continue; this.apply(e, key, 1 - d / 4 * 0.75); }
+    if (inf && inf.p === 'water') for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (let dy = -1; dy <= 1; dy++) { const bx = Math.floor(x) + dx, by = Math.floor(y) + dy, bz = Math.floor(z) + dz; if (World.get(bx, by, bz) === B.fire) World.set(bx, by, bz, 0, 0); }
+  },
+  // multiplicadores que usa el jugador
+  speedMul(e) { return (1 + 0.2 * this.lv(e, 'speed')) * Math.max(0, 1 - 0.15 * this.lv(e, 'slowness')); },
+  jumpAdd(e) { return 0.1 * this.lv(e, 'jump_boost'); },
+  dmgAdd(e) { return 3 * this.lv(e, 'strength') - 4 * this.lv(e, 'weakness'); },
+  // ---------- iconos de efectos en pantalla ----------
+  drawHUD() {
+    const P = Game.player; if (!P || !P.effects || GUI.open) return; const ids = Object.keys(P.effects); if (!ids.length) return;
+    const g = HUD.g, s = HUD.scale(), W = HUD.cv.width; let y = 4 * s;
+    for (const id of ids) {
+      const x = P.effects[id]; const E = EFFECTS[id]; if (!E) continue; const w = 92 * s, h = 14 * s, x0 = W - w - 4 * s;
+      g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(x0, y, w, h); g.fillStyle = E.c; g.fillRect(x0 + 2 * s, y + 2 * s, 10 * s, 10 * s);
+      const sec = Math.ceil(x.t / 20); const tt = x.max <= 1 ? '' : Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+      HUD.text(E.n + (x.lv ? ' ' + ['', 'II', 'III', 'IV', 'V'][x.lv] : ''), x0 + 15 * s, y + 1.5 * s, E.bad ? '#ff9090' : '#ffffff', s * 0.6, true);
+      HUD.text(tt, x0 + 15 * s, y + 7.5 * s, x.t < 200 && x.t % 20 < 10 ? '#ffff60' : '#c0c0c0', s * 0.55, true);
+      y += h + 2 * s;
+    }
+  },
+};
+Potions.setup();
+// ---------- soporte para pociones ----------
+const Brewing = {
+  // casillas: 0,1,2 frascos · 3 ingrediente · 4 combustible (polvo de blaze)
+  tick() {
+    if (NetSync.guest()) return;
+    for (const [k, be] of World.blockEnts) {
+      if (be.type !== 'brewing') continue; const [x, y, z] = k.split(',').map(Number); if (!World.loaded(x, z)) continue;
+      const s = be.slots;
+      if (!be.fuel && s[4] && s[4].id === 'blaze_powder') { be.fuel = 20; s[4].n--; if (!s[4].n) s[4] = null; }
+      const ing = s[3]; const can = ing && be.fuel > 0 && [0, 1, 2].some(i => s[i] && Potions.brew(s[i].id, ing.id));
+      if (!can) { be.brew = 0; continue; }
+      if (!be.brew) { be.brew = 400; be.ing = ing.id; }
+      if (be.ing !== ing.id) { be.brew = 0; continue; }
+      be.brew--;
+      if (be.brew <= 0) {
+        for (const i of [0, 1, 2]) { if (!s[i]) continue; const r = Potions.brew(s[i].id, ing.id); if (r && ITEMS[r]) s[i] = { id: r, n: 1 }; }
+        ing.n--; if (!ing.n) s[3] = null; be.fuel--; be.brew = 0; Sound.play('brew', x, y, z);
+      }
+    }
+  },
+};
+// forma del soporte: varilla central y tres platos
+SHAPES.brewing_stand = () => [[7, 0, 7, 9, 14, 9, 'brewing_stand'], [9, 0, 5, 15, 2, 11, 'brewing_stand_base'], [1, 0, 1, 7, 2, 7, 'brewing_stand_base'], [1, 0, 9, 7, 2, 15, 'brewing_stand_base']];
 
 
 // ---- extra/ctm122.js ----
@@ -4226,7 +4378,7 @@ const TexturePack = {
       air: 'sprites/hud/air', air_empty: 'sprites/hud/air_empty',
       hotbar: 'sprites/hud/hotbar', hotbar_selection: 'sprites/hud/hotbar_selection', crosshair: 'sprites/hud/crosshair',
       xp_bg: 'sprites/hud/experience_bar_background', xp_fill: 'sprites/hud/experience_bar_progress',
-      c_inventory: 'container/inventory', c_crafting: 'container/crafting_table', c_furnace: 'container/furnace', c_chest: 'container/generic_54',
+      c_inventory: 'container/inventory', c_crafting: 'container/crafting_table', c_furnace: 'container/furnace', c_brewing: 'container/brewing_stand', c_chest: 'container/generic_54',
       c_dispenser: 'container/dispenser', c_hopper: 'container/hopper', c_enchant: 'container/enchanting_table',
       c_tab_items: 'container/creative_inventory/tab_items', c_tab_search: 'container/creative_inventory/tab_item_search', c_tab_inv: 'container/creative_inventory/tab_inventory',
       furnace_burn: 'sprites/container/furnace/burn_progress', furnace_lit: 'sprites/container/furnace/lit_progress',
@@ -4470,6 +4622,28 @@ const FaceTex = {
 };
 // Aquí se pegarán las texturas que mande el jugador: nombre -> data:image/png;base64,...
 const EMBEDDED_TEXTURES = {};
+
+// ---- extra/potions124tex.js ----
+// 1.24: iconos de las pociones y texturas del soporte (dibujadas, sin recursos del juego original)
+function potionIcon(col, splash) {
+  return (c) => {
+    const glass = '#d8e8f0', dark = '#7a8a98';
+    c.fillStyle = '#8a5a30'; c.fillRect(7, 1, 2, 2); // tapón
+    c.fillStyle = glass; c.fillRect(6, 3, 4, 1); c.fillRect(7, 4, 2, splash ? 1 : 2);
+    if (splash) { c.fillRect(5, 5, 6, 1); c.fillRect(4, 6, 8, 7); c.fillRect(5, 13, 6, 1); }
+    else { c.fillRect(5, 6, 6, 1); c.fillRect(4, 7, 8, 6); c.fillRect(5, 13, 6, 1); c.fillRect(6, 14, 4, 1); }
+    c.fillStyle = col; if (splash) { c.fillRect(5, 8, 6, 5); c.fillRect(6, 13, 4, 0); } else { c.fillRect(5, 8, 6, 5); c.fillRect(6, 13, 4, 1); }
+    c.fillStyle = 'rgba(255,255,255,0.55)'; c.fillRect(5, 8, 1, 2); c.fillRect(6, 8, 1, 1);
+    c.fillStyle = dark; c.fillRect(4, splash ? 6 : 7, 1, 1); c.fillRect(11, splash ? 6 : 7, 1, 1);
+  };
+}
+for (const key of Potions.list) addTex(key, potionIcon(Potions.info[key].color, Potions.info[key].splash), 'item');
+addTex('fermented_spider_eye', (c) => { c.fillStyle = '#6a2a2a'; c.fillRect(4, 5, 8, 7); c.fillStyle = '#a04040'; c.fillRect(5, 6, 6, 5); c.fillStyle = '#d8c070'; c.fillRect(6, 7, 2, 2); c.fillStyle = '#5a3a20'; c.fillRect(9, 9, 2, 2); }, 'item');
+addTex('glistering_melon_slice', (c) => { c.fillStyle = '#c89a10'; c.fillRect(3, 9, 10, 3); c.fillStyle = '#e8a040'; c.fillRect(4, 6, 8, 3); c.fillStyle = '#ffe070'; c.fillRect(5, 7, 1, 1); c.fillRect(8, 6, 1, 1); c.fillRect(10, 7, 1, 1); c.fillStyle = '#4a8a20'; c.fillRect(3, 12, 10, 1); }, 'item');
+addTex('pufferfish', (c) => { c.fillStyle = '#e8c030'; c.fillRect(4, 5, 8, 7); c.fillStyle = '#f8e070'; c.fillRect(5, 6, 6, 5); c.fillStyle = '#202020'; c.fillRect(10, 7, 1, 1); c.fillStyle = '#c09020'; c.fillRect(2, 7, 2, 3); c.fillRect(6, 3, 1, 2); c.fillRect(9, 3, 1, 2); c.fillRect(6, 12, 1, 2); c.fillRect(9, 12, 1, 2); }, 'item');
+if (!TEX.glass_bottle) addTex('glass_bottle', potionIcon('rgba(0,0,0,0)', false), 'item');
+if (!TEX.brewing_stand) addTex('brewing_stand', (c) => { c.fillStyle = '#7a6a40'; c.fillRect(0, 0, 16, 16); c.fillStyle = '#a89058'; c.fillRect(7, 0, 2, 16); });
+if (!TEX.brewing_stand_base) addTex('brewing_stand_base', (c) => { c.fillStyle = '#5a5a5a'; c.fillRect(0, 0, 16, 16); c.fillStyle = '#7a7a7a'; c.fillRect(1, 1, 14, 14); c.fillStyle = '#6a6a6a'; c.fillRect(4, 4, 8, 8); });
 
 // ---- 04_world.js ----
 // ============================================================
@@ -5702,7 +5876,7 @@ const Renderer = {
     gl.uniform1f(P.u.uDay, Sky.skyFactor); gl.uniform1f(P.u.uGamma, Settings.gamma);
     gl.uniform1f(P.u.uAlpha, alpha); gl.uniform1f(P.u.uAlphaTest, alphaTest);
     gl.uniform3fv(P.u.uFogColor, Sky.fogColor); gl.uniform2f(P.u.uFog, Sky.fogStart, Sky.fogEnd);
-    gl.uniform4f(P.u.uTint, 0, 0, 0, 0); gl.uniform2f(P.u.uLightMul, 1, 1); gl.uniform3fv(P.u.uSkyTint, Sky.lightTint); gl.uniform1f(P.u.uAmb, World.dim === 'n' ? 0.16 : World.dim === 'e' ? 0.12 : 0.02);
+    gl.uniform4f(P.u.uTint, 0, 0, 0, 0); gl.uniform2f(P.u.uLightMul, 1, 1); gl.uniform3fv(P.u.uSkyTint, Sky.lightTint); gl.uniform1f(P.u.uAmb, Math.max(World.dim === 'n' ? 0.16 : World.dim === 'e' ? 0.12 : 0.02, Game.player && Game.player.effects && Game.player.effects.night_vision ? 0.8 : 0));
     if (SX) Shaders.setup(P);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex || this.atlasTex); gl.uniform1i(P.u.uTex, 0);
     return P;
@@ -6814,6 +6988,7 @@ class Entity {
     if (this.invul > 0) this.invul--; if (this.hurt > 0) this.hurt--;
     this.updateFluids();
     if (this.def && this.def.fireImmune) this.fire = 0;
+    else if (this.effects && this.effects.fire_resistance) this.fire = 0;
     else if (this.inLava) { this.damage(4, null); this.fire = 300; }
     else if (this.inWater) this.fire = 0;
     if ((this.mob || this instanceof Player) && this.age % 2 === 0) Fire.touch(this);
@@ -6864,7 +7039,7 @@ class Player extends Entity {
     if (ok && this.health < was) { this.exh += 0.1; Sound.play('hurt'); this.dmgTilt = 1; HUD.flash = 1; }
     return ok;
   }
-  onLand(dmg) { if (dmg > 0 && BLOCKS[World.get(Math.floor(this.x), Math.floor(this.y + 0.1), Math.floor(this.z))].spike) dmg = dmg * 2 + 2; if (this.mode === 0) this.hurtBy(Math.round(Ench.protect(dmg, true)), null, true); Sound.play(dmg > 4 ? 'land_big' : 'land', this.x, this.y, this.z); Particles.landing(this.x, this.y, this.z, dmg); }
+  onLand(dmg) { if (this.effects) { if (this.effects.slow_falling) dmg = 0; else dmg -= Potions.lv(this, 'jump_boost'); } if (dmg > 0 && BLOCKS[World.get(Math.floor(this.x), Math.floor(this.y + 0.1), Math.floor(this.z))].spike) dmg = dmg * 2 + 2; if (this.mode === 0) this.hurtBy(Math.round(Ench.protect(dmg, true)), null, true); Sound.play(dmg > 4 ? 'land_big' : 'land', this.x, this.y, this.z); Particles.landing(this.x, this.y, this.z, dmg); }
   die() {
     this.dead = true; this.deathTime = 0; Game.onPlayerDeath();
   }
@@ -6923,10 +7098,10 @@ class Player extends Entity {
       if (this.onGround && !spect) this.flying = false;
       this.fall = 0;
     } else {
-      const speed = 0.1 * (this.sprinting ? 1.3 : 1);
+      const speed = 0.1 * (this.sprinting ? 1.3 : 1) * Potions.speedMul(this);
       this.airSpeed = this.sprinting ? 0.026 : 0.02;
       if (input.jump && this.onGround && !this.inWater && !this.inLava && this.jumpCD <= 0) {
-        this.vy = 0.42; this.jumpCD = 10;
+        this.vy = 0.42 + Potions.jumpAdd(this); this.jumpCD = 10;
         if (this.sprinting) { this.vx += -Math.sin(this.yaw) * 0.2; this.vz += -Math.cos(this.yaw) * 0.2; this.addExh(0.2); } else this.addExh(0.05);
       }
       if (!input.jump) this.jumpCD = 0; else this.jumpCD = (this.jumpCD || 0) - 1;
@@ -6969,7 +7144,7 @@ class Player extends Entity {
     const eyeId = World.get(Math.floor(this.x), Math.floor(this.y + this.eye), Math.floor(this.z));
     this.eyeInWater = WET[eyeId] ? true : LIQUID[eyeId] === 1 && (World.getMeta(Math.floor(this.x), Math.floor(this.y + this.eye), Math.floor(this.z)) >= 8 || (this.y + this.eye) % 1 < 0.88);
     this.eyeInLava = LIQUID[eyeId] === 2;
-    if (this.eyeInWater && !creative && !spect) { this.air--; if (this.air <= -20) { this.air = 0; this.hurtBy(2, null, true); Particles.bubbles(this); } }
+    if (this.eyeInWater && !creative && !spect && !(this.effects && this.effects.water_breathing)) { this.air--; if (this.air <= -20) { this.air = 0; this.hurtBy(2, null, true); Particles.bubbles(this); } }
     else this.air = Math.min(300, this.air + 4);
     // hambre
     if (!creative && !spect) {
@@ -7061,7 +7236,7 @@ class Mob extends Entity {
     const playerOk = P && !P.dead && P.mode !== 1 && P.mode !== 3;
     if (d.hostile) {
       const spiderCalm = (d.model || this.kind) === 'spider' && World.lightAt(Math.floor(this.x), Math.floor(this.y + 0.5), Math.floor(this.z)) > 11 && !this.provoked;
-      if (playerOk && dist < 16 && !spiderCalm) this.target = P; else if (!playerOk || dist > 24) this.target = null;
+      if (playerOk && dist < (P.effects && P.effects.invisibility ? 2.5 : 16) && !spiderCalm) this.target = P; else if (!playerOk || dist > 24) this.target = null;
     }
     if (this.panic > 0) this.panic--;
     if (d.passive) this.breedTick();
@@ -8984,7 +9159,7 @@ const Game = {
       try { Kinetic.tick(); } catch (e) { }
       try { if (!NetSync.guest()) Funcs.tick(); } catch (e) { }
       if (World.tickCount % 2 === 0) Maps.tick(P);
-      this.furnaceTick();
+      this.furnaceTick(); try { Brewing.tick(); Potions.tick(); } catch (e) { console.warn('pociones', e); }
       for (const e of Entities.list) { if (!World.loaded(Math.floor(e.x), Math.floor(e.z)) && e.type !== 'arrow') { e.savePrev(); continue; } }
       Entities.list.forEach(e => { if (e.mirror || World.loaded(Math.floor(e.x), Math.floor(e.z))) NetSync.tickEntity(e); });
       Entities.list = Entities.list.filter(e => !e.remove);
@@ -9114,8 +9289,8 @@ const Game = {
     if (Input.mouse[2] && P.mode !== 3) {
       if (hit && hit.food && !(hit.places && this.target && this.target.id === B.farmland && this.target.face === 2) && !(this.targetEnt && this.targetEnt.mob && breedFood(this.targetEnt.kind, held.id)) && !(hit.block && this.target && !P.sneaking) && (P.food < 20 || P.mode === 1 || held.id === 'golden_apple' || hit.always)) {
         P.usingItem = true; P.useTime++;
-        if (P.useTime % 4 === 0) { Sound.play('eat'); Particles.color(...this.eyePos(1).map((v, i) => v + lookDir(P.yaw, P.pitch)[i] * 0.4), 0.8, 0.6, 0.4, 2, 0.1, 10, 0.03, 0.05); }
-        if (P.useTime >= 32) { P.food = Math.min(20, P.food + hit.food.h); P.sat = Math.min(P.food, P.sat + hit.food.s); if (held.id === 'golden_apple') P.health = Math.min(20, P.health + 4); if (held.id === 'chorus_fruit') EndDim.chorusTeleport(P); if (P.mode !== 1) { held.n--; if (!held.n) P.inv[P.sel] = null; const back = hit.bowl ? 'bowl' : hit.returns; if (back) { if (!P.inv[P.sel]) P.inv[P.sel] = { id: back, n: 1 }; else if (P.give(back, 1)) Entities.dropItem(P.x, P.y + 1, P.z, { id: back, n: 1 }); } } P.useTime = 0; P.usingItem = false; Sound.play('burp'); Input.mouse[2] = false; }
+        if (P.useTime % 4 === 0) { Sound.play(hit.drink || held.id === 'milk_bucket' ? 'drink' : 'eat'); Particles.color(...this.eyePos(1).map((v, i) => v + lookDir(P.yaw, P.pitch)[i] * 0.4), 0.8, 0.6, 0.4, 2, 0.1, 10, 0.03, 0.05); }
+        if (P.useTime >= 32) { P.food = Math.min(20, P.food + hit.food.h); P.sat = Math.min(P.food, P.sat + hit.food.s); if (held.id === 'golden_apple') { P.health = Math.min(20, P.health + 4); Potions.give(P, 'regeneration', 1, 100); } if (hit.drink) Potions.apply(P, held.id); if (held.id === 'milk_bucket') P.effects = {}; if (held.id === 'chorus_fruit') EndDim.chorusTeleport(P); if (P.mode !== 1) { held.n--; if (!held.n) P.inv[P.sel] = null; const back = hit.bowl ? 'bowl' : hit.returns; if (back) { if (!P.inv[P.sel]) P.inv[P.sel] = { id: back, n: 1 }; else if (P.give(back, 1)) Entities.dropItem(P.x, P.y + 1, P.z, { id: back, n: 1 }); } } P.useTime = 0; P.usingItem = false; Sound.play(hit.drink || held.id === 'milk_bucket' ? 'burp_none' : 'burp'); Input.mouse[2] = false; }
       } else if (hit && held.id === 'bow') {
         if (P.mode === 1 || P.count('arrow') > 0) { P.usingItem = true; P.bowCharge++; }
       } else if (this.useCD <= 0) { this.useCD = 4; this.use(); }
@@ -9127,7 +9302,7 @@ const Game = {
   },
   attack(e) {
     const P = this.player; const it = P.held && ITEMS[P.held.id];
-    const str = P.attackStrength(); let dmg = ((it && it.tool ? it.tool.dmg : 1) + Ench.damageBonus(P.held)) * (0.2 + str * str * 0.8);
+    const str = P.attackStrength(); let dmg = Math.max(0, (it && it.tool ? it.tool.dmg : 1) + Ench.damageBonus(P.held) + Potions.dmgAdd(P)) * (0.2 + str * str * 0.8);
     const crit = str > 0.9 && P.fall > 0 && !P.onGround && !P.inWater && !P.climbing();
     if (crit) dmg *= 1.5;
     if (SoundPack.count) Sound.play(crit ? 'crit' : str > 0.9 ? 'attack' : 'attack_weak', e.x, e.y, e.z);
@@ -9172,6 +9347,7 @@ const Game = {
       if (d.interact === 'furnace') { UI.openContainer('furnace', T); return; }
       if (d.interact === 'enchant') { UI.openContainer('enchant', T); return; }
       if (d.interact === 'anvil') { UI.openContainer('anvil', T); return; }
+      if (d.interact === 'brewing') { UI.openContainer('brewing', T); return; }
       if (Funcs.use(P, T, held)) { P.swinging = true; P.swingTime = 0; this.useCD = 6; return; }
       if (d.interact === 'bell') { Sound.note(12, 'bell', T.x + 0.5, T.y + 0.5, T.z + 0.5); setTimeout(() => Sound.note(19, 'bell', T.x + 0.5, T.y + 0.5, T.z + 0.5), 120); P.swinging = true; P.swingTime = 0; Particles.color && Particles.color(T.x + 0.5, T.y + 0.6, T.z + 0.5, 1, 0.85, 0.3, 6, 0.04, 10, 0, 0.05); return; }
       if (d.interact === 'chest') { UI.openContainer('chest', T); Sound.play('chest_open', T.x, T.y, T.z); return; }
@@ -9189,6 +9365,10 @@ const Game = {
       if (Fire.light(lx, ly, lz)) { P.useDurability(1); P.swinging = true; P.swingTime = 0; this.useCD = 4; Sound.play('ignite', lx, ly, lz); return; } }
     // objetos usables
     if (it.armor) { const s = it.armor.slot; if (!P.armor[s]) { P.armor[s] = held; P.inv[P.sel] = null; Sound.play('chest_close'); return; } }
+    if (held.id === 'glass_bottle') { // llenar un frasco en el agua
+      const [ex, ey, ez] = this.eyePos(1); const [dx, dy, dz] = lookDir(P.yaw, P.pitch); const r = this.raycast(ex, ey, ez, dx, dy, dz, 5, true);
+      if (r && LIQUID[r.id] === 1) { if (P.mode !== 1) { held.n--; if (!held.n) P.inv[P.sel] = null; } if (P.give('potion_water', 1) > 0) Entities.dropItem(P.x, P.y + 1, P.z, { id: 'potion_water', n: 1 }); Sound.play('bucket_fill', r.x, r.y, r.z); P.swinging = true; P.swingTime = 0; return; }
+    }
     if (held.id === 'bucket') {
       const te = this.targetEnt; if (te && (te.kind === 'cow' || te.kind === 'goat' || te.kind === 'mooshroom') && !te.dead) { if (P.mode !== 1) { if (held.n === 1) P.inv[P.sel] = { id: 'milk_bucket', n: 1 }; else { held.n--; if (P.give('milk_bucket', 1)) Entities.dropItem(P.x, P.y + 1, P.z, { id: 'milk_bucket', n: 1 }); } } P.swinging = true; P.swingTime = 0; return; }
       const [ex, ey, ez] = this.eyePos(1); const [dx, dy, dz] = lookDir(P.yaw, P.pitch);
@@ -10279,9 +10459,10 @@ const GUI = {
     if (type === 'anvil' || type === 'station') this.craft = [null, null];
     if (type === 'stonecutter') { this.craft = [null]; this.scOut = []; }
     if (type === 'enchant') { this.ench = [null, null]; this.shelves = Ench.shelves(T.x, T.y, T.z); this.offers = null; }
-    if (type === 'furnace' || type === 'chest') {
+    if (type === 'furnace' || type === 'chest' || type === 'brewing') {
       const k = T.x + ',' + T.y + ',' + T.z; let be = World.blockEnts.get(k);
       const bd = BLOCKS[World.get(T.x, T.y, T.z)]; this.title = bd ? bd.name : 'Cofre';
+      if (!be && type === 'brewing') { be = { type: 'brewing', slots: [null, null, null, null, null], fuel: 0, brew: 0 }; World.blockEnts.set(k, be); }
       if (!be) { be = type === 'furnace' ? { type: 'furnace', slots: [null, null, null], burn: 0, burnMax: 0, cook: 0, xp: 0 } : { type: 'chest', slots: new Array((bd && bd.slots) || 27).fill(null) }; World.blockEnts.set(k, be); }
       if (type === 'chest' && !NetSync.guest()) { const m = World.getMeta(T.x, T.y, T.z); if (m & 0x10) { this.fillLoot(be, (m >> 5) & 7); World.set(T.x, T.y, T.z, B.chest, m & 3, 3); } }
       this.be = be;
@@ -10336,6 +10517,8 @@ const GUI = {
     } else if (this.open === 'enchant') {
       add(this.ench, 0, 15, 47, 'enchItem'); add(this.ench, 1, 35, 47, 'lapis'); inv(84);
       this.offers = Ench.offers(this.ench[0], this.shelves);
+    } else if (this.open === 'brewing') {
+      add(this.be.slots, 0, 56, 51, 'bottle'); add(this.be.slots, 1, 79, 58, 'bottle'); add(this.be.slots, 2, 102, 51, 'bottle'); add(this.be.slots, 3, 79, 17, 'ingr'); add(this.be.slots, 4, 17, 17, 'blaze'); inv(84);
     } else if (this.open === 'furnace') {
       add(this.be.slots, 0, 56, 17, 'in'); add(this.be.slots, 1, 56, 53, 'fuel'); add(this.be.slots, 2, 116, 35, 'out'); inv(84);
     } else if (this.open === 'chest') {
@@ -10381,6 +10564,9 @@ const GUI = {
     if (sl.kind && sl.kind.startsWith('armor')) { const it = ITEMS[st.id]; return !!(it.armor && it.armor.slot === +sl.kind.slice(5)); }
     if (sl.kind === 'out' || sl.kind === 'result' || sl.kind === 'scres') return false;
     if (sl.kind === 'fuel') return fuelOf(st.id) > 0;
+    if (sl.kind === 'bottle') return !!Potions.info[st.id] || st.id === 'glass_bottle';
+    if (sl.kind === 'ingr') return Potions.isIngredient(st.id);
+    if (sl.kind === 'blaze') return st.id === 'blaze_powder';
     if (sl.kind === 'lapis') return st.id === 'lapis_lazuli';
     if (sl.kind === 'enchItem') return !!Ench.kind(st.id) && st.n === 1;
     return true;
@@ -10467,7 +10653,8 @@ const GUI = {
     const hot = playerSlots.filter(s => s.i < 9), main = playerSlots.filter(s => s.i >= 9);
     const it = ITEMS[st.id];
     if (sl.arr === P.inv) {
-      if (this.open === 'furnace') { const t = SMELT[st.id] ? [this.slots[0]] : fuelOf(st.id) ? [this.slots[1]] : (sl.i < 9 ? main : hot); into(t); }
+      if (this.open === 'brewing') { const t = Potions.info[st.id] ? this.slots.slice(0, 3) : st.id === 'blaze_powder' ? [this.slots[4], this.slots[3]] : Potions.isIngredient(st.id) ? [this.slots[3]] : (sl.i < 9 ? main : hot); into(t); }
+      else if (this.open === 'furnace') { const t = SMELT[st.id] ? [this.slots[0]] : fuelOf(st.id) ? [this.slots[1]] : (sl.i < 9 ? main : hot); into(t); }
       else if (this.open === 'chest') into(this.slots.filter(s => s.arr === this.be.slots));
       else if (this.open === 'enchant') into(this.slots.filter(s => s.arr === this.ench && this.accepts(s, st)).concat(sl.i < 9 ? main : hot));
       else if (this.open === 'inv' && it.armor && !P.armor[it.armor.slot]) { P.armor[it.armor.slot] = st; this.slotSet(sl, null); }
@@ -10531,6 +10718,11 @@ const GUI = {
       else this.flame(ox + 56 * s, oy + 36 * s, s, fl);
       if (bg && GI.furnace_burn) { const w = Math.ceil(ck * 24), im = GI.furnace_burn, q = im.width / 24; if (w > 0) g.drawImage(im, 0, 0, w * q, 16 * q, ox + 79 * s, oy + 34 * s, w * s, 16 * s); }
       else this.arrow(ox + 79 * s, oy + 34 * s, s, ck, true);
+    } else if (this.open === 'brewing') {
+      T('Soporte para pociones', 60, 6); const be = this.be;
+      if (!bg) { g.fillStyle = '#5a3a1a'; g.fillRect(ox + 60 * s, oy + 44 * s, 58 * s, 2 * s); g.fillRect(ox + 87 * s, oy + 36 * s, 2 * s, 20 * s); }
+      const fw = Math.round(18 * Math.min(1, (be.fuel || 0) / 20)); g.fillStyle = '#3a2a1a'; g.fillRect(ox + 60 * s, oy + 44 * s, 18 * s, 4 * s); g.fillStyle = '#e8a030'; g.fillRect(ox + 60 * s, oy + 44 * s, fw * s, 4 * s);
+      if (be.brew) { const pr = 1 - be.brew / 400; g.fillStyle = '#3a2a1a'; g.fillRect(ox + 97 * s, oy + 16 * s, 4 * s, 28 * s); g.fillStyle = '#f0f0f0'; g.fillRect(ox + 97 * s, oy + 16 * s, 4 * s, Math.round(28 * pr) * s); }
     } else if (this.open === 'chest') T(this.title || 'Cofre', 8, 6);
     else if (this.open === 'enchant') { T('Encantar', 8, 6); this.drawOffers(ox, oy, s); }
     else if (this.open === 'station') { const S = Stations[this.stationKind]; T(S ? S.title : '', 60, 6); HUD.text('+', ox + 56 * s, oy + 47 * s, '#404040', s * 1.4, false); this.arrow(ox + 100 * s, oy + 46 * s, s, 1); }
@@ -10578,6 +10770,7 @@ const GUI = {
     else if (o === 'inv') { key = 'c_inventory'; parts = [[0, 0, 176, 166]]; }
     else if (o === 'craft') { key = 'c_crafting'; parts = [[0, 0, 176, 166]]; }
     else if (o === 'furnace') { key = 'c_furnace'; parts = [[0, 0, 176, 166]]; }
+    else if (o === 'brewing') { key = 'c_brewing'; parts = [[0, 0, 176, 166]]; }
     else if (o === 'enchant') { key = 'c_enchant'; parts = [[0, 0, 176, 166]]; }
     else if (o === 'chest') {
       const n = this.be.slots.length;
@@ -14589,6 +14782,8 @@ const Funcs = {
       const swap = (to) => { if (P.mode === 1) return; if (held.n === 1) P.inv[P.sel] = { id: to, n: 1 }; else { held.n--; if (P.give(to, 1) > 0) Entities.dropItem(P.x, P.y + 1, P.z, { id: to, n: 1 }); } };
       if (it === 'water_bucket' && lv < 3) { Net.track(() => World.set(T.x, T.y, T.z, B.cauldron, 3, 3)); swap('bucket'); Sound.play('bucket_empty', T.x, T.y, T.z); return true; }
       if (it === 'bucket' && lv === 3) { Net.track(() => World.set(T.x, T.y, T.z, B.cauldron, 0, 3)); swap('water_bucket'); Sound.play('bucket_fill', T.x, T.y, T.z); return true; }
+      if (it === 'glass_bottle' && lv > 0) { Net.track(() => World.set(T.x, T.y, T.z, B.cauldron, lv - 1, 3)); swap('potion_water'); Sound.play('bucket_fill', T.x, T.y, T.z); return true; }
+      if (it === 'potion_water' && lv < 3) { Net.track(() => World.set(T.x, T.y, T.z, B.cauldron, lv + 1, 3)); swap('glass_bottle'); Sound.play('bucket_empty', T.x, T.y, T.z); return true; }
       // lavar armaduras de cuero teñidas
       if (lv > 0 && held && /^leather_/.test(it) && held.color !== undefined) { delete held.color; Net.track(() => World.set(T.x, T.y, T.z, B.cauldron, lv - 1, 3)); Sound.play('splash', T.x, T.y, T.z); return true; }
       return false;
@@ -15032,6 +15227,14 @@ const CFluids = {
   const t0 = Kinetic.tick, d0 = Kinetic.draw;
   Kinetic.tick = function () { t0.call(this); try { CFluids.tick(); } catch (e) { console.warn('fluids', e); } };
   Kinetic.draw = function (Pw, cam) { d0.call(this, Pw, cam); try { CFluids.draw(Pw, cam); } catch (e) { console.warn(e); } };
+}
+
+
+// ---- extra/potions124hooks.js ----
+// 1.24: enganches de las pociones que necesitan piezas cargadas más tarde
+{ // la poción arrojadiza se rompe al chocar
+  const h0 = Thrown.prototype.hit; Thrown.prototype.hit = function () { if (this.item && /^splash_potion_/.test(this.item.id)) { this.remove = true; Potions.splash(this.x, this.y, this.z, this.item.id); return; } return h0.call(this); };
+  const d0 = HUD.draw; HUD.draw = function () { const r = d0.apply(this, arguments); try { Potions.drawHUD(); } catch (e) { } return r; };
 }
 
 // ---------------- pieles personalizadas de las criaturas ----------------
