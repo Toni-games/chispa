@@ -1,8 +1,20 @@
 {
-  "latest": "1.23.0",
+  "latest": "1.23.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.23.1",
+      "date": "2026-11-22",
+      "title": "Create en movimiento",
+      "notes": [
+        "Ahora giran y funcionan: ventilador (empuja y cocina con lava o fuego delante), taladro (rompe bloques), sierra (tala árboles), ruedas trituradoras, rodamientos, molino de viento con velas, bomba, brazo, medidores, plataforma giratoria, embrague, inversor, cadenas, caja de engranajes, engranaje grande con carcasa y volante",
+        "Arreglado: los modelos .obj de Create (ruedas hidráulicas, volante, ruedas trituradoras) salían descentrados o no se veían",
+        "Arreglado: el ventilador y otras máquinas salían mal orientados; el eje del motor creativo ya apunta bien"
+      ],
+      "size": 351348,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.23.1.zip"
+    },
     {
       "id": "1.23.0",
       "date": "2026-11-22",

@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.23.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.23.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -12883,7 +12883,7 @@ const JM = {
   },
   // las máquinas de los mods (Create) dibujan aparte sus piezas (hélice, broca, sierra, brazo...);
   // su modelo «item» trae la máquina entera: se usa ese, salvo en las que ya mueve el juego
-  KIN_PARTS: /(^|\/)(mechanical_press|mechanical_mixer|millstone|hand_crank|water_wheel|large_water_wheel)$/,
+  KIN_PARTS: /(^|\/)(mechanical_press|mechanical_mixer|millstone|hand_crank|water_wheel|large_water_wheel|encased_fan|mechanical_drill|bearing|mechanical_pump|clutch|gearshift|gearbox|creative_motor|flywheel|crushing_wheel)$/,
   fullModel(ref) {
     const m = typeof ref === 'string' && ref.match(/^([a-z0-9_.-]+):block\/(.+)\/block$/);
     if (!m || m[1] === 'minecraft' || this.KIN_PARTS.test(m[2])) return ref;
@@ -13068,7 +13068,7 @@ JM.objQuads = function (model, rx, ry) {
   const V = [], T = [], out = []; let tex = null;
   for (const l of txt.split(/\r?\n/)) {
     const a = l.trim().split(/\s+/);
-    if (a[0] === 'v') V.push([+a[1] * 16 + 8, +a[2] * 16, +a[3] * 16 + 8]);
+    if (a[0] === 'v') V.push([+a[1] * 16, +a[2] * 16, +a[3] * 16]); // los .obj de Create van de 0 a 1 (centro en 0,5)
     else if (a[0] === 'vt') T.push([+a[1], model.flipV ? 1 - +a[2] : +a[2]]);
     else if (a[0] === 'usemtl') { const mk = mats[a[1]] || ('#' + a[1]); tex = this.texName(model.textures, mk); }
     else if (a[0] === 'f' && tex) {
@@ -13319,16 +13319,36 @@ const Kinetic = {
     create_brass_encased_shaft: { kind: 'shaft', part: 'create:block/shaft' },
     create_andesite_encased_cogwheel: { kind: 'cog', part: 'create:block/cogwheel_shaftless' },
     create_brass_encased_cogwheel: { kind: 'cog', part: 'create:block/cogwheel_shaftless' },
-    create_gearbox: { kind: 'gearbox' },
+    create_gearbox: { kind: 'gearbox', parts: 'gearbox' },
     create_water_wheel: { kind: 'source', src: 'water', rpm: 8, rot: 'create:block/water_wheel/wheel' },
-    create_large_water_wheel: { kind: 'source', src: 'water', rpm: 4, rot: 'create:block/large_water_wheel/wheel' },
-    create_creative_motor: { kind: 'source', src: 'always', rpm: 32, part: 'create:block/shaft_half' },
-    create_hand_crank: { kind: 'source', src: 'crank', rpm: 32, part: 'create:block/hand_crank/handle' },
+    create_large_water_wheel: { kind: 'source', src: 'water', rpm: 4, rot: 'self' },
+    create_creative_motor: { kind: 'source', src: 'always', rpm: 32, parts: [{ m: 'create:block/shaft_half', o: 'fz' }] },
+    create_hand_crank: { kind: 'source', src: 'crank', rpm: 32, parts: [{ m: 'create:block/hand_crank/handle', o: 'fz' }] },
     create_mechanical_press: { kind: 'press', part: 'create:block/shaft' },
     create_millstone: { kind: 'mill', part: 'create:block/millstone/inner' },
     // 1.22: cinta transportadora y mezcladora (encima de un recipiente)
     create_belt: { kind: 'belt' },
-    create_mechanical_mixer: { kind: 'cog', machine: 'mixer', part: 'create:block/mechanical_mixer/head' },
+    create_mechanical_mixer: { kind: 'cog', machine: 'mixer', part: 'create:block/mechanical_mixer/head', parts: [{ m: 'create:block/cogwheel_shaftless', o: 'ax' }] },
+    // 1.23: el resto de piezas que giran
+    create_encased_fan: { kind: 'fan', parts: [{ m: 'create:block/encased_fan/propeller', o: 'bz' }, { m: 'create:block/shaft_half', o: 'bz' }] },
+    create_mechanical_drill: { kind: 'drill', parts: [{ m: 'create:block/mechanical_drill/head', o: 'fz' }] },
+    create_mechanical_saw: { kind: 'saw', anyAx: true },
+    create_mechanical_bearing: { kind: 'shaft', parts: [{ m: 'create:block/bearing/top', o: 'fy' }, { m: 'create:block/shaft_half', o: 'bz' }] },
+    create_windmill_bearing: { kind: 'source', src: 'sails', rpm: 8, parts: [{ m: 'create:block/bearing/top_wooden', o: 'fy' }, { m: 'create:block/shaft_half', o: 'bz' }] },
+    create_mechanical_pump: { kind: 'shaft', parts: [{ m: 'create:block/mechanical_pump/cog', o: 'fz' }] },
+    create_mechanical_arm: { kind: 'shaft', parts: [{ m: 'create:block/mechanical_arm/cog', o: 'ax' }] },
+    create_speedometer: { kind: 'gauge', gauge: 'speed', anyAx: true },
+    create_stressometer: { kind: 'gauge', gauge: 'stress', anyAx: true },
+    create_turntable: { kind: 'turntable', rot: 'self' },
+    create_crushing_wheel: { kind: 'crush', rot: 'self' },
+    create_clutch: { kind: 'clutch', parts: 'halves' },
+    create_gearshift: { kind: 'gearshift', parts: 'halves' },
+    create_encased_chain_drive: { kind: 'chain', parts: [{ m: 'create:block/shaft', o: 'ax' }] },
+    create_adjustable_chain_gearshift: { kind: 'chain', parts: [{ m: 'create:block/shaft', o: 'ax' }] },
+    create_rotation_speed_controller: { kind: 'shaft', parts: [{ m: 'create:block/shaft', o: 'ax' }] },
+    create_flywheel: { kind: 'shaft', rot: 'self', parts: [{ m: 'create:block/shaft', o: 'ax' }] },
+    create_andesite_encased_large_cogwheel: { kind: 'bigcog', parts: [{ m: 'create:block/large_cogwheel_shaftless', o: 'ax' }, { m: 'create:block/shaft', o: 'ax' }] },
+    create_brass_encased_large_cogwheel: { kind: 'bigcog', parts: [{ m: 'create:block/large_cogwheel_shaftless', o: 'ax' }, { m: 'create:block/shaft', o: 'ax' }] },
   },
   DIRS: [[0, 0, -1], [1, 0, 0], [0, 0, 1], [-1, 0, 0]],
   // recetas de las máquinas sacadas del propio mod (DYN_SPEC.machine)
@@ -13394,9 +13414,10 @@ const Kinetic = {
   MIX: [{ i: ['copper_ingot', 'create_zinc_ingot'], o: [['create_brass_ingot', 2, 1]], h: 'heated' }, { i: ['andesite', 'iron_nugget'], o: [['create_andesite_alloy', 1, 1]], h: '' }, { i: ['andesite', 'create_zinc_nugget'], o: [['create_andesite_alloy', 1, 1]], h: '' }],
   init() {
     if (B.create_basin !== undefined) { const bd = BLOCKS[B.create_basin]; bd.interact = 'chest'; bd.slots = 9; }
-    for (const k in this.DEFS) { const id = B[k]; if (id === undefined) continue; this.ids[id] = this.DEFS[k]; this.info[id] = k; if (this.DEFS[k].rot === 'self') this.dynamicOnly[id] = true; }
+    for (const k in this.DEFS) { const id = B[k]; if (id === undefined) continue; this.ids[id] = this.DEFS[k]; this.info[id] = k; if (this.DEFS[k].rot === 'self' && this.hasModel(id)) this.dynamicOnly[id] = true; }
     this.ready = true;
   },
+  hasModel(id) { const jb = JM.block[id]; return !!(jb && jb.some(list => list[0] && list[0].quads && list[0].quads.length)); },
   // el mallador avisa de los bloques de giro que hay en cada trozo
   begin(c) { if (!this.ready) this.init(); this._cur = []; },
   note(c, x, y, z, id, meta) { if (this._cur) this._cur.push([c.cx * 16 + x, y, c.cz * 16 + z, id, meta]); },
@@ -13411,14 +13432,20 @@ const Kinetic = {
   // calcula la velocidad de cada bloque (búsqueda desde las fuentes)
   tick() {
     if (!this.ready) return;
-    this.beltTick();
+    this.beltTick(); try { this.entTick(); } catch (e) { }
     if (World.tickCount % 5) return;
     const nodes = new Map(); const key = (x, y, z) => x + ',' + y + ',' + z;
     for (const k in this.chunks) for (const n of this.chunks[k]) { const [x, y, z, id, meta] = n; if (World.get(x, y, z) !== id) continue; nodes.set(key(x, y, z), { x, y, z, id, meta: World.getMeta(x, y, z), def: this.ids[id], ax: this.axisOf(id, World.getMeta(x, y, z)) }); }
+    for (let pass = 0; pass < 2; pass++) for (const [, n] of nodes) if (n.def.anyAx && !(pass && n.axOk)) { const fa = this.axisOf(n.id, n.meta); n.fax = fa; for (let ax = 0; ax < 3; ax++) { if (ax === fa && n.def.kind === 'gauge') continue; const A = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][ax]; let ok = false; for (const sg of [1, -1]) { const m = nodes.get(key(n.x + A[0] * sg, n.y + A[1] * sg, n.z + A[2] * sg)); if (m && (!m.def.anyAx || m.axOk) && (m.ax === ax || m.def.kind === 'gearbox')) ok = true; } if (ok) { n.ax = ax; n.axOk = true; break; } } }
+    for (const [, n] of nodes) if (n.def.kind === 'clutch' || n.def.kind === 'gearshift') n.pow = RS.powered(n.x, n.y, n.z);
     const sp = new Map(); const q = [];
     for (const [k, n] of nodes) if (n.def.kind === 'source') {
       let on = n.def.src === 'always' || (n.def.src === 'crank' && (n.crankT = this.crank.get(k) || 0) > World.tickCount);
-      if (n.def.src === 'water') { const A = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]; for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) { if (A[n.ax][0] === Math.abs(dx) && A[n.ax][1] === Math.abs(dy) && A[n.ax][2] === Math.abs(dz)) continue; if (LIQUID[World.get(n.x + dx, n.y + dy, n.z + dz)] === 1) { on = true; break; } } }
+      if (n.def.src === 'water') { // agua alrededor de la rueda (en su plano; la grande mira más lejos)
+        const r = n.def.rpm < 8 ? 2 : 1; const pl = [0, 1, 2].filter(i => i !== n.ax);
+        for (let u = -r; u <= r && !on; u++) for (let v = -r; v <= r; v++) { if (!u && !v) continue; const o = [0, 0, 0]; o[pl[0]] = u; o[pl[1]] = v; if (LIQUID[World.get(n.x + o[0], n.y + o[1], n.z + o[2])] === 1) { on = true; break; } }
+      }
+      if (n.def.src === 'sails') { const c = this.sailCount(n); if (c >= 8) { on = true; sp.set(k, Math.min(24, 4 + Math.floor(c / 4))); q.push(n); } continue; }
       if (on) { sp.set(k, n.def.rpm); q.push(n); }
     }
     const AX = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
@@ -13429,8 +13456,10 @@ const Kinetic = {
       // a lo largo del eje
       for (const sg of [1, -1]) {
         const a = AX[n.ax]; const m = nodes.get(key(n.x + a[0] * sg, n.y + a[1] * sg, n.z + a[2] * sg)); if (!m) continue;
-        if (m.def.kind === 'gearbox' || n.def.kind === 'gearbox' || m.ax === n.ax) push(m, s);
+        if (n.def.kind === 'clutch' && n.pow) continue;
+        if (m.def.kind === 'gearbox' || n.def.kind === 'gearbox' || m.ax === n.ax) push(m, n.def.kind === 'gearshift' && n.pow ? -s : s);
       }
+      if (n.def.kind === 'chain') { const pl = [0, 1, 2].filter(i => i !== n.ax); for (const a of pl) for (const sg of [1, -1]) { const o = [0, 0, 0]; o[a] = sg; const m = nodes.get(key(n.x + o[0], n.y + o[1], n.z + o[2])); if (m && m.def.kind === 'chain' && m.ax === n.ax) push(m, s); } }
       if (n.def.kind === 'belt') { const f = n.meta & 3, [dx, , dz] = this.DIRS[f]; for (const sg of [1, -1]) { const m = nodes.get(key(n.x + dx * sg, n.y, n.z + dz * sg)); if (m && m.def.kind === 'belt') push(m, s); } }
       if (n.def.kind === 'gearbox') for (let ax = 0; ax < 3; ax++) if (ax !== n.ax) for (const sg of [1, -1]) { const a = AX[ax]; const m = nodes.get(key(n.x + a[0] * sg, n.y + a[1] * sg, n.z + a[2] * sg)); if (m && m.ax === ax) push(m, -s); }
       // engranajes: los de al lado (mismo eje) giran al revés; grande con pequeño en diagonal, al doble
@@ -13443,7 +13472,7 @@ const Kinetic = {
     this.speed = sp; this.nodes = nodes;
     this.belts = new Map(); for (const [k, n] of nodes) if (n.def.kind === 'belt') this.belts.set(k, { f: n.meta & 3, s: sp.get(k) || 0 });
     // máquinas trabajando
-    for (const [k, n] of nodes) { const s = sp.get(k) || 0; if (!s) continue; if (n.def.kind === 'press') this.press(n, s); else if (n.def.kind === 'mill') this.mill(n, s); else if (n.def.machine === 'mixer') this.mixer(n, s); }
+    for (const [k, n] of nodes) { const s = sp.get(k) || 0; if (!s) continue; if (n.def.kind === 'press') this.press(n, s); else if (n.def.kind === 'mill') this.mill(n, s); else if (n.def.machine === 'mixer') this.mixer(n, s); else if (!this.guest()) { if (n.def.kind === 'drill' || n.def.kind === 'saw') this.drill(n, s); else if (n.def.kind === 'crush') this.crush(n, nodes, sp); } }
   },
   crank: new Map(),
   useCrank(x, y, z) { this.crank.set(x + ',' + y + ',' + z, World.tickCount + 60); Sound.play('click', x, y, z); },
@@ -13482,14 +13511,121 @@ const Kinetic = {
     const vb = new VB(64); for (const q of quads) Mesher.quad(vb, -0.5, -0.5, -0.5, q.verts, q.uvs, Atlas.index[q.tex] ?? 0, [255, 255, 255], q.shade < 0 ? 1 : Mesher.SHADE[q.shade], 240, 240, 0);
     return (this.meshes[key] = Renderer.meshFromVB(vb));
   },
+  // ---------- 1.23: funciones de las máquinas nuevas ----------
+  guest() { return typeof NetSync !== 'undefined' && NetSync.guest && NetSync.guest(); },
+  D6: [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]],
+  faceOf(n) { const d = BLOCKS[n.id]; if (d.facing6) return n.meta & 7; if (d.facing) return [5, 0, 4, 1][n.meta & 3]; return 2; },
+  sailT: new Map(),
+  sailCount(n) {
+    const k = n.x + ',' + n.y + ',' + n.z; const c = this.sailT.get(k); if (c && World.tickCount - c.t < 40) return c.n;
+    const D = this.D6[this.faceOf(n)]; const st = [[n.x + D[0], n.y + D[1], n.z + D[2]]]; const seen = new Set([k]); let cnt = 0, guard = 0;
+    while (st.length && guard++ < 400) { const [x, y, z] = st.pop(); const kk = x + ',' + y + ',' + z; if (seen.has(kk)) continue; seen.add(kk); const id = World.get(x, y, z); if (!id || LIQUID[id]) continue; const bk = BLOCKS[id].key || ''; if (/sail|_wool$/.test(bk)) cnt++; else if (!/chassis|glue|planks|log|frame|stick/.test(bk)) continue; for (const d of this.D6) st.push([x + d[0], y + d[1], z + d[2]]); }
+    this.sailT.set(k, { t: World.tickCount, n: cnt }); return cnt;
+  },
+  drillP: {},
+  CUT: /(_log|_stem|_wood|_hyphae|^bamboo|^cactus|^sugar_cane|^melon|^pumpkin|^mushroom_stem)$|^(bamboo|cactus|sugar_cane|melon|pumpkin)$/,
+  drill(n, s) {
+    const D = this.D6[this.faceOf(n)]; const x = n.x + D[0], y = n.y + D[1], z = n.z + D[2]; const id = World.get(x, y, z); const k = n.x + ',' + n.y + ',' + n.z;
+    const d = BLOCKS[id]; if (!id || !d || LIQUID[id] || d.hardness < 0 || this.ids[id] || d.render === 'liquid') { delete this.drillP[k]; return; }
+    if (n.def.kind === 'saw' && !this.CUT.test(d.key)) { delete this.drillP[k]; return; }
+    let p = this.drillP[k]; if (!p || p.id !== id) p = this.drillP[k] = { id, v: 0 };
+    p.v += Math.abs(s) * 5 / (Math.max(0.2, d.hardness || 0.2) * 500);
+    if (Settings.particles && Math.random() < 0.5) Particles.block(x, y, z, id, 3);
+    if (p.v < 1) return; delete this.drillP[k];
+    const tool = { id: n.def.kind === 'saw' ? 'iron_axe' : 'iron_pickaxe', n: 1 };
+    if (n.def.kind === 'saw' && /_(log|stem)$/.test(d.key)) { // tala el árbol entero
+      const st = [[x, y, z]], seen = new Set(); let g = 0;
+      while (st.length && g++ < 256) { const [a, b, c] = st.pop(); const kk = a + ',' + b + ',' + c; if (seen.has(kk)) continue; seen.add(kk); const bid = World.get(a, b, c); if (!BLOCKS[bid] || !/_(log|stem)$/.test(BLOCKS[bid].key) || b < y) continue; Game.breakBlock(a, b, c, true, tool, true); for (let dx = -1; dx <= 1; dx++) for (let dy = 0; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) if (dx || dy || dz) st.push([a + dx, b + dy, c + dz]); }
+    } else Game.breakBlock(x, y, z, true, tool, true);
+  },
+  crush(n, nodes, sp) {
+    if (n.ax === 1) return; const dirs = n.ax === 0 ? [[0, 0, 1], [0, 0, -1]] : [[1, 0, 0], [-1, 0, 0]];
+    for (const [dx, , dz] of dirs) {
+      const m = nodes.get((n.x + dx * 2) + ',' + n.y + ',' + (n.z + dz * 2)); if (!m || m.def.kind !== 'crush' || !sp.get(m.x + ',' + m.y + ',' + m.z)) continue;
+      if (dx + dz < 0) continue; // cada pareja una sola vez
+      const mx = n.x + dx, mz = n.z + dz, k = 'c' + mx + ',' + n.y + ',' + mz, T = World.tickCount; if (T < (this.pressT[k] || 0)) return;
+      const R = (id) => this.rec('crushing', id) || this.rec('milling', id);
+      const it = this.items(mx - 0.1, n.y - 0.2, mz - 0.1, mx + 1.1, n.y + 2, mz + 1.1).find(e => R(e.item.id) || this.MILL[e.item.id]); if (!it) return;
+      this.pressT[k] = T + Math.max(5, 600 / Math.abs(sp.get(n.x + ',' + n.y + ',' + n.z) || 8));
+      const r = R(it.item.id); it.item.n--; if (it.item.n <= 0) it.remove = true;
+      const outs = r ? this.outputs(r) : (ITEMS[this.MILL[it.item.id][0]] ? [{ id: this.MILL[it.item.id][0], n: this.MILL[it.item.id][1] }] : []);
+      const oy = SOLID[World.get(mx, n.y - 1, mz)] ? n.y + 0.1 : n.y - 0.6; for (const o of outs) { const e = Entities.dropItem(mx + 0.5, oy, mz + 0.5, o); if (e) { e.vx = e.vz = 0; e.vy = -0.1; } }
+      Sound.play('grindstone', mx, n.y, mz); return;
+    }
+  },
+  // cada tick: ventiladores que empujan y plataformas que giran
+  entTick() {
+    if (!this.nodes) return; const P = Game.player; const ents = Entities.list.filter(e => !e.dead && !e.remove && !e.mirror); if (P) ents.push(P);
+    for (const [k, n] of this.nodes) {
+      const s = this.speed.get(k) || 0; if (!s) continue; const kind = n.def.kind;
+      if (kind === 'fan') {
+        const fi = this.faceOf(n), D = this.D6[fi]; const R = Math.min(20, 4 + Math.abs(s) / 4); let reach = 0;
+        for (let i = 1; i <= R; i++) { const id = World.get(n.x + D[0] * i, n.y + D[1] * i, n.z + D[2] * i); if (SOLID[id] && !LIQUID[id]) break; reach = i; }
+        const fx = n.x + 0.5 + D[0] * 0.5, fy = n.y + 0.5 + D[1] * 0.5, fz = n.z + 0.5 + D[2] * 0.5;
+        const front = World.get(n.x + D[0], n.y + D[1], n.z + D[2]); const fk = (BLOCKS[front] && BLOCKS[front].key) || ''; const heat = /lava|fire|campfire|magma/.test(fk);
+        for (const e of ents) {
+          const ey = e === P ? e.y + 0.9 : e.y + 0.25; const rx = e.x - fx, ry = ey - fy, rz = e.z - fz; const along = rx * D[0] + ry * D[1] + rz * D[2];
+          if (along < 0 || along > reach + 0.5) continue; const px = rx - D[0] * along, py = ry - D[1] * along, pz = rz - D[2] * along; if (px * px + py * py + pz * pz > 0.64) continue;
+          if (e === P && (P.sneaking || P.flying)) continue;
+          const f = 0.05 * (1 - along / (reach + 1)) * Math.min(2, Math.abs(s) / 16) * (s > 0 ? 1 : -1) * (D[1] > 0 ? 2.2 : 1);
+          e.vx = (e.vx || 0) + D[0] * f; e.vy = (e.vy || 0) + D[1] * f; e.vz = (e.vz || 0) + D[2] * f; if (D[1] > 0 && e.vy > 0.35) e.vy = 0.35;
+          if (heat && e.type === 'item' && SMELT[e.item.id] && !this.guest()) { e.fanT = (e.fanT || 0) + 1; if (e.fanT > 60) { e.fanT = 0; const out = SMELT[e.item.id][0]; if (ITEMS[out]) { e.item.n--; if (e.item.n <= 0) e.remove = true; const o = Entities.dropItem(e.x, e.y, e.z, { id: out, n: 1 }); if (o) { o.vx = e.vx; o.vy = e.vy; o.vz = e.vz; } } } }
+        }
+        if (Settings.particles && Math.random() < 0.3 && reach > 0) { const a = Math.random() * reach; Particles.add({ x: fx + D[0] * a + (Math.random() - 0.5) * 0.6, y: fy + D[1] * a + (Math.random() - 0.5) * 0.6, z: fz + D[2] * a + (Math.random() - 0.5) * 0.6, vx: D[0] * 0.12, vy: D[1] * 0.12, vz: D[2] * 0.12, life: 14, s: 0.06, col: [0.95, 0.95, 1], g: 0 }); }
+      } else if (kind === 'turntable') {
+        const w = s * Math.PI * 2 / 60 / 20; const cx = n.x + 0.5, cz = n.z + 0.5;
+        for (const e of ents) {
+          if (Math.floor(e.x) !== n.x || Math.floor(e.z) !== n.z || e.y < n.y + 0.3 || e.y > n.y + 1.1) continue;
+          const dx = e.x - cx, dz = e.z - cz, c = Math.cos(w), si = Math.sin(w); e.x = cx + dx * c - dz * si; e.z = cz + dx * si + dz * c; e.yaw = (e.yaw || 0) - w;
+        }
+      }
+    }
+  },
+  // ---------- dibujo de las piezas que giran ----------
+  orientZ(m, f) { if (f === 5) M4.rotY(m, Math.PI); else if (f === 0) M4.rotY(m, Math.PI / 2); else if (f === 1) M4.rotY(m, -Math.PI / 2); else if (f === 2) M4.rotX(m, -Math.PI / 2); else if (f === 3) M4.rotX(m, Math.PI / 2); },
+  orientY(m, f) { if (f === 3) M4.rotX(m, Math.PI); else if (f === 4) M4.rotX(m, Math.PI / 2); else if (f === 5) M4.rotX(m, -Math.PI / 2); else if (f === 0) M4.rotZ(m, -Math.PI / 2); else if (f === 1) M4.rotZ(m, Math.PI / 2); },
+  partsOf(n) {
+    const d = n.def; if (d._p && d._p !== 'gearbox' && d._p !== 'halves') return d._p;
+    if (Array.isArray(d.parts)) return d.parts;
+    if (d.parts === 'gearbox' || d.parts === 'halves') { const L = []; for (let f = 0; f < 6; f++) { const ax = f >> 1; if (d.parts === 'gearbox' ? ax !== n.ax : ax === n.ax) L.push({ m: 'create:block/shaft_half', o: 'dir', f, nb: true }); } return L; }
+    return null;
+  },
+  drawParts(n, k, s, t, m, Pw) {
+    const R = Renderer; const fi = this.faceOf(n);
+    for (const p of this.partsOf(n)) {
+      const mesh = this.meshFor(p.m, 0, 0); if (!mesh) continue;
+      let f = p.o === 'fz' || p.o === 'fy' ? fi : p.o === 'bz' ? fi ^ 1 : p.o === 'dir' ? p.f : -1;
+      let spd = s;
+      if (p.nb) { const D = this.D6[p.f]; const nk = (n.x + D[0]) + ',' + (n.y + D[1]) + ',' + (n.z + D[2]); if (this.speed.has(nk) && this.nodes.has(nk)) spd = this.speed.get(nk); else if (n.def.kind === 'clutch' && n.pow) spd = 0; else if (n.def.kind === 'gearbox' && (p.f >> 1) !== n.ax) spd = s; }
+      let ang = spd * Math.PI * 2 / 60 * t; if (f >= 0 && (f & 1)) ang = -ang;
+      M4.identity(m); M4.translate(m, n.x + 0.5, n.y + 0.5, n.z + 0.5);
+      if (p.o === 'ax') { if (n.ax === 0) M4.rotZ(m, -Math.PI / 2); else if (n.ax === 2) M4.rotX(m, Math.PI / 2); M4.rotY(m, ang); }
+      else if (p.o === 'fy') { this.orientY(m, f); M4.rotY(m, ang); }
+      else { this.orientZ(m, f); M4.rotZ(m, ang); }
+      R.drawMesh(mesh, m, Pw);
+    }
+  },
+  drawGauge(n, k, s, m, Pw) {
+    const R = Renderer; const head = this.meshFor('create:block/gauge/' + (n.def.gauge === 'speed' ? 'speedometer' : 'stressometer') + '/head', 0, 0), dial = this.meshFor('create:block/gauge/dial', 0, 0);
+    const a = Math.abs(s); const prog = n.def.gauge === 'speed' ? (a < 64 ? a / 128 : Math.min(1, 0.5 + (a - 64) / 384)) : (a ? 0.35 : 0);
+    const fa = n.fax !== undefined ? n.fax : 1; const pv = 5.75 / 16 - 0.5;
+    for (let f = 0; f < 6; f++) {
+      const ax = f >> 1; if (ax === fa || ax === n.ax) continue;
+      M4.identity(m); M4.translate(m, n.x + 0.5, n.y + 0.5, n.z + 0.5);
+      if (f === 4) M4.rotY(m, -Math.PI / 2); else if (f === 5) M4.rotY(m, Math.PI / 2); else if (f === 1) M4.rotY(m, Math.PI); else if (f === 2) M4.rotZ(m, Math.PI / 2); else if (f === 3) M4.rotZ(m, -Math.PI / 2);
+      if (head) R.drawMesh(head, m, Pw);
+      if (dial) { M4.translate(m, 0, pv, pv); M4.rotX(m, -Math.PI / 2 * prog); M4.translate(m, 0, -pv, -pv); R.drawMesh(dial, m, Pw); }
+    }
+  },
   draw(Pw, cam) {
     if (!this.ready || !this.nodes) return; const R = Renderer, gl = R.gl; const pt = Game.partial;
     gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
     const m = this._m || (this._m = new Float32Array(16)); const t = (World.tickCount + pt) / 20; const rd = (Settings.renderDist * 16) ** 2;
     for (const [k, n] of this.nodes) {
-      const d = n.def; const ref = d.rot || d.part; if (!ref) continue;
-      if ((n.x - cam.x) ** 2 + (n.z - cam.z) ** 2 > rd) continue;
-      const s = this.speed.get(k) || 0; const ang = s * Math.PI * 2 / 60 * t + (d.kind === 'cog' && ((n.x + n.y + n.z) & 1) ? Math.PI / 8 : 0);
+      const d = n.def; if ((n.x - cam.x) ** 2 + (n.z - cam.z) ** 2 > rd) continue;
+      const s = this.speed.get(k) || 0;
+      if (d.parts || d.gauge) { const L = entLight(n.x + 0.5, n.y + 0.5, n.z + 0.5); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]); if (d.gauge) this.drawGauge(n, k, s, m, Pw); else this.drawParts(n, k, s, t, m, Pw); }
+      const ref = d.rot || d.part; if (!ref) continue; const ang = s * Math.PI * 2 / 60 * t + (d.kind === 'cog' && ((n.x + n.y + n.z) & 1) ? Math.PI / 8 : 0);
       // la pieza propia del bloque ya viene girada a su eje; las piezas sueltas (eje, cabeza...) se colocan en el eje del bloque
       const own = ref === 'self'; const mesh = this.meshFor(ref, n.id, own ? n.meta : 0); if (!mesh) continue;
       const L = entLight(n.x + 0.5, n.y + 0.5, n.z + 0.5); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]);
