@@ -1,8 +1,22 @@
 {
-  "latest": "1.22.2",
+  "latest": "1.23.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.23.0",
+      "date": "2026-11-22",
+      "title": "Bloques con función",
+      "notes": [
+        "Cortapiedras, mesa de herrería (netherita) y mesa de cartografía (copiar mapas) con su ventana",
+        "Caldero: se llena y vacía con cubos y se ve el agua dentro; lava el cuero teñido",
+        "Create: cajas de herramientas, almacén, depósito y caja creativa guardan objetos",
+        "Create: conductos y embudos meten objetos en contenedores",
+        "Create: asientos para sentarse (Mayús para levantarse) y quemador de blaze que se enciende con combustible; la mezcladora necesita el quemador encendido"
+      ],
+      "size": 347551,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.23.0.zip"
+    },
     {
       "id": "1.22.2",
       "date": "2026-11-22",

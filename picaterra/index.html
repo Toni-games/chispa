@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.22.2';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.23.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -8976,6 +8976,7 @@ const Game = {
       if (World.tickCount % 1 === 0) World.randomTicks(Math.floor(P.x), Math.floor(P.z));
       if (World.tickCount % 10 === 0) Fire.tick();
       try { Kinetic.tick(); } catch (e) { }
+      try { if (!NetSync.guest()) Funcs.tick(); } catch (e) { }
       if (World.tickCount % 2 === 0) Maps.tick(P);
       this.furnaceTick();
       for (const e of Entities.list) { if (!World.loaded(Math.floor(e.x), Math.floor(e.z)) && e.type !== 'arrow') { e.savePrev(); continue; } }
@@ -9164,6 +9165,7 @@ const Game = {
       if (d.interact === 'furnace') { UI.openContainer('furnace', T); return; }
       if (d.interact === 'enchant') { UI.openContainer('enchant', T); return; }
       if (d.interact === 'anvil') { UI.openContainer('anvil', T); return; }
+      if (Funcs.use(P, T, held)) { P.swinging = true; P.swingTime = 0; this.useCD = 6; return; }
       if (d.interact === 'bell') { Sound.note(12, 'bell', T.x + 0.5, T.y + 0.5, T.z + 0.5); setTimeout(() => Sound.note(19, 'bell', T.x + 0.5, T.y + 0.5, T.z + 0.5), 120); P.swinging = true; P.swingTime = 0; Particles.color && Particles.color(T.x + 0.5, T.y + 0.6, T.z + 0.5, 1, 0.85, 0.3, 6, 0.04, 10, 0, 0.05); return; }
       if (d.interact === 'chest') { UI.openContainer('chest', T); Sound.play('chest_open', T.x, T.y, T.z); return; }
       if ((d.interact === 'toggle' || d.interact === 'press' || d.interact === 'cycle') && RS.use(T)) { P.swinging = true; P.swingTime = 0; return; }
@@ -10267,7 +10269,8 @@ const GUI = {
     const P = Game.player; this.open = type; this.pos = T ? [T.x, T.y, T.z] : null; this.scroll = 0;
     if (type === 'inv') this.craft = new Array(4).fill(null);
     if (type === 'craft') this.craft = new Array(9).fill(null);
-    if (type === 'anvil') this.craft = [null, null];
+    if (type === 'anvil' || type === 'station') this.craft = [null, null];
+    if (type === 'stonecutter') { this.craft = [null]; this.scOut = []; }
     if (type === 'enchant') { this.ench = [null, null]; this.shelves = Ench.shelves(T.x, T.y, T.z); this.offers = null; }
     if (type === 'furnace' || type === 'chest') {
       const k = T.x + ',' + T.y + ',' + T.z; let be = World.blockEnts.get(k);
@@ -10319,8 +10322,10 @@ const GUI = {
     } else if (this.open === 'craft') {
       for (let i = 0; i < 9; i++) add(this.craft, i, 30 + (i % 3) * 18, 17 + Math.floor(i / 3) * 18);
       add(null, 0, 124, 35, 'result'); inv(84);
-    } else if (this.open === 'anvil') {
+    } else if (this.open === 'anvil' || this.open === 'station') {
       add(this.craft, 0, 27, 47); add(this.craft, 1, 76, 47); add(null, 0, 134, 47, 'result'); inv(84);
+    } else if (this.open === 'stonecutter') {
+      add(this.craft, 0, 20, 33); for (let i = 0; i < 16; i++) add(this.scOut, i, 62 + (i % 4) * 18, 15 + Math.floor(i / 4) * 18, 'scres'); inv(84);
     } else if (this.open === 'enchant') {
       add(this.ench, 0, 15, 47, 'enchItem'); add(this.ench, 1, 35, 47, 'lapis'); inv(84);
       this.offers = Ench.offers(this.ench[0], this.shelves);
@@ -10356,6 +10361,8 @@ const GUI = {
   updateResult() {
     if (!this.craft) { this.result = null; return; }
     if (this.open === 'anvil') { const r = Anvil.result(this.craft[0], this.craft[1]); this.anvilCost = r ? r.cost : 0; this.result = r ? r.out : null; return; }
+    if (this.open === 'station') { const S = Stations[this.stationKind]; const r = S && S.result(this.craft[0], this.craft[1]); this.stationR = r; this.result = r ? r.out : null; return; }
+    if (this.open === 'stonecutter') { this.scOut.length = 0; const a = this.craft[0]; if (a) for (const o of Stonecutter.outputs(a.id)) this.scOut.push(o); this.result = null; return; }
     const w = this.craft.length === 9 ? 3 : 2; const r = matchRecipe(this.craft.map(s => s && s.id), w);
     this.result = r ? { id: r.out, n: r.n } : null;
   },
@@ -10365,7 +10372,7 @@ const GUI = {
   accepts(sl, st) {
     if (!st) return true;
     if (sl.kind && sl.kind.startsWith('armor')) { const it = ITEMS[st.id]; return !!(it.armor && it.armor.slot === +sl.kind.slice(5)); }
-    if (sl.kind === 'out' || sl.kind === 'result') return false;
+    if (sl.kind === 'out' || sl.kind === 'result' || sl.kind === 'scres') return false;
     if (sl.kind === 'fuel') return fuelOf(st.id) > 0;
     if (sl.kind === 'lapis') return st.id === 'lapis_lazuli';
     if (sl.kind === 'enchItem') return !!Ench.kind(st.id) && st.n === 1;
@@ -10392,12 +10399,20 @@ const GUI = {
     }
     if (sl.kind === 'result') {
       if (!this.result) return;
+      if (this.open === 'station') { const r = this.stationR; if (!r || this.cursor) return; this.craft[0] = null; const b = this.craft[1]; b.n -= r.useB; if (b.n <= 0) this.craft[1] = null; if (shift) { const left = P.give(r.out.id, r.out.n, r.out.d); if (left) this.cursor = Object.assign({}, r.out, { n: left }); } else this.cursor = Object.assign({}, r.out); Sound.play(this.stationKind === 'smithing_table' ? 'anvil_use' : 'click'); this.updateResult(); return; }
       if (this.open === 'anvil') { const r = this.result; if (this.cursor) return; if (!Anvil.take(this)) return; if (shift) { const left = P.give(r.id, r.n, r.d); if (left) this.cursor = Object.assign({}, r, { n: left }); } else this.cursor = Object.assign({}, r); this.updateResult(); return; }
       if (shift) { let guard = 0; while (this.result && guard++ < 64) { const r = this.result; if (P.give(r.id, r.n) > 0) break; this.consumeCraft(); this.updateResult(); } return; }
       const r = this.result;
       if (this.cursor && (this.cursor.id !== r.id || this.cursor.n + r.n > maxStack(r.id))) return;
       if (this.cursor) this.cursor.n += r.n; else this.cursor = { id: r.id, n: r.n };
       this.consumeCraft(); this.updateResult(); return;
+    }
+    if (sl.kind === 'scres') {
+      const o = this.scOut[sl.i]; const a = this.craft[0]; if (!o || !a) return;
+      const take = () => { a.n--; if (a.n <= 0) this.craft[0] = null; Sound.play('click'); };
+      if (shift) { let g = 0; while (this.craft[0] && g++ < 64) { if (P.give(o.id, o.n) > 0) break; take(); } this.updateResult(); return; }
+      if (this.cursor && (this.cursor.id !== o.id || this.cursor.n + o.n > maxStack(o.id))) return;
+      if (this.cursor) this.cursor.n += o.n; else this.cursor = { id: o.id, n: o.n }; take(); this.updateResult(); return;
     }
     const cur = this.slotGet(sl);
     if (shift && cur) { this.quickMove(sl); return; }
@@ -10511,6 +10526,8 @@ const GUI = {
       else this.arrow(ox + 79 * s, oy + 34 * s, s, ck, true);
     } else if (this.open === 'chest') T(this.title || 'Cofre', 8, 6);
     else if (this.open === 'enchant') { T('Encantar', 8, 6); this.drawOffers(ox, oy, s); }
+    else if (this.open === 'station') { const S = Stations[this.stationKind]; T(S ? S.title : '', 60, 6); HUD.text('+', ox + 56 * s, oy + 47 * s, '#404040', s * 1.4, false); this.arrow(ox + 100 * s, oy + 46 * s, s, 1); }
+    else if (this.open === 'stonecutter') { T('Cortapiedras', 8, 6); }
     else if (this.open === 'anvil') {
       T('Reparar y combinar', 60, 6); HUD.text('+', ox + 56 * s, oy + 47 * s, '#404040', s * 1.4, false); this.arrow(ox + 100 * s, oy + 46 * s, s, 1);
       if (this.result) { const ok = P.mode === 1 || P.level >= this.anvilCost; HUD.text('Coste: ' + this.anvilCost + (this.anvilCost === 1 ? ' nivel' : ' niveles'), ox + 60 * s, oy + 69 * s, ok ? '#80ff20' : '#ff6060', s, true); }
@@ -13358,7 +13375,7 @@ const Kinetic = {
     // lo que cae dentro del recipiente se guarda en él
     for (const e of this.items(bx - 0.1, by, bz - 0.1, bx + 1.1, by + 1.6, bz + 1.1)) { const left = this.addTo(be, { id: e.item.id, n: e.item.n }); if (left <= 0) e.remove = true; else e.item.n = left; }
     const k = n.x + ',' + n.y + ',' + n.z, T = World.tickCount; if (T < (this.pressT[k] || 0)) return;
-    const heat = /blaze_burner/.test((BLOCKS[World.get(bx, by - 1, bz)] || {}).key || '');
+    const heat = /lit_blaze_burner/.test((BLOCKS[World.get(bx, by - 1, bz)] || {}).key || '');
     const L = (DYN_SPEC && DYN_SPEC.machine && DYN_SPEC.machine.mixing) || []; const all = L.concat(this.MIX);
     const have = {}; for (const st of be.slots) if (st) have[st.id] = (have[st.id] || 0) + st.n;
     for (const r of all) {
@@ -14314,6 +14331,149 @@ const Shaders = {
 function smoothSH(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 function norm3(v) { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; }
 function cross3(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+
+
+// ---- extra/funcs123.js ----
+// ============================================================
+//  1.23: bloques que ahora hacen lo que deben
+//  Minecraft: cortapiedras, mesa de herrería, mesa de cartografía, caldero.
+//  Create: cajas de herramientas, almacén, depósito, caja creativa, conductos, embudos,
+//  asientos y quemador de blaze.
+// ============================================================
+// ---------- estaciones de dos casillas (misma ventana que el yunque) ----------
+const Stations = {
+  smithing_table: {
+    title: 'Mejorar a netherita',
+    result(a, b) {
+      if (!a || !b || a.n !== 1 || b.id !== 'netherite_ingot') return null;
+      const m = a.id.match(/^diamond_(.+)$/); if (!m) return null; const out = 'netherite_' + m[1]; if (!ITEMS[out]) return null;
+      const o = Object.assign({}, a, { id: out }); return { out: o, cost: 0, useB: 1 };
+    },
+  },
+  cartography_table: {
+    title: 'Copiar mapa',
+    result(a, b) {
+      if (!a || !b || a.id !== 'filled_map') return null;
+      if (b.id === 'map') return { out: Object.assign({}, a, { n: 2 }), cost: 0, useB: 1 };
+      return null;
+    },
+  },
+};
+// ---------- cortapiedras ----------
+const Stonecutter = {
+  cache: {},
+  outputs(id) {
+    if (this.cache[id]) return this.cache[id];
+    const out = []; const add = (k, n) => { if (ITEMS[k] && k !== id && !out.some(o => o.id === k)) out.push({ id: k, n }); };
+    const base = id.replace(/_block$/, '').replace(/s$/, ''); const bases = [id, base, id.replace(/^cobblestone$/, 'cobblestone'), id.replace(/_bricks$/, '_brick')];
+    for (const b of bases) { add(b + '_slab', 2); add(b + '_stairs', 1); add(b + '_wall', 1); }
+    for (const pre of ['polished_', 'chiseled_', 'cut_', 'smooth_']) { add(pre + id, 1); for (const s of ['_slab', '_stairs', '_wall']) add(pre + id + s, s === '_slab' ? 2 : 1); }
+    add(id + '_bricks', 1); add(base + '_bricks', 1); add(base + '_brick_slab', 2); add(base + '_brick_stairs', 1); add(base + '_brick_wall', 1);
+    if (id === 'stone') { ['stone_bricks', 'stone_brick_slab', 'stone_brick_stairs', 'stone_brick_wall', 'chiseled_stone_bricks', 'smooth_stone'].forEach(k => add(k, /slab/.test(k) ? 2 : 1)); }
+    if (/^(copper_block|cut_copper)$/.test(id)) { add('cut_copper', 4); add('cut_copper_slab', 8); add('cut_copper_stairs', 4); }
+    return (this.cache[id] = out.slice(0, 16));
+  },
+};
+// ---------- usar bloques ----------
+const Funcs = {
+  CONTAINERS: [[/^create_.*toolbox$/, 8], [/^create_item_vault$/, 27], [/^create_depot$/, 1], [/^create_creative_crate$/, 1], [/^create_(andesite|brass)_funnel$/, 1]],
+  setup() {
+    if (this.ready) return; this.ready = true;
+    for (const d of BLOCKS) {
+      if (!d || !d.key) continue;
+      for (const [re, n] of this.CONTAINERS) if (re.test(d.key)) { d.interact = 'chest'; d.slots = n; }
+      if (/^create_.*_seat$/.test(d.key)) d.interact = 'seat';
+      if (/^create_(lit_)?blaze_burner$/.test(d.key)) d.interact = 'burner';
+      if (d.key === 'create_radial_chassis' && !d.box) d.box = [0, 0, 0, 16, 16, 16];
+    }
+    if (B.stonecutter !== undefined) BLOCKS[B.stonecutter].interact = 'stonecutter';
+    for (const k of ['smithing_table', 'cartography_table']) if (B[k] !== undefined) BLOCKS[B[k]].interact = 'station';
+    if (B.fletching_table !== undefined) BLOCKS[B.fletching_table].interact = null; // en el original no tiene ventana
+    if (B.loom !== undefined) BLOCKS[B.loom].interact = 'loom';
+    if (B.cauldron !== undefined) BLOCKS[B.cauldron].interact = 'cauldron';
+  },
+  // devuelve true si se ha encargado del clic
+  use(P, T, held) {
+    this.setup(); if (!T || P.sneaking && held) return false;
+    const d = BLOCKS[T.id]; if (!d) return false; const it = held && held.id;
+    if (d.interact === 'stonecutter') { UI.openContainer('stonecutter', T); return true; }
+    if (d.interact === 'station') { GUI.stationKind = d.key; UI.openContainer('station', T); return true; }
+    if (d.interact === 'loom') { Chat.add('§7El telar sirve para los estandartes, que todavía no están en el juego.'); return true; }
+    if (d.interact === 'cauldron') {
+      const lv = World.getMeta(T.x, T.y, T.z) & 3;
+      const swap = (to) => { if (P.mode === 1) return; if (held.n === 1) P.inv[P.sel] = { id: to, n: 1 }; else { held.n--; if (P.give(to, 1) > 0) Entities.dropItem(P.x, P.y + 1, P.z, { id: to, n: 1 }); } };
+      if (it === 'water_bucket' && lv < 3) { Net.track(() => World.set(T.x, T.y, T.z, B.cauldron, 3, 3)); swap('bucket'); Sound.play('bucket_empty', T.x, T.y, T.z); return true; }
+      if (it === 'bucket' && lv === 3) { Net.track(() => World.set(T.x, T.y, T.z, B.cauldron, 0, 3)); swap('water_bucket'); Sound.play('bucket_fill', T.x, T.y, T.z); return true; }
+      // lavar armaduras de cuero teñidas
+      if (lv > 0 && held && /^leather_/.test(it) && held.color !== undefined) { delete held.color; Net.track(() => World.set(T.x, T.y, T.z, B.cauldron, lv - 1, 3)); Sound.play('splash', T.x, T.y, T.z); return true; }
+      return false;
+    }
+    if (d.interact === 'seat') { if (!P.seat && !P.riding) { P.seat = [T.x + 0.5, T.y + 0.1, T.z + 0.5]; P.x = P.seat[0]; P.y = P.seat[1]; P.z = P.seat[2]; P.vx = P.vy = P.vz = 0; Chat.add('§7Pulsa Mayús para levantarte.'); } return true; }
+    if (d.interact === 'burner') {
+      const fuel = it && (it === 'blaze_rod' || it === 'blaze_powder' || fuelOf(it) > 0);
+      if (fuel && B.create_lit_blaze_burner !== undefined && T.id !== B.create_lit_blaze_burner) {
+        Net.track(() => World.set(T.x, T.y, T.z, B.create_lit_blaze_burner, World.getMeta(T.x, T.y, T.z), 3));
+        if (P.mode !== 1) { held.n--; if (held.n <= 0) P.inv[P.sel] = null; }
+        Sound.play('ignite', T.x, T.y, T.z); this.burnT.set(T.x + ',' + T.y + ',' + T.z, World.tickCount + (it === 'blaze_rod' ? 6000 : 1600)); return true;
+      }
+      return false;
+    }
+    return false;
+  },
+  burnT: new Map(),
+  // ---------- cada tick: conductos, embudos, quemadores, asientos ----------
+  tick() {
+    this.setup(); const T = World.tickCount;
+    if (T % 2 === 0) for (const e of Entities.list) {
+      if (e.type !== 'item' || e.dead || e.remove || e.mirror) continue;
+      const x = Math.floor(e.x), y = Math.floor(e.y), z = Math.floor(e.z); const here = World.get(x, y, z), below = World.get(x, y - 1, z);
+      const key = (id) => (BLOCKS[id] && BLOCKS[id].key) || '';
+      // conducto: el objeto baja por dentro y entra en el contenedor de debajo
+      const ch = /chute$/.test(key(here)) ? y : /chute$/.test(key(below)) ? y - 1 : null;
+      if (ch !== null) {
+        const dst = World.get(x, ch - 1, z); const be = this.container(x, ch - 1, z);
+        if (be) { const left = Kinetic.addTo(be, { id: e.item.id, n: e.item.n }); if (left <= 0) e.remove = true; else e.item.n = left; continue; }
+        if (!SOLID[dst] || /chute$/.test(key(dst))) { e.x = x + 0.5; e.z = z + 0.5; e.y = ch - 0.6; e.vx = e.vz = 0; e.vy = -0.1; }
+        continue;
+      }
+      // embudo: mete lo que lo toca en el contenedor de detrás (o de debajo)
+      for (const [dx, dy, dz] of [[0, 0, 0], [0, -1, 0]]) {
+        const fx = x + dx, fy = y + dy, fz = z + dz; const fk = key(World.get(fx, fy, fz)); if (!/funnel$/.test(fk)) continue;
+        const f = World.getMeta(fx, fy, fz) & 7; const DIR6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]; const D = DIR6[f] || [0, 1, 0];
+        const be = this.container(fx - D[0], fy - D[1], fz - D[2]) || this.container(fx, fy - 1, fz);
+        if (be) { const left = Kinetic.addTo(be, { id: e.item.id, n: e.item.n }); if (left <= 0) e.remove = true; else e.item.n = left; Sound.play('pop', fx, fy, fz); }
+        break;
+      }
+    }
+    // los quemadores se apagan cuando se acaba el combustible
+    if (T % 20 === 0) for (const [k, end] of this.burnT) if (T > end) { const [x, y, z] = k.split(',').map(Number); this.burnT.delete(k); if (World.get(x, y, z) === B.create_lit_blaze_burner) World.set(x, y, z, B.create_blaze_burner, World.getMeta(x, y, z), 3); }
+  },
+  container(x, y, z) {
+    const id = World.get(x, y, z); const d = BLOCKS[id]; if (!d || d.interact !== 'chest') return null;
+    const k = x + ',' + y + ',' + z; let be = World.blockEnts.get(k);
+    if (!be) { be = { type: 'chest', slots: new Array(d.slots || 27).fill(null) }; World.blockEnts.set(k, be); }
+    return be;
+  },
+  // sentado en un asiento de Create
+  seatTick(P, input) {
+    if (!P.seat) return false;
+    const [x, y, z] = P.seat; const d = BLOCKS[World.get(Math.floor(x), Math.floor(y), Math.floor(z))];
+    if (input.sneak || !d || !/_seat$/.test(d.key || '')) { P.seat = null; P.y += 0.6; return false; }
+    P.x = x; P.y = y; P.z = z; P.vx = P.vy = P.vz = 0; P.fall = 0; P.onGround = true; P.sitting = true;
+    return true;
+  },
+};
+// caldero con agua: se ve el agua dentro según el nivel
+SHAPES.cauldron = (d, m) => {
+  const L = [[0, 0, 0, 16, 3, 16], [0, 3, 0, 2, 16, 16], [14, 3, 0, 16, 16, 16], [2, 3, 0, 14, 16, 2], [2, 3, 14, 14, 16, 16]];
+  const lv = (m || 0) & 3; if (lv) { const h = 3 + lv * 4 - 0.5; L.push([2, h - 0.01, 2, 14, h, 14, 'water_still', 4]); }
+  return L;
+};
+{ // el asiento usa el mismo hueco que montar a caballo
+  const rt0 = Riding.tick.bind(Riding);
+  Riding.tick = function (P, input) { if (Funcs.seatTick(P, input)) return true; P.sitting = false; return rt0(P, input); };
+}
+Funcs.setup();
 
 // ---------------- pieles personalizadas de las criaturas ----------------
 const MOB_PART_NAMES = { muzzle: 'Morro', udder: 'Ubre', legL0: 'Patas', jacket: 'Chaqueta', head: 'Cabeza', body: 'Cuerpo', snout: 'Hocico', leg0: 'Patas', horn1: 'Cuernos', rarm: 'Brazo derecho', larm: 'Brazo izquierdo', rleg: 'Pierna derecha', lleg: 'Pierna izquierda', beak: 'Pico', wattle: 'Barba', rwing: 'Alas', neck: 'Cuello', legR0: 'Patas' };
