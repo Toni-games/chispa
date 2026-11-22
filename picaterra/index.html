@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.23.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.23.2';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2545,6 +2545,11 @@ if (DYN_SPEC && DYN_SPEC.blocks && DYN_SPEC.blocks.length) {
     const t = b.tex ? 'jm/' + b.tex : 'stone', box = b.box || [0, 0, 0, 16, 16, 16];
     const o = { tex: t, hardness: 2, tool: b.tool, opaque: false, cutout: true, cat: 'mods', emit: b.lamp || 0, dyn: true, color: '#8a8a8a', sound: b.tool === 'axe' ? 'wood' : 'metal' };
     if (!b.full) Object.assign(o, { render: 'box', box: [box] });
+    // 1.23.2: muros de piedra de Create con la forma de muro (conectan como los normales); la cinta, baja
+    if (/^create_.*_wall$/.test(b.k)) Object.assign(o, { render: 'box', shape: 'wall', tall: true, wall: true, box: undefined, hardness: 1.5, tool: 'pickaxe', sound: 'stone' });
+    if (b.k === 'create_belt') Object.assign(o, { render: 'box', box: [[0, 0, 0, 16, 13, 16]] });
+    if (b.k === 'create_copycat_panel') Object.assign(o, { render: 'box', box: [[0, 0, 0, 16, 3, 16]] });
+    if (b.k === 'create_copycat_step') Object.assign(o, { render: 'box', box: [[0, 0, 0, 16, 8, 16]] });
     if (b.or === 'axis') o.axis = true; else if (b.or === 'f6') o.facing6 = true; else if (b.or === 'f4') o.facing = true;
     defBlock(b.k, b.n, o);
   }
@@ -5056,6 +5061,7 @@ const Mesher = {
     for (let y = 0; y <= Math.min(c.maxY, WH - 1); y++) for (let z = 0; z < 16; z++) for (let x = 0; x < 16; x++) {
       const p = ((y + 1) * 18 + (z + 1)) * 18 + (x + 1);
       const id = pb[p]; if (!id) continue;
+      if (Kinetic.hidden && Kinetic.hidden.size && Kinetic.hidden.has((c.cx * 16 + x) + ',' + y + ',' + (c.cz * 16 + z))) continue; // gira con un rodamiento
       const rt = RENDER[id]; const d = BLOCKS[id];
       if (WET[id]) this.liquid(T, p, B.water, BLOCKS[B.water], x, y, z);
       if (bedCEM && d.bedPart) { beds.push([c.cx * 16 + x, y, c.cz * 16 + z, d.bedPart === 'head' ? 1 : 0, pm[p] & 3]); continue; }
@@ -12829,7 +12835,12 @@ const JM = {
   resolve(ref, depth = 0) {
     const k = this.key(ref); const j = this.models[k] || JM_TEMPLATES(k); if (!j || depth > 12) return null;
     const par = j.parent ? this.resolve(j.parent, depth + 1) : null;
-    return { obj: j.loader && /obj/.test(j.loader) ? j.model : (par && par.obj) || null, flipV: j.flip_v || (par && par.flipV), textures: Object.assign({}, par ? par.textures : {}, j.textures || {}), elements: j.elements || (par && par.elements) || null, display: Object.assign({}, par ? par.display : {}, j.display || {}), generated: !j.elements && ((par && par.generated) || /item\/(generated|handheld)/.test(j.parent || '')) };
+    let children = null;
+    if (j.children && typeof j.children === 'object') { // modelo «compuesto»: varias piezas, cada una con sus texturas
+      children = [];
+      for (const c of Object.values(j.children)) { if (!c) continue; const cp = c.parent ? this.resolve(c.parent, depth + 1) : null; children.push({ obj: c.loader && /obj/.test(c.loader) ? c.model : (cp && cp.obj) || null, flipV: c.flip_v || (cp && cp.flipV), textures: Object.assign({}, par ? par.textures : {}, j.textures || {}, cp ? cp.textures : {}, c.textures || {}), elements: c.elements || (cp && cp.elements) || null, children: cp && cp.children }); }
+    } else if (par && par.children) children = par.children.map(c => Object.assign({}, c, { textures: Object.assign({}, c.textures, j.textures || {}) }));
+    return { children, obj: j.loader && /obj/.test(j.loader) ? j.model : (par && par.obj) || null, flipV: j.flip_v || (par && par.flipV), textures: Object.assign({}, par ? par.textures : {}, j.textures || {}), elements: j.elements || (par && par.elements) || null, display: Object.assign({}, par ? par.display : {}, j.display || {}), generated: !j.elements && ((par && par.generated) || /item\/(generated|handheld)/.test(j.parent || '')) };
   },
   texName(textures, ref) {
     let r = ref, n = 0; while (r && r[0] === '#' && n++ < 10) r = textures[r.slice(1)]; if (!r || r[0] === '#') return null;
@@ -12849,6 +12860,7 @@ const JM = {
   // cubos del modelo -> quads (coordenadas 0..16 del bloque)
   DIRS: { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 },
   compile(model, rx, ry) {
+    if (model && model.children && !model.elements && !model.obj) { const out = []; for (const c of model.children) { const q = this.compile(c, rx, ry); if (q) out.push(...q); } return out.length ? out : null; }
     if (model && model.obj && this.objCache && this.objCache[model.obj]) return this.objQuads(model, rx, ry);
     if (!model || !model.elements) return null; const out = [];
     for (const el of model.elements) {
@@ -12887,7 +12899,22 @@ const JM = {
   fullModel(ref) {
     const m = typeof ref === 'string' && ref.match(/^([a-z0-9_.-]+):block\/(.+)\/block$/);
     if (!m || m[1] === 'minecraft' || this.KIN_PARTS.test(m[2])) return ref;
-    const it = m[1] + ':block/' + m[2] + '/item'; return this.resolve(it) ? it : ref;
+    if (/(^|\/)mechanical_arm$/.test(m[2]) && this.resolve(m[1] + ':block/' + m[2] + '/item')) return m[1] + ':block/' + m[2] + '/item'; // el brazo entero
+    const it = m[1] + ':block/' + m[2] + '/item'; const ri = this.resolve(it); if (!ri) return ref;
+    this._fm = this._fm || {}; if (ref in this._fm) return this._fm[ref];
+    let ok = false; try { const a = this.compile(this.resolve(ref), 0, 0) || [], b = this.compile(ri, 0, 0) || []; const K = q => q.verts.map(v => v.map(c => Math.round(c * 4)).join(',')).sort().join('|'); const S = new Set(b.map(K)); ok = !a.length ? b.length > 0 : a.filter(q => S.has(K(q))).length / a.length >= 0.7; } catch (e) { }
+    return (this._fm[ref] = ok ? it : ref);
+  },
+  // estado «por defecto» para las piezas condicionales (encima sí, a los lados nada)
+  defWhen(w) {
+    if (!w) return true; if (w.OR) return w.OR.some(x => this.defWhen(x)); if (w.AND) return w.AND.every(x => this.defWhen(x));
+    return Object.entries(w).every(([k, v]) => { const o = String(v).split('|'); return k === 'up' ? o.includes('true') : k === 'axis' ? o.includes('y') : k === 'facing' ? o.some(x => x === 'north' || x === 'up') : o.some(x => x === 'false' || x === 'none' || x === 'bottom' || x === 'floor'); });
+  },
+  // bloques que el mod dibuja solo por código: se les da su pieza
+  SPECIAL: {
+    create_belt: { m: ['create:block/belt/middle', 'create:block/belt/middle_bottom'], rot: 'f4' },
+    create_copycat_panel: { m: ['create:block/copycat_base/panel'] },
+    create_copycat_step: { m: ['create:block/copycat_base/step'] },
   },
   pickVariant(v) { // un estado de «variants»
     const keys = Object.keys(v); if (!keys.length) return null;
@@ -12906,11 +12933,14 @@ const JM = {
       const st = this.states[name]; const parts = [];
       const opts = (a) => (Array.isArray(a) ? a : [a]).map(o => ({ w: o.weight || 1, ref: this.fullModel(o.model), rx: (o.x || 0) / 90 & 3, ry: (o.y || 0) / 90 & 3 }));
       if (st.variants) { const v = this.pickVariant(st.variants); if (v) parts.push(opts(v)); }
-      if (st.multipart) for (const mp of st.multipart) if (!mp.when) parts.push(opts(mp.apply));
+      if (st.multipart && /_wall$/.test(name) && d.wall) continue;
+      if (st.multipart) { for (const mp of st.multipart) if (!mp.when) parts.push(opts(mp.apply)); if (!parts.length) for (const mp of st.multipart) if (this.defWhen(mp.when)) parts.push(opts(mp.apply)); }
+      if (this.SPECIAL[name]) { const sp = this.SPECIAL[name]; parts.length = 0; for (const r of sp.m) parts.push([{ w: 1, ref: r, rx: 0, ry: 0 }]); }
       const comp = (parts) => parts.map((list, pi) => list.map(o => { const r = this.resolve(o.ref); const q = this.compile(r, o.rx, o.ry) || []; return { w: o.w, quads: q, vanilla: !r && pi === 0 && !/empty/.test(o.ref || '') }; }));
       const cparts = comp(parts);
       if (cparts.some(l => l.some(o => o.quads.length))) this.block[id] = cparts;
       // variantes según la orientación del bloque (eje o hacia dónde mira)
+      if (this.SPECIAL[name] && this.SPECIAL[name].rot === 'f4' && d.facing) { const by = {}; for (let m = 0; m < 4; m++) { const cp = comp(this.SPECIAL[name].m.map(r => [{ w: 1, ref: r, rx: 0, ry: m & 1 }])); by[m] = cp; } this.block[id] = by[0]; this.block[id].byMeta = by; this.block[id].mask = 3; continue; }
       if (st.variants && (d.axis || d.facing || d.facing6)) {
         const MAP = d.axis ? [[0, 'axis=y'], [4, 'axis=x'], [8, 'axis=z']] : d.facing6 ? [[0, 'facing=east'], [1, 'facing=west'], [2, 'facing=up'], [3, 'facing=down'], [4, 'facing=south'], [5, 'facing=north']] : [[0, 'facing=north'], [1, 'facing=east'], [2, 'facing=south'], [3, 'facing=west']];
         const by = {};
@@ -13060,7 +13090,7 @@ JM.loadObjs = async function () {
   const dec = new TextDecoder();
   for (const k in this.models) { const m = this.models[k]; if (!m || !m.loader || !/obj/.test(m.loader) || !m.model) continue; const ref = m.model.toLowerCase(); if (this.objCache[ref]) continue;
     const f = this.objFiles && this.objFiles[ref]; if (!f) continue;
-    try { const txt = dec.decode(await f.z.get(f.p)); const mtlRef = ref.replace(/\.obj$/, '.mtl'); const mf = this.objFiles[mtlRef]; const mtl = mf ? dec.decode(await mf.z.get(mf.p)) : ''; this.objCache[ref] = { txt, mtl }; } catch (e) { } }
+    try { const txt = dec.decode(await f.z.get(f.p)); const lib = (txt.match(/^mtllib\s+(\S+)/m) || [])[1]; const mtlRef = lib ? ref.replace(/[^/]+$/, lib.toLowerCase()) : ref.replace(/\.obj$/, '.mtl'); const mf = this.objFiles[mtlRef] || this.objFiles[ref.replace(/\.obj$/, '.mtl')]; const mtl = mf ? dec.decode(await mf.z.get(mf.p)) : ''; this.objCache[ref] = { txt, mtl }; } catch (e) { } }
 };
 JM.objQuads = function (model, rx, ry) {
   const { txt, mtl } = this.objCache[model.obj]; const mats = {}; let cur = null;
@@ -13070,7 +13100,7 @@ JM.objQuads = function (model, rx, ry) {
     const a = l.trim().split(/\s+/);
     if (a[0] === 'v') V.push([+a[1] * 16, +a[2] * 16, +a[3] * 16]); // los .obj de Create van de 0 a 1 (centro en 0,5)
     else if (a[0] === 'vt') T.push([+a[1], model.flipV ? 1 - +a[2] : +a[2]]);
-    else if (a[0] === 'usemtl') { const mk = mats[a[1]] || ('#' + a[1]); tex = this.texName(model.textures, mk); }
+    else if (a[0] === 'usemtl') { const mk = mats[a[1]] || (/^m_\d+$/.test(a[1]) ? '#' + a[1].slice(2) : '#' + a[1]); tex = this.texName(model.textures, mk); }
     else if (a[0] === 'f' && tex) {
       const idx = a.slice(1).map(s => s.split('/').map(n => parseInt(n, 10) - 1));
       for (let i = 1; i + 1 < idx.length; i += 2) {
@@ -13436,7 +13466,7 @@ const Kinetic = {
     if (World.tickCount % 5) return;
     const nodes = new Map(); const key = (x, y, z) => x + ',' + y + ',' + z;
     for (const k in this.chunks) for (const n of this.chunks[k]) { const [x, y, z, id, meta] = n; if (World.get(x, y, z) !== id) continue; nodes.set(key(x, y, z), { x, y, z, id, meta: World.getMeta(x, y, z), def: this.ids[id], ax: this.axisOf(id, World.getMeta(x, y, z)) }); }
-    for (let pass = 0; pass < 2; pass++) for (const [, n] of nodes) if (n.def.anyAx && !(pass && n.axOk)) { const fa = this.axisOf(n.id, n.meta); n.fax = fa; for (let ax = 0; ax < 3; ax++) { if (ax === fa && n.def.kind === 'gauge') continue; const A = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][ax]; let ok = false; for (const sg of [1, -1]) { const m = nodes.get(key(n.x + A[0] * sg, n.y + A[1] * sg, n.z + A[2] * sg)); if (m && (!m.def.anyAx || m.axOk) && (m.ax === ax || m.def.kind === 'gearbox')) ok = true; } if (ok) { n.ax = ax; n.axOk = true; break; } } }
+    for (let pass = 0; pass < 2; pass++) for (const [, n] of nodes) if (n.def.anyAx && !(pass && n.axOk)) { const fa = this.axisOf(n.id, n.meta); n.fax = fa; for (let ax = 0; ax < 3; ax++) { if (ax === fa && (n.def.kind === 'gauge' || n.def.kind === 'deployer')) continue; const A = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][ax]; let ok = false; for (const sg of [1, -1]) { const m = nodes.get(key(n.x + A[0] * sg, n.y + A[1] * sg, n.z + A[2] * sg)); if (m && (!m.def.anyAx || m.axOk) && (m.ax === ax || m.def.kind === 'gearbox')) ok = true; } if (ok) { n.ax = ax; n.axOk = true; break; } } }
     for (const [, n] of nodes) if (n.def.kind === 'clutch' || n.def.kind === 'gearshift') n.pow = RS.powered(n.x, n.y, n.z);
     const sp = new Map(); const q = [];
     for (const [k, n] of nodes) if (n.def.kind === 'source') {
@@ -14610,6 +14640,158 @@ SHAPES.cauldron = (d, m) => {
   Riding.tick = function (P, input) { if (Funcs.seatTick(P, input)) return true; P.sitting = false; return rt0(P, input); };
 }
 Funcs.setup();
+
+
+// ---- extra/create123.js ----
+// ============================================================
+//  1.23.2: más piezas de Create que funcionan de verdad
+//  · rodamientos (normal y de molino): hacen girar los bloques pegados delante
+//  · desplegador: coloca bloques o rompe con la herramienta que lleve en la mano
+//  · eyector con contrapeso: lanza lo que se pone encima
+//  · brazo mecánico: pasa objetos de depósitos y cintas a cofres cercanos
+// ============================================================
+Object.assign(Kinetic.DEFS, {
+  create_deployer: { kind: 'deployer', anyAx: true },
+  create_weighted_ejector: { kind: 'ejector', anyAx: true },
+});
+Kinetic.DEFS.create_mechanical_bearing.bearing = true;
+Kinetic.DEFS.create_windmill_bearing.bearing = true;
+Funcs.CONTAINERS.push([/^create_deployer$/, 1]);
+Object.assign(Kinetic, {
+  hidden: new Set(), contr: new Map(),
+  // qué se queda pegado a la estructura (además del bloque de delante)
+  STICK: /sail|_wool$|chassis|glue|planks|_log$|_wood$|_slab$|_stairs$|fence|glass|_concrete$|terracotta|_carpet$|casing|copycat|_sheet_metal|_block$/,
+  gather(n) {
+    const D = this.D6[this.faceOf(n)]; const L = [], seen = new Set(); const st = [[n.x + D[0], n.y + D[1], n.z + D[2], 1]];
+    while (st.length && L.length < 300) {
+      const [x, y, z, first] = st.pop(); const k = x + ',' + y + ',' + z; if (seen.has(k)) continue; seen.add(k);
+      if (Math.abs(x - n.x) > 10 || Math.abs(y - n.y) > 10 || Math.abs(z - n.z) > 10) continue;
+      const id = World.get(x, y, z); if (!id || LIQUID[id] || this.ids[id]) continue; const d = BLOCKS[id]; if (!d || d.hardness < 0 || d.render === 'none') continue;
+      if (!first && !this.STICK.test(d.key)) continue;
+      L.push([x, y, z, id, World.getMeta(x, y, z)]); for (const dd of this.D6) st.push([x + dd[0], y + dd[1], z + dd[2], 0]);
+    }
+    return L;
+  },
+  buildMesh(n, L) {
+    const vb = new VB(256); const set = new Set(L.map(b => b[0] + ',' + b[1] + ',' + b[2]));
+    const W = [255, 255, 255], G = [110, 170, 70];
+    const cube = (d, id, meta, x, y, z, ox, oy, oz) => {
+      for (let f = 0; f < 6; f++) {
+        const D = this.D6[f]; const nk = (x + D[0]) + ',' + (y + D[1]) + ',' + (z + D[2]); if (set.has(nk) && OPAQUE[World.get(x + D[0], y + D[1], z + D[2])] && OPAQUE[id]) continue;
+        const [ti, rot] = Mesher.texFor(d, f, meta); const verts = Mesher.FV[f].map(v => [v[0] * 16, v[1] * 16, v[2] * 16]);
+        const uvs = verts.map(v => { let [u, w] = Mesher.uvOf(f, v[0], v[1], v[2]); if (rot) { const t = u; u = w; w = 16 - t; } return [u, w]; });
+        Mesher.quad(vb, ox, oy, oz, verts, uvs, ti, d.leaves || d.tint ? G : W, Mesher.SHADE[f], 240, 240, 0);
+      }
+    };
+    for (const [x, y, z, id, meta] of L) {
+      const d = BLOCKS[id]; const ox = x - n.x - 0.5, oy = y - n.y - 0.5, oz = z - n.z - 0.5;
+      const jb0 = JM.block[id]; const jb = jb0 && jb0.byMeta ? (jb0.byMeta[meta & jb0.mask] || jb0) : jb0;
+      if (jb) { for (const list of jb) { const ch = list[0]; if (!ch) continue; if (ch.vanilla) { cube(d, id, meta, x, y, z, ox, oy, oz); continue; } for (const q of ch.quads) Mesher.quad(vb, ox, oy, oz, q.verts, q.uvs, Atlas.index[q.tex] ?? 0, q.tint ? G : W, q.shade < 0 ? 1 : Mesher.SHADE[q.shade], 240, 240, 0); } continue; }
+      if (d.box && d.box.length && RENDER[id] === 5 && !d.shape) { // cajas simples (losas y similares)
+        for (const b of d.box) for (let f = 0; f < 6; f++) { const [ti] = Mesher.texFor(d, f, meta); const [x0, y0, z0, x1, y1, z1] = b; const FV = Mesher.FV[f]; const verts = FV.map(v => [v[0] ? x1 : x0, v[1] ? y1 : y0, v[2] ? z1 : z0]); const uvs = verts.map(v => Mesher.uvOf(f, v[0], v[1], v[2])); Mesher.quad(vb, ox, oy, oz, verts, uvs, ti, W, Mesher.SHADE[f], 240, 240, 0); }
+        continue;
+      }
+      cube(d, id, meta, x, y, z, ox, oy, oz);
+    }
+    return Renderer.meshFromVB(vb);
+  },
+  dirtyAt(x, z) { const c = World.chunk(x >> 4, z >> 4); if (c) World.markDirty(c, x & 15, z & 15); },
+  hide(c, on) { for (const [x, y, z] of c.L) { const k = x + ',' + y + ',' + z; if (on) this.hidden.add(k); else this.hidden.delete(k); this.dirtyAt(x, z); } },
+  contrTick(nodes, sp) {
+    const T = World.tickCount;
+    for (const [k, n] of nodes) {
+      if (!n.def.bearing) continue; const s = sp.get(k) || 0; let c = this.contr.get(k);
+      if (s) {
+        if (!c || T - c.t > 60) {
+          const L = this.gather(n); const sig = L.map(b => b.join(',')).join(';');
+          if (!c || c.sig !== sig) { if (c) { this.hide(c, false); Renderer.freeMesh(c.mesh); } c = { L, sig, n, t: T, mesh: L.length ? this.buildMesh(n, L) : null }; this.contr.set(k, c); this.hide(c, true); } else c.t = T;
+        }
+        c.n = n;
+      } else if (c) { this.hide(c, false); Renderer.freeMesh(c.mesh); this.contr.delete(k); }
+    }
+    for (const [k, c] of this.contr) if (!nodes.has(k)) { this.hide(c, false); Renderer.freeMesh(c.mesh); this.contr.delete(k); }
+  },
+  drawContr(Pw, cam) {
+    if (!this.contr.size) return; const R = Renderer, gl = R.gl; const m = this._m2 || (this._m2 = new Float32Array(16)); const t = (World.tickCount + Game.partial) / 20;
+    for (const [k, c] of this.contr) {
+      if (!c.mesh) continue; const n = c.n; const s = this.speed.get(k) || 0; const ang = s * Math.PI * 2 / 60 * t; const ax = this.faceOf(n) >> 1;
+      const L = entLight(n.x + 0.5, n.y + 0.5, n.z + 0.5); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]);
+      M4.identity(m); M4.translate(m, n.x + 0.5, n.y + 0.5, n.z + 0.5); if (ax === 0) M4.rotX(m, ang); else if (ax === 1) M4.rotY(m, ang); else M4.rotZ(m, ang);
+      R.drawMesh(c.mesh, m, Pw);
+    }
+  },
+  // ---------- desplegador ----------
+  depT: {}, depA: {},
+  deployer(n, s) {
+    const k = n.x + ',' + n.y + ',' + n.z, T = World.tickCount; const P = Math.max(10, Math.round(1600 / Math.abs(s)));
+    if (T < (this.depT[k] || 0)) return; this.depT[k] = T + P; this.depA[k] = { t: T, p: P };
+    const be = World.blockEnts.get(k); const st = be && be.slots && be.slots[0]; if (!st) return;
+    const D = this.D6[this.faceOf(n)]; const x = n.x + D[0], y = n.y + D[1], z = n.z + D[2]; const here = World.get(x, y, z);
+    const it = ITEMS[st.id]; const bid = B[st.id];
+    if (bid !== undefined && BLOCKS[bid] && !BLOCKS[bid].noItem && (!here || REPLACE[here])) { // colocar bloque
+      const back = World.get(x + D[0], y + D[1], z + D[2]); if (!back && !REPLACE[here] && !SOLID[World.get(x, y - 1, z)]) { /* en el aire también vale, como en el mod */ }
+      World.set(x, y, z, bid, 0, 3); Sound.dig(BLOCKS[bid], 'place', x, y, z); st.n--; if (st.n <= 0) be.slots[0] = null; return;
+    }
+    if (it && it.tool && /pickaxe|axe|shovel|hoe|shears/.test(it.tool.type || st.id)) { // romper con la herramienta
+      const tx = here ? x : x + D[0], ty = here ? y : y + D[1], tz = here ? z : z + D[2]; const tid = World.get(tx, ty, tz); const td = BLOCKS[tid];
+      if (tid && td && !LIQUID[tid] && td.hardness >= 0 && !this.ids[tid]) Game.breakBlock(tx, ty, tz, true, st, true);
+      return;
+    }
+    // espada: golpea a lo que tenga delante
+    if (it && it.tool && it.tool.type === 'sword') for (const e of Entities.list) if (!e.dead && e.hurt && e.type !== 'item' && Math.floor(e.x) === x && Math.abs(e.y - y) < 1.5 && Math.floor(e.z) === z) e.hurt(it.tool.dmg || 5, null);
+  },
+  // ---------- eyector ----------
+  ejT: {},
+  ejector(n, s) {
+    const k = n.x + ',' + n.y + ',' + n.z, T = World.tickCount; if (T < (this.ejT[k] || 0)) return;
+    const f = [5, 0, 4, 1][World.getMeta(n.x, n.y, n.z) & 3]; const D = this.D6[f]; const P = Game.player;
+    const list = Entities.list.filter(e => !e.dead && !e.remove && !e.mirror); if (P) list.push(P);
+    let shot = false;
+    for (const e of list) { if (Math.floor(e.x) !== n.x || Math.floor(e.z) !== n.z || e.y < n.y + 0.4 || e.y > n.y + 1.4) continue; e.vx = D[0] * 0.38; e.vz = D[2] * 0.38; e.vy = 0.85; if (e === P) { P.onGround = false; P.fall = 0; } shot = true; }
+    if (shot) { this.ejT[k] = T + Math.max(10, Math.round(400 / Math.abs(s))); this.depA[k] = { t: T, p: 12 }; Sound.play('piston_out', n.x, n.y, n.z); }
+  },
+  // ---------- brazo mecánico ----------
+  armT: {},
+  arm(n, s) {
+    const k = n.x + ',' + n.y + ',' + n.z, T = World.tickCount; if (T < (this.armT[k] || 0)) return; this.armT[k] = T + Math.max(10, Math.round(900 / Math.abs(s)));
+    let src = null, dst = null;
+    for (let dx = -2; dx <= 2 && !src; dx++) for (let dz = -2; dz <= 2 && !src; dz++) for (let dy = -1; dy <= 1; dy++) {
+      const x = n.x + dx, y = n.y + dy, z = n.z + dz; const id = World.get(x, y, z); const key = (BLOCKS[id] && BLOCKS[id].key) || '';
+      if (key === 'create_depot') { const be = World.blockEnts.get(x + ',' + y + ',' + z); if (be && be.slots[0]) { src = { be, i: 0 }; break; } }
+      if (key === 'create_belt') { const e = Entities.list.find(e => e.type === 'item' && !e.remove && Math.floor(e.x) === x && Math.floor(e.z) === z && Math.abs(e.y - y - 0.8) < 0.8); if (e) { src = { e }; break; } }
+    }
+    if (!src) return;
+    for (let dx = -2; dx <= 2 && !dst; dx++) for (let dz = -2; dz <= 2 && !dst; dz++) for (let dy = -1; dy <= 1; dy++) {
+      const x = n.x + dx, y = n.y + dy, z = n.z + dz; const d = BLOCKS[World.get(x, y, z)]; if (!d || d.interact !== 'chest' && d.interact !== 'furnace' || d.key === 'create_depot') continue;
+      const be = Funcs.container(x, y, z) || World.blockEnts.get(x + ',' + y + ',' + z); if (be && be.slots) { dst = be; break; }
+    }
+    if (!dst) return;
+    const item = src.e ? src.e.item : src.be.slots[src.i]; const one = { id: item.id, n: 1, d: item.d };
+    if (Kinetic.addTo(dst, one) > 0) return;
+    item.n--; if (item.n <= 0) { if (src.e) src.e.remove = true; else src.be.slots[src.i] = null; }
+    Sound.play('click', n.x, n.y, n.z);
+  },
+  // dibujo del brazo del desplegador
+  drawDeployer(n, k, m, Pw) {
+    const pole = this.meshFor('create:block/deployer/pole', 0, 0), hand = this.meshFor('create:block/deployer/hand_pointing', 0, 0); if (!pole && !hand) return;
+    const a = this.depA[k]; let ext = 0; if (a) { const f = (World.tickCount + Game.partial - a.t) / Math.max(8, a.p * 0.6); if (f < 1) ext = Math.sin(f * Math.PI); }
+    const fi = this.faceOf(n); M4.identity(m); M4.translate(m, n.x + 0.5, n.y + 0.5, n.z + 0.5); this.orientZ(m, fi); M4.translate(m, 0, 0, ext * 0.9);
+    if (pole) Renderer.drawMesh(pole, m, Pw); if (hand) Renderer.drawMesh(hand, m, Pw);
+  },
+});
+{ // engancharlo a la energía de giro
+  const t0 = Kinetic.tick, d0 = Kinetic.draw;
+  Kinetic.tick = function () {
+    t0.call(this); if (!this.nodes || World.tickCount % 5) return;
+    try { this.contrTick(this.nodes, this.speed); } catch (e) { console.warn('contr', e); }
+    if (this.guest()) return;
+    for (const [k, n] of this.nodes) { const s = this.speed.get(k) || 0; if (!s) continue; const kd = n.def.kind; if (kd === 'deployer') this.deployer(n, s); else if (kd === 'ejector') this.ejector(n, s); else if (n.id === B.create_mechanical_arm) this.arm(n, s); }
+  };
+  Kinetic.draw = function (Pw, cam) {
+    d0.call(this, Pw, cam); if (!this.ready || !this.nodes) return;
+    try { this.drawContr(Pw, cam); const m = this._m3 || (this._m3 = new Float32Array(16)); for (const [k, n] of this.nodes) if (n.def.kind === 'deployer') { const L = entLight(n.x + 0.5, n.y + 0.5, n.z + 0.5); Renderer.gl.uniform2f(Pw.u.uLightMul, L[0], L[1]); this.drawDeployer(n, k, m, Pw); } } catch (e) { console.warn(e); }
+  };
+}
 
 // ---------------- pieles personalizadas de las criaturas ----------------
 const MOB_PART_NAMES = { muzzle: 'Morro', udder: 'Ubre', legL0: 'Patas', jacket: 'Chaqueta', head: 'Cabeza', body: 'Cuerpo', snout: 'Hocico', leg0: 'Patas', horn1: 'Cuernos', rarm: 'Brazo derecho', larm: 'Brazo izquierdo', rleg: 'Pierna derecha', lleg: 'Pierna izquierda', beak: 'Pico', wattle: 'Barba', rwing: 'Alas', neck: 'Cuello', legR0: 'Patas' };

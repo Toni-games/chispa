@@ -1,8 +1,22 @@
 {
-  "latest": "1.23.1",
+  "latest": "1.23.2",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.23.2",
+      "date": "2026-11-22",
+      "title": "Create completo",
+      "notes": [
+        "Rodamientos y molino de viento: giran de verdad los bloques pegados (aspas incluidas)",
+        "Desplegador: coloca bloques o rompe con la herramienta que tenga (clic derecho para darle un objeto)",
+        "Eyector con contrapeso lanza lo que se pone encima; el brazo mecánico pasa objetos de depósitos y cintas a cofres",
+        "Arreglados 80 bloques de Create sin modelo: muros de piedra (ahora conectan), tubos nixie, vigas, tuberías, cinta, enlaces, bloques imitadores, volante y chasis radial",
+        "Arreglados 9 bloques con el modelo girado o descolocado (fabricador, cosechadora, relojes de cuco, poleas, boquilla, transportador de cadena)"
+      ],
+      "size": 355954,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.23.2.zip"
+    },
     {
       "id": "1.23.1",
       "date": "2026-11-22",
