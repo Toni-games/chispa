@@ -1,8 +1,22 @@
 {
-  "latest": "1.24.0",
+  "latest": "1.25.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.25.0",
+      "date": "2026-11-22",
+      "title": "Bloques nuevos y mods completos",
+      "notes": [
+        "Compostador, hoguera (y de almas) que cocina, afilador (repara y quita encantamientos), atril, faro con pirámide y efectos, estandartes de 16 colores y telar con 12 dibujos",
+        "Bloques de mods completos al ponerlos: cajas de herramientas, buzones, manteles, túneles, relojes de cuco, fabricador, embudos, silbato... (59 bloques)",
+        "Tuberías de Create unidas entre sí y acopladas a depósitos y bombas",
+        "Create: los bloques que giran con un rodamiento ya no chocan; el brazo mecánico se orienta al trabajar",
+        "Arreglado: los objetos soltados ya no pierden sus encantamientos"
+      ],
+      "size": 376282,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.25.0.zip"
+    },
     {
       "id": "1.24.0",
       "date": "2026-11-22",

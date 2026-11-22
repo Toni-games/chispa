@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.24.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.25.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2260,6 +2260,14 @@ def13('bell', 'Campana', BOX({ tex: { top: 'bell_top', bottom: 'bell_bottom', si
 def13('loom', 'Telar', { tex: { top: 'loom_top', bottom: 'loom_bottom', side: 'loom_side', front: 'loom_front' }, facing: true, hardness: 2.5, tool: 'axe', sound: 'wood', interact: 'craft', color: '#a88a60', cat: 'func', fuel: 300 });
 def13('stonecutter', 'Cortapiedras', BOX({ tex: { top: 'stonecutter_top', bottom: 'stonecutter_bottom', side: 'stonecutter_side' }, shape: 'stonecutter', hardness: 3.5, tool: 'pickaxe', interact: 'craft', color: '#7a7a7a', cat: 'func' }));
 def13('brewing_stand', 'Soporte para pociones', BOX({ tex: 'brewing_stand_base', shape: 'brewing_stand', hardness: 0.5, tool: 'pickaxe', sound: 'metal', emit: 1, interact: 'brewing', color: '#6a6a5a', cat: 'func' }));
+// 1.24: bloques que faltaban
+def13('composter', 'Compostador', BOX({ tex: { top: 'composter_top', bottom: 'composter_bottom', side: 'composter_side' }, shape: 'composter', hardness: 0.6, tool: 'axe', sound: 'wood', interact: 'composter', fuel: 300, color: '#8a6a3e', cat: 'func' }));
+def13('campfire', 'Hoguera', BOX({ tex: 'campfire_log', shape: 'campfire', hardness: 2, tool: 'axe', sound: 'wood', emit: 15, interact: 'campfire', color: '#6a4a2a', cat: 'func', drops: [['charcoal', 2]] }));
+def13('soul_campfire', 'Hoguera de almas', BOX({ tex: 'campfire_log', shape: 'campfire', hardness: 2, tool: 'axe', sound: 'wood', emit: 10, interact: 'campfire', soul: true, color: '#3a6a7a', cat: 'func', drops: [['soul_sand', 1]] }));
+def13('grindstone', 'Afilador', BOX({ tex: 'grindstone_side', shape: 'grindstone', facing: true, hardness: 2, tool: 'pickaxe', sound: 'stone', interact: 'station', color: '#8a8a8a', cat: 'func' }));
+def13('lectern', 'Atril', BOX({ tex: { top: 'lectern_top', bottom: 'lectern_base', side: 'lectern_sides' }, shape: 'lectern', facing: true, hardness: 2.5, tool: 'axe', sound: 'wood', interact: 'lectern', color: '#a07a4a', cat: 'func' }));
+def13('beacon', 'Faro', BOX({ tex: 'beacon', shape: 'beacon', hardness: 3, sound: 'glass', emit: 15, interact: 'beacon', color: '#7ae0e0', cat: 'func' }));
+for (const [c, n, col] of WOOL) def13(c + '_banner', 'Estandarte ' + (n.endsWith('a') && !['magenta', 'rosa', 'cian', 'naranja'].includes(n) ? n.slice(0, -1) + 'o' : n), { render: 'none', solid: false, opaque: false, hardness: 1, tool: 'axe', sound: 'wood', banner: c, bannerColor: col, interact: 'banner', icon: c + '_banner', color: col, cat: 'deco', box: [[5, 0, 5, 11, 32, 11]] });
 def13('cauldron', 'Caldero', BOX({ tex: { top: 'cauldron_top', bottom: 'cauldron_bottom', side: 'cauldron_side' }, shape: 'cauldron', hardness: 2, tool: 'pickaxe', needsTool: true, sound: 'metal', color: '#3a3a3a', cat: 'func' }));
 def13('enchanting_table', 'Mesa de encantamientos', BOX({ tex: { top: 'enchanting_table_top', bottom: 'enchanting_table_bottom', side: 'enchanting_table_side' }, shape: 'enchant', interact: 'enchant', hardness: 5, tool: 'pickaxe', needsTool: true, emit: 7, color: '#6a2030', cat: 'func', resist: 1200 }));
 def13('jukebox', 'Tocadiscos', { tex: { top: 'jukebox_top', side: 'jukebox_side' }, interact: 'jukebox', hardness: 2, tool: 'axe', sound: 'wood', color: '#6a4a3a', cat: 'func', fuel: 300 });
@@ -3336,8 +3344,27 @@ const Brewing = {
     }
   },
 };
+// formas de los bloques nuevos
+SHAPES.composter = (d, m) => { const L = [[0, 0, 0, 16, 2, 16], [0, 2, 0, 2, 16, 16], [14, 2, 0, 16, 16, 16], [2, 2, 0, 14, 16, 2], [2, 2, 14, 14, 16, 16]]; const lv = (m || 0) & 15; if (lv) L.push([2, 2, 2, 14, lv >= 8 ? 15 : 2 + Math.min(7, lv) * 1.8, 14, lv >= 8 ? 'composter_ready' : 'composter_compost']); return L; };
+SHAPES.campfire = (d, m) => { const lit = !((m || 0) & 4); const L = [[1, 0, 0, 5, 4, 16], [11, 0, 0, 15, 4, 16], [0, 3, 1, 16, 7, 5], [0, 3, 11, 16, 7, 15], [5, 0, 0, 11, 1, 16, 'campfire_log']]; return L; };
+SHAPES.grindstone = () => [[4, 4, 2, 12, 16, 14, 'grindstone_round'], [2, 6, 6, 4, 13, 10, 'grindstone_pivot'], [12, 6, 6, 14, 13, 10, 'grindstone_pivot'], [2, 0, 6, 4, 7, 10, 'dark_oak_planks'], [12, 0, 6, 14, 7, 10, 'dark_oak_planks']];
+SHAPES.lectern = () => [[0, 0, 0, 16, 2, 16, 'lectern_base'], [4, 2, 4, 12, 13, 12, 'lectern_front'], [0, 13, 0, 16, 15, 16]];
+SHAPES.beacon = () => [[2, 0, 2, 14, 3, 14, 'obsidian'], [3, 3, 3, 13, 13, 13, 'beacon'], [0, 0, 0, 16, 16, 16, 'glass']];
 // forma del soporte: varilla central y tres platos
 SHAPES.brewing_stand = () => [[7, 0, 7, 9, 14, 9, 'brewing_stand'], [9, 0, 5, 15, 2, 11, 'brewing_stand_base'], [1, 0, 1, 7, 2, 7, 'brewing_stand_base'], [1, 0, 9, 7, 2, 15, 'brewing_stand_base']];
+// recetas de los bloques nuevos de la 1.24
+{
+  const R = (pat, key, out, n) => { if (ITEMS[out] && Object.values(key).every(k => ITEMS[k])) shaped(pat, key, out, n); };
+  R(['S S', 'S S', 'SSS'], { S: 'oak_slab' }, 'composter');
+  R([' S ', 'SCS', 'LLL'], { S: 'stick', C: 'coal', L: 'oak_log' }, 'campfire');
+  R([' S ', 'SCS', 'LLL'], { S: 'stick', C: 'charcoal', L: 'oak_log' }, 'campfire');
+  R([' S ', 'SCS', 'LLL'], { S: 'stick', C: 'soul_sand', L: 'oak_log' }, 'soul_campfire');
+  R(['SBS', 'P P'], { S: 'stick', B: 'stone_slab', P: 'oak_planks' }, 'grindstone');
+  R(['SSS', ' B ', ' S '], { S: 'oak_slab', B: 'bookshelf' }, 'lectern');
+  R(['GGG', 'GDG', 'OOO'], { G: 'glass', D: 'diamond_block', O: 'obsidian' }, 'beacon');
+  for (const [c] of WOOL) R(['WWW', 'WWW', ' S '], { W: c + '_wool', S: 'stick' }, c + '_banner');
+  for (const [c] of WOOL) if (ITEMS[c + '_banner']) ITEMS[c + '_banner'].stack = 16;
+}
 
 
 // ---- extra/ctm122.js ----
@@ -4645,6 +4672,26 @@ if (!TEX.glass_bottle) addTex('glass_bottle', potionIcon('rgba(0,0,0,0)', false)
 if (!TEX.brewing_stand) addTex('brewing_stand', (c) => { c.fillStyle = '#7a6a40'; c.fillRect(0, 0, 16, 16); c.fillStyle = '#a89058'; c.fillRect(7, 0, 2, 16); });
 if (!TEX.brewing_stand_base) addTex('brewing_stand_base', (c) => { c.fillStyle = '#5a5a5a'; c.fillRect(0, 0, 16, 16); c.fillStyle = '#7a7a7a'; c.fillRect(1, 1, 14, 14); c.fillStyle = '#6a6a6a'; c.fillRect(4, 4, 8, 8); });
 
+{
+  const fill = (base, dots, n = 18) => (c) => { c.fillStyle = base; c.fillRect(0, 0, 16, 16); let s = 7; for (let i = 0; i < n; i++) { s = (s * 1103515245 + 12345) & 0x7fffffff; c.fillStyle = dots[i % dots.length]; c.fillRect(s % 16, (s >> 8) % 16, 1 + (s >> 16) % 2, 1); } };
+  const T2 = (n, f) => { if (!TEX[n]) addTex(n, f); };
+  T2('composter_side', (c) => { fill('#8a6a3e', ['#6e5230', '#a07a48'])(c); c.fillStyle = '#5a4226'; for (let y = 0; y < 16; y += 4) c.fillRect(0, y, 16, 1); });
+  T2('composter_top', (c) => { fill('#8a6a3e', ['#6e5230'])(c); c.fillStyle = '#3a2a16'; c.fillRect(2, 2, 12, 12); });
+  T2('composter_bottom', fill('#7a5a34', ['#5e4428']));
+  T2('composter_compost', fill('#5a4020', ['#3e2c16', '#7a5a2a', '#4a6a20'], 40));
+  T2('composter_ready', fill('#e8e0c8', ['#c8c0a8', '#ffffff', '#b8b090'], 40));
+  T2('campfire_log', (c) => { fill('#5a3e22', ['#4a321a', '#6a4a2a'])(c); c.fillStyle = '#3a2814'; c.fillRect(0, 0, 16, 1); c.fillRect(0, 15, 16, 1); c.fillStyle = '#c86018'; c.fillRect(3, 5, 2, 1); c.fillRect(9, 9, 3, 1); });
+  T2('grindstone_side', fill('#8a8a8a', ['#7a7a7a', '#9a9a9a']));
+  T2('grindstone_round', fill('#9a9a9a', ['#7a7a7a', '#aaaaaa'], 30));
+  T2('grindstone_pivot', fill('#5a4226', ['#4a3420']));
+  T2('lectern_top', (c) => { fill('#a07a4a', ['#8a6a3e'])(c); c.fillStyle = '#7a5a34'; c.fillRect(0, 7, 16, 2); });
+  T2('lectern_sides', fill('#a07a4a', ['#8a6a3e', '#b08a58']));
+  T2('lectern_front', (c) => { fill('#9a7444', ['#7a5a34'])(c); c.fillStyle = '#6a4a2a'; c.fillRect(0, 0, 2, 16); c.fillRect(14, 0, 2, 16); });
+  T2('lectern_base', fill('#8a6a3e', ['#6e5230']));
+  T2('beacon', (c) => { c.fillStyle = '#7ae8e0'; c.fillRect(0, 0, 16, 16); c.fillStyle = '#b8fff8'; c.fillRect(3, 3, 10, 10); c.fillStyle = '#ffffff'; c.fillRect(6, 6, 4, 4); });
+  for (const [col, , hex] of WOOL) if (!TEX[col + '_banner']) addTex(col + '_banner', (c) => { c.fillStyle = '#8a6a3e'; c.fillRect(7, 1, 2, 15); c.fillRect(3, 1, 10, 1); c.fillStyle = hex; c.fillRect(4, 2, 8, 11); c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(4, 12, 8, 1); }, 'item');
+}
+
 // ---- 04_world.js ----
 // ============================================================
 //  Mundo: chunks, luz, actualizaciones de bloques, fluidos
@@ -5241,7 +5288,8 @@ const Mesher = {
       if (bedCEM && d.bedPart) { beds.push([c.cx * 16 + x, y, c.cz * 16 + z, d.bedPart === 'head' ? 1 : 0, pm[p] & 3]); continue; }
       if (Kinetic.ids[id]) Kinetic.note(c, x, y, z, id, pm[p]);
       if (Kinetic.dynamicOnly[id]) continue;
-      const jb0 = JM.block[id]; const jm = jb0 && jb0.tank ? ((pb[p + 324] === id ? 0 : 1) | (pb[p - 324] === id ? 0 : 2)) : pm[p]; const jb = jb0 && jb0.byMeta ? (jb0.byMeta[jm & jb0.mask] || jb0) : jb0; if (jb && this.jmodel(O, T, p, id, d, x, y, z, jb, fancy, pm[p])) continue;
+      const jb0 = JM.block[id]; const jm = jb0 && jb0.tank ? ((pb[p + 324] === id ? 0 : 1) | (pb[p - 324] === id ? 0 : 2)) : pm[p]; let jb = jb0 && jb0.byMeta ? (jb0.byMeta[jm & jb0.mask] || jb0) : jb0;
+      if (jb0 && jb0.mp) { let mk = 0, mp = 0; for (let f = 0; f < 6; f++) { const nb = pb[p + this.NOFF[f]]; if (JM.connects(id, nb)) { mk |= 1 << f; if (nb === id || (BLOCKS[nb] && /fluid_pipe/.test(BLOCKS[nb].key))) mp |= 1 << f; } } jb = JM.mpParts(jb0, mk, mp); } if (jb && this.jmodel(O, T, p, id, d, x, y, z, jb, fancy, pm[p])) continue;
       if (rt === 1) this.cube(O, T, p, id, d, pm[p], x, y, z, fancy);
       else if (rt === 2) this.cross(O, p, id, d, x, y, z);
       else if (rt === 3) this.liquid(d.translucent ? T : O, p, id, d, x, y, z);
@@ -6868,6 +6916,7 @@ function collectBoxes(x0, y0, z0, x1, y1, z1) {
     if (y < 0) { _boxes.push([x, y, z, x + 1, y + 1, z + 1]); continue; }
     if (!World.loaded(x, z)) { _boxes.push([x, y, z, x + 1, y + 1, z + 1]); continue; }
     const id = World.get(x, y, z); if (!SOLID[id]) continue;
+    if (Kinetic.hidden.size && Kinetic.hidden.has(x + ',' + y + ',' + z)) continue; // está girando con un rodamiento
     const d = BLOCKS[id]; const m = World.getMeta(x, y, z);
     const bb = blockBoxes(id, m, d.shape ? worldNb(x, y, z) : null);
     if (!bb) _boxes.push([x, y, z, x + 1, y + 1, z + 1]);
@@ -7043,14 +7092,14 @@ class Player extends Entity {
   die() {
     this.dead = true; this.deathTime = 0; Game.onPlayerDeath();
   }
-  give(id, n, d, e) { // devuelve los que sobran
+  give(id, n, d, e, x) { // devuelve los que sobran (x: datos extra, como el dibujo de un estandarte)
     const ms = maxStack(id);
     for (let pass = 0; pass < 2 && n > 0; pass++) {
       const order = []; for (let i = 0; i < 36; i++) order.push(i);
       for (const i of order) {
         const s = this.inv[i];
-        if (pass === 0 && s && s.id === id && s.n < ms && !d && !e && !s.e) { const k = Math.min(ms - s.n, n); s.n += k; n -= k; }
-        else if (pass === 1 && !s) { const k = Math.min(ms, n); this.inv[i] = { id, n: k, d: d || 0 }; if (e) this.inv[i].e = e; n -= k; }
+        if (pass === 0 && s && s.id === id && s.n < ms && !d && !e && !s.e && !x && !s.pat) { const k = Math.min(ms - s.n, n); s.n += k; n -= k; }
+        else if (pass === 1 && !s) { const k = Math.min(ms, n); this.inv[i] = { id, n: k, d: d || 0 }; if (e) this.inv[i].e = e; if (x) Object.assign(this.inv[i], x); n -= k; }
         if (n <= 0) break;
       }
     }
@@ -7166,7 +7215,7 @@ class Player extends Entity {
       if (e.type !== 'item' || e.pickupDelay > 0 || e.dead) continue;
       if (e.mirror) { if (Math.abs(e.x - this.x) < 1.3 && Math.abs(e.z - this.z) < 1.3 && e.y > this.y - 0.8 && e.y < this.y + 2.2 && performance.now() - (e.pickReq || 0) > 700) { e.pickReq = performance.now(); NetSync.toHost({ t: 'pick', id: e.nid }); } continue; }
       if (Math.abs(e.x - this.x) < 1.3 && Math.abs(e.z - this.z) < 1.3 && e.y > this.y - 0.8 && e.y < this.y + 2.2) {
-        const left = this.give(e.item.id, e.item.n, e.item.d);
+        const left = this.give(e.item.id, e.item.n, e.item.d, e.item.e, e.item.pat ? { pat: e.item.pat } : null);
         if (left < e.item.n) { Sound.play('pop'); e.pickedBy = this; e.pickT = 0; if (left > 0) { e.item.n = left; e.pickedBy = null; } else e.dead = true; if (!e.pickedBy) Particles.pickup(e, this); else Particles.pickup(e, this); }
       }
     }
@@ -8436,7 +8485,7 @@ const Entities = {
   clear() { this.list = []; },
   add(e) { this.list.push(e); return e; },
   dropItem(x, y, z, item, scatter) {
-    const e = new ItemEntity(x, y, z, { id: item.id, n: item.n, d: item.d || 0 });
+    const e = new ItemEntity(x, y, z, Object.assign({}, item, { d: item.d || 0 })); // conserva encantamientos, dibujos...
     if (scatter !== false) { e.vx = (Math.random() - 0.5) * 0.2; e.vy = 0.2; e.vz = (Math.random() - 0.5) * 0.2; }
     return this.add(e);
   },
@@ -9557,7 +9606,7 @@ const Game = {
   dropHeld(all) {
     const P = this.player; const s = P.held; if (!s) return;
     const n = all ? s.n : 1; const [ex, ey, ez] = this.eyePos(1); const [dx, dy, dz] = lookDir(P.yaw, P.pitch);
-    const e = Entities.dropItem(ex, ey - 0.3, ez, { id: s.id, n, d: s.d }, false); e.vx = dx * 0.3; e.vy = dy * 0.3 + 0.1; e.vz = dz * 0.3; e.pickupDelay = 40;
+    const e = Entities.dropItem(ex, ey - 0.3, ez, Object.assign({}, s, { n }), false); e.vx = dx * 0.3; e.vy = dy * 0.3 + 0.1; e.vz = dz * 0.3; e.pickupDelay = 40;
     s.n -= n; if (!s.n) P.inv[P.sel] = null; P.swinging = true; P.swingTime = 0;
   },
   throwStack(s) {
@@ -10458,6 +10507,7 @@ const GUI = {
     if (type === 'craft') this.craft = new Array(9).fill(null);
     if (type === 'anvil' || type === 'station') this.craft = [null, null];
     if (type === 'stonecutter') { this.craft = [null]; this.scOut = []; }
+    if (type === 'loom') { this.craft = [null, null]; this.scOut = []; }
     if (type === 'enchant') { this.ench = [null, null]; this.shelves = Ench.shelves(T.x, T.y, T.z); this.offers = null; }
     if (type === 'furnace' || type === 'chest' || type === 'brewing') {
       const k = T.x + ',' + T.y + ',' + T.z; let be = World.blockEnts.get(k);
@@ -10512,6 +10562,8 @@ const GUI = {
       add(null, 0, 124, 35, 'result'); inv(84);
     } else if (this.open === 'anvil' || this.open === 'station') {
       add(this.craft, 0, 27, 47); add(this.craft, 1, 76, 47); add(null, 0, 134, 47, 'result'); inv(84);
+    } else if (this.open === 'loom') {
+      add(this.craft, 0, 13, 26, 'banner'); add(this.craft, 1, 33, 26, 'dye'); for (let i = 0; i < 12; i++) add(this.scOut, i, 62 + (i % 4) * 18, 15 + Math.floor(i / 4) * 18, 'scres'); inv(84);
     } else if (this.open === 'stonecutter') {
       add(this.craft, 0, 20, 33); for (let i = 0; i < 16; i++) add(this.scOut, i, 62 + (i % 4) * 18, 15 + Math.floor(i / 4) * 18, 'scres'); inv(84);
     } else if (this.open === 'enchant') {
@@ -10552,6 +10604,7 @@ const GUI = {
     if (!this.craft) { this.result = null; return; }
     if (this.open === 'anvil') { const r = Anvil.result(this.craft[0], this.craft[1]); this.anvilCost = r ? r.cost : 0; this.result = r ? r.out : null; return; }
     if (this.open === 'station') { const S = Stations[this.stationKind]; const r = S && S.result(this.craft[0], this.craft[1]); this.stationR = r; this.result = r ? r.out : null; return; }
+    if (this.open === 'loom') { this.scOut.length = 0; const a = this.craft[0], b = this.craft[1]; if (a && b && BLOCKS[B[a.id]] && BLOCKS[B[a.id]].banner && Vanilla124.COLOR[b.id] && (a.pat || []).length < 6) for (const p in Vanilla124.PATTERNS) this.scOut.push({ id: a.id, n: 1, pat: [...(a.pat || []), [p, Vanilla124.COLOR[b.id]]], pn: p }); this.result = null; return; }
     if (this.open === 'stonecutter') { this.scOut.length = 0; const a = this.craft[0]; if (a) for (const o of Stonecutter.outputs(a.id)) this.scOut.push(o); this.result = null; return; }
     const w = this.craft.length === 9 ? 3 : 2; const r = matchRecipe(this.craft.map(s => s && s.id), w);
     this.result = r ? { id: r.out, n: r.n } : null;
@@ -10567,6 +10620,8 @@ const GUI = {
     if (sl.kind === 'bottle') return !!Potions.info[st.id] || st.id === 'glass_bottle';
     if (sl.kind === 'ingr') return Potions.isIngredient(st.id);
     if (sl.kind === 'blaze') return st.id === 'blaze_powder';
+    if (sl.kind === 'banner') return !!(BLOCKS[B[st.id]] && BLOCKS[B[st.id]].banner);
+    if (sl.kind === 'dye') return !!Vanilla124.COLOR[st.id];
     if (sl.kind === 'lapis') return st.id === 'lapis_lazuli';
     if (sl.kind === 'enchItem') return !!Ench.kind(st.id) && st.n === 1;
     return true;
@@ -10592,7 +10647,7 @@ const GUI = {
     }
     if (sl.kind === 'result') {
       if (!this.result) return;
-      if (this.open === 'station') { const r = this.stationR; if (!r || this.cursor) return; this.craft[0] = null; const b = this.craft[1]; b.n -= r.useB; if (b.n <= 0) this.craft[1] = null; if (shift) { const left = P.give(r.out.id, r.out.n, r.out.d); if (left) this.cursor = Object.assign({}, r.out, { n: left }); } else this.cursor = Object.assign({}, r.out); Sound.play(this.stationKind === 'smithing_table' ? 'anvil_use' : 'click'); this.updateResult(); return; }
+      if (this.open === 'station') { const r = this.stationR; if (!r || this.cursor) return; this.craft[0] = null; const b = this.craft[1]; if (b && r.useB) { b.n -= r.useB; if (b.n <= 0) this.craft[1] = null; } if (shift) { const left = P.give(r.out.id, r.out.n, r.out.d); if (left) this.cursor = Object.assign({}, r.out, { n: left }); } else this.cursor = Object.assign({}, r.out); Sound.play(this.stationKind === 'smithing_table' ? 'anvil_use' : 'click'); this.updateResult(); return; }
       if (this.open === 'anvil') { const r = this.result; if (this.cursor) return; if (!Anvil.take(this)) return; if (shift) { const left = P.give(r.id, r.n, r.d); if (left) this.cursor = Object.assign({}, r, { n: left }); } else this.cursor = Object.assign({}, r); this.updateResult(); return; }
       if (shift) { let guard = 0; while (this.result && guard++ < 64) { const r = this.result; if (P.give(r.id, r.n) > 0) break; this.consumeCraft(); this.updateResult(); } return; }
       const r = this.result;
@@ -10602,7 +10657,8 @@ const GUI = {
     }
     if (sl.kind === 'scres') {
       const o = this.scOut[sl.i]; const a = this.craft[0]; if (!o || !a) return;
-      const take = () => { a.n--; if (a.n <= 0) this.craft[0] = null; Sound.play('click'); };
+      const take = () => { a.n--; if (a.n <= 0) this.craft[0] = null; if (this.open === 'loom' && this.craft[1]) { this.craft[1].n--; if (this.craft[1].n <= 0) this.craft[1] = null; } Sound.play('click'); };
+      if (this.open === 'loom') { if (this.cursor) return; this.cursor = { id: o.id, n: 1, pat: o.pat }; take(); this.updateResult(); return; }
       if (shift) { let g = 0; while (this.craft[0] && g++ < 64) { if (P.give(o.id, o.n) > 0) break; take(); } this.updateResult(); return; }
       if (this.cursor && (this.cursor.id !== o.id || this.cursor.n + o.n > maxStack(o.id))) return;
       if (this.cursor) this.cursor.n += o.n; else this.cursor = { id: o.id, n: o.n }; take(); this.updateResult(); return;
@@ -10727,6 +10783,9 @@ const GUI = {
     else if (this.open === 'enchant') { T('Encantar', 8, 6); this.drawOffers(ox, oy, s); }
     else if (this.open === 'station') { const S = Stations[this.stationKind]; T(S ? S.title : '', 60, 6); HUD.text('+', ox + 56 * s, oy + 47 * s, '#404040', s * 1.4, false); this.arrow(ox + 100 * s, oy + 46 * s, s, 1); }
     else if (this.open === 'stonecutter') { T('Cortapiedras', 8, 6); }
+    else if (this.open === 'loom') { T('Telar', 8, 6); // vista previa de cada dibujo encima de su casilla
+      for (let i = 0; i < this.scOut.length; i++) { const o = this.scOut[i]; const x = ox + (62 + (i % 4) * 18) * s, y = oy + (15 + Math.floor(i / 4) * 18) * s; const bd = BLOCKS[B[o.id]]; g.fillStyle = bd.bannerColor; g.fillRect(x + 4 * s, y, 8 * s, 16 * s); for (const [p, c] of o.pat) { g.fillStyle = c; for (const r of Vanilla124.PATTERNS[p][1]) g.fillRect(x + 4 * s + r[0] * 0.4 * s, y + r[1] * 0.4 * s, (r[2] - r[0]) * 0.4 * s, (r[3] - r[1]) * 0.4 * s); } }
+    }
     else if (this.open === 'anvil') {
       T('Reparar y combinar', 60, 6); HUD.text('+', ox + 56 * s, oy + 47 * s, '#404040', s * 1.4, false); this.arrow(ox + 100 * s, oy + 46 * s, s, 1);
       if (this.result) { const ok = P.mode === 1 || P.level >= this.anvilCost; HUD.text('Coste: ' + this.anvilCost + (this.anvilCost === 1 ? ' nivel' : ' niveles'), ox + 60 * s, oy + 69 * s, ok ? '#80ff20' : '#ff6060', s, true); }
@@ -13099,6 +13158,41 @@ const JM = {
     let ok = false; try { const a = this.compile(this.resolve(ref), 0, 0) || [], b = this.compile(ri, 0, 0) || []; const K = q => q.verts.map(v => v.map(c => Math.round(c * 4)).join(',')).sort().join('|'); const S = new Set(b.map(K)); ok = !a.length ? b.length > 0 : a.filter(q => S.has(K(q))).length / a.length >= 0.7; } catch (e) { }
     return (this._fm[ref] = ok ? it : ref);
   },
+  // ---------- 1.24: bloques que el mod completa por código ----------
+  DIRK: ['east', 'west', 'up', 'down', 'south', 'north'],
+  dirMP(st) { let any = false; const ok = (w) => { if (!w) return true; if (w.OR) return w.OR.every(ok); if (w.AND) return w.AND.every(ok); return Object.entries(w).every(([k, v]) => { any = true; return this.DIRK.includes(k) && /^(true|false)$/.test(String(v)); }); }; return st.multipart.every(mp => ok(mp.when)) && any; },
+  mpOk(w, mask) { if (!w) return true; if (w.OR) return w.OR.some(x => this.mpOk(x, mask)); if (w.AND) return w.AND.every(x => this.mpOk(x, mask)); return Object.entries(w).every(([k, v]) => { const f = this.DIRK.indexOf(k); return ((mask >> f) & 1 ? 'true' : 'false') === String(v); }); },
+  // pipe: máscara de vecinos que son tubería; mask: todo lo que conecta
+  PIPE_CONN: { create_fluid_pipe: 'create:block/fluid_pipe/' },
+  mpParts(jb, mask, pipe = mask) {
+    const key = mask * 64 + pipe; let c = jb.mpCache[key]; if (c) return c;
+    let m = mask; const pre = jb.conn; const cnt = [0, 1, 2, 3, 4, 5].filter(f => (m >> f) & 1);
+    if (pre && cnt.length <= 1) m |= cnt.length ? 1 << (cnt[0] ^ 1) : (1 << 4) | (1 << 5); // suelta o en una punta: recta
+    c = jb.mp.filter(e => this.mpOk(e.when, m)).map(e => e.list);
+    if (pre) for (let f = 0; f < 6; f++) { if (!((m >> f) & 1)) continue; const ref = pre + ((mask >> f) & 1 && !((pipe >> f) & 1) ? 'rim_connector/' : 'connection/') + this.DIRK[f].replace('south', 'south'); const dn = this.DIRK[f]; const r = this.resolve(ref.replace(/(east|west|up|down|south|north)$/, '') + dn) || null; const q = r ? this.compile(r, 0, 0) || [] : []; if (q.length) c.push([{ w: 1, quads: q }]); }
+    if (!c.length) c = jb; return (jb.mpCache[key] = c);
+  },
+  FAMILY: /fluid_pipe|fluid_tank|mechanical_pump|basin|spout|item_drain|fluid_valve|hose_pulley|portable_fluid|steam_engine/,
+  connects(id, nb) { if (nb === id) return true; const a = BLOCKS[id], b = BLOCKS[nb]; if (!a || !b || !b.key) return false; const fa = this.FAMILY.test(a.key); return fa && this.FAMILY.test(b.key); },
+  rotQ(q, rx, ry) { if (!rx && !ry) return q; return q.map(o => Object.assign({}, o, { verts: o.verts.map(v => rotBlock(v, rx, ry)), cull: o.cull >= 0 ? rotDir(o.cull, rx, ry) : -1, shade: o.shade >= 0 ? rotDir(o.shade, rx, ry) : o.shade })); },
+  itemRef(name) {
+    const def = this.items[name]; let ref = def && def.model ? this.handModel(def.model) : null;
+    if (!ref) { const i = name.indexOf('_'); for (let j = i; j > 0 && !ref; j = name.indexOf('_', j + 1)) { const r = name.slice(0, j) + ':item/' + name.slice(j + 1); if (this.models[r]) ref = r; } }
+    return ref;
+  },
+  // si el modelo del objeto trae el bloque entero (aunque girado), el bloque puesto usa ese
+  NO_SUB: /encased_(large_)?cogwheel|speedometer|stressometer|deployer|mechanical_arm|_belt$|fluid_tank|copycat|_wall$|_sail$/,
+  fullSub(name, st, d) {
+    if (!/^create_/.test(name) || this.NO_SUB.test(name) || (typeof Kinetic !== 'undefined' && Kinetic.DEFS[name])) return null;
+    const v = st.variants ? this.pickVariant(st.variants) : null; const vv = v && (Array.isArray(v) ? v[0] : v); if (!vv || !vv.model) return null;
+    const m = vv.model.match(/^[a-z0-9_.-]+:block\/(.+)$/); if (m && this.KIN_PARTS.test(m[1].replace(/\/block$/, ''))) return null;
+    const iref = this.itemRef(name); if (!iref || iref === vv.model) return null; const ri = this.resolve(iref); if (!ri) return null;
+    const a = this.compile(this.resolve(vv.model), 0, 0) || []; if (!a.length) return null;
+    const K = q => q.verts.map(v => v.map(c => Math.round(c * 4)).join(',')).sort().join('|'); const S = new Set(a.map(K));
+    let best = null;
+    for (let rx = 0; rx < 4; rx++) for (let ry = 0; ry < 4; ry++) { const b = this.compile(ri, rx, ry) || []; if (b.length <= a.length) continue; const B2 = new Set(b.map(K)); const hit = a.filter(q => B2.has(K(q))).length / a.length; if (hit >= 0.8 && (!best || hit > best.hit)) best = { hit, rx, ry }; if (best && best.hit >= 0.999) break; }
+    return best ? { from: vv.model, to: iref, pre: [best.rx, best.ry] } : null;
+  },
   // estado «por defecto» para las piezas condicionales (encima sí, a los lados nada)
   defWhen(w) {
     if (!w) return true; if (w.OR) return w.OR.some(x => this.defWhen(x)); if (w.AND) return w.AND.every(x => this.defWhen(x));
@@ -13132,12 +13226,20 @@ const JM = {
     {
       const id = B[name]; if (id === undefined) return; const d = BLOCKS[id]; if (!d || d.liquid || d.bedPart) return;
       const st = this.states[name]; const parts = [];
-      const opts = (a) => (Array.isArray(a) ? a : [a]).map(o => ({ w: o.weight || 1, ref: this.fullModel(o.model), rx: (o.x || 0) / 90 & 3, ry: (o.y || 0) / 90 & 3 }));
+      const sub = this.fullSub(name, st, d);
+      const opts = (a) => (Array.isArray(a) ? a : [a]).map(o => { const r = { w: o.weight || 1, ref: this.fullModel(o.model), rx: (o.x || 0) / 90 & 3, ry: (o.y || 0) / 90 & 3 }; if (sub && o.model === sub.from) { r.ref = sub.to; r.pre = sub.pre; } return r; });
+      if (st.multipart && this.dirMP(st) && !(/_wall$/.test(name) && d.wall)) { // piezas según con qué conecta (tuberías...)
+        const ent = st.multipart.map(mp => ({ when: mp.when || null, list: null, apply: mp.apply }));
+        const comp1 = (a) => opts(a).map(o => { const r = this.resolve(o.ref); return { w: o.w, quads: this.compile(r, o.rx, o.ry) || [] }; });
+        for (const e of ent) e.list = comp1(e.apply);
+        const base = ent.filter(e => this.mpOk(e.when, 0)).map(e => e.list); if (!base.length) base.push([{ w: 1, quads: [] }]);
+        this.block[id] = base; this.block[id].mp = ent; this.block[id].mpCache = {}; this.block[id].conn = this.PIPE_CONN[name] || null; return;
+      }
       if (st.variants) { const v = this.pickVariant(st.variants); if (v) parts.push(opts(v)); }
       if (st.multipart && /_wall$/.test(name) && d.wall) return;
       if (st.multipart) { for (const mp of st.multipart) if (!mp.when) parts.push(opts(mp.apply)); if (!parts.length) for (const mp of st.multipart) if (this.defWhen(mp.when)) parts.push(opts(mp.apply)); }
       if (this.SPECIAL[name] && this.SPECIAL[name].m) { const sp = this.SPECIAL[name]; parts.length = 0; for (const r of sp.m) parts.push([{ w: 1, ref: r, rx: 0, ry: 0 }]); }
-      const comp = (parts) => parts.map((list, pi) => list.map(o => { const r = this.resolve(o.ref); const q = this.compile(r, o.rx, o.ry) || []; return { w: o.w, quads: q, vanilla: !r && pi === 0 && !/empty/.test(o.ref || '') }; }));
+      const comp = (parts) => parts.map((list, pi) => list.map(o => { const r = this.resolve(o.ref); const q = o.pre ? this.rotQ(this.compile(r, o.pre[0], o.pre[1]) || [], o.rx, o.ry) : (this.compile(r, o.rx, o.ry) || []); return { w: o.w, quads: q, vanilla: !r && pi === 0 && !/empty/.test(o.ref || '') }; }));
       const cparts = comp(parts);
       if (cparts.some(l => l.some(o => o.quads.length))) this.block[id] = cparts;
       // variantes según la orientación del bloque (eje o hacia dónde mira)
@@ -14776,7 +14878,7 @@ const Funcs = {
     const d = BLOCKS[T.id]; if (!d) return false; const it = held && held.id;
     if (d.interact === 'stonecutter') { UI.openContainer('stonecutter', T); return true; }
     if (d.interact === 'station') { GUI.stationKind = d.key; UI.openContainer('station', T); return true; }
-    if (d.interact === 'loom') { Chat.add('§7El telar sirve para los estandartes, que todavía no están en el juego.'); return true; }
+
     if (d.interact === 'cauldron') {
       const lv = World.getMeta(T.x, T.y, T.z) & 3;
       const swap = (to) => { if (P.mode === 1) return; if (held.n === 1) P.inv[P.sel] = { id: to, n: 1 }; else { held.n--; if (P.give(to, 1) > 0) Entities.dropItem(P.x, P.y + 1, P.z, { id: to, n: 1 }); } };
@@ -14972,19 +15074,27 @@ Object.assign(Kinetic, {
     let src = null, dst = null;
     for (let dx = -2; dx <= 2 && !src; dx++) for (let dz = -2; dz <= 2 && !src; dz++) for (let dy = -1; dy <= 1; dy++) {
       const x = n.x + dx, y = n.y + dy, z = n.z + dz; const id = World.get(x, y, z); const key = (BLOCKS[id] && BLOCKS[id].key) || '';
-      if (key === 'create_depot') { const be = World.blockEnts.get(x + ',' + y + ',' + z); if (be && be.slots[0]) { src = { be, i: 0 }; break; } }
-      if (key === 'create_belt') { const e = Entities.list.find(e => e.type === 'item' && !e.remove && Math.floor(e.x) === x && Math.floor(e.z) === z && Math.abs(e.y - y - 0.8) < 0.8); if (e) { src = { e }; break; } }
+      if (key === 'create_depot') { const be = World.blockEnts.get(x + ',' + y + ',' + z); if (be && be.slots[0]) { src = { be, i: 0, x, z }; break; } }
+      if (key === 'create_belt') { const e = Entities.list.find(e => e.type === 'item' && !e.remove && Math.floor(e.x) === x && Math.floor(e.z) === z && Math.abs(e.y - y - 0.8) < 0.8); if (e) { src = { e, x, z }; break; } }
     }
     if (!src) return;
     for (let dx = -2; dx <= 2 && !dst; dx++) for (let dz = -2; dz <= 2 && !dst; dz++) for (let dy = -1; dy <= 1; dy++) {
       const x = n.x + dx, y = n.y + dy, z = n.z + dz; const d = BLOCKS[World.get(x, y, z)]; if (!d || d.interact !== 'chest' && d.interact !== 'furnace' || d.key === 'create_depot') continue;
-      const be = Funcs.container(x, y, z) || World.blockEnts.get(x + ',' + y + ',' + z); if (be && be.slots) { dst = be; break; }
+      const be = Funcs.container(x, y, z) || World.blockEnts.get(x + ',' + y + ',' + z); if (be && be.slots) { dst = be; dst.x = x; dst.z = z; break; }
     }
     if (!dst) return;
     const item = src.e ? src.e.item : src.be.slots[src.i]; const one = { id: item.id, n: 1, d: item.d };
-    if (Kinetic.addTo(dst, one) > 0) return;
+    this.armSeq[k] = { a: Math.atan2(src.x - n.x, src.z - n.z), b: Math.atan2(dst.x - n.x, dst.z - n.z), t: T };
+    const okAdd = Kinetic.addTo(dst, one) <= 0; delete dst.x; delete dst.z; if (!okAdd) return;
     item.n--; if (item.n <= 0) { if (src.e) src.e.remove = true; else src.be.slots[src.i] = null; }
     Sound.play('click', n.x, n.y, n.z);
+  },
+  armSeq: {}, armYaw: {},
+  drawArm(n, k, m, Pw) {
+    const mesh = this.meshFor('self', n.id, n.meta); if (!mesh) return; const T = World.tickCount + Game.partial; const sq = this.armSeq[k];
+    let want = this.armYaw[k] ?? 0; if (sq) want = T - sq.t < 10 ? sq.a : sq.b; // primero al origen, luego al destino
+    let cur = this.armYaw[k] ?? want; let d = want - cur; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; cur += d * 0.2; this.armYaw[k] = cur;
+    M4.identity(m); M4.translate(m, n.x + 0.5, n.y + 0.5, n.z + 0.5); M4.rotY(m, cur); Renderer.drawMesh(mesh, m, Pw);
   },
   // dibujo del brazo del desplegador
   drawDeployer(n, k, m, Pw) {
@@ -15004,8 +15114,11 @@ Object.assign(Kinetic, {
   };
   Kinetic.draw = function (Pw, cam) {
     d0.call(this, Pw, cam); if (!this.ready || !this.nodes) return;
-    try { this.drawContr(Pw, cam); const m = this._m3 || (this._m3 = new Float32Array(16)); for (const [k, n] of this.nodes) if (n.def.kind === 'deployer') { const L = entLight(n.x + 0.5, n.y + 0.5, n.z + 0.5); Renderer.gl.uniform2f(Pw.u.uLightMul, L[0], L[1]); this.drawDeployer(n, k, m, Pw); } } catch (e) { console.warn(e); }
+    try { this.drawContr(Pw, cam); const m = this._m3 || (this._m3 = new Float32Array(16)); for (const [k, n] of this.nodes) if (n.id === B.create_mechanical_arm && this.dynamicOnly[n.id]) { const L = entLight(n.x + 0.5, n.y + 0.5, n.z + 0.5); Renderer.gl.uniform2f(Pw.u.uLightMul, L[0], L[1]); this.drawArm(n, k, m, Pw); } else if (n.def.kind === 'deployer') { const L = entLight(n.x + 0.5, n.y + 0.5, n.z + 0.5); Renderer.gl.uniform2f(Pw.u.uLightMul, L[0], L[1]); this.drawDeployer(n, k, m, Pw); } } catch (e) { console.warn(e); }
   };
+}
+{ // el brazo mecánico se dibuja aparte para poder girarlo
+  const i0 = Kinetic.init; Kinetic.init = function () { i0.call(this); const id = B.create_mechanical_arm; if (id !== undefined && this.hasModel(id)) this.dynamicOnly[id] = true; };
 }
 
 
@@ -15235,6 +15348,156 @@ const CFluids = {
 { // la poción arrojadiza se rompe al chocar
   const h0 = Thrown.prototype.hit; Thrown.prototype.hit = function () { if (this.item && /^splash_potion_/.test(this.item.id)) { this.remove = true; Potions.splash(this.x, this.y, this.z, this.item.id); return; } return h0.call(this); };
   const d0 = HUD.draw; HUD.draw = function () { const r = d0.apply(this, arguments); try { Potions.drawHUD(); } catch (e) { } return r; };
+}
+
+
+// ---- extra/vanilla124.js ----
+// ============================================================
+//  1.24: compostador, hoguera, afilador, atril, faro, estandartes y telar
+// ============================================================
+const Vanilla124 = {
+  // ---------- compostador ----------
+  COMPOST: [[/seeds$|^(short_grass|grass|fern|kelp|sweet_berries|glow_berries|hanging_roots|small_dripleaf|seagrass|moss_carpet)$/, 0.3], [/leaves$|sapling$|^(dried_kelp|vine|cactus|sugar_cane|tall_grass|large_fern|melon_slice|nether_sprouts)$/, 0.5], [/^(wheat|carrot|potato|beetroot|apple|melon|pumpkin|carved_pumpkin|cocoa_beans|lily_pad|brown_mushroom|red_mushroom|mushroom_stem|nether_wart|crimson_fungus|warped_fungus|shroomlight|dandelion|poppy|blue_orchid|allium|azure_bluet|.*_tulip|oxeye_daisy|cornflower|lily_of_the_valley|sunflower|lilac|rose_bush|peony|spore_blossom|moss_block|big_dripleaf|wither_rose|torchflower)$/, 0.65], [/^(baked_potato|bread|cookie|hay_block|nether_wart_block|warped_wart_block|red_mushroom_block|brown_mushroom_block)$/, 0.85], [/^(cake|pumpkin_pie)$/, 1]],
+  compostChance(id) { for (const [re, c] of this.COMPOST) if (re.test(id)) return c; return 0; },
+  // ---------- usar ----------
+  use(P, T, held) {
+    const d = BLOCKS[T.id]; if (!d) return false; const it = held && held.id; const k = T.x + ',' + T.y + ',' + T.z;
+    const take1 = () => { if (P.mode !== 1) { held.n--; if (!held.n) P.inv[P.sel] = null; } };
+    if (d.interact === 'composter') {
+      const lv = World.getMeta(T.x, T.y, T.z) & 15;
+      if (lv >= 8) { World.set(T.x, T.y, T.z, T.id, 0, 3); Entities.dropItem(T.x + 0.5, T.y + 1.1, T.z + 0.5, { id: 'bone_meal', n: 1 }); Sound.play('compost_empty', T.x, T.y, T.z); return true; }
+      const c = it ? this.compostChance(it) : 0; if (!c || lv >= 7) return !!it && lv >= 7;
+      take1(); const up = Math.random() < c; if (up) { World.set(T.x, T.y, T.z, T.id, lv + 1, 3); if (lv + 1 === 7) this.ripen.set(k, World.tickCount + 20); }
+      if (Particles.happy) Particles.happy({ x: T.x + 0.5, y: T.y + 0.6, z: T.z + 0.5, w: 0.6, h: 0.4 }, up ? 4 : 1); Sound.play(up ? 'compost_fill_success' : 'compost_fill', T.x, T.y, T.z); return true;
+    }
+    if (d.interact === 'campfire') {
+      const m = World.getMeta(T.x, T.y, T.z); const lit = !(m & 4);
+      if (it && /_shovel$/.test(it) && lit) { World.set(T.x, T.y, T.z, T.id, m | 4, 3); Sound.play('fizz', T.x, T.y, T.z); return true; }
+      if (it === 'flint_and_steel' && !lit) { World.set(T.x, T.y, T.z, T.id, m & ~4, 3); Sound.play('ignite', T.x, T.y, T.z); P.useDurability && P.useDurability(1); return true; }
+      const r = it && SMELT[it]; if (!r || !ITEMS[r[0]] || !ITEMS[r[0]].food) return false;
+      let be = World.blockEnts.get(k); if (!be) { be = { type: 'campfire', slots: [null, null, null, null], t: [0, 0, 0, 0] }; World.blockEnts.set(k, be); }
+      const i = be.slots.findIndex(s => !s); if (i < 0) return true; be.slots[i] = { id: it, n: 1 }; be.t[i] = 0; take1(); Sound.play('place', T.x, T.y, T.z); return true;
+    }
+    if (d.interact === 'lectern') {
+      let be = World.blockEnts.get(k); if (!be) { be = { type: 'lectern', slots: [null] }; World.blockEnts.set(k, be); }
+      if (!be.slots[0] && it && /book/.test(it)) { be.slots[0] = { id: it, n: 1, e: held.e }; take1(); Sound.play('book_put', T.x, T.y, T.z); Chat.add('§7Has dejado el libro en el atril.'); return true; }
+      if (be.slots[0] && !held) { P.inv[P.sel] = be.slots[0]; be.slots[0] = null; Sound.play('book_put', T.x, T.y, T.z); return true; }
+      if (be.slots[0]) { Chat.add('§7En el atril hay: §f' + (ITEMS[be.slots[0].id] ? ITEMS[be.slots[0].id].name : be.slots[0].id)); return true; }
+      return false;
+    }
+    if (d.interact === 'beacon') return this.beaconUse(P, T, held, k);
+    if (d.interact === 'loom') { UI.openContainer('loom', T); return true; }
+    return false;
+  },
+  ripen: new Map(),
+  // ---------- hoguera: cocina y quema ----------
+  tick() {
+    const T = World.tickCount; const host = !NetSync.guest();
+    for (const [k, t] of this.ripen) if (T >= t) { this.ripen.delete(k); const [x, y, z] = k.split(',').map(Number); if (BLOCKS[World.get(x, y, z)].interact === 'composter' && (World.getMeta(x, y, z) & 15) === 7) { World.set(x, y, z, World.get(x, y, z), 8, 3); Sound.play('compost_ready', x, y, z); } }
+    for (const [k, be] of World.blockEnts) {
+      if (be.type === 'campfire') {
+        const [x, y, z] = k.split(',').map(Number); const id = World.get(x, y, z); if (BLOCKS[id].interact !== 'campfire') continue; if (World.getMeta(x, y, z) & 4) continue;
+        if (!host) continue;
+        for (let i = 0; i < 4; i++) { const s = be.slots[i]; if (!s) continue; be.t[i]++; if (be.t[i] >= 600) { const r = SMELT[s.id]; be.slots[i] = null; be.t[i] = 0; if (r && ITEMS[r[0]]) Entities.dropItem(x + 0.5, y + 0.6, z + 0.5, { id: r[0], n: 1 }); } }
+      } else if (be.type === 'beacon' && host && T % 80 === 0) this.beaconTick(k, be);
+    }
+    // humo, llamas y quemarse al pisarla
+    const P = Game.player; if (!P) return;
+    if (T % 4 === 0) for (const [k, be] of World.blockEnts) if (be.type === 'campfire') { const [x, y, z] = k.split(',').map(Number); if (World.getMeta(x, y, z) & 4 || Math.abs(x - P.x) > 48 || Math.abs(z - P.z) > 48) continue; if (Particles.smoke) Particles.smoke(x + 0.3 + Math.random() * 0.4, y + 0.6, z + 0.3 + Math.random() * 0.4); }
+    if (T % 20 === 0) for (const e of [P, ...Entities.list.filter(e => e.mob && !e.dead)]) { const id = World.get(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z)); const d = BLOCKS[id]; if (d && d.interact === 'campfire' && !(World.getMeta(Math.floor(e.x), Math.floor(e.y + 0.05), Math.floor(e.z)) & 4) && !(e.effects && e.effects.fire_resistance) && !(e.def && e.def.fireImmune)) { if (e === P) P.hurtBy(d.soul ? 2 : 1, null, true); else e.damage(d.soul ? 2 : 1, null); } }
+  },
+  // ---------- faro ----------
+  PYR: new Set(['iron_block', 'gold_block', 'diamond_block', 'emerald_block', 'netherite_block']),
+  PAY: new Set(['iron_ingot', 'gold_ingot', 'diamond', 'emerald', 'netherite_ingot']),
+  BEAM: [['speed', 1], ['jump_boost', 2], ['strength', 3], ['regeneration', 4]],
+  levels(x, y, z) {
+    let L = 0;
+    for (let l = 1; l <= 4; l++) { let ok = true; for (let dx = -l; dx <= l && ok; dx++) for (let dz = -l; dz <= l; dz++) { const d = BLOCKS[World.get(x + dx, y - l, z + dz)]; if (!d || !this.PYR.has(d.key)) { ok = false; break; } } if (!ok) break; L = l; }
+    return L;
+  },
+  beaconUse(P, T, held, k) {
+    let be = World.blockEnts.get(k); if (!be) { be = { type: 'beacon', slots: [], effect: null, lv: 0 }; World.blockEnts.set(k, be); }
+    const L = this.levels(T.x, T.y, T.z); be.lv = L;
+    if (!L) { Chat.add('§7El faro necesita una pirámide de bloques de hierro, oro, diamante, esmeralda o netherita debajo (3×3, luego 5×5…).'); return true; }
+    const opts = this.BEAM.filter(([, need]) => L >= need).map(([e]) => e);
+    if (held && this.PAY.has(held.id)) {
+      const i = opts.indexOf(be.effect); be.effect = opts[(i + 1) % opts.length]; if (P.mode !== 1) { held.n--; if (!held.n) P.inv[P.sel] = null; }
+      Sound.play('beacon_power', T.x, T.y, T.z); Chat.add('§bFaro (nivel ' + L + '): §f' + EFFECTS[be.effect].n + '§7. Paga otra vez para cambiar de efecto.'); this.beaconTick(k, be); return true;
+    }
+    Chat.add('§bFaro nivel ' + L + '§7: ' + (be.effect ? EFFECTS[be.effect].n : 'sin efecto') + '. Haz clic con un lingote de hierro/oro, un diamante o una esmeralda para elegir: ' + opts.map(e => EFFECTS[e].n).join(', ') + '.');
+    return true;
+  },
+  beaconTick(k, be) {
+    const [x, y, z] = k.split(',').map(Number); if (BLOCKS[World.get(x, y, z)].interact !== 'beacon') return; be.lv = this.levels(x, y, z); if (!be.lv || !be.effect) return;
+    const R = 10 + 10 * be.lv; const P = Game.player; const list = [P]; if (typeof NetSync !== 'undefined' && NetSync.proxies) for (const q of Object.values(NetSync.proxies)) list.push(q);
+    for (const e of list) if (e && Math.abs(e.x - x) <= R && Math.abs(e.z - z) <= R && e.y >= y - R) Potions.give(e, be.effect, be.lv >= 4 && be.effect === 'speed' ? 1 : 0, 220);
+  },
+  // ---------- estandartes ----------
+  PATTERNS: {
+    stripe_bottom: ['Franja inferior', [[0, 27, 20, 40]]], stripe_top: ['Franja superior', [[0, 0, 20, 13]]], stripe_left: ['Franja izquierda', [[0, 0, 7, 40]]], stripe_right: ['Franja derecha', [[13, 0, 20, 40]]],
+    stripe_center: ['Franja vertical', [[7, 0, 13, 40]]], stripe_middle: ['Franja horizontal', [[0, 14, 20, 26]]], half_horizontal: ['Mitad superior', [[0, 0, 20, 20]]], half_vertical: ['Mitad izquierda', [[0, 0, 10, 40]]],
+    border: ['Borde', [[0, 0, 20, 2], [0, 38, 20, 40], [0, 2, 2, 38], [18, 2, 20, 38]]], straight_cross: ['Cruz', [[8, 0, 12, 40], [0, 18, 20, 22]]], squares: ['Esquinas', [[0, 0, 6, 10], [14, 0, 20, 10], [0, 30, 6, 40], [14, 30, 20, 40]]], circle: ['Centro', [[6, 14, 14, 26]]],
+  },
+  COLOR: {}, // color de cada tinte
+  bannerMeshes: new Map(),
+  bannerMesh(base, pat) {
+    const key = base + '|' + JSON.stringify(pat || []); let m = this.bannerMeshes.get(key); if (m !== undefined) return m;
+    const ti = Atlas.index.white_wool ?? Atlas.index.white_concrete; if (ti === undefined) return null;
+    const hex = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+    const vb = new VB(64); const K = 16 / 16; // 1 px del estandarte = 1/16 de bloque
+    const rect = (u0, v0, u1, v1, col, z) => { // en px del estandarte (0..20 x 0..40, v hacia abajo) -> cara delantera y trasera
+      const x0 = (u0 - 10) * K, x1 = (u1 - 10) * K, y0 = (40 - v1) * K, y1 = (40 - v0) * K; const uv = [[u0 * 0.8, v1 * 0.4], [u1 * 0.8, v1 * 0.4], [u1 * 0.8, v0 * 0.4], [u0 * 0.8, v0 * 0.4]];
+      Mesher.quad(vb, 0, 0, 0, [[x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z]], uv, ti, col, 1, 240, 240, 0);
+      Mesher.quad(vb, 0, 0, 0, [[x1, y0, -z], [x0, y0, -z], [x0, y1, -z], [x1, y1, -z]], uv, ti, col, 0.85, 240, 240, 0);
+    };
+    rect(0, 0, 20, 40, hex(base), 0.5);
+    (pat || []).forEach(([p, c], i) => { const P = this.PATTERNS[p]; if (!P) return; for (const r of P[1]) rect(...r, hex(c), 0.52 + i * 0.02); });
+    m = Renderer.meshFromVB(vb); this.bannerMeshes.set(key, m); return m;
+  },
+  poleMesh() {
+    if (this._pole !== undefined) return this._pole; const ti = Atlas.index.oak_planks; if (ti === undefined) return (this._pole = null); const vb = new VB(32);
+    const box = (x0, y0, z0, x1, y1, z1) => { for (let f = 0; f < 6; f++) { const verts = Mesher.FV[f].map(v => [v[0] ? x1 : x0, v[1] ? y1 : y0, v[2] ? z1 : z0]); Mesher.quad(vb, 0, 0, 0, verts, verts.map(v => Mesher.uvOf(f, v[0] % 16, v[1] % 16, v[2] % 16)), ti, [255, 255, 255], Mesher.SHADE[f], 240, 240, 0); } };
+    box(7, 0, 7, 9, 42, 9); box(-2, 40, 7, 18, 42, 9); return (this._pole = Renderer.meshFromVB(vb));
+  },
+  draw(Pw, cam) {
+    const R = Renderer, gl = R.gl; let set = false; const m = this._m || (this._m = new Float32Array(16)); const rd = (Settings.renderDist * 16) ** 2; const t = (World.tickCount + Game.partial) / 20;
+    for (const [k, be] of World.blockEnts) {
+      if (be.type !== 'banner') continue; const [x, y, z] = k.split(',').map(Number); if ((x - cam.x) ** 2 + (z - cam.z) ** 2 > rd) continue;
+      const d = BLOCKS[World.get(x, y, z)]; if (!d || !d.banner) continue;
+      if (!set) { gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0); set = true; }
+      const L = entLight(x + 0.5, y + 0.5, z + 0.5); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]);
+      const pole = this.poleMesh(); M4.identity(m); M4.translate(m, x + 0.5, y, z + 0.5); M4.rotY(m, be.yaw || 0);
+      if (pole) { M4.translate(m, -0.5, 0, -0.5); R.drawMesh(pole, m, Pw); M4.translate(m, 0.5, 0, 0.5); }
+      const fm = this.bannerMesh(d.bannerColor, be.pat); if (!fm) continue;
+      M4.translate(m, 0, 40 / 16, 0.55 / 16 + 0.0625); M4.rotX(m, Math.sin(t * 1.3 + x * 0.7 + z) * 0.05); M4.translate(m, 0, -40 / 16, 0);
+      R.drawMesh(fm, m, Pw);
+    }
+  },
+};
+for (const [c, , col] of WOOL) Vanilla124.COLOR[c + '_dye'] = col;
+// el telar: estandarte + tinte -> elegir dibujo (como el cortapiedras)
+Stations.grindstone = {
+  title: 'Reparar y desencantar',
+  result(a, b) {
+    const one = a && !b ? a : !a && b ? null : null;
+    if (one && one.n === 1 && (one.e && Object.keys(one.e).length || one.d)) { const o = Object.assign({}, one); delete o.e; return { out: o, cost: 0, useB: 0 }; }
+    if (a && b && a.id === b.id && a.n === 1 && b.n === 1 && ITEMS[a.id] && ITEMS[a.id].dur) { const max = ITEMS[a.id].dur; const left = (max - (a.d || 0)) + (max - (b.d || 0)) + Math.floor(max * 0.05); return { out: { id: a.id, n: 1, d: Math.max(0, max - left) }, cost: 0, useB: 1 }; }
+    return null;
+  },
+};
+{ // engancharlo todo
+  const u0 = Funcs.use; Funcs.use = function (P, T, held) { if (T && !(P.sneaking && held) && Vanilla124.use(P, T, held)) return true; return u0.call(this, P, T, held); };
+  const s0 = Funcs.setup; Funcs.setup = function () { s0.call(this); if (B.loom !== undefined) BLOCKS[B.loom].interact = 'loom'; if (B.grindstone !== undefined) BLOCKS[B.grindstone].interact = 'station'; };
+  const t0 = Funcs.tick; Funcs.tick = function () { t0.call(this); try { Vanilla124.tick(); } catch (e) { console.warn('v124', e); } };
+  const d0 = Kinetic.draw; Kinetic.draw = function (Pw, cam) { d0.call(this, Pw, cam); try { Vanilla124.draw(Pw, cam); } catch (e) { console.warn(e); } };
+  // al poner un estandarte se guarda su dibujo y hacia dónde mira
+  const a0 = Game.afterPlace; Game.afterPlace = function (d, x, y, z) { if (d && d.banner) { const h = this.player.held; World.blockEnts.set(x + ',' + y + ',' + z, { type: 'banner', slots: [], pat: h && h.pat ? h.pat.slice() : [], yaw: Math.round((this.player.yaw + Math.PI) / (Math.PI / 8)) * (Math.PI / 8) }); } return a0.call(this, d, x, y, z); };
+  // al romperlo, suelta el estandarte con su dibujo
+  const b0 = Game.breakBlock; Game.breakBlock = function (x, y, z, drop, tool, decay) {
+    const id = World.get(x, y, z); const d = BLOCKS[id]; const be = d && d.banner && World.blockEnts.get(x + ',' + y + ',' + z);
+    if (be && be.pat && be.pat.length) { World.blockEnts.delete(x + ',' + y + ',' + z); World.set(x, y, z, 0, 0); Sound.dig(d, 'break', x, y, z); if (drop && this.player.mode !== 1) Entities.dropItem(x + 0.5, y + 0.4, z + 0.5, { id: d.key, n: 1, pat: be.pat.slice() }); return; }
+    return b0.call(this, x, y, z, drop, tool, decay);
+  };
 }
 
 // ---------------- pieles personalizadas de las criaturas ----------------
