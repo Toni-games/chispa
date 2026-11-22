@@ -1,8 +1,21 @@
 {
-  "latest": "1.25.0",
+  "latest": "1.26.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.26.0",
+      "date": "2026-11-22",
+      "title": "Trenes de Create",
+      "notes": [
+        "Trenes: vías rectas (se orientan solas), bogies con su bastidor y ruedas (carcasa de tren sobre la vía), estación para montar y desmontar el tren",
+        "El tren va solo de estación en estación o lo conduces con los controles (W/S, Mayús para soltar); te lleva encima y se guarda con la partida, incluido lo que haya en sus cofres",
+        "Redstone de Create: palanca analógica, enlace inalámbrico con frecuencias, cerrojos, repetidor y alargador de pulsos, temporizador, observador de contenido e interruptor de existencias",
+        "Revisión de los 643 bloques de Create desde 4 ángulos: campanas completas y piezas internas del mod fuera del inventario"
+      ],
+      "size": 382611,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.26.0.zip"
+    },
     {
       "id": "1.25.0",
       "date": "2026-11-22",

@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.25.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.26.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2556,6 +2556,8 @@ if (DYN_SPEC && DYN_SPEC.blocks && DYN_SPEC.blocks.length) {
     if (!b.full) Object.assign(o, { render: 'box', box: [box] });
     // 1.23.2: muros de piedra de Create con la forma de muro (conectan como los normales); la cinta, baja
     if (/^create_.*_wall$/.test(b.k)) Object.assign(o, { render: 'box', shape: 'wall', tall: true, wall: true, box: undefined, hardness: 1.5, tool: 'pickaxe', sound: 'stone' });
+    // 1.25.1: piezas internas del mod que no se consiguen en el juego normal
+    if (/^create_(chocolate|honey|crushing_wheel_controller|fake_track|lectern_controller|powered_shaft|steam_whistle_extension|water_wheel_structure|pulley_magnet|mechanical_piston_head)$/.test(b.k)) o.noItem = true;
     if (b.k === 'create_belt') Object.assign(o, { render: 'box', box: [[0, 0, 0, 16, 13, 16]] });
     if (b.k === 'create_copycat_panel') Object.assign(o, { render: 'box', box: [[0, 0, 0, 16, 3, 16]] });
     if (b.k === 'create_copycat_step') Object.assign(o, { render: 'box', box: [[0, 0, 0, 16, 8, 16]] });
@@ -5287,6 +5289,7 @@ const Mesher = {
       if (WET[id]) this.liquid(T, p, B.water, BLOCKS[B.water], x, y, z);
       if (bedCEM && d.bedPart) { beds.push([c.cx * 16 + x, y, c.cz * 16 + z, d.bedPart === 'head' ? 1 : 0, pm[p] & 3]); continue; }
       if (Kinetic.ids[id]) Kinetic.note(c, x, y, z, id, pm[p]);
+      if (CRS.ids[id] && c._crs) c._crs.push([c.cx * 16 + x, y, c.cz * 16 + z]);
       if (Kinetic.dynamicOnly[id]) continue;
       const jb0 = JM.block[id]; const jm = jb0 && jb0.tank ? ((pb[p + 324] === id ? 0 : 1) | (pb[p - 324] === id ? 0 : 2)) : pm[p]; let jb = jb0 && jb0.byMeta ? (jb0.byMeta[jm & jb0.mask] || jb0) : jb0;
       if (jb0 && jb0.mp) { let mk = 0, mp = 0; for (let f = 0; f < 6; f++) { const nb = pb[p + this.NOFF[f]]; if (JM.connects(id, nb)) { mk |= 1 << f; if (nb === id || (BLOCKS[nb] && /fluid_pipe/.test(BLOCKS[nb].key))) mp |= 1 << f; } } jb = JM.mpParts(jb0, mk, mp); } if (jb && this.jmodel(O, T, p, id, d, x, y, z, jb, fancy, pm[p])) continue;
@@ -6922,6 +6925,7 @@ function collectBoxes(x0, y0, z0, x1, y1, z1) {
     if (!bb) _boxes.push([x, y, z, x + 1, y + 1, z + 1]);
     else { const tall = d.tall && !(d.gate && (m & 4)); for (const b of bb) _boxes.push([x + b[0] / 16, y + Math.max(0, b[1]) / 16, z + b[2] / 16, x + b[3] / 16, y + (tall && b[4] >= 14 ? 24 : b[4]) / 16, z + b[5] / 16]); }
   }
+  if (typeof Trains !== 'undefined' && Trains.list.length) Trains.boxes(_boxes, x0, y0, z0, x1, y1, z1); // se puede andar sobre los trenes
   return _boxes;
 }
 function clipAxis(boxes, bb, d, axis) {
@@ -7123,6 +7127,10 @@ class Player extends Entity {
     this.noClip = spect;
     if (spect) this.flying = true;
     if (!creative && !spect) this.flying = false;
+    if (this.driving) { // conduciendo un tren: las teclas mueven el tren, no al jugador
+      if (input.sneak || !Trains.list.includes(this.driving)) { this.driving = null; this._trainIn = 0; }
+      else { this._trainIn = input.fwd > 0.3 ? 1 : input.fwd < -0.3 ? -1 : 0; input = Object.assign({}, input, { fwd: 0, str: 0, jump: false }); }
+    }
     this.sneaking = input.sneak && !this.flying;
     // sprint
     const canSprint = (this.food > 6 || creative) && !this.sneaking && input.fwd > 0.5 && !this.usingItem;
@@ -9368,6 +9376,7 @@ const Game = {
   },
   use() {
     const P = this.player; const T = this.target; const held = P.held; const it = held && ITEMS[held.id];
+    if (typeof Trains !== 'undefined' && Trains.list.length && !P.driving && Trains.tryDrive(P)) { this.useCD = 8; return; }
     if (typeof Kinetic !== 'undefined' && Kinetic.useBelt(P, T, held)) { this.useCD = 6; return; }
     // dar el objeto de la mano a un amigo (clic derecho mirándole)
     if (held && NetSync.full() && Net.started && !NetSync.inUse && !this.targetEnt) { const rr = NetSync.lookAtRemote(4); if (rr) { NetSync.give(rr); this.useCD = 8; return; } }
@@ -13203,13 +13212,20 @@ const JM = {
     create_belt: { m: ['create:block/belt/middle', 'create:block/belt/middle_bottom'], rot: 'f4' },
     create_copycat_panel: { m: ['create:block/copycat_base/panel'] },
     create_copycat_step: { m: ['create:block/copycat_base/step'] },
+    create_track: { tank: ['create:block/track/z_ortho', 'create:block/track/x_ortho'], mask: 1 },
+    // campanas: el mod dibuja la campana aparte, encima del marco
+    create_haunted_bell: { extra: ['create:block/haunted_bell'] },
+    // bogies: bastidor y dos ejes de ruedas sobre los raíles (el mod los dibuja por código)
+    create_small_bogey: { extra: [{ m: 'create:block/track/bogey/bogey_frame', off: [8, -20, 8] }, { m: 'create:block/track/bogey/bogey_wheel', off: [8, -7, 24] }, { m: 'create:block/track/bogey/bogey_wheel', off: [8, -7, -8] }] },
+    create_large_bogey: { extra: [{ m: 'create:block/track/bogey/bogey_drive', off: [8, -20, 8] }, { m: 'create:block/track/bogey/bogey_drive_wheel', off: [8, -4, 8] }] },
+    create_peculiar_bell: { extra: ['create:block/peculiar_bell'] },
     // depósitos: con ventana, según tengan otro depósito encima/debajo (lo elige el mallador)
     create_fluid_tank: { tank: ['create:block/fluid_tank/block_middle_window', 'create:block/fluid_tank/block_top_window', 'create:block/fluid_tank/block_bottom_window', 'create:block/fluid_tank/block_single_window'] },
     create_creative_fluid_tank: { tank: ['create:block/creative_middle_window', 'create:block/creative_top_window', 'create:block/creative_bottom_window', 'create:block/creative_single_window'] },
   },
   pickVariant(v) { // un estado de «variants»
     const keys = Object.keys(v); if (!keys.length) return null;
-    const pref = keys.find(k => k === '') || keys.find(k => /axis=y/.test(k)) || keys.find(k => /facing=north|snowy=false|persistent=false|half=bottom|type=bottom/.test(k)) || keys[0];
+    const pref = keys.find(k => k === '') || keys.find(k => /axis=y/.test(k)) || keys.find(k => /(attachment|face)=floor/.test(k) && !/=true/.test(k)) || keys.find(k => /facing=north|snowy=false|persistent=false|half=bottom|type=bottom/.test(k)) || keys[0];
     return v[pref];
   },
   // prepara los bloques y objetos con modelo del paquete
@@ -13239,18 +13255,19 @@ const JM = {
       if (st.multipart && /_wall$/.test(name) && d.wall) return;
       if (st.multipart) { for (const mp of st.multipart) if (!mp.when) parts.push(opts(mp.apply)); if (!parts.length) for (const mp of st.multipart) if (this.defWhen(mp.when)) parts.push(opts(mp.apply)); }
       if (this.SPECIAL[name] && this.SPECIAL[name].m) { const sp = this.SPECIAL[name]; parts.length = 0; for (const r of sp.m) parts.push([{ w: 1, ref: r, rx: 0, ry: 0 }]); }
-      const comp = (parts) => parts.map((list, pi) => list.map(o => { const r = this.resolve(o.ref); const q = o.pre ? this.rotQ(this.compile(r, o.pre[0], o.pre[1]) || [], o.rx, o.ry) : (this.compile(r, o.rx, o.ry) || []); return { w: o.w, quads: q, vanilla: !r && pi === 0 && !/empty/.test(o.ref || '') }; }));
+      const comp = (parts) => parts.map((list, pi) => list.map(o => { const r = this.resolve(o.ref); const q = o.off ? this.rotQ((this.compile(r, 0, 0) || []).map(x => Object.assign({}, x, { verts: x.verts.map(v => [v[0] + o.off[0], v[1] + o.off[1], v[2] + o.off[2]]) })), o.rx, o.ry) : o.pre ? this.rotQ(this.compile(r, o.pre[0], o.pre[1]) || [], o.rx, o.ry) : (this.compile(r, o.rx, o.ry) || []); return { w: o.w, quads: q, vanilla: !r && pi === 0 && !/empty/.test(o.ref || '') }; }));
+      const extra = ((this.SPECIAL[name] && this.SPECIAL[name].extra) || []).map(r => [{ w: 1, ref: r.m || r, rx: 0, ry: 0, off: r.off }]); if (extra.length) parts.push(...extra);
       const cparts = comp(parts);
       if (cparts.some(l => l.some(o => o.quads.length))) this.block[id] = cparts;
       // variantes según la orientación del bloque (eje o hacia dónde mira)
-      if (this.SPECIAL[name] && this.SPECIAL[name].tank) { const by = {}; this.SPECIAL[name].tank.forEach((r, i) => { if (this.resolve(r)) by[i] = comp([[{ w: 1, ref: r, rx: 0, ry: 0 }]]); }); if (by[3]) { this.block[id] = by[3]; this.block[id].byMeta = by; this.block[id].mask = 3; this.block[id].tank = true; return; } }
+      if (this.SPECIAL[name] && this.SPECIAL[name].tank) { const by = {}; this.SPECIAL[name].tank.forEach((r, i) => { if (this.resolve(r)) by[i] = comp([[{ w: 1, ref: r, rx: 0, ry: 0 }]]); }); if (by[3]) { this.block[id] = by[3]; this.block[id].byMeta = by; this.block[id].mask = 3; this.block[id].tank = true; return; } if (this.SPECIAL[name].mask && by[0]) { this.block[id] = by[0]; this.block[id].byMeta = by; this.block[id].mask = this.SPECIAL[name].mask; return; } }
       if (this.SPECIAL[name] && this.SPECIAL[name].rot === 'f4' && d.facing) { const by = {}; for (let m = 0; m < 4; m++) { const cp = comp(this.SPECIAL[name].m.map(r => [{ w: 1, ref: r, rx: 0, ry: m & 1 }])); by[m] = cp; } this.block[id] = by[0]; this.block[id].byMeta = by; this.block[id].mask = 3; return; }
       if (st.variants && (d.axis || d.facing || d.facing6)) {
         const MAP = d.axis ? [[0, 'axis=y'], [4, 'axis=x'], [8, 'axis=z']] : d.facing6 ? [[0, 'facing=east'], [1, 'facing=west'], [2, 'facing=up'], [3, 'facing=down'], [4, 'facing=south'], [5, 'facing=north']] : [[0, 'facing=north'], [1, 'facing=east'], [2, 'facing=south'], [3, 'facing=west']];
         const by = {};
         for (const [m, kv] of MAP) {
           const keys = Object.keys(st.variants).filter(k => k.split(',').includes(kv)); if (!keys.length) continue;
-          const k = keys.find(k => !/=true/.test(k)) || keys[0]; const cp = comp([opts(st.variants[k])]); if (cp.some(l => l.some(o => o.quads.length))) by[m] = cp;
+          const k = keys.find(k => !/=true/.test(k) && !/(attachment|face)=(ceiling|wall|single_wall|double_wall)/.test(k)) || keys.find(k => !/=true/.test(k)) || keys[0]; const cp = comp([opts(st.variants[k]), ...extra.map(e => e.map(o => Object.assign({}, o, { ry: (st.variants[k].y || 0) / 90 & 3 })))]); if (cp.some(l => l.some(o => o.quads.length))) by[m] = cp;
         }
         if (Object.keys(by).length) { this.block[id] = cparts.some(l => l.some(o => o.quads.length)) ? cparts : Object.values(by)[0]; this.block[id].byMeta = by; this.block[id].mask = d.axis ? 12 : d.facing6 ? 7 : 3; }
       }
@@ -15500,6 +15517,169 @@ Stations.grindstone = {
   };
 }
 
+
+// ---- extra/trains125.js ----
+// ============================================================
+//  1.25.1: trenes de Create
+//  vías rectas, bogies, estación (montar/desmontar), controles para conducir,
+//  modo automático de estación en estación, y se guardan con la partida.
+// ============================================================
+const Trains = {
+  list: [], meshes: new Map(), nextId: 1,
+  // ---------- vías ----------
+  isTrack(id) { return id !== undefined && id === B.create_track; },
+  trackAxis(x, y, z) { return World.getMeta(x, y, z) & 1 ? 0 : 2; }, // meta 0: norte-sur (eje z), 1: este-oeste (eje x)
+  setup() {
+    if (this.ready) return; this.ready = true;
+    const t = B.create_track !== undefined && BLOCKS[B.create_track]; if (t) { t.box = [[0, 0, 0, 16, 2, 16]]; t.render = 'box'; RENDER[t.id] = 5; SOLID[t.id] = 1; OPAQUE[t.id] = 0; }
+    for (const k of ['create_small_bogey', 'create_large_bogey']) if (B[k] !== undefined) BLOCKS[B[k]].bogey = true;
+  },
+  // al poner una vía: orientada según el jugador o como la de al lado; al poner un bogie: según la vía de debajo
+  afterPlace(d, x, y, z, P) {
+    this.setup();
+    if (d.key === 'create_track') {
+      let m = (facingFromYaw(P.yaw) & 1) ? 1 : 0;
+      for (const [dx, dz, mm] of [[1, 0, 1], [-1, 0, 1], [0, 1, 0], [0, -1, 0]]) if (this.isTrack(World.get(x + dx, y, z + dz)) && (World.getMeta(x + dx, y, z + dz) & 1) === mm) { m = mm; break; }
+      World.set(x, y, z, d.id, m, 3);
+    }
+    if (d.bogey && this.isTrack(World.get(x, y - 1, z))) World.set(x, y, z, d.id, this.trackAxis(x, y - 1, z) === 0 ? 4 : 8, 3);
+  },
+  // ---------- montar ----------
+  findTrackNear(x, y, z) { for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [1, -1, 0], [-1, -1, 0], [0, -1, 1], [0, -1, -1], [0, -1, 0]]) if (this.isTrack(World.get(x + dx, y + dy, z + dz))) return [x + dx, y + dy, z + dz]; return null; },
+  assemble(sx, sy, sz, P) {
+    const tr = this.findTrackNear(sx, sy, sz); if (!tr) { Chat.add('§7La estación tiene que estar al lado de una vía.'); return; }
+    const [tx, ty, tz] = tr; const ax = this.trackAxis(tx, ty, tz); const A = ax === 0 ? [1, 0, 0] : [0, 0, 1];
+    // bogies sobre la vía, en línea
+    const bog = [];
+    for (let s = -48; s <= 48; s++) { const x = tx + A[0] * s, z = tz + A[2] * s; if (!this.isTrack(World.get(x, ty, z))) { if (s > 0) break; else continue; } const d = BLOCKS[World.get(x, ty + 1, z)]; if (d && d.bogey) bog.push([x, ty + 1, z]); }
+    if (!bog.length) { Chat.add('§7No hay bogies en esta vía. Haz clic en la vía con una carcasa de tren (o pon un bogie) y construye el tren encima.'); return; }
+    if (this.list.some(t => t.ax === ax && t.trackY === ty && Math.abs((ax === 0 ? t.z0 : t.x0) - (ax === 0 ? tz : tx)) < 1)) { /* ya hay un tren aquí */ }
+    const lo = Math.min(...bog.map(b => b[ax === 0 ? 0 : 2])) - 10, hi = Math.max(...bog.map(b => b[ax === 0 ? 0 : 2])) + 10;
+    const cross = ax === 0 ? tz : tx; const L = [], seen = new Set(), st = bog.map(b => b.slice());
+    while (st.length && L.length < 600) {
+      const [x, y, z] = st.pop(); const k = x + ',' + y + ',' + z; if (seen.has(k)) continue; seen.add(k);
+      const along = ax === 0 ? x : z, side = ax === 0 ? z : x; if (along < lo || along > hi || Math.abs(side - cross) > 3 || y < ty + 1 || y > ty + 24) continue;
+      const id = World.get(x, y, z); const d = BLOCKS[id]; if (!id || !d || LIQUID[id] || this.isTrack(id) || d.key === 'create_track_station' || d.hardness < 0) continue;
+      L.push([x, y, z, id, World.getMeta(x, y, z)]); for (const [dx, dy, dz] of Kinetic.D6) st.push([x + dx, y + dy, z + dz]);
+    }
+    const t = { id: this.nextId++, ax, trackY: ty, x0: bog[0][0], y0: bog[0][1], z0: bog[0][2], off: 0, v: 0, dir: 1, mode: 'auto', wait: 60, from: [sx, sy, sz] };
+    t.blocks = L.map(([x, y, z, id, m]) => { const be = World.blockEnts.get(x + ',' + y + ',' + z); return [x - t.x0, y - t.y0, z - t.z0, BLOCKS[id].key, m, be ? JSON.parse(JSON.stringify(be)) : null]; });
+    t.bogeys = bog.map(b => (ax === 0 ? b[0] : b[2]) - (ax === 0 ? t.x0 : t.z0));
+    const ctrl = t.blocks.find(b => b[3] === 'create_controls'); if (ctrl) { t.mode = 'manual'; t.ctrl = ctrl.slice(0, 3); t.ctrlFace = ctrl[4] & 3; }
+    this.mesh(t, L);
+    for (const [x, y, z] of L) { World.blockEnts.delete(x + ',' + y + ',' + z); World.set(x, y, z, 0, 0, 3); }
+    this.list.push(t); this.save(t); Sound.play('click', sx, sy, sz);
+    Chat.add('§b¡Tren montado!§7 ' + L.length + ' bloques, ' + bog.length + ' bogie' + (bog.length > 1 ? 's' : '') + '. ' + (t.mode === 'manual' ? 'Súbete y haz clic derecho junto a los controles para conducir (Mayús para soltarlos).' : 'Sin controles: irá solo de estación en estación.') + ' Para desmontarlo, páralo en una estación y haz clic en ella.');
+  },
+  mesh(t, L) {
+    const old = this.meshes.get(t.id); if (old) Renderer.freeMesh(old);
+    if (!L) L = t.blocks.filter(b => B[b[3]] !== undefined).map(b => [t.x0 + b[0], t.y0 + b[1], t.z0 + b[2], B[b[3]], b[4]]);
+    try { this.meshes.set(t.id, Kinetic.buildMesh({ x: t.x0, y: t.y0, z: t.z0 }, L)); } catch (e) { console.warn('tren', e); }
+  },
+  // ---------- desmontar ----------
+  disassemble(t, P) {
+    if (Math.abs(t.v) > 0.01) { Chat.add('§7Para el tren antes de desmontarlo.'); return false; }
+    const s = Math.round(t.off); const dx = t.ax === 0 ? s : 0, dz = t.ax === 0 ? 0 : s;
+    for (const b of t.blocks) { const id = World.get(t.x0 + b[0] + dx, t.y0 + b[1], t.z0 + b[2] + dz); if (id && !REPLACE[id]) { Chat.add('§7No cabe: hay bloques en medio.'); return false; } }
+    for (const b of t.blocks) { const id = B[b[3]]; if (id === undefined) continue; const x = t.x0 + b[0] + dx, y = t.y0 + b[1], z = t.z0 + b[2] + dz; World.set(x, y, z, id, b[4], 3); if (b[5]) World.blockEnts.set(x + ',' + y + ',' + z, b[5]); }
+    this.remove(t); Chat.add('§7Tren desmontado.'); return true;
+  },
+  remove(t) { const m = this.meshes.get(t.id); if (m) Renderer.freeMesh(m); this.meshes.delete(t.id); this.list = this.list.filter(x => x !== t); World.blockEnts.delete(this.saveKey(t)); if (Game.player && Game.player.driving === t) Game.player.driving = null; },
+  // ---------- guardar (como un dato más del mundo) ----------
+  saveKey(t) { return t.id + ',-999,0'; },
+  save(t) { const o = Object.assign({ type: 'train' }, t); World.blockEnts.set(this.saveKey(t), o); },
+  restore() {
+    for (const t of this.list.slice()) if (!World.blockEnts.has(this.saveKey(t))) { const m = this.meshes.get(t.id); if (m) Renderer.freeMesh(m); this.meshes.delete(t.id); this.list = this.list.filter(x => x !== t); } // otro mundo
+    for (const [k, be] of World.blockEnts) if (be.type === 'train' && !this.list.some(t => t.id === be.id)) { const t = Object.assign({}, be); delete t.type; t.v = 0; this.list.push(t); this.nextId = Math.max(this.nextId, t.id + 1); this.mesh(t); }
+  },
+  // ---------- moverse ----------
+  pos(t) { return [t.x0 + (t.ax === 0 ? t.off : 0), t.y0, t.z0 + (t.ax === 0 ? 0 : t.off)]; },
+  trackAt(t, along) { const x = t.ax === 0 ? t.x0 + along : t.x0, z = t.ax === 0 ? t.z0 : t.z0 + along; return this.isTrack(World.get(Math.round(x), t.trackY, Math.round(z))); },
+  stationAt(t, along) { const x = t.ax === 0 ? Math.round(t.x0 + along) : t.x0, z = t.ax === 0 ? t.z0 : Math.round(t.z0 + along); for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) for (const dy of [0, 1]) if (BLOCKS[World.get(x + dx, t.trackY + dy, z + dz)].key === 'create_track_station') return [x + dx, t.trackY + dy, z + dz]; return null; },
+  tick() {
+    this.setup(); if (World.tickCount % 100 === 1) this.restore(); if (!this.list.length) return; const P = Game.player; const host = !NetSync.guest();
+    for (const t of this.list) {
+      const [ox, oy, oz] = this.pos(t);
+      if (host) {
+        if (t.mode === 'manual') {
+          if (P && P.driving === t) { const f = P._trainIn || 0; const sg = this.forwardSign(t); if (f) t.v += 0.02 * f * sg; else t.v *= 0.97; }
+          else t.v *= 0.95;
+        } else { // automático: de estación en estación
+          if (t.wait > 0) { t.wait--; t.v = 0; if (!t.wait) Sound.play('bell', ox, oy, oz); }
+          else { t.v += 0.01 * t.dir; if (Math.abs(t.v) > 0.3) t.v = 0.3 * t.dir; const lead = (t.dir > 0 ? Math.max(...t.bogeys) : Math.min(...t.bogeys)) + t.off; const st = this.stationAt(t, lead); if (st && Math.abs(t.off - (t.stopAt ?? -1e9)) > 3 && Math.abs(lead - Math.round(lead)) < 0.2) { t.v = 0; t.off = Math.round(t.off); t.wait = 100; t.stopAt = t.off; t.dir = -t.dir; } }
+        }
+        t.v = Math.max(-0.55, Math.min(0.55, t.v)); if (Math.abs(t.v) < 0.002) t.v = 0;
+        if (t.v) {
+          const no = t.off + t.v; const lead = (t.v > 0 ? Math.max(...t.bogeys) : Math.min(...t.bogeys)) + no + Math.sign(t.v) * 0.5;
+          if (!this.trackAt(t, lead) || !t.bogeys.every(b => this.trackAt(t, b + no))) { t.v = 0; if (t.mode === 'auto') { t.dir = -t.dir; t.wait = 60; } t.off = Math.round(t.off); }
+          else t.off = no;
+        }
+        if (World.tickCount % 20 === 0) this.save(t);
+      }
+      // llevar encima a quien esté subido
+      const [nx, ny, nz] = this.pos(t); const dx = nx - ox, dz = nz - oz;
+      if (dx || dz) for (const e of [P, ...Entities.list]) { if (!e || e.dead || !this.standing(t, e)) continue; e.x += dx; e.z += dz; }
+      if (Math.abs(t.v) > 0.05 && World.tickCount % Math.max(2, Math.round(6 / Math.abs(t.v))) === 0) Sound.play('minecart', nx, ny, nz);
+    }
+  },
+  forwardSign(t) { if (!t.ctrl) return 1; const f = t.ctrlFace; return t.ax === 0 ? (f === 1 ? 1 : f === 3 ? -1 : 1) : (f === 2 ? 1 : f === 0 ? -1 : 1); },
+  // ¿está e de pie encima de algún bloque del tren?
+  standing(t, e) {
+    const [px, py, pz] = this.pos(t); const fx = e.x - px, fy = e.y - py, fz = e.z - pz;
+    for (const b of t.blocks) { if (fy < b[1] + 0.5 || fy > b[1] + 1.25) continue; if (Math.abs(fx - (b[0] + 0.5)) < 0.8 && Math.abs(fz - (b[2] + 0.5)) < 0.8) return true; }
+    return false;
+  },
+  // cajas para chocar con el tren (se puede andar por encima)
+  boxes(out, x0, y0, z0, x1, y1, z1) {
+    for (const t of this.list) {
+      const [px, py, pz] = this.pos(t);
+      for (const b of t.blocks) {
+        const bx = px + b[0], by = py + b[1], bz = pz + b[2]; if (bx + 1 < x0 || bx > x1 + 1 || by + 1 < y0 || by > y1 + 1 || bz + 1 < z0 || bz > z1 + 1) continue;
+        const id = B[b[3]]; if (id === undefined || !SOLID[id]) continue; const bb = blockBoxes(id, b[4], null);
+        if (!bb) out.push([bx, by, bz, bx + 1, by + 1, bz + 1]); else for (const q of bb) out.push([bx + q[0] / 16, by + Math.max(0, q[1]) / 16, bz + q[2] / 16, bx + q[3] / 16, by + q[4] / 16, bz + q[5] / 16]);
+      }
+    }
+  },
+  draw(Pw, cam) {
+    if (!this.list.length) return; const R = Renderer, gl = R.gl; const m = this._m || (this._m = new Float32Array(16));
+    gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
+    for (const t of this.list) {
+      const mesh = this.meshes.get(t.id); if (!mesh) continue; const pt = Game.partial || 0; const [px, py, pz] = this.pos(t);
+      const L = entLight(px + 0.5, py + 1.5, pz + 0.5); gl.uniform2f(Pw.u.uLightMul, L[0], L[1]);
+      const back = t.v * (1 - pt); M4.identity(m); M4.translate(m, px + 0.5 - (t.ax === 0 ? back : 0), py + 0.5, pz + 0.5 - (t.ax === 0 ? 0 : back));
+      R.drawMesh(mesh, m, Pw);
+    }
+  },
+  // ---------- usar ----------
+  use(P, T, held) {
+    this.setup(); const d = T && BLOCKS[T.id];
+    if (P.driving) { return false; }
+    // carcasa de tren sobre una vía: bogie
+    if (d && this.isTrack(T.id) && held && held.id === 'create_railway_casing' && B.create_small_bogey !== undefined && !World.get(T.x, T.y + 1, T.z)) { World.set(T.x, T.y + 1, T.z, B.create_small_bogey, this.trackAxis(T.x, T.y, T.z) === 0 ? 4 : 8, 3); if (P.mode !== 1) { held.n--; if (!held.n) P.inv[P.sel] = null; } Sound.play('anvil_land', T.x, T.y, T.z); return true; }
+    if (d && d.key === 'create_track_station') {
+      // ¿hay un tren parado en esta estación? desmontarlo; si no, montarlo
+      for (const t of this.list) { const [px, , pz] = this.pos(t); for (const b of t.bogeys) { const al = b + t.off; const x = t.ax === 0 ? t.x0 + al : t.x0, z = t.ax === 0 ? t.z0 : t.z0 + al; if (Math.abs(x - T.x) <= 1.6 && Math.abs(z - T.z) <= 1.6) { this.disassemble(t, P); return true; } } void px; void pz; }
+      this.assemble(T.x, T.y, T.z, P); return true;
+    }
+    return false;
+  },
+  // clic derecho estando encima de un tren con controles: conducir
+  tryDrive(P) {
+    for (const t of this.list) {
+      if (!t.ctrl || !this.standing(t, P)) continue; const [px, py, pz] = this.pos(t);
+      if (Math.hypot(P.x - (px + t.ctrl[0] + 0.5), P.z - (pz + t.ctrl[2] + 0.5)) > 2.5) continue;
+      P.driving = t; Chat.add('§7Conduciendo: W adelante, S atrás, Mayús para soltar los controles.'); return true;
+    }
+    return false;
+  },
+};
+{
+  const u0 = Funcs.use; Funcs.use = function (P, T, held) { if (T && Trains.use(P, T, held)) return true; return u0.call(this, P, T, held); };
+  const t0 = Funcs.tick; Funcs.tick = function () { t0.call(this); try { Trains.tick(); } catch (e) { console.warn('trenes', e); } };
+  const d0 = Kinetic.draw; Kinetic.draw = function (Pw, cam) { d0.call(this, Pw, cam); try { Trains.draw(Pw, cam); } catch (e) { console.warn(e); } };
+  const a0 = Game.afterPlace; Game.afterPlace = function (d, x, y, z) { const r = a0.call(this, d, x, y, z); try { Trains.afterPlace(d, x, y, z, this.player); } catch (e) { } return r; };
+}
+
 // ---------------- pieles personalizadas de las criaturas ----------------
 const MOB_PART_NAMES = { muzzle: 'Morro', udder: 'Ubre', legL0: 'Patas', jacket: 'Chaqueta', head: 'Cabeza', body: 'Cuerpo', snout: 'Hocico', leg0: 'Patas', horn1: 'Cuernos', rarm: 'Brazo derecho', larm: 'Brazo izquierdo', rleg: 'Pierna derecha', lleg: 'Pierna izquierda', beak: 'Pico', wattle: 'Barba', rwing: 'Alas', neck: 'Cuello', legR0: 'Patas' };
 const mobSkinName = (k) => k === 'sheep_wool' ? 'Lana de oveja' : (MOBS[k] ? MOBS[k].name : k);
@@ -15945,6 +16125,75 @@ const RS = {
     for (const e of Entities.list) if (e.type === 'item' && !e.remove && Math.floor(e.x) === x && Math.floor(e.z) === z && e.y >= y + 0.5 && e.y < y + 1.6) { while (e.item.n > 0 && this.insert(be.slots, e.item)) e.item.n--; if (e.item.n <= 0) e.remove = true; }
   },
 };
+
+
+// ---- extra/createrrs125.js ----
+// ============================================================
+//  1.25.1: componentes de redstone de Create
+//  palanca analógica, enlace de redstone (inalámbrico), cerrojos, repetidor y alargador de pulsos,
+//  temporizador, observador de contenido e interruptor de existencias.
+//  Todos emiten como un bloque de redstone cuando tienen el bit 16 de meta encendido.
+// ============================================================
+const CRS = {
+  ON: 16,
+  KIND: { create_analog_lever: 'lever', create_redstone_link: 'link', create_powered_latch: 'latch', create_powered_toggle_latch: 'latch', create_pulse_repeater: 'prep', create_pulse_extender: 'pext', create_pulse_timer: 'timer', create_content_observer: 'cobs', create_stockpile_switch: 'stock' },
+  ids: {}, st: new Map(),
+  setup() {
+    if (this.ready) return; this.ready = true; RS.R.cpow = 21;
+    for (const k in this.KIND) if (B[k] !== undefined) { this.ids[B[k]] = this.KIND[k]; BLOCKS[B[k]].rs = 'cpow'; RS.ROLE[B[k]] = 21; if (this.KIND[k] === 'lever' || this.KIND[k] === 'link' || this.KIND[k] === 'timer') BLOCKS[B[k]].interact = 'crs'; }
+  },
+  on(x, y, z) { return !!(World.getMeta(x, y, z) & this.ON); },
+  set(x, y, z, v) { const m = World.getMeta(x, y, z); const n = v ? m | this.ON : m & ~this.ON; if (n !== m) World.set(x, y, z, World.get(x, y, z), n, 3); },
+  // entrada de redstone que no venga de otro componente de Create (para no engancharse a sí mismo)
+  input(x, y, z) { for (let f = 0; f < 6; f++) { const D = FDIR[f]; if (RS.ROLE[World.get(x + D[0], y + D[1], z + D[2])] === 21) continue; if (RS.inputFrom(x, y, z, f) > 0) return true; } return false; },
+  use(P, T, held) {
+    this.setup(); const kind = this.ids[T.id]; if (!kind) return false; const k = T.x + ',' + T.y + ',' + T.z;
+    if (kind === 'lever') { this.set(T.x, T.y, T.z, !this.on(T.x, T.y, T.z)); Sound.play('click', T.x, T.y, T.z); return true; }
+    if (kind === 'link') {
+      let be = World.blockEnts.get(k); if (!be) { be = { type: 'crs', slots: [] }; World.blockEnts.set(k, be); }
+      if (held) { be.freq = held.id; Chat.add('§7Enlace de redstone: frecuencia §f' + (ITEMS[held.id] ? ITEMS[held.id].name : held.id) + '§7. Los enlaces con la misma frecuencia se comunican.'); }
+      else Chat.add('§7Enlace de redstone' + (be.freq ? ' (frecuencia ' + (ITEMS[be.freq] ? ITEMS[be.freq].name : be.freq) + ')' : ' sin frecuencia') + '. Haz clic con un objeto para elegirla.');
+      return true;
+    }
+    if (kind === 'timer') { let be = World.blockEnts.get(k); if (!be) { be = { type: 'crs', slots: [], every: 20 }; World.blockEnts.set(k, be); } be.every = be.every >= 160 ? 10 : be.every * 2; Chat.add('§7Temporizador: un pulso cada ' + (be.every / 20) + ' s'); return true; }
+    return false;
+  },
+  nodes() { // los componentes que hay en los trozos cargados (se buscan de vez en cuando)
+    const T = World.tickCount; if (this._n && T - this._t < 40) return this._n; this._t = T; const L = [];
+    const P = Game.player; if (!P) return (this._n = L); const cx = Math.floor(P.x) >> 4, cz = Math.floor(P.z) >> 4; const R = Math.min(8, Settings.renderDist || 6);
+    for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) { const c = World.chunk(cx + i, cz + j); if (!c || !c.crs) continue; for (const p of c.crs) L.push(p); }
+    return (this._n = L);
+  },
+  tick() {
+    this.setup(); if (NetSync.guest()) return; const T = World.tickCount; if (T % 2) return;
+    const L = this.nodes(); const freqOn = {};
+    for (const [x, y, z] of L) { const kind = this.ids[World.get(x, y, z)]; if (kind !== 'link') continue; const be = World.blockEnts.get(x + ',' + y + ',' + z); const f = (be && be.freq) || '-'; if (this.input(x, y, z)) freqOn[f] = true; }
+    for (const [x, y, z] of L) {
+      const kind = this.ids[World.get(x, y, z)]; if (!kind) continue; const k = x + ',' + y + ',' + z; let s = this.st.get(k); if (!s) { s = { last: false, t: 0 }; this.st.set(k, s); }
+      const inp = kind === 'lever' || kind === 'timer' || kind === 'cobs' || kind === 'stock' ? false : this.input(x, y, z);
+      if (kind === 'link') { const be = World.blockEnts.get(k); const f = (be && be.freq) || '-'; this.set(x, y, z, !inp && !!freqOn[f]); }
+      else if (kind === 'latch') { if (inp && !s.last) this.set(x, y, z, !this.on(x, y, z)); }
+      else if (kind === 'prep') { if (inp && !s.last) { this.set(x, y, z, true); s.t = T + 2; } else if (s.t && T >= s.t) { this.set(x, y, z, false); s.t = 0; } }
+      else if (kind === 'pext') { if (inp) { this.set(x, y, z, true); s.t = T + 30; } else if (s.t && T >= s.t) { this.set(x, y, z, false); s.t = 0; } }
+      else if (kind === 'timer') { const be = World.blockEnts.get(k); const ev = (be && be.every) || 20; if (this.input(x, y, z)) this.set(x, y, z, false); else this.set(x, y, z, T % ev < 2); }
+      else if (kind === 'cobs' || kind === 'stock') {
+        let full = 0, any = false;
+        for (let f = 0; f < 6; f++) { const D = FDIR[f]; const be = World.blockEnts.get((x + D[0]) + ',' + (y + D[1]) + ',' + (z + D[2])); if (!be || !be.slots || !be.slots.length) continue; const n = be.slots.filter(Boolean).length; if (n) any = true; full = Math.max(full, n / be.slots.length); }
+        this.set(x, y, z, kind === 'cobs' ? any : full >= 0.5);
+      }
+      s.last = inp;
+    }
+  },
+};
+{ // emitir como bloque de redstone con el bit encendido, y unir el polvo
+  const e0 = RS.emit.bind(RS); RS.emit = function (x, y, z, id, m, f, strong) { if (this.ROLE[id] === 21) return (m & CRS.ON) && !strong ? 15 : 0; return e0(x, y, z, id, m, f, strong); };
+  const c0 = RS.connectsTo.bind(RS); RS.connectsTo = function (id, m, h) { if (this.ROLE[id] === 21) return true; return c0(id, m, h); };
+  // el mallador apunta dónde hay componentes en cada trozo
+  const b0 = Kinetic.begin.bind(Kinetic); Kinetic.begin = function (c) { b0(c); CRS.setup(); c._crs = []; };
+  const d0 = Kinetic.done.bind(Kinetic); Kinetic.done = function (c) { d0(c); c.crs = c._crs; c._crs = null; CRS._n = null; };
+  const u0 = Funcs.use; Funcs.use = function (P, T, held) { if (T && CRS.use(P, T, held)) return true; return u0.call(this, P, T, held); };
+  const t0 = Funcs.tick; Funcs.tick = function () { t0.call(this); try { CRS.tick(); } catch (e) { console.warn('crs', e); } };
+}
 
 // ---- 13d_enchant.js ----
 // ============================================================
