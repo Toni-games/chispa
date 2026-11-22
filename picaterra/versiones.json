@@ -1,8 +1,21 @@
 {
-  "latest": "1.23.2",
+  "latest": "1.23.3",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.23.3",
+      "date": "2026-11-22",
+      "title": "Líquidos de Create",
+      "notes": [
+        "Depósitos de fluido (se juntan entre sí), depósito creativo, tuberías y bomba mecánica (clic derecho a mano vacía para darle la vuelta)",
+        "Spout: rellena cubos y objetos con las recetas del mod; vaciador: vacía cubos y botellas",
+        "Recipiente con líquido: mezclas del mod con leche, miel y chocolate; polea de manguera para sacar o echar agua y lava",
+        "Cubos para meter y sacar líquido; clic derecho a mano vacía muestra lo que hay dentro"
+      ],
+      "size": 361077,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.23.3.zip"
+    },
     {
       "id": "1.23.2",
       "date": "2026-11-22",

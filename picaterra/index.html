@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.23.2';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.23.3';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -9165,6 +9165,7 @@ const Game = {
     // lanzar huevos y bolas de nieve
     if (it && it.throwable && !(T && !P.sneaking && BLOCKS[T.id].interact)) { throwItem(P, held.id); this.consume(); P.swinging = true; P.swingTime = 0; this.useCD = 4; return; }
     // interactuar con bloques
+    if (T && !P.sneaking && CFluids.use(P, T, held)) { P.swinging = true; P.swingTime = 0; this.useCD = 6; return; }
     if (T && !P.sneaking) {
       const d = BLOCKS[T.id];
       if (d.interact === 'craft') { UI.openContainer('craft', T); P.swinging = true; P.swingTime = 0; return; }
@@ -13020,7 +13021,7 @@ const DYN = {
   load() { try { return JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch (e) { return null; } },
   // a partir de los paquetes activos: qué bloques, objetos y recetas trae cada mod
   async spec(zips) {
-    const out = { v: 4, blocks: [], items: [], recipes: [], machine: {} }; const dec = new TextDecoder();
+    const out = { v: 5, blocks: [], items: [], recipes: [], machine: {} }; const dec = new TextDecoder();
     const lang = {}; const models = {}; const states = {}; const itemModels = {}; const recipes = [];
     for (const z of zips) {
       for (const p of z.names) {
@@ -13071,12 +13072,15 @@ const DYN = {
     }
     // recetas de las máquinas (prensa, molino, mezcladora, triturado, compactado)
     for (const r of recipes) {
-      const t = (r.type || '').split(':').pop(); if (!['pressing', 'milling', 'crushing', 'mixing', 'compacting'].includes(t)) continue;
-      const ins = []; let ok = true;
-      for (const x of r.ingredients || []) { if (x && (x.type === 'fluid_stack' || x.fluid || x.fluid_tag || x.amount)) { ok = false; break; } const k = ing(x); if (!k) { ok = false; break; } ins.push(k); }
-      const outs = (r.results || []).filter(o => !o.fluid && (o.id || o.item)).map(o => [ing(o.id || o.item), o.count || 1, o.chance || 1]).filter(o => o[0]);
-      if (!ok || !ins.length || !outs.length) continue;
-      (out.machine[t] = out.machine[t] || []).push({ i: ins, o: outs, h: r.heat_requirement || r.heatRequirement || '' });
+      const t = (r.type || '').split(':').pop(); if (!['pressing', 'milling', 'crushing', 'mixing', 'compacting', 'filling', 'emptying'].includes(t)) continue;
+      const ins = [], fl = [], fo = []; let ok = true;
+      const fname = (x) => String(x.fluid || x.tag || x.fluid_tag || x.id || x.name || '').split(':').pop().replace(/^flowing_/, '').replace(/^builders_/, '');
+      for (const x of r.ingredients || []) { if (x && (x.type === 'fluid_stack' || x.type === 'neoforge:tag' && x.amount || x.fluid || x.fluid_tag || x.amount)) { fl.push([fname(x), x.amount || 1000]); continue; } const k = ing(x); if (!k) { ok = false; break; } ins.push(k); }
+      for (const o of r.results || []) if (o && (o.fluid || o.amount && !o.count && !o.item && /water|lava|milk|honey|chocolate|tea|potion/.test(o.id || ''))) fo.push([fname(o), o.amount || 1000]);
+      const outs = (r.results || []).filter(o => !o.fluid && !o.amount && (o.id || o.item)).map(o => [ing(o.id || o.item), o.count || 1, o.chance || 1]).filter(o => o[0]);
+      if (!ok || !(ins.length || fl.length) || !(outs.length || fo.length)) continue;
+      const rr = { i: ins, o: outs, h: r.heat_requirement || r.heatRequirement || '' }; if (fl.length) rr.f = fl; if (fo.length) rr.fo = fo;
+      (out.machine[t] = out.machine[t] || []).push(rr);
     }
     void itemKeys;
     // armas de mods hechos con MCreator + GeckoLib: se leen los nombres que hay dentro del código compilado
@@ -13316,7 +13320,7 @@ const Addons = {
       } catch (e) { console.warn('addon', a.name, e); }
     }
     // lista de bloques de mods hecha con una versión anterior: rehacerla y recargar una vez
-    if (DYN_SPEC && DYN_SPEC.v !== 4 && !sessionStorage.getItem('dynfix4')) { sessionStorage.setItem('dynfix4', '1'); await this.saveSpec(); location.reload(); await new Promise(() => { }); }
+    if (DYN_SPEC && DYN_SPEC.v !== 5 && !sessionStorage.getItem('dynfix5')) { sessionStorage.setItem('dynfix5', '1'); await this.saveSpec(); location.reload(); await new Promise(() => { }); }
     try { await JM.loadObjs(); JM.build(); await JM.loadTextures(); } catch (e) { console.warn('JM', e); }
   },
 };
@@ -13365,7 +13369,7 @@ const Kinetic = {
     create_mechanical_saw: { kind: 'saw', anyAx: true },
     create_mechanical_bearing: { kind: 'shaft', parts: [{ m: 'create:block/bearing/top', o: 'fy' }, { m: 'create:block/shaft_half', o: 'bz' }] },
     create_windmill_bearing: { kind: 'source', src: 'sails', rpm: 8, parts: [{ m: 'create:block/bearing/top_wooden', o: 'fy' }, { m: 'create:block/shaft_half', o: 'bz' }] },
-    create_mechanical_pump: { kind: 'shaft', parts: [{ m: 'create:block/mechanical_pump/cog', o: 'fz' }] },
+    create_mechanical_pump: { kind: 'cog', parts: [{ m: 'create:block/mechanical_pump/cog', o: 'fz' }] },
     create_mechanical_arm: { kind: 'shaft', parts: [{ m: 'create:block/mechanical_arm/cog', o: 'ax' }] },
     create_speedometer: { kind: 'gauge', gauge: 'speed', anyAx: true },
     create_stressometer: { kind: 'gauge', gauge: 'stress', anyAx: true },
@@ -13382,7 +13386,7 @@ const Kinetic = {
   },
   DIRS: [[0, 0, -1], [1, 0, 0], [0, 0, 1], [-1, 0, 0]],
   // recetas de las máquinas sacadas del propio mod (DYN_SPEC.machine)
-  rec(type, id) { const L = (DYN_SPEC && DYN_SPEC.machine && DYN_SPEC.machine[type]) || []; return L.find(r => r.i.length === 1 && r.i[0] === id && r.o.some(o => ITEMS[o[0]])); },
+  rec(type, id) { const L = (DYN_SPEC && DYN_SPEC.machine && DYN_SPEC.machine[type]) || []; return L.find(r => !r.f && r.i.length === 1 && r.i[0] === id && r.o.some(o => ITEMS[o[0]])); },
   outputs(r) { const out = []; for (const [k, n, ch] of r.o) if (ITEMS[k] && Math.random() < ch) out.push({ id: k, n }); return out; },
   // ---------- cinta transportadora ----------
   belts: new Map(),
@@ -13429,10 +13433,15 @@ const Kinetic = {
     const L = (DYN_SPEC && DYN_SPEC.machine && DYN_SPEC.machine.mixing) || []; const all = L.concat(this.MIX);
     const have = {}; for (const st of be.slots) if (st) have[st.id] = (have[st.id] || 0) + st.n;
     for (const r of all) {
-      if (r.h && r.h !== 'none' && !heat) continue; if (!r.o.some(o => ITEMS[o[0]])) continue;
+      if (r.h && r.h !== 'none' && !heat) continue; if (!r.o.some(o => ITEMS[o[0]]) && !(r.fo && r.fo.length)) continue;
+      const bfl = be.fl || { f: null, a: 0 }; if (r.f && r.f.length && !(bfl.f === r.f[0][0] && bfl.a >= r.f[0][1])) continue;
+      if (r.fo && r.fo.length && bfl.a && (bfl.f !== r.fo[0][0] || bfl.a + r.fo[0][1] > 2000)) continue;
+      if (!r.i.length && !(r.f && r.f.length)) continue;
       const need = {}; for (const i of r.i) need[i] = (need[i] || 0) + 1;
       if (!Object.keys(need).every(i => (have[i] || 0) >= need[i])) continue;
       for (const i in need) { let c = need[i]; for (let j = 0; j < be.slots.length && c > 0; j++) { const st = be.slots[j]; if (st && st.id === i) { const t = Math.min(c, st.n); st.n -= t; c -= t; if (!st.n) be.slots[j] = null; } } }
+      if (r.f && r.f.length) { bfl.a -= r.f[0][1]; if (bfl.a <= 0) { bfl.a = 0; bfl.f = null; } be.fl = bfl; }
+      if (r.fo && r.fo.length) { const fl = CFluids.store(bx, by, bz); fl.f = r.fo[0][0]; fl.a += r.fo[0][1]; }
       for (const o of this.outputs(r)) { const left = this.addTo(be, o); if (left > 0) Entities.dropItem(bx + 0.5, by + 1.2, bz + 0.5, { id: o.id, n: left }); }
       this.pressT[k] = T + Math.max(20, 1200 / Math.abs(s)); this.mixAnim[k] = T;
       Particles.color && Particles.color(bx + 0.5, by + 1, bz + 0.5, 0.8, 0.7, 0.5, 8, 0.05, 12, 0.02, 0.05); Sound.play('grindstone', bx, by, bz);
@@ -14791,6 +14800,194 @@ Object.assign(Kinetic, {
     d0.call(this, Pw, cam); if (!this.ready || !this.nodes) return;
     try { this.drawContr(Pw, cam); const m = this._m3 || (this._m3 = new Float32Array(16)); for (const [k, n] of this.nodes) if (n.def.kind === 'deployer') { const L = entLight(n.x + 0.5, n.y + 0.5, n.z + 0.5); Renderer.gl.uniform2f(Pw.u.uLightMul, L[0], L[1]); this.drawDeployer(n, k, m, Pw); } } catch (e) { console.warn(e); }
   };
+}
+
+
+// ---- extra/fluids123.js ----
+// ============================================================
+//  1.23.3: líquidos de Create
+//  depósitos (se juntan entre sí), tuberías, bomba mecánica, spout (rellena),
+//  vaciador de objetos, recipiente con líquido (mezclas con leche, miel, chocolate...),
+//  polea de manguera y caldero. Cubos para meter y sacar.
+// ============================================================
+const CFluids = {
+  PIPE: /^create_(fluid_pipe|encased_fluid_pipe|glass_fluid_pipe|smart_fluid_pipe|fluid_valve)$/,
+  BUCKET: { water: 'water_bucket', lava: 'lava_bucket', milk: 'milk_bucket', honey: 'create_honey_bucket', chocolate: 'create_chocolate_bucket' },
+  NAME: { water: 'Agua', lava: 'Lava', milk: 'Leche', honey: 'Miel', chocolate: 'Chocolate', tea: 'Té', potion: 'Poción' },
+  COLOR: { water: [63, 118, 228], lava: [255, 255, 255], milk: [250, 250, 250], honey: [235, 165, 40], chocolate: [105, 60, 35], tea: [160, 100, 60], potion: [190, 70, 200] },
+  CAP: { create_fluid_tank: 8000, create_creative_fluid_tank: Infinity, create_spout: 1000, create_item_drain: 1000, create_basin: 2000 },
+  key: (x, y, z) => x + ',' + y + ',' + z,
+  bk(x, y, z) { const d = BLOCKS[World.get(x, y, z)]; return (d && d.key) || ''; },
+  fromBucket(id) { for (const f in this.BUCKET) if (this.BUCKET[f] === id) return f; return null; },
+  store(x, y, z) { const k = this.key(x, y, z); let be = World.blockEnts.get(k); if (!be) { be = { type: 'fluid', slots: [] }; World.blockEnts.set(k, be); } if (!be.fl) be.fl = { f: null, a: 0 }; return be.fl; },
+  // un «punto» de líquido: depósito (o grupo de depósitos), recipiente, spout, vaciador, caldero, manguera
+  ep(x, y, z) {
+    const k = this.bk(x, y, z); const self = this;
+    if (k === 'create_fluid_tank') {
+      const L = [], seen = new Set([this.key(x, y, z)]), st = [[x, y, z]];
+      while (st.length && L.length < 64) { const [a, b, c] = st.pop(); L.push([a, b, c]); for (const [dx, dy, dz] of Kinetic.D6) { const kk = this.key(a + dx, b + dy, c + dz); if (!seen.has(kk) && this.bk(a + dx, b + dy, c + dz) === 'create_fluid_tank') { seen.add(kk); st.push([a + dx, b + dy, c + dz]); } } }
+      L.sort((p, q) => p[1] - q[1]); const S = L.map(p => this.store(...p)); const C = 8000;
+      return {
+        id: 'T' + L.map(p => p.join(',')).sort()[0],
+        get() { let f = null, a = 0; for (const s of S) { if (s.a > 0) { f = f || s.f; a += s.a; } } return { f, a, cap: C * S.length }; },
+        add(f, n) { const g = this.get(); if (g.f && g.f !== f) return 0; let put = 0; for (const s of S) { const r = Math.min(C - s.a, n - put); if (r > 0) { s.f = f; s.a += r; put += r; } if (put >= n) break; } return put; },
+        take(n) { const g = this.get(); if (!g.a) return { f: null, a: 0 }; let got = 0; for (let i = S.length - 1; i >= 0 && got < n; i--) { const s = S[i]; const t = Math.min(s.a, n - got); s.a -= t; got += t; if (!s.a) s.f = null; } return { f: g.f, a: got }; },
+      };
+    }
+    if (k === 'create_creative_fluid_tank') { const s = this.store(x, y, z); return { id: 'C' + this.key(x, y, z), get: () => ({ f: s.f, a: s.f ? Infinity : 0, cap: Infinity }), add: (f, n) => { if (!s.f) s.f = f; return s.f === f ? n : 0; }, take: (n) => ({ f: s.f, a: s.f ? n : 0 }) }; }
+    if (this.CAP[k]) {
+      const s = this.store(x, y, z), C = this.CAP[k];
+      return { id: 'S' + this.key(x, y, z), get: () => ({ f: s.a ? s.f : null, a: s.a, cap: C }), add: (f, n) => { if (s.a && s.f !== f) return 0; const r = Math.min(C - s.a, n); if (r > 0) { s.f = f; s.a += r; } return Math.max(0, r); }, take: (n) => { const t = Math.min(s.a, n); const f = s.f; s.a -= t; if (!s.a) s.f = null; return { f, a: t }; } };
+    }
+    if (k === 'cauldron') { // 3 niveles = 1 cubo
+      const lv = () => World.getMeta(x, y, z) & 3; const set = (v) => World.set(x, y, z, B.cauldron, v, 3);
+      return { id: 'K' + this.key(x, y, z), get: () => ({ f: lv() ? 'water' : null, a: lv() * 1000 / 3, cap: 1000 }), add: (f, n) => { if (f !== 'water' || n < 334) return 0; const l = lv(); const add = Math.min(3 - l, Math.floor(n / 333.4)); if (add <= 0) return 0; set(l + add); return Math.round(add * 333.4); }, take: (n) => { const l = lv(); const t = Math.min(l, Math.floor(n / 333.3)); if (t <= 0) return { f: null, a: 0 }; set(l - t); return { f: 'water', a: Math.round(t * 333.4) }; } };
+    }
+    if (k === 'create_hose_pulley') { // saca o echa agua/lava en lo que haya debajo (hasta 16 bloques)
+      const scan = () => { for (let d = 1; d <= 16; d++) { const id = World.get(x, y - d, z); if (LIQUID[id]) return { d, id }; if (id && !REPLACE[id]) return { d, id: 0, solid: true }; } return { d: 17, id: 0 }; };
+      return { id: 'H' + this.key(x, y, z),
+        get() { const r = scan(); return { f: r.id ? (LIQUID[r.id] === 1 ? 'water' : 'lava') : null, a: r.id ? 1000 : 0, cap: 1000 }; },
+        add(f, n) { if (n < 1000 || (f !== 'water' && f !== 'lava')) return 0; const r = scan(); if (r.id || r.d <= 1) return 0; const ty = y - r.d + 1; World.set(x, ty, z, f === 'water' ? B.water : B.lava, 0); World.schedule && World.schedule(x, ty, z, 2); return 1000; },
+        take(n) { const r = scan(); if (!r.id) return { f: null, a: 0 }; const f = LIQUID[r.id] === 1 ? 'water' : 'lava'; if (f === 'lava') World.set(x, y - r.d, z, 0, 0); return { f, a: Math.min(n, 1000) }; } };
+    }
+    return null;
+  },
+  // red de tuberías desde una casilla: puntos de líquido y extremos abiertos
+  net(sx, sy, sz, pump) {
+    const eps = [], ends = [], seenEp = new Set();
+    const addEp = (x, y, z) => { const e = this.ep(x, y, z); if (e && !seenEp.has(e.id)) { seenEp.add(e.id); eps.push(e); } return !!e; };
+    if (!this.PIPE.test(this.bk(sx, sy, sz))) { if (!addEp(sx, sy, sz)) { const id = World.get(sx, sy, sz); if (!id || REPLACE[id] || LIQUID[id]) ends.push([sx, sy, sz]); } return { eps, ends }; }
+    const seen = new Set([this.key(sx, sy, sz)]), st = [[sx, sy, sz]]; let g = 0;
+    while (st.length && g++ < 400) {
+      const [x, y, z] = st.pop(); const con = [];
+      for (const [dx, dy, dz] of Kinetic.D6) {
+        const a = x + dx, b = y + dy, c = z + dz; const kk = this.key(a, b, c); const bk = this.bk(a, b, c);
+        if (this.PIPE.test(bk)) { con.push([dx, dy, dz]); if (!seen.has(kk)) { seen.add(kk); st.push([a, b, c]); } continue; }
+        if (a === pump[0] && b === pump[1] && c === pump[2]) { con.push([dx, dy, dz]); continue; }
+        if (bk === 'create_mechanical_pump') { con.push([dx, dy, dz]); continue; }
+        if (addEp(a, b, c)) con.push([dx, dy, dz]);
+      }
+      if (con.length === 1) { const [dx, dy, dz] = con[0]; const ox = x - dx, oy = y - dy, oz = z - dz; const id = World.get(ox, oy, oz); if (!id || REPLACE[id] || LIQUID[id]) ends.push([ox, oy, oz]); }
+    }
+    return { eps, ends };
+  },
+  buf: {},
+  pump(n, s) {
+    const k = this.key(n.x, n.y, n.z); const D = Kinetic.D6[Kinetic.faceOf(n)]; const sg = 1; // siempre hacia donde apunta
+    const front = [n.x + D[0] * sg, n.y + D[1] * sg, n.z + D[2] * sg], back = [n.x - D[0] * sg, n.y - D[1] * sg, n.z - D[2] * sg];
+    const src = this.net(...back, [n.x, n.y, n.z]), dst = this.net(...front, [n.x, n.y, n.z]);
+    const A = Math.min(2000, Math.abs(s) * 30); const b = this.buf[k] || (this.buf[k] = { f: null, a: 0 });
+    // 1) vaciar lo que lleva la bomba en los destinos
+    const push = () => {
+      if (!b.a) return;
+      for (const e of dst.eps) { const g = e.get(); if (g.f && g.f !== b.f) continue; const put = e.add(b.f, b.a); b.a -= put; if (!b.a) { b.f = null; return; } }
+      for (const [x, y, z] of dst.ends) { if (b.a < 1000 || (b.f !== 'water' && b.f !== 'lava')) break; const id = World.get(x, y, z); if (id && !REPLACE[id]) continue; if (LIQUID[id]) continue; World.set(x, y, z, b.f === 'water' ? B.water : B.lava, 0); World.schedule && World.schedule(x, y, z, 2); b.a -= 1000; if (!b.a) b.f = null; }
+    };
+    push();
+    // 2) llenar la bomba desde los orígenes
+    let want = A - b.a;
+    for (const e of src.eps) { if (want <= 0) break; const g = e.get(); if (!g.a || (b.f && g.f !== b.f)) continue; const t = e.take(want); if (t.a) { b.f = t.f; b.a += t.a; want -= t.a; } }
+    for (const [x, y, z] of src.ends) {
+      if (want <= 0) break; const id = World.get(x, y, z); if (!LIQUID[id] || (World.getMeta(x, y, z) & 7)) continue; const f = LIQUID[id] === 1 ? 'water' : 'lava'; if (b.f && b.f !== f) continue;
+      if (f === 'lava') World.set(x, y, z, 0, 0); // el agua es infinita, la lava se gasta
+      b.f = f; b.a += f === 'lava' ? 1000 : want; want = A - b.a;
+    }
+    if (b.a > 4000) b.a = 4000;
+    push();
+  },
+  // ---------- máquinas ----------
+  recs(type) { return ((DYN_SPEC && DYN_SPEC.machine && DYN_SPEC.machine[type]) || []); },
+  FILL: { bucket: 1000, glass_bottle: 250 },
+  fillResult(id, f, a) {
+    for (const r of this.recs('filling')) if (r.i[0] === id && r.f && r.f[0] && r.f[0][0] === f && a >= r.f[0][1]) { const o = r.o.find(o => ITEMS[o[0]]); if (o) return { out: o[0], cost: r.f[0][1] }; }
+    if (id === 'bucket' && this.BUCKET[f] && ITEMS[this.BUCKET[f]] && a >= 1000) return { out: this.BUCKET[f], cost: 1000 };
+    if (id === 'glass_bottle' && f === 'honey' && ITEMS.honey_bottle && a >= 250) return { out: 'honey_bottle', cost: 250 };
+    return null;
+  },
+  emptyResult(id) {
+    const f = this.fromBucket(id); if (f) return { out: 'bucket', f, a: 1000 };
+    if (id === 'honey_bottle') return { out: 'glass_bottle', f: 'honey', a: 250 };
+    for (const r of this.recs('emptying')) if (r.i[0] === id && r.fo && r.fo[0]) { const o = r.o.find(o => ITEMS[o[0]]); return { out: o ? o[0] : null, f: r.fo[0][0], a: r.fo[0][1] }; }
+    return null;
+  },
+  swapItem(holder, i, out) { // cambia un objeto de un montón por otro
+    const st = holder[i]; if (st.n === 1) { holder[i] = out ? { id: out, n: 1 } : null; return null; } st.n--; return out;
+  },
+  spout(x, y, z) {
+    const e = this.ep(x, y, z); const g = e.get(); if (!g.a) return;
+    // depósito de Create debajo (o un objeto suelto en la cinta)
+    const dk = this.key(x, y - 1, z); const dep = this.bk(x, y - 1, z) === 'create_depot' ? World.blockEnts.get(dk) : null;
+    if (dep && dep.slots && dep.slots[0]) {
+      const r = this.fillResult(dep.slots[0].id, g.f, g.a); if (!r) return; e.take(r.cost); const extra = this.swapItem(dep.slots, 0, r.out); if (extra) Entities.dropItem(x + 0.5, y - 0.2, z + 0.5, { id: extra, n: 1 });
+      this.splash(x, y - 0.3, z, g.f); return;
+    }
+    const it = Entities.list.find(en => en.type === 'item' && !en.remove && Math.floor(en.x) === x && Math.floor(en.z) === z && en.y >= y - 1.6 && en.y < y);
+    if (it) { const r = this.fillResult(it.item.id, g.f, g.a); if (!r) return; e.take(r.cost); if (it.item.n === 1) it.item = { id: r.out, n: 1 }; else { it.item.n--; Entities.dropItem(it.x, it.y + 0.1, it.z, { id: r.out, n: 1 }); } this.splash(x, y - 0.3, z, g.f); }
+  },
+  drain(x, y, z) {
+    const e = this.ep(x, y, z);
+    for (const it of Entities.list) {
+      if (it.type !== 'item' || it.remove || Math.floor(it.x) !== x || Math.floor(it.z) !== z || it.y < y - 0.15 || it.y > y + 1.6) continue;
+      const r = this.emptyResult(it.item.id); if (!r) continue; const g = e.get(); if (g.f && g.f !== r.f) continue; if (g.cap - g.a < r.a) continue;
+      e.add(r.f, r.a); if (it.item.n === 1) { if (r.out) it.item = { id: r.out, n: 1 }; else it.remove = true; } else { it.item.n--; if (r.out) Entities.dropItem(it.x, it.y + 0.1, it.z, { id: r.out, n: 1 }); }
+      this.splash(x, y + 0.8, z, r.f); return;
+    }
+  },
+  splash(x, y, z, f) { const c = this.COLOR[f] || [200, 200, 255]; if (Particles.color) Particles.color(x + 0.5, y, z + 0.5, c[0] / 255, c[1] / 255, c[2] / 255, 8, 0.08, 12, 0.03, 0.06); Sound.play('splash', x, y, z); },
+  tick() {
+    if (World.tickCount % 10 || !Kinetic.nodes) return; if (Kinetic.guest()) return;
+    for (const [k, n] of Kinetic.nodes) { if (n.id !== B.create_mechanical_pump) continue; const s = Kinetic.speed.get(k) || 0; if (s) try { this.pump(n, s); } catch (e) { console.warn('pump', e); } }
+    if (World.tickCount % 20) return;
+    for (const [k, be] of World.blockEnts) {
+      if (!be.fl) continue; const [x, y, z] = k.split(',').map(Number); if (!World.loaded(x, z)) continue; const bk = this.bk(x, y, z);
+      if (bk === 'create_spout') this.spout(x, y, z); else if (bk === 'create_item_drain') { /* abajo */ }
+    }
+    // vaciadores: también sin líquido dentro todavía
+    for (const e of Entities.list) { if (e.type !== 'item' || e.remove) continue; const x = Math.floor(e.x), z = Math.floor(e.z); for (const y of [Math.floor(e.y + 0.05), Math.floor(e.y - 0.3)]) if (this.bk(x, y, z) === 'create_item_drain') { this.drain(x, y, z); break; } }
+  },
+  // ---------- usar con cubos ----------
+  use(P, T, held) {
+    const d = BLOCKS[T.id]; if (!d) return false; const k = d.key || '';
+    if (k === 'create_mechanical_pump' && !held) { World.set(T.x, T.y, T.z, T.id, World.getMeta(T.x, T.y, T.z) ^ 1, 3); Chat.add('§7Bomba girada: ahora empuja hacia el otro lado.'); Sound.play('click', T.x, T.y, T.z); return true; } if (!/^create_(fluid_tank|creative_fluid_tank|spout|item_drain|basin|hose_pulley)$/.test(k)) return false;
+    const e = this.ep(T.x, T.y, T.z); if (!e) return false; const g = e.get(); const id = held && held.id;
+    const give = (out) => { if (P.mode === 1) return; if (held.n === 1) P.inv[P.sel] = out ? { id: out, n: 1 } : null; else { held.n--; if (out && P.give(out, 1) > 0) Entities.dropItem(P.x, P.y + 1, P.z, { id: out, n: 1 }); } };
+    const fb = id && this.fromBucket(id);
+    if (fb) { if (e.add(fb, 1000) >= 1000 || k === 'create_creative_fluid_tank') { give('bucket'); Sound.play('bucket_empty', T.x, T.y, T.z); } else Chat.add('§7No cabe más ' + (this.NAME[fb] || fb).toLowerCase() + ' (o ya tiene otro líquido).'); return true; }
+    if (id === 'bucket' && k !== 'create_hose_pulley') { if (g.a >= 1000 && this.BUCKET[g.f] && ITEMS[this.BUCKET[g.f]]) { const t = e.take(1000); give(this.BUCKET[t.f]); Sound.play('bucket_fill', T.x, T.y, T.z); } else Chat.add('§7Hace falta 1 cubo entero (1000 mB) de un líquido que quepa en un cubo.'); return true; }
+    if (!held && k !== 'create_basin') { Chat.add('§b' + (d.name || k) + '§7: ' + (g.f ? (this.NAME[g.f] || g.f) + ' ' + (g.a === Infinity ? '∞' : Math.round(g.a)) + (g.cap === Infinity ? '' : ' / ' + g.cap) + ' mB' : 'vacío')); return true; }
+    if (k === 'create_basin' && held && held.id === 'bucket') return false;
+    return false;
+  },
+  // ---------- dibujo del líquido dentro de depósitos y recipientes ----------
+  meshes: {},
+  meshOf(f) {
+    if (this.meshes[f] !== undefined) return this.meshes[f];
+    const tex = f === 'lava' ? 'lava_still' : 'water_still'; const ti = Atlas.index[tex]; if (ti === undefined) return (this.meshes[f] = null);
+    const vb = new VB(32); const rgb = this.COLOR[f] || [200, 200, 255];
+    for (let fc = 0; fc < 6; fc++) { const verts = Mesher.FV[fc].map(v => [v[0] * 16, v[1] * 16, v[2] * 16]); const uvs = verts.map(v => Mesher.uvOf(fc, v[0], v[1], v[2])); Mesher.quad(vb, 0, 0, 0, verts, uvs, ti, rgb, Mesher.SHADE[fc], 240, 240, f === 'lava' ? 2 : 0); }
+    return (this.meshes[f] = Renderer.meshFromVB(vb));
+  },
+  draw(Pw, cam) {
+    const R = Renderer, gl = R.gl; let set = false; const m = this._m || (this._m = new Float32Array(16)); const rd = (Settings.renderDist * 16) ** 2;
+    for (const [k, be] of World.blockEnts) {
+      const fl = be.fl; if (!fl || !fl.a || !fl.f) continue; const [x, y, z] = k.split(',').map(Number); if ((x - cam.x) ** 2 + (z - cam.z) ** 2 > rd) continue;
+      const bk = this.bk(x, y, z); let box = null;
+      if (bk === 'create_fluid_tank') box = [1, 0, 1, 15, Math.max(0.3, 16 * Math.min(1, fl.a / 8000)), 15];
+      else if (bk === 'create_creative_fluid_tank') box = [1, 0, 1, 15, 16, 15];
+      else if (bk === 'create_basin') box = [2, 2, 2, 14, 2 + 12 * Math.min(1, fl.a / 2000), 14];
+      else if (bk === 'create_item_drain') box = [2, 11, 2, 14, 11 + 3 * Math.min(1, fl.a / 1000), 14];
+      if (!box) continue; const mesh = this.meshOf(fl.f); if (!mesh) continue;
+      if (!set) { gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0); set = true; }
+      const L = entLight(x + 0.5, y + 0.5, z + 0.5); gl.uniform2f(Pw.u.uLightMul, fl.f === 'lava' ? 1 : L[0], fl.f === 'lava' ? 1 : L[1]);
+      M4.identity(m); M4.translate(m, x + box[0] / 16, y + box[1] / 16, z + box[2] / 16); M4.scale(m, (box[3] - box[0]) / 16, (box[4] - box[1]) / 16, (box[5] - box[2]) / 16);
+      R.drawMesh(mesh, m, Pw);
+    }
+  },
+};
+{
+  const t0 = Kinetic.tick, d0 = Kinetic.draw;
+  Kinetic.tick = function () { t0.call(this); try { CFluids.tick(); } catch (e) { console.warn('fluids', e); } };
+  Kinetic.draw = function (Pw, cam) { d0.call(this, Pw, cam); try { CFluids.draw(Pw, cam); } catch (e) { console.warn(e); } };
 }
 
 // ---------------- pieles personalizadas de las criaturas ----------------
