@@ -1,8 +1,23 @@
 {
-  "latest": "1.21.0",
+  "latest": "1.22.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.22.0",
+      "date": "2026-11-22",
+      "title": "Mobs, Create y retoques",
+      "notes": [
+        "Nuevos mobs: cabras (saltan y embisten), ranas (se comen slimes), ajolotes, delfines y conejos",
+        "Yunque (reparar y pasar encantamientos) y campana",
+        "Create: cintas transportadoras, mezcladora con recipiente y las recetas de las máquinas del propio mod",
+        "Esquilar ovejas (la lana vuelve a crecer)",
+        "Multijugador: los invitados también pueden esquilar, ordeñar, dar de comer, domar y montar",
+        "Cristales conectados, la amatista 3D se ve en la mano y sin muro de agua al final del océano"
+      ],
+      "size": 341972,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.22.0.zip"
+    },
     {
       "id": "1.21.0",
       "date": "2026-11-21",
