@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.23.3';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.23.4';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -5067,7 +5067,7 @@ const Mesher = {
       if (bedCEM && d.bedPart) { beds.push([c.cx * 16 + x, y, c.cz * 16 + z, d.bedPart === 'head' ? 1 : 0, pm[p] & 3]); continue; }
       if (Kinetic.ids[id]) Kinetic.note(c, x, y, z, id, pm[p]);
       if (Kinetic.dynamicOnly[id]) continue;
-      const jb0 = JM.block[id]; const jb = jb0 && jb0.byMeta ? (jb0.byMeta[pm[p] & jb0.mask] || jb0) : jb0; if (jb && this.jmodel(O, T, p, id, d, x, y, z, jb, fancy, pm[p])) continue;
+      const jb0 = JM.block[id]; const jm = jb0 && jb0.tank ? ((pb[p + 324] === id ? 0 : 1) | (pb[p - 324] === id ? 0 : 2)) : pm[p]; const jb = jb0 && jb0.byMeta ? (jb0.byMeta[jm & jb0.mask] || jb0) : jb0; if (jb && this.jmodel(O, T, p, id, d, x, y, z, jb, fancy, pm[p])) continue;
       if (rt === 1) this.cube(O, T, p, id, d, pm[p], x, y, z, fancy);
       else if (rt === 2) this.cross(O, p, id, d, x, y, z);
       else if (rt === 3) this.liquid(d.translucent ? T : O, p, id, d, x, y, z);
@@ -12916,6 +12916,9 @@ const JM = {
     create_belt: { m: ['create:block/belt/middle', 'create:block/belt/middle_bottom'], rot: 'f4' },
     create_copycat_panel: { m: ['create:block/copycat_base/panel'] },
     create_copycat_step: { m: ['create:block/copycat_base/step'] },
+    // depósitos: con ventana, según tengan otro depósito encima/debajo (lo elige el mallador)
+    create_fluid_tank: { tank: ['create:block/fluid_tank/block_middle_window', 'create:block/fluid_tank/block_top_window', 'create:block/fluid_tank/block_bottom_window', 'create:block/fluid_tank/block_single_window'] },
+    create_creative_fluid_tank: { tank: ['create:block/creative_middle_window', 'create:block/creative_top_window', 'create:block/creative_bottom_window', 'create:block/creative_single_window'] },
   },
   pickVariant(v) { // un estado de «variants»
     const keys = Object.keys(v); if (!keys.length) return null;
@@ -12929,19 +12932,24 @@ const JM = {
       for (const d of BLOCKS) if (d && d.dyn && d.faceTex) for (const n of d.faceTex) if (typeof n === 'string' && n.startsWith('jm/')) this.texName({}, n.slice(3));
       for (const k in ITEMS) { const it = ITEMS[k]; if (typeof it.icon === 'string' && it.icon.startsWith('jm/')) this.texName({}, it.icon.slice(3)); }
     } catch (e) { console.warn('JM tex', e); }
-    for (const name in this.states) {
-      const id = B[name]; if (id === undefined) continue; const d = BLOCKS[id]; if (!d || d.liquid || d.bedPart) continue;
+    for (const name in this.states) { try { this.build1(name); } catch (e) { console.warn('JM bloque', name, e); } }
+    this.buildItems();
+  },
+  build1(name) {
+    {
+      const id = B[name]; if (id === undefined) return; const d = BLOCKS[id]; if (!d || d.liquid || d.bedPart) return;
       const st = this.states[name]; const parts = [];
       const opts = (a) => (Array.isArray(a) ? a : [a]).map(o => ({ w: o.weight || 1, ref: this.fullModel(o.model), rx: (o.x || 0) / 90 & 3, ry: (o.y || 0) / 90 & 3 }));
       if (st.variants) { const v = this.pickVariant(st.variants); if (v) parts.push(opts(v)); }
-      if (st.multipart && /_wall$/.test(name) && d.wall) continue;
+      if (st.multipart && /_wall$/.test(name) && d.wall) return;
       if (st.multipart) { for (const mp of st.multipart) if (!mp.when) parts.push(opts(mp.apply)); if (!parts.length) for (const mp of st.multipart) if (this.defWhen(mp.when)) parts.push(opts(mp.apply)); }
-      if (this.SPECIAL[name]) { const sp = this.SPECIAL[name]; parts.length = 0; for (const r of sp.m) parts.push([{ w: 1, ref: r, rx: 0, ry: 0 }]); }
+      if (this.SPECIAL[name] && this.SPECIAL[name].m) { const sp = this.SPECIAL[name]; parts.length = 0; for (const r of sp.m) parts.push([{ w: 1, ref: r, rx: 0, ry: 0 }]); }
       const comp = (parts) => parts.map((list, pi) => list.map(o => { const r = this.resolve(o.ref); const q = this.compile(r, o.rx, o.ry) || []; return { w: o.w, quads: q, vanilla: !r && pi === 0 && !/empty/.test(o.ref || '') }; }));
       const cparts = comp(parts);
       if (cparts.some(l => l.some(o => o.quads.length))) this.block[id] = cparts;
       // variantes según la orientación del bloque (eje o hacia dónde mira)
-      if (this.SPECIAL[name] && this.SPECIAL[name].rot === 'f4' && d.facing) { const by = {}; for (let m = 0; m < 4; m++) { const cp = comp(this.SPECIAL[name].m.map(r => [{ w: 1, ref: r, rx: 0, ry: m & 1 }])); by[m] = cp; } this.block[id] = by[0]; this.block[id].byMeta = by; this.block[id].mask = 3; continue; }
+      if (this.SPECIAL[name] && this.SPECIAL[name].tank) { const by = {}; this.SPECIAL[name].tank.forEach((r, i) => { if (this.resolve(r)) by[i] = comp([[{ w: 1, ref: r, rx: 0, ry: 0 }]]); }); if (by[3]) { this.block[id] = by[3]; this.block[id].byMeta = by; this.block[id].mask = 3; this.block[id].tank = true; return; } }
+      if (this.SPECIAL[name] && this.SPECIAL[name].rot === 'f4' && d.facing) { const by = {}; for (let m = 0; m < 4; m++) { const cp = comp(this.SPECIAL[name].m.map(r => [{ w: 1, ref: r, rx: 0, ry: m & 1 }])); by[m] = cp; } this.block[id] = by[0]; this.block[id].byMeta = by; this.block[id].mask = 3; return; }
       if (st.variants && (d.axis || d.facing || d.facing6)) {
         const MAP = d.axis ? [[0, 'axis=y'], [4, 'axis=x'], [8, 'axis=z']] : d.facing6 ? [[0, 'facing=east'], [1, 'facing=west'], [2, 'facing=up'], [3, 'facing=down'], [4, 'facing=south'], [5, 'facing=north']] : [[0, 'facing=north'], [1, 'facing=east'], [2, 'facing=south'], [3, 'facing=west']];
         const by = {};
@@ -12952,6 +12960,8 @@ const JM = {
         if (Object.keys(by).length) { this.block[id] = cparts.some(l => l.some(o => o.quads.length)) ? cparts : Object.values(by)[0]; this.block[id].byMeta = by; this.block[id].mask = d.axis ? 12 : d.facing6 ? 7 : 3; }
       }
     }
+  },
+  buildItems() {
     for (const name in ITEMS) {
       let ref = null; const def = this.items[name];
       if (def && def.model) ref = this.handModel(def.model);
@@ -13475,7 +13485,7 @@ const Kinetic = {
     if (World.tickCount % 5) return;
     const nodes = new Map(); const key = (x, y, z) => x + ',' + y + ',' + z;
     for (const k in this.chunks) for (const n of this.chunks[k]) { const [x, y, z, id, meta] = n; if (World.get(x, y, z) !== id) continue; nodes.set(key(x, y, z), { x, y, z, id, meta: World.getMeta(x, y, z), def: this.ids[id], ax: this.axisOf(id, World.getMeta(x, y, z)) }); }
-    for (let pass = 0; pass < 2; pass++) for (const [, n] of nodes) if (n.def.anyAx && !(pass && n.axOk)) { const fa = this.axisOf(n.id, n.meta); n.fax = fa; for (let ax = 0; ax < 3; ax++) { if (ax === fa && (n.def.kind === 'gauge' || n.def.kind === 'deployer')) continue; const A = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][ax]; let ok = false; for (const sg of [1, -1]) { const m = nodes.get(key(n.x + A[0] * sg, n.y + A[1] * sg, n.z + A[2] * sg)); if (m && (!m.def.anyAx || m.axOk) && (m.ax === ax || m.def.kind === 'gearbox')) ok = true; } if (ok) { n.ax = ax; n.axOk = true; break; } } }
+    for (let pass = 0; pass < 2; pass++) for (const [, n] of nodes) if (n.def.anyAx && !(pass && n.axOk)) { const fa = this.axisOf(n.id, n.meta); n.fax = fa; for (let ax = 0; ax < 3; ax++) { if (ax === fa && (n.def.kind === 'gauge' || n.def.kind === 'deployer' || n.def.kind === 'valve')) continue; const A = [[1, 0, 0], [0, 1, 0], [0, 0, 1]][ax]; let ok = false; for (const sg of [1, -1]) { const m = nodes.get(key(n.x + A[0] * sg, n.y + A[1] * sg, n.z + A[2] * sg)); if (m && (!m.def.anyAx || m.axOk) && (m.ax === ax || m.def.kind === 'gearbox') && !(n.def.kind === 'valve' && m.id === B.create_mechanical_pump)) ok = true; } if (ok) { n.ax = ax; n.axOk = true; break; } } }
     for (const [, n] of nodes) if (n.def.kind === 'clutch' || n.def.kind === 'gearshift') n.pow = RS.powered(n.x, n.y, n.z);
     const sp = new Map(); const q = [];
     for (const [k, n] of nodes) if (n.def.kind === 'source') {
@@ -14662,6 +14672,7 @@ Funcs.setup();
 Object.assign(Kinetic.DEFS, {
   create_deployer: { kind: 'deployer', anyAx: true },
   create_weighted_ejector: { kind: 'ejector', anyAx: true },
+  create_fluid_valve: { kind: 'valve', anyAx: true },
 });
 Kinetic.DEFS.create_mechanical_bearing.bearing = true;
 Kinetic.DEFS.create_windmill_bearing.bearing = true;
@@ -14854,46 +14865,53 @@ const CFluids = {
   },
   // red de tuberías desde una casilla: puntos de líquido y extremos abiertos
   net(sx, sy, sz, pump) {
-    const eps = [], ends = [], seenEp = new Set();
+    const eps = [], ends = [], seenEp = new Set(), pipes = [], filters = new Set();
+    const pass = (a, b, c, bk) => { if (bk === 'create_fluid_valve') return !!(Kinetic.speed && Kinetic.speed.get(this.key(a, b, c))); if (bk === 'create_smart_fluid_pipe') { const be = World.blockEnts.get(this.key(a, b, c)); if (be && be.filter) filters.add(be.filter); } return true; };
     const addEp = (x, y, z) => { const e = this.ep(x, y, z); if (e && !seenEp.has(e.id)) { seenEp.add(e.id); eps.push(e); } return !!e; };
-    if (!this.PIPE.test(this.bk(sx, sy, sz))) { if (!addEp(sx, sy, sz)) { const id = World.get(sx, sy, sz); if (!id || REPLACE[id] || LIQUID[id]) ends.push([sx, sy, sz]); } return { eps, ends }; }
+    if (!this.PIPE.test(this.bk(sx, sy, sz))) { if (!addEp(sx, sy, sz)) { const id = World.get(sx, sy, sz); if (!id || REPLACE[id] || LIQUID[id]) ends.push([sx, sy, sz]); } return { eps, ends, pipes, filters }; }
+    if (!pass(sx, sy, sz, this.bk(sx, sy, sz))) return { eps, ends, pipes, filters };
     const seen = new Set([this.key(sx, sy, sz)]), st = [[sx, sy, sz]]; let g = 0;
     while (st.length && g++ < 400) {
-      const [x, y, z] = st.pop(); const con = [];
+      const [x, y, z] = st.pop(); const con = []; pipes.push([x, y, z]);
       for (const [dx, dy, dz] of Kinetic.D6) {
         const a = x + dx, b = y + dy, c = z + dz; const kk = this.key(a, b, c); const bk = this.bk(a, b, c);
-        if (this.PIPE.test(bk)) { con.push([dx, dy, dz]); if (!seen.has(kk)) { seen.add(kk); st.push([a, b, c]); } continue; }
+        if (this.PIPE.test(bk)) { if (!pass(a, b, c, bk)) continue; con.push([dx, dy, dz]); if (!seen.has(kk)) { seen.add(kk); st.push([a, b, c]); } continue; }
         if (a === pump[0] && b === pump[1] && c === pump[2]) { con.push([dx, dy, dz]); continue; }
         if (bk === 'create_mechanical_pump') { con.push([dx, dy, dz]); continue; }
         if (addEp(a, b, c)) con.push([dx, dy, dz]);
       }
       if (con.length === 1) { const [dx, dy, dz] = con[0]; const ox = x - dx, oy = y - dy, oz = z - dz; const id = World.get(ox, oy, oz); if (!id || REPLACE[id] || LIQUID[id]) ends.push([ox, oy, oz]); }
     }
-    return { eps, ends };
+    return { eps, ends, pipes, filters };
   },
-  buf: {},
+  buf: {}, flow: new Map(),
+  mark(L, f) { const T = World.tickCount; for (const [x, y, z] of L) this.flow.set(this.key(x, y, z), { f, t: T }); },
   pump(n, s) {
     const k = this.key(n.x, n.y, n.z); const D = Kinetic.D6[Kinetic.faceOf(n)]; const sg = 1; // siempre hacia donde apunta
     const front = [n.x + D[0] * sg, n.y + D[1] * sg, n.z + D[2] * sg], back = [n.x - D[0] * sg, n.y - D[1] * sg, n.z - D[2] * sg];
     const src = this.net(...back, [n.x, n.y, n.z]), dst = this.net(...front, [n.x, n.y, n.z]);
     const A = Math.min(2000, Math.abs(s) * 30); const b = this.buf[k] || (this.buf[k] = { f: null, a: 0 });
+    const filt = new Set([...src.filters, ...dst.filters]); const ok = (f) => !filt.size || filt.has(f);
+    const a0 = b.a;
     // 1) vaciar lo que lleva la bomba en los destinos
     const push = () => {
       if (!b.a) return;
+      if (!ok(b.f)) return;
       for (const e of dst.eps) { const g = e.get(); if (g.f && g.f !== b.f) continue; const put = e.add(b.f, b.a); b.a -= put; if (!b.a) { b.f = null; return; } }
       for (const [x, y, z] of dst.ends) { if (b.a < 1000 || (b.f !== 'water' && b.f !== 'lava')) break; const id = World.get(x, y, z); if (id && !REPLACE[id]) continue; if (LIQUID[id]) continue; World.set(x, y, z, b.f === 'water' ? B.water : B.lava, 0); World.schedule && World.schedule(x, y, z, 2); b.a -= 1000; if (!b.a) b.f = null; }
     };
     push();
     // 2) llenar la bomba desde los orígenes
     let want = A - b.a;
-    for (const e of src.eps) { if (want <= 0) break; const g = e.get(); if (!g.a || (b.f && g.f !== b.f)) continue; const t = e.take(want); if (t.a) { b.f = t.f; b.a += t.a; want -= t.a; } }
+    for (const e of src.eps) { if (want <= 0) break; const g = e.get(); if (!g.a || (b.f && g.f !== b.f) || !ok(g.f)) continue; const t = e.take(want); if (t.a) { b.f = t.f; b.a += t.a; want -= t.a; } }
     for (const [x, y, z] of src.ends) {
-      if (want <= 0) break; const id = World.get(x, y, z); if (!LIQUID[id] || (World.getMeta(x, y, z) & 7)) continue; const f = LIQUID[id] === 1 ? 'water' : 'lava'; if (b.f && b.f !== f) continue;
+      if (want <= 0) break; const id = World.get(x, y, z); if (!LIQUID[id] || (World.getMeta(x, y, z) & 7)) continue; const f = LIQUID[id] === 1 ? 'water' : 'lava'; if (b.f && b.f !== f || !ok(f)) continue;
       if (f === 'lava') World.set(x, y, z, 0, 0); // el agua es infinita, la lava se gasta
       b.f = f; b.a += f === 'lava' ? 1000 : want; want = A - b.a;
     }
     if (b.a > 4000) b.a = 4000;
-    push();
+    const F = b.f; const moved = b.a !== a0 || (b.a && dst.eps.length); push();
+    if (F && (moved || b.a)) { b.last = F; this.mark(src.pipes, F); this.mark(dst.pipes, F); for (const [x, y, z] of dst.ends) this.splash(x, y, z, F, true); }
   },
   // ---------- máquinas ----------
   recs(type) { return ((DYN_SPEC && DYN_SPEC.machine && DYN_SPEC.machine[type]) || []); },
@@ -14933,7 +14951,7 @@ const CFluids = {
       this.splash(x, y + 0.8, z, r.f); return;
     }
   },
-  splash(x, y, z, f) { const c = this.COLOR[f] || [200, 200, 255]; if (Particles.color) Particles.color(x + 0.5, y, z + 0.5, c[0] / 255, c[1] / 255, c[2] / 255, 8, 0.08, 12, 0.03, 0.06); Sound.play('splash', x, y, z); },
+  splash(x, y, z, f, quiet) { const c = this.COLOR[f] || [200, 200, 255]; if (Particles.color) Particles.color(x + 0.5, y + (quiet ? 0.5 : 0), z + 0.5, c[0] / 255, c[1] / 255, c[2] / 255, 8, 0.08, 12, 0.03, 0.06); if (!quiet) Sound.play('splash', x, y, z); },
   tick() {
     if (World.tickCount % 10 || !Kinetic.nodes) return; if (Kinetic.guest()) return;
     for (const [k, n] of Kinetic.nodes) { if (n.id !== B.create_mechanical_pump) continue; const s = Kinetic.speed.get(k) || 0; if (s) try { this.pump(n, s); } catch (e) { console.warn('pump', e); } }
@@ -14948,6 +14966,20 @@ const CFluids = {
   // ---------- usar con cubos ----------
   use(P, T, held) {
     const d = BLOCKS[T.id]; if (!d) return false; const k = d.key || '';
+    if ((k === 'create_fluid_pipe' || k === 'create_glass_fluid_pipe') && !held && B.create_glass_fluid_pipe !== undefined) {
+      if (k === 'create_glass_fluid_pipe') { World.set(T.x, T.y, T.z, B.create_fluid_pipe, 0, 3); Chat.add('§7Tubería normal.'); }
+      else { const cnt = [0, 0, 0]; Kinetic.D6.forEach(([dx, dy, dz], i) => { const nb = this.bk(T.x + dx, T.y + dy, T.z + dz); if (this.PIPE.test(nb) || this.ep(T.x + dx, T.y + dy, T.z + dz) || nb === 'create_mechanical_pump') cnt[i >> 1]++; }); const ax = cnt[0] >= cnt[1] && cnt[0] >= cnt[2] ? 0 : cnt[2] >= cnt[1] ? 2 : 1; World.set(T.x, T.y, T.z, B.create_glass_fluid_pipe, [4, 0, 8][ax], 3); Chat.add('§7Tubería de cristal: se ve el líquido que pasa (clic otra vez para volver).'); }
+      Sound.play('click', T.x, T.y, T.z); return true;
+    }
+    if (k === 'create_smart_fluid_pipe') {
+      const be = World.blockEnts.get(this.key(T.x, T.y, T.z)) || (World.blockEnts.set(this.key(T.x, T.y, T.z), { type: 'fluid', slots: [] }), World.blockEnts.get(this.key(T.x, T.y, T.z)));
+      const f = held && this.fromBucket(held.id);
+      if (f) { be.filter = f; Chat.add('§7Tubería inteligente: solo deja pasar §f' + this.NAME[f]); }
+      else if (held && held.id === 'bucket') { delete be.filter; Chat.add('§7Tubería inteligente: deja pasar cualquier líquido'); }
+      else Chat.add('§7Tubería inteligente: ' + (be.filter ? 'solo ' + this.NAME[be.filter] : 'sin filtro') + '. Clic con un cubo lleno para filtrar, con uno vacío para quitar el filtro.');
+      return true;
+    }
+    if (k === 'create_fluid_valve' && !held) { Chat.add('§7Válvula ' + (Kinetic.speed && Kinetic.speed.get(this.key(T.x, T.y, T.z)) ? '§aabierta' : '§ccerrada (dale giro para abrirla)')); return true; }
     if (k === 'create_mechanical_pump' && !held) { World.set(T.x, T.y, T.z, T.id, World.getMeta(T.x, T.y, T.z) ^ 1, 3); Chat.add('§7Bomba girada: ahora empuja hacia el otro lado.'); Sound.play('click', T.x, T.y, T.z); return true; } if (!/^create_(fluid_tank|creative_fluid_tank|spout|item_drain|basin|hose_pulley)$/.test(k)) return false;
     const e = this.ep(T.x, T.y, T.z); if (!e) return false; const g = e.get(); const id = held && held.id;
     const give = (out) => { if (P.mode === 1) return; if (held.n === 1) P.inv[P.sel] = out ? { id: out, n: 1 } : null; else { held.n--; if (out && P.give(out, 1) > 0) Entities.dropItem(P.x, P.y + 1, P.z, { id: out, n: 1 }); } };
@@ -14967,8 +14999,18 @@ const CFluids = {
     for (let fc = 0; fc < 6; fc++) { const verts = Mesher.FV[fc].map(v => [v[0] * 16, v[1] * 16, v[2] * 16]); const uvs = verts.map(v => Mesher.uvOf(fc, v[0], v[1], v[2])); Mesher.quad(vb, 0, 0, 0, verts, uvs, ti, rgb, Mesher.SHADE[fc], 240, 240, f === 'lava' ? 2 : 0); }
     return (this.meshes[f] = Renderer.meshFromVB(vb));
   },
+  box(Pw, m, mesh, x, y, z, box, f) {
+    const L = entLight(x + 0.5, y + 0.5, z + 0.5); Renderer.gl.uniform2f(Pw.u.uLightMul, f === 'lava' ? 1 : L[0], f === 'lava' ? 1 : L[1]);
+    M4.identity(m); M4.translate(m, x + box[0] / 16, y + box[1] / 16, z + box[2] / 16); M4.scale(m, (box[3] - box[0]) / 16, (box[4] - box[1]) / 16, (box[5] - box[2]) / 16); Renderer.drawMesh(mesh, m, Pw);
+  },
   draw(Pw, cam) {
     const R = Renderer, gl = R.gl; let set = false; const m = this._m || (this._m = new Float32Array(16)); const rd = (Settings.renderDist * 16) ** 2;
+    const T = World.tickCount;
+    for (const [k, fw] of this.flow) {
+      if (T - fw.t > 30) { this.flow.delete(k); continue; } const [x, y, z] = k.split(',').map(Number); if (this.bk(x, y, z) !== 'create_glass_fluid_pipe') continue;
+      const mesh = this.meshOf(fw.f); if (!mesh) continue; if (!set) { gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0); set = true; }
+      const ax = World.getMeta(x, y, z) & 12; this.box(Pw, m, mesh, x, y, z, ax === 4 ? [0, 5, 5, 16, 11, 11] : ax === 8 ? [5, 5, 0, 11, 11, 16] : [5, 0, 5, 11, 16, 11], fw.f);
+    }
     for (const [k, be] of World.blockEnts) {
       const fl = be.fl; if (!fl || !fl.a || !fl.f) continue; const [x, y, z] = k.split(',').map(Number); if ((x - cam.x) ** 2 + (z - cam.z) ** 2 > rd) continue;
       const bk = this.bk(x, y, z); let box = null;
@@ -14977,6 +15019,8 @@ const CFluids = {
       else if (bk === 'create_basin') box = [2, 2, 2, 14, 2 + 12 * Math.min(1, fl.a / 2000), 14];
       else if (bk === 'create_item_drain') box = [2, 11, 2, 14, 11 + 3 * Math.min(1, fl.a / 1000), 14];
       if (!box) continue; const mesh = this.meshOf(fl.f); if (!mesh) continue;
+      if (!set) { gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0); set = true; }
+      this.box(Pw, m, mesh, x, y, z, box, fl.f); continue;
       if (!set) { gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex); gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0); set = true; }
       const L = entLight(x + 0.5, y + 0.5, z + 0.5); gl.uniform2f(Pw.u.uLightMul, fl.f === 'lava' ? 1 : L[0], fl.f === 'lava' ? 1 : L[1]);
       M4.identity(m); M4.translate(m, x + box[0] / 16, y + box[1] / 16, z + box[2] / 16); M4.scale(m, (box[3] - box[0]) / 16, (box[4] - box[1]) / 16, (box[5] - box[2]) / 16);

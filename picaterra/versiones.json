@@ -1,8 +1,21 @@
 {
-  "latest": "1.23.3",
+  "latest": "1.23.4",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.23.4",
+      "date": "2026-11-22",
+      "title": "Líquidos a la vista",
+      "notes": [
+        "Los depósitos de fluido tienen ventanas y se ve el líquido dentro (también el creativo)",
+        "Tubería de cristal: clic derecho a mano vacía en una tubería; se ve el líquido que pasa. Salpicaduras en los extremos abiertos",
+        "Válvula: solo deja pasar con giro. Tubería inteligente: filtra un líquido (clic con un cubo lleno; con uno vacío quita el filtro)",
+        "Más seguro: un bloque de mod con modelo raro ya no puede dejar sin texturas al resto"
+      ],
+      "size": 362413,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.23.4.zip"
+    },
     {
       "id": "1.23.3",
       "date": "2026-11-22",
