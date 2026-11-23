@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.30.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.31.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -9439,7 +9439,7 @@ const Game = {
     } else { this.mining = null; P.swingStarted = false; }
     // --- clic derecho ---
     const held = P.held; const hit = ITEMS[held?.id];
-    if (Input.mouse[2] && P.mode !== 3) {
+    if ((Input.mouse[2] || Input.clicked[2]) && P.mode !== 3) {
       if (hit && hit.food && !(hit.places && this.target && this.target.id === B.farmland && this.target.face === 2) && !(this.targetEnt && this.targetEnt.mob && breedFood(this.targetEnt.kind, held.id)) && !(hit.block && this.target && !P.sneaking) && (P.food < 20 || P.mode === 1 || held.id === 'golden_apple' || hit.always)) {
         P.usingItem = true; P.useTime++;
         if (P.useTime % 4 === 0) { Sound.play(hit.drink || held.id === 'milk_bucket' ? 'drink' : 'eat'); Particles.color(...this.eyePos(1).map((v, i) => v + lookDir(P.yaw, P.pitch)[i] * 0.4), 0.8, 0.6, 0.4, 2, 0.1, 10, 0.03, 0.05); }
@@ -17107,7 +17107,7 @@ const Bike = {
       Chat.add('§7Ya tiene ese accesorio' + ((id === 'bicycle_taillight' || id === 'bicycle_basket') && !this.part(m, 'rack') ? ' (o le falta la parrilla trasera)' : '') + '. Usa la llave de cruz para cambiarlos.'); return true;
     }
     if (P.sneaking) { this.syncInv(m); if (!k.inv.length) { Chat.add('§7Esta bici no tiene canastas ni alforjas.'); return true; } GUI.openFor('bikebox', null); GUI.bike = m; return true; }
-    if (!P.riding) { Riding.mount(P, m); m.spd = 0; if (!Bike._told) { Bike._told = true; Chat.add('§7W pedalear · S frenar · ratón o A/D girar · Espacio saltar · X derrapar · B campanilla · L luces · Mayús bajarse'); } }
+    if (!P.riding) { Riding.mount(P, m); m.spd = 0; if (!Bike._told) { Bike._told = true; Chat.add(Input.touch ? '§7Joystick: pedalear, frenar y girar · mueve la vista para girar · ⤒ saltar · botones de la izquierda: derrapar, campanilla, luces y bajarse' : '§7W pedalear · S frenar · ratón o A/D girar · Espacio saltar · X derrapar · B campanilla · L luces · Mayús bajarse'); } }
     return true;
   },
 };
@@ -17401,9 +17401,9 @@ const EB = {
 };
 EB.load();
 // ratón: los modos de construcción toman el clic antes que el juego
-window.addEventListener('mousedown', (e) => {
+EB.onDown = (e) => {
   if (!MODS127.eb || Game.state !== 'play' || GUI.open || UI.cur || Chat.open || EBUI.open) return;
-  const P = Game.player; if (!P || P.dead || P.mode === 3 || P.riding) return; if (!Input.locked && !Input.freeLook) return;
+  const P = Game.player; if (!P || P.dead || P.mode === 3 || P.riding) return; if (!Input.locked && !Input.freeLook && !Input.touch) return;
   if (e.button !== 0 && e.button !== 2) return;
   const held = P.held, it = held && ITEMS[held.id];
   // herramienta aleatorizadora: Mayús + clic derecho = configurar; clic derecho = bloque al azar
@@ -17416,7 +17416,8 @@ window.addEventListener('mousedown', (e) => {
     const T = Game.target; if (e.button === 2 && T && BLOCKS[T.id].interact && !P.sneaking) return; if (e.button === 2 && Game.targetEnt) return; if (e.button === 0 && Game.targetEnt) return;
   }
   if (EB.click(e.button)) { e.stopImmediatePropagation(); e.preventDefault(); Input.mouse[0] = false; Input.mouse[2] = false; }
-}, true);
+};
+window.addEventListener('mousedown', (e) => EB.onDown(e), true);
 // vista previa
 {
   const ds0 = drawSelection;
@@ -17457,7 +17458,8 @@ window.addEventListener('mousedown', (e) => {
     if (this.open === 'ebrand' && this.hover && this.hover.kind === 'ghost') {
       const t = this.rtool, i = this.hover.i, C = this.cursor;
       if (C && ITEMS[C.id] && ITEMS[C.id].block) t.rz[i] = { id: C.id, n: 1, w: (t.rz[i] && t.rz[i].w) || 1 };
-      else if (!C) { if (t.rz[i] && btn === 2) t.rz[i].w = (t.rz[i].w % 16) + 1; else t.rz[i] = null; }
+      else if (C && t.rz[i] && C.id === t.rz[i].id) t.rz[i] = null;
+      else if (!C) { if (t.rz[i] && (btn === 2 || Input.touch)) t.rz[i].w = (t.rz[i].w % 16) + 1; else t.rz[i] = null; }
       Sound.play('click'); return;
     }
     return cl0(btn, shift);
@@ -17493,6 +17495,7 @@ const EBUI = {
   radial() {
     const body = this.shell('Modos de construcción'); this.open = 'radial';
     const wrap = document.createElement('div'); wrap.style.cssText = 'position:relative;width:520px;height:520px;margin:auto';
+    if (Input.touch) wrap.style.zoom = Math.min(1, (innerHeight * 0.74) / 520, (innerWidth * 0.9) / 520);
     EB_MODES.forEach((m, i) => {
       const a = -Math.PI / 2 + i / EB_MODES.length * Math.PI * 2, r = 222; const b = this.btn('', EB.mode === m[0], () => { EB.mode = m[0]; EB.st = null; EB.save(); this.close(); Input.lock(); Chat.add('§7Modo de construcción: ' + m[1]); if (m[0] !== 'normal' && !localStorage.getItem('picaterra_eb_hint')) { localStorage.setItem('picaterra_eb_hint', '1'); Chat.add('§7¡Has activado un modo de construcción! Con un bloque en la mano, haz clic derecho para elegir la posición inicial (clic izquierdo para romper).'); } }, this.icon(m[2], 1), m[1]);
       b.style.position = 'absolute'; b.style.left = (260 + Math.cos(a) * r - 34) + 'px'; b.style.top = (260 + Math.sin(a) * r - 30) + 'px'; b.style.flexDirection = 'column'; b.style.fontSize = '10px'; b.style.width = '64px'; b.appendChild(document.createTextNode('')); b.lastChild.textContent = '';
@@ -17545,7 +17548,7 @@ if (MODS127.eb) setTimeout(() => { const t0 = Game.start || null; void t0; }, 0)
 // mensaje de bienvenida (una vez por mundo)
 {
   let told = null;
-  setInterval(() => { if (!MODS127.eb || Game.state !== 'play' || !Game.world) return; const id = Game.world.id; if (told === id) return; told = id; const W = Game.world; if (W.ebWelcome) return; W.ebWelcome = true; Chat.add('§e¡Gracias por usar Effortless Building! §7Para empezar, pulsa Alt para abrir el menú de construcción (K: modificadores).'); }, 3000);
+  setInterval(() => { if (!MODS127.eb || Game.state !== 'play' || !Game.world) return; const id = Game.world.id; if (told === id) return; told = id; const W = Game.world; if (W.ebWelcome) return; W.ebWelcome = true; Chat.add('§e¡Gracias por usar Effortless Building! §7Para empezar, ' + (Input.touch ? 'toca el botón 🔨 de la izquierda para elegir un modo de construcción.' : 'pulsa Alt para abrir el menú de construcción (K: modificadores).')); }, 3000);
 }
 
 
@@ -17706,7 +17709,7 @@ const RC = {
     e.persistent = V.kind !== 'missile'; e.step = V.kind === 'ground' ? 1.05 : V.kind === 'boat' || V.kind === 'plane' ? 0.6 : 0.1;
     if (e.onGround) e.air = 0; else e.air = (e.air || 0) + 1;
     if (V.kind === 'missile') return this.missileTick(e, V);
-    const ctl = this.ctl && this.ctl.e === e ? this.keys : null; const K = (c) => !!(ctl && ctl[c]);
+    const ctl = this.ctl && this.ctl.e === e ? this.keys : null; const K = (c) => !!(ctl && (ctl[c] || this.touchKey(c)));
     const on = !e.motorOff && this.bat(e) > 0;
     const wet = e.inWater;
     if (V.kind === 'ground' || V.kind === 'boat') {
@@ -17737,6 +17740,12 @@ const RC = {
     else if (V.kind === 'rotor') this.rotorTick(e, V, K, on);
   },
   // avión fácil: va hacia donde miras con el ratón (W/S/A/D también mueven el punto de mira)
+  // en el móvil: el joystick hace de W/A/S/D y los botones de la pantalla de las demás teclas
+  tkeys: {},
+  touchKey(c) {
+    if (!Input.touch) return false; if (this.tkeys[c]) return true; const j = Input.joy;
+    return (c === 'KeyW' && j.y < -0.35) || (c === 'KeyS' && j.y > 0.35) || (c === 'KeyA' && j.x < -0.35) || (c === 'KeyD' && j.x > 0.35);
+  },
   planeTick(e, V, K, on) {
     if (e.th === undefined) { e.th = 0; e.spd = 0; e.sink = 0; e.pit = 0; e.rol = 0; }
     const P = Game.player, mine = this.ctl && this.ctl.e === e;
@@ -17844,7 +17853,8 @@ const RC = {
     const V = RCV[e.kind.slice(3)]; if (V.kind === 'plane') { P.yaw = e.yaw; P.pitch = 0; this.ctl.yaw0 = P.yaw; this.ctl.pitch0 = 0; }
     const help = { ground: 'W/S acelerar y frenar · A/D girar · Espacio saltar (sube escalones solo)', boat: 'W/S acelerar y frenar · A/D girar', sub: 'W/S avanzar · A/D girar · Espacio/Mayús subir y bajar · F torpedo',
       plane: 'Espacio/Mayús potencia (despega solo al coger velocidad) · el avión va hacia donde miras con el ratón · W/S/A/D también lo guían' + (V.weapon ? ' · F misil (apunta solo)' : ''), rotor: 'Espacio/Mayús subir y bajar · W/S adelante y atrás · A/D lados · Q/E girar' };
-    Chat.add('§eControlando: ' + MOBS[e.kind].name + '§7 — ' + help[V.kind] + ' · X motor · C cámara · G recoger · Esc o clic derecho: soltar el mando');
+    if (Input.touch) Chat.add('§eControlando: ' + MOBS[e.kind].name + '§7 — joystick para moverlo' + (V.kind === 'plane' ? ' · mueve la vista para guiar el avión' : '') + ' · botones de la izquierda para lo demás · ▣ suelta el mando');
+    else Chat.add('§eControlando: ' + MOBS[e.kind].name + '§7 — ' + help[V.kind] + ' · X motor · C cámara · G recoger · Esc o clic derecho: soltar el mando');
   },
   stop() { const P = Game.player; if (this.ctl) this.waitHome = true; this.ctl = null; this.keys = {}; this.stopSound(); Cam.rcf = null; if (P && Guns.sounds['thercmod:remoteoff']) Guns.play('thercmod:remoteoff', P.x, P.y, P.z); },
   retrieve(e) {
@@ -17957,13 +17967,88 @@ window.addEventListener('mousedown', (e) => {
     const lines = ['§e' + MOBS[e.kind].name, '§fBatería: ' + (b > 25 ? '§a' : '§c') + b + ' %', '§fVelocidad: ' + spd + ' km/h', '§fAltura: ' + Math.round(e.y) + '  · Distancia: ' + Math.round(Math.hypot(e.x - Game.player.x, e.z - Game.player.z)) + ' m'];
     if (V.kind === 'plane') lines.push('§fPotencia: ' + Math.round((e.th || 0) * 100) + ' %');
     if (e.motorOff) lines.push('§cMotor parado (X)');
-    g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(W - 170 * s, 6 * s, 164 * s, (lines.length * 10 + 6) * s);
-    lines.forEach((t, i) => this.text(t, W - 166 * s, (9 + i * 10) * s, '#ffffff', s));
+    const y0 = Input.touch ? 64 * this.dpr : 0;
+    g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(W - 170 * s, y0 + 6 * s, 164 * s, (lines.length * 10 + 6) * s);
+    lines.forEach((t, i) => this.text(t, W - 166 * s, y0 + (9 + i * 10) * s, '#ffffff', s));
   };
 }
 
 Game.focus = function () { const e = RC.ctl && RC.ctl.e; return e && !e.remove && !e.dead ? e : this.player; };
 { const an0 = NetSync.anchors.bind(NetSync); NetSync.anchors = function () { const a = an0() || []; const P = Game.player; if (P && (RC.ctl || RC.waitHome)) a.push([Math.floor(P.x) >> 4, Math.floor(P.z) >> 4]); return a.length ? a : null; }; }
+
+
+// ---- extra/touchmods130.js ----
+// ============================================================
+//  1.31: mods en el móvil — botones táctiles para la bicicleta, Effortless Building y los vehículos RC
+//  (aparecen solo cuando hacen falta, a la izquierda de la pantalla)
+// ============================================================
+const TouchMods = {
+  key: '', el: null,
+  press(code) { window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true })); window.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true })); },
+  btns() {
+    const P = Game.player; if (!P || Game.state !== 'play' || UI.cur || GUI.open || EBUI.open) return [];
+    const out = [];
+    // vehículo RC que estás controlando
+    if (typeof RC !== 'undefined' && RC.ctl) {
+      const e = RC.ctl.e, V = RCV[e.kind.slice(3)] || {};
+      const hold = (id, label, code) => out.push({ id, label, down: () => { RC.tkeys[code] = true; }, up: () => { RC.tkeys[code] = false; } });
+      if (V.kind === 'plane') { hold('up', '⏫ Potencia', 'Space'); hold('dn', '⏬ Menos', 'ShiftLeft'); }
+      if (V.kind === 'rotor' || V.kind === 'sub') { hold('up', '⬆ Subir', 'Space'); hold('dn', '⬇ Bajar', 'ShiftLeft'); }
+      if (V.kind === 'rotor') { hold('q', '↺ Girar', 'KeyQ'); hold('e', '↻ Girar', 'KeyE'); }
+      if (V.kind === 'ground') hold('j', '⤒ Saltar', 'Space');
+      if (V.weapon) out.push({ id: 'f', label: V.weapon === 'torpedo' ? '🎯 Torpedo' : '🎯 Misil', down: () => this.press('KeyF') });
+      out.push({ id: 'c', label: '📷 Cámara', down: () => this.press('KeyC') });
+      out.push({ id: 'x', label: '⏻ Motor', down: () => this.press('KeyX') });
+      out.push({ id: 'g', label: '🧲 Recoger', down: () => this.press('KeyG') });
+      out.push({ id: 's', label: '✋ Soltar', down: () => RC.stop() });
+      return out;
+    }
+    // bicicleta
+    if (P.riding && P.riding.kind === 'bicycle') {
+      out.push({ id: 'dr', label: '💨 Derrapar', down: () => { Input.keys.KeyX = true; }, up: () => { Input.keys.KeyX = false; } });
+      out.push({ id: 'bl', label: '🔔 Campanilla', down: () => document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyB' })) });
+      out.push({ id: 'lu', label: '💡 Luces', down: () => document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyL' })) });
+      out.push({ id: 'ba', label: '⬇ Bajarse', down: () => Riding.dismount(P) });
+      return out;
+    }
+    // Effortless Building
+    if (MODS127.eb && !P.riding) {
+      const D = EB.def();
+      out.push({ id: 'eb', label: '🔨 ' + D[1], down: () => { EB.st = null; EBUI.radial(); } });
+      if (EB.st) out.push({ id: 'ca', label: '✖ Cancelar', down: () => { EB.st = null; Sound.play('click'); } });
+      if (EB.active() || EB.undoL.length) { out.push({ id: 'un', label: '↶ Deshacer', down: () => EB.undo() }); out.push({ id: 're', label: '↷ Rehacer', down: () => EB.redo() }); }
+      if (EB.mods.mirror.on || EB.mods.array.on || EB.mods.radial.on || EB.active()) out.push({ id: 'mo', label: '🪞 Modificadores', down: () => EBUI.modifiers() });
+    }
+    return out;
+  },
+  update() {
+    if (!Input.touch) return;
+    if (!this.el) {
+      const el = this.el = document.createElement('div'); el.id = 'tMods';
+      el.style.cssText = 'position:fixed;left:12px;top:70px;z-index:5;display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 230px);flex-wrap:wrap;align-content:flex-start';
+      (document.getElementById('touch') || document.body).appendChild(el);
+    }
+    const list = this.btns(); const key = list.map(b => b.id + b.label).join('|');
+    if (key === this.key) return; this.key = key; this.el.innerHTML = '';
+    for (const b of list) {
+      const d = document.createElement('div'); d.className = 'tb'; d.textContent = b.label;
+      d.style.cssText = 'position:static;width:auto;height:auto;min-width:58px;padding:8px 10px;font-size:14px;white-space:nowrap';
+      d.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); d.style.background = 'rgba(255,255,255,0.35)'; try { b.down(); } catch (x) { } }, { passive: false });
+      const up = (e) => { e.preventDefault(); e.stopPropagation(); d.style.background = ''; if (b.up) try { b.up(); } catch (x) { } };
+      d.addEventListener('touchend', up, { passive: false }); d.addEventListener('touchcancel', up, { passive: false });
+      this.el.appendChild(d);
+    }
+  },
+};
+setInterval(() => { try { TouchMods.update(); } catch (e) { } }, 250);
+// los botones ⛏ y ▣ pasan primero por los modos de construcción y por el mando RC
+window.addEventListener('touchstart', (e) => {
+  if (!Input.touch || Game.state !== 'play' || GUI.open || UI.cur) return;
+  const id = e.target && e.target.id; if (id !== 'tUse' && id !== 'tMine') return;
+  const button = id === 'tUse' ? 2 : 0;
+  if (typeof RC !== 'undefined' && RC.ctl) { e.stopImmediatePropagation(); e.preventDefault(); if (button === 2) RC.stop(); else RC.fire(RC.ctl.e); return; }
+  if (MODS127.eb) { let handled = false; EB.onDown({ button, stopImmediatePropagation() { handled = true; }, preventDefault() { } }); if (handled) { e.stopImmediatePropagation(); e.preventDefault(); } }
+}, { capture: true, passive: false });
 
 // ---- 13d_enchant.js ----
 // ============================================================

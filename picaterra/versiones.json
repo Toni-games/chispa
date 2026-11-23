@@ -1,8 +1,21 @@
 {
-  "latest": "1.30.0",
+  "latest": "1.31.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.31.0",
+      "date": "2026-11-23",
+      "title": "Los mods funcionan en el móvil",
+      "notes": [
+        "Botones táctiles para la bicicleta: derrapar, campanilla, luces y bajarse",
+        "Effortless Building en el móvil: botón 🔨 para los modos, deshacer, rehacer y modificadores",
+        "Vehículos RC en el móvil: joystick para moverlos y botones para subir, bajar, girar, disparar, cámara, motor y recoger",
+        "Arreglado: en el móvil, un toque rápido en ▣ no siempre usaba el objeto"
+      ],
+      "size": 431464,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.31.0.zip"
+    },
     {
       "id": "1.30.0",
       "date": "2026-11-23",
