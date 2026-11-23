@@ -137,7 +137,17 @@
   #touch { display: none; }
   body.touch #touch { display: block; }
   body.touch.menu #touch { display: none; }
-  .tb { position: fixed; z-index: 4; width: 58px; height: 58px; border-radius: 10px; background: rgba(255, 255, 255, 0.16); border: 2px solid rgba(255, 255, 255, 0.35); color: #fff; font-size: 22px; display: flex; align-items: center; justify-content: center; }
+  .tb { position: fixed; z-index: 4; width: 70px; height: 70px; border-radius: 14px; background: rgba(0, 0, 0, 0.32); border: 2px solid rgba(255, 255, 255, 0.45); color: #fff; font-size: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; user-select: none; -webkit-user-select: none; text-shadow: 0 1px 2px #000; }
+  .tb .ti { line-height: 1; } .tb .tl { font-size: 11px; line-height: 1; opacity: .95; white-space: nowrap; }
+  .tb.sm { width: 50px; height: 50px; font-size: 18px; border-radius: 10px; } .tb.sm .tl { font-size: 9px; }
+  .tb.big { width: 74px; height: 74px; }
+  .tb.on { background: rgba(255, 210, 74, 0.45); border-color: #ffd24a; }
+  .tb:active { background: rgba(255, 255, 255, 0.35); }
+  #tRun { position: absolute; left: 0; right: 0; top: -22px; text-align: center; font: bold 12px sans-serif; color: #ffd24a; text-shadow: 0 1px 2px #000; display: none; }
+  #tJoy.run #tRun { display: block; } #tJoy.run #tKnob { background: rgba(255, 210, 74, 0.7); }
+  #tHelpBox { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; color: #eee; font-family: sans-serif; }
+  #tHelpBox > div { background: #1d1f24; border: 2px solid #666; border-radius: 12px; padding: 16px 20px; max-width: 92vw; max-height: 88vh; overflow: auto; font-size: 15px; line-height: 1.45; }
+  #tHelpBox b { color: #ffd24a; }
   #tJoy { position: fixed; z-index: 4; left: 24px; bottom: 30px; width: 140px; height: 140px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); }
   #tKnob { position: absolute; left: 45px; top: 45px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255, 255, 255, 0.35); }
   @media (max-width: 640px) { .opts { grid-template-columns: 1fr; } .keys { columns: 1; } #splash { right: 0; } }
@@ -329,16 +339,17 @@
 <div id="chatGhost"></div><div id="chatSug"></div>
 
 <div id="touch">
-  <div id="tJoy"><div id="tKnob"></div></div>
-  <div class="tb" id="tJump" style="right:30px;bottom:110px">⤒</div>
-  <div class="tb" id="tSneak" style="right:100px;bottom:40px">⇩</div>
-  <div class="tb" id="tMine" style="right:30px;bottom:180px">⛏</div>
-  <div class="tb" id="tUse" style="right:100px;bottom:180px">▣</div>
-  <div class="tb" id="tInv" style="right:30px;bottom:40px">E</div>
-  <div class="tb" id="tPause" style="right:12px;top:12px;width:46px;height:46px">⏸</div>
-  <div class="tb" id="tCam" style="right:68px;top:12px;width:46px;height:46px">👁</div>
-  <div class="tb" id="tDrop" style="right:124px;top:12px;width:46px;height:46px">Q</div>
-  <div class="tb" id="tChat" style="right:180px;top:12px;width:46px;height:46px">/</div>
+  <div id="tJoy"><div id="tKnob"></div><span id="tRun">CORRER</span></div>
+  <div class="tb big" id="tJump" style="right:24px;bottom:28px"><span class="ti">⤒</span><span class="tl">Saltar</span></div>
+  <div class="tb" id="tSneak" style="right:104px;bottom:28px"><span class="ti">⇩</span><span class="tl">Agachar</span></div>
+  <div class="tb" id="tMine" style="right:24px;bottom:122px"><span class="ti">⛏</span><span class="tl">Romper</span></div>
+  <div class="tb" id="tUse" style="right:104px;bottom:122px"><span class="ti">✋</span><span class="tl">Usar</span></div>
+  <div class="tb" id="tInv" style="right:184px;bottom:28px"><span class="ti">🎒</span><span class="tl">Inventario</span></div>
+  <div class="tb sm" id="tPause" style="right:12px;top:12px"><span class="ti">⏸</span><span class="tl">Pausa</span></div>
+  <div class="tb sm" id="tCam" style="right:68px;top:12px"><span class="ti">👁</span><span class="tl">Cámara</span></div>
+  <div class="tb sm" id="tDrop" style="right:124px;top:12px"><span class="ti">⤵</span><span class="tl">Tirar</span></div>
+  <div class="tb sm" id="tChat" style="right:180px;top:12px"><span class="ti">💬</span><span class="tl">Chat</span></div>
+  <div class="tb sm" id="tHelp" style="right:236px;top:12px"><span class="ti">?</span><span class="tl">Ayuda</span></div>
 </div>
 <script>
 
@@ -347,7 +358,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.31.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.31.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -11588,11 +11599,11 @@ const Input = {
     const r = () => joy.getBoundingClientRect();
     document.addEventListener('touchmove', (e) => {
       for (const t of e.changedTouches) {
-        if (t.identifier === joyId) { const b = r(); const cx = b.left + b.width / 2, cy = b.top + b.height / 2; let dx = (t.clientX - cx) / (b.width / 2), dy = (t.clientY - cy) / (b.height / 2); const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; } this.joy.x = dx; this.joy.y = dy; knob.style.transform = `translate(${dx * 40}px,${dy * 40}px)`; this.tbtn.sprint = dy < -0.95; }
+        if (t.identifier === joyId) { const b = r(); const cx = b.left + b.width / 2, cy = b.top + b.height / 2; let dx = (t.clientX - cx) / (b.width / 2), dy = (t.clientY - cy) / (b.height / 2); const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; } this.joy.x = dx; this.joy.y = dy; knob.style.transform = `translate(${dx * 40}px,${dy * 40}px)`; this.tbtn.sprint = dy < -0.9; joy.classList.toggle('run', this.tbtn.sprint); }
         if (t.identifier === lookId) { this.dx += (t.clientX - lx) * 2.2; this.dy += (t.clientY - ly) * 2.2; if (Math.hypot(t.clientX - lx, t.clientY - ly) > 2) moved = true; lx = t.clientX; ly = t.clientY; }
       }
     }, { passive: false });
-    const end = (e) => { for (const t of e.changedTouches) { if (t.identifier === joyId) { joyId = null; this.joy.x = this.joy.y = 0; knob.style.transform = ''; this.tbtn.sprint = false; } if (t.identifier === lookId) { lookId = null; this.mouse[0] = false; if (!moved && performance.now() - lookStart < 250) { this.clicked[2] = true; this.mouse[2] = true; setTimeout(() => this.mouse[2] = false, 60); } } } };
+    const end = (e) => { for (const t of e.changedTouches) { if (t.identifier === joyId) { joyId = null; this.joy.x = this.joy.y = 0; knob.style.transform = ''; this.tbtn.sprint = false; joy.classList.remove('run'); } if (t.identifier === lookId) { lookId = null; this.mouse[0] = false; if (!moved && performance.now() - lookStart < 250) { this.clicked[2] = true; this.mouse[2] = true; setTimeout(() => this.mouse[2] = false, 60); } } } };
     document.addEventListener('touchend', end); document.addEventListener('touchcancel', end);
     const gl = document.getElementById('hud');
     gl.addEventListener('touchstart', (e) => {
@@ -11609,7 +11620,8 @@ const Input = {
     }, { passive: false });
     const bind = (id, fn, up) => { const el = document.getElementById(id); el.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); fn(); }, { passive: false }); if (up) el.addEventListener('touchend', (e) => { e.preventDefault(); up(); }); };
     bind('tJump', () => { this.tbtn.jump = true; const P = Game.player; const now = performance.now(); if (P && P.mode === 1 && now - this.lastSpace < 300) P.flying = !P.flying; this.lastSpace = now; }, () => this.tbtn.jump = false);
-    bind('tSneak', () => this.tbtn.sneak = !this.tbtn.sneak);
+    // agacharse: interruptor al andar; al volar o nadar se mantiene pulsado para bajar
+    bind('tSneak', () => { const P = Game.player; if (P && (P.flying || P.inWater)) { this.tbtn.sneak = true; this._sneakHold = true; } else { this.tbtn.sneak = !this.tbtn.sneak; this._sneakHold = false; } }, () => { if (this._sneakHold) { this.tbtn.sneak = false; this._sneakHold = false; } });
     bind('tMine', () => { this.mouse[0] = true; this.clicked[0] = true; }, () => this.mouse[0] = false);
     bind('tUse', () => { this.mouse[2] = true; this.clicked[2] = true; }, () => this.mouse[2] = false);
     bind('tInv', () => { if (GUI.open) GUI.close(); else if (Game.state === 'play') GUI.openFor('inv'); });
@@ -11617,6 +11629,7 @@ const Input = {
     bind('tCam', () => { Game.cam = (Game.cam + 1) % 3; });
     bind('tDrop', () => Game.dropHeld(false));
     bind('tChat', () => UI.openChat('/'));
+    bind('tHelp', () => TouchHelp.show());
   },
 };
 
@@ -18000,7 +18013,6 @@ const TouchMods = {
       out.push({ id: 'c', label: '📷 Cámara', down: () => this.press('KeyC') });
       out.push({ id: 'x', label: '⏻ Motor', down: () => this.press('KeyX') });
       out.push({ id: 'g', label: '🧲 Recoger', down: () => this.press('KeyG') });
-      out.push({ id: 's', label: '✋ Soltar', down: () => RC.stop() });
       return out;
     }
     // bicicleta
@@ -18025,14 +18037,14 @@ const TouchMods = {
     if (!Input.touch) return;
     if (!this.el) {
       const el = this.el = document.createElement('div'); el.id = 'tMods';
-      el.style.cssText = 'position:fixed;left:12px;top:70px;z-index:5;display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 230px);flex-wrap:wrap;align-content:flex-start';
+      el.style.cssText = 'position:fixed;left:12px;top:12px;z-index:5;display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 210px);flex-wrap:wrap;align-content:flex-start';
       (document.getElementById('touch') || document.body).appendChild(el);
     }
     const list = this.btns(); const key = list.map(b => b.id + b.label).join('|');
     if (key === this.key) return; this.key = key; this.el.innerHTML = '';
     for (const b of list) {
       const d = document.createElement('div'); d.className = 'tb'; d.textContent = b.label;
-      d.style.cssText = 'position:static;width:auto;height:auto;min-width:58px;padding:8px 10px;font-size:14px;white-space:nowrap';
+      d.style.cssText = 'position:static;width:auto;height:auto;min-width:64px;padding:8px 12px;font-size:15px;white-space:nowrap;flex-direction:row;background:rgba(40,60,110,0.55)';
       d.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); d.style.background = 'rgba(255,255,255,0.35)'; try { b.down(); } catch (x) { } }, { passive: false });
       const up = (e) => { e.preventDefault(); e.stopPropagation(); d.style.background = ''; if (b.up) try { b.up(); } catch (x) { } };
       d.addEventListener('touchend', up, { passive: false }); d.addEventListener('touchcancel', up, { passive: false });
@@ -18049,6 +18061,99 @@ window.addEventListener('touchstart', (e) => {
   if (typeof RC !== 'undefined' && RC.ctl) { e.stopImmediatePropagation(); e.preventDefault(); if (button === 2) RC.stop(); else RC.fire(RC.ctl.e); return; }
   if (MODS127.eb) { let handled = false; EB.onDown({ button, stopImmediatePropagation() { handled = true; }, preventDefault() { } }); if (handled) { e.stopImmediatePropagation(); e.preventDefault(); } }
 }, { capture: true, passive: false });
+// ---- 1.31.1: controles táctiles más claros ----
+// los botones dicen lo que van a hacer en cada momento (montado, volando, con el mando RC, construyendo…)
+const TouchLabels = {
+  set(id, icon, text, on) {
+    const el = document.getElementById(id); if (!el) return; const i = el.querySelector('.ti'), t = el.querySelector('.tl');
+    if (i && i.textContent !== icon) i.textContent = icon; if (t && t.textContent !== text) t.textContent = text;
+    el.classList.toggle('on', !!on); el.style.display = text ? '' : 'none';
+  },
+  update() {
+    if (!Input.touch || Game.state !== 'play') return; const P = Game.player; if (!P) return;
+    const rc = typeof RC !== 'undefined' && RC.ctl, bike = P.riding && P.riding.kind === 'bicycle', ride = !!P.riding;
+    const held = P.held, it = held && ITEMS[held.id];
+    // saltar / subir
+    if (rc) this.set('tJump', '', '');
+    else if (P.flying) this.set('tJump', '⬆', 'Subir');
+    else if (P.inWater) this.set('tJump', '⬆', 'Nadar');
+    else this.set('tJump', '⤒', 'Saltar');
+    // agacharse / bajar
+    if (rc) this.set('tSneak', '', '');
+    else if (ride) this.set('tSneak', '⬇', bike ? 'Bajarse' : 'Desmontar');
+    else if (P.flying) this.set('tSneak', '⬇', 'Bajar', Input.tbtn.sneak);
+    else this.set('tSneak', '⇩', Input.tbtn.sneak ? 'Agachado' : 'Agachar', Input.tbtn.sneak);
+    // romper / usar
+    if (rc) { const V = RCV[RC.ctl.e.kind.slice(3)] || {}; this.set('tMine', '🎯', V.weapon ? 'Disparar' : '', false); this.set('tUse', '✋', 'Soltar mando'); }
+    else if (MODS127.eb && EB.st) { this.set('tMine', '✖', EB.st.breaking ? 'Siguiente' : 'Cancelar'); this.set('tUse', '✔', EB.st.breaking ? 'Cancelar' : (EB.st.phase < EB.def()[3] - 1 ? 'Siguiente' : 'Terminar')); }
+    else {
+      this.set('tMine', '⛏', it && it.tool && it.tool.type === 'sword' ? 'Atacar' : 'Romper');
+      let use = 'Usar', ic = '✋';
+      if (Game.targetEnt && Game.targetEnt.mob) { const k = Game.targetEnt.kind; use = k === 'villager' ? 'Comerciar' : k === 'bicycle' ? 'Montar' : Game.targetEnt.def && Game.targetEnt.def.rideable ? 'Montar' : 'Usar'; }
+      else if (it && it.rcRemote) { use = 'Controlar'; ic = '🎮'; }
+      else if (it && (it.block || it.rcVehicle || held.id === 'bicycle_bicycle')) { use = 'Poner'; ic = '▣'; }
+      else if (it && it.food) { use = 'Comer'; ic = '🍖'; }
+      else if (Game.target && BLOCKS[Game.target.id] && BLOCKS[Game.target.id].interact) use = 'Abrir';
+      this.set('tUse', ic, use);
+    }
+    this.set('tInv', '🎒', rc ? '' : 'Inventario');
+  },
+};
+setInterval(() => { try { TouchLabels.update(); } catch (e) { } }, 200);
+const TouchHelp = {
+  show() {
+    if (document.getElementById('tHelpBox')) return;
+    const el = document.createElement('div'); el.id = 'tHelpBox';
+    el.innerHTML = '<div><div style="font-size:20px;color:#ffd24a;margin-bottom:8px">Cómo se juega en el móvil</div>' +
+      '<b>Moverte:</b> el círculo de la izquierda. Llévalo del todo hacia arriba para <b>correr</b>.<br>' +
+      '<b>Mirar:</b> arrastra el dedo por la pantalla.<br>' +
+      '<b>Usar o poner un bloque:</b> toca la pantalla una vez (o el botón ✋).<br>' +
+      '<b>Romper o atacar:</b> mantén el dedo quieto en la pantalla (o el botón ⛏).<br>' +
+      '<b>Saltar:</b> ⤒. En creativo, dos toques seguidos para volar; volando, ⬆ sube y ⬇ baja.<br>' +
+      '<b>Agacharse:</b> ⇩ se queda puesto hasta que lo vuelvas a tocar.<br>' +
+      '<b>Elegir objeto:</b> toca la barra de abajo. 🎒 abre el inventario.<br>' +
+      '<b>Los botones cambian de nombre</b> según lo que vayan a hacer: «Montar», «Comerciar», «Controlar»…<br>' +
+      '<b>Mods:</b> a la izquierda salen botones extra cuando hacen falta (bicicleta, construcción, vehículos RC).<br>' +
+      '<div style="margin-top:12px;text-align:right"><button style="padding:10px 18px;font-size:16px;background:#3a8a2a;color:#fff;border:0;border-radius:8px">¡Entendido!</button></div></div>';
+    document.body.appendChild(el);
+    const close = (e) => { e.preventDefault(); e.stopPropagation(); el.remove(); try { localStorage.setItem('picaterra_touchHelp', '1'); } catch (x) { } };
+    el.querySelector('button').addEventListener('touchstart', close, { passive: false }); el.querySelector('button').addEventListener('click', close);
+  },
+};
+setInterval(() => { try { if (Input.touch && Game.state === 'play' && !UI.cur && !localStorage.getItem('picaterra_touchHelp')) TouchHelp.show(); } catch (e) { } }, 3000);
+
+
+// ---- extra/androidinbox131.js ----
+// ---- 1.31.1: app de Android — archivos elegidos cuando el sistema cerró la página mientras tanto ----
+// Si al volver del selector de archivos la página se había recargado, la app guarda lo elegido en
+// «pendientes» y aquí se añade solo (mods, paquetes de texturas, modpacks…).
+const AndroidInbox = {
+  busy: false,
+  async check() {
+    if (!/PicaterraAndroid/.test(navigator.userAgent) || this.busy || typeof Addons === 'undefined') return;
+    this.busy = true;
+    try {
+      const r = await fetch('/__pendientes/lista.json', { cache: 'no-store' }); if (!r.ok) return;
+      const list = (await r.json()).filter(f => f && typeof f.file === 'string'); if (!list.length) return;
+      const box = this.box('Añadiendo ' + list.length + (list.length === 1 ? ' archivo…' : ' archivos…'));
+      const files = []; for (const f of list) { const b = await (await fetch('/__pendientes/' + encodeURIComponent(f.file))).blob(); files.push(new File([b], f.file)); }
+      const out = await Addons.addFiles(files, (t) => { box.msg.textContent = t; });
+      for (const f of list) await fetch('/__pendientes/borrar/' + encodeURIComponent(f.file)).catch(() => { });
+      box.msg.textContent = out.join('\n');
+      box.btn.style.display = '';
+      box.btn.onclick = async () => { box.msg.textContent = 'Preparando…'; try { if (Game.state === 'play') await Game.save(true); } catch (e) { } try { await Addons.saveSpec(); } catch (e) { } location.reload(); };
+    } catch (e) { console.warn('inbox', e); } finally { this.busy = false; }
+  },
+  box(t) {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);font-family:' + (typeof FONT !== 'undefined' ? FONT : 'sans-serif');
+    el.innerHTML = '<div style="background:#1d1f24;border:2px solid #555;border-radius:10px;padding:16px;max-width:90vw;max-height:80vh;overflow:auto;color:#eee"><div style="color:#ffd24a;font-size:18px;margin-bottom:8px">Archivos recibidos</div><pre style="white-space:pre-wrap;font:inherit;font-size:14px;margin:0"></pre><div style="margin-top:12px;display:flex;gap:8px"><button style="display:none;padding:8px 14px;font:inherit;background:#3a8a2a;color:#fff;border:0;border-radius:6px">Aplicar y recargar</button><button style="padding:8px 14px;font:inherit;background:#444;color:#fff;border:0;border-radius:6px">Cerrar</button></div></div>';
+    document.body.appendChild(el); const msg = el.querySelector('pre'); msg.textContent = t; const [btn, close] = el.querySelectorAll('button'); close.onclick = () => el.remove();
+    return { el, msg, btn };
+  },
+};
+setTimeout(() => AndroidInbox.check(), 4000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => AndroidInbox.check(), 800); });
 
 // ---- 13d_enchant.js ----
 // ============================================================
