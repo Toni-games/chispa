@@ -1,8 +1,22 @@
 {
-  "latest": "1.26.0",
+  "latest": "1.27.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.27.0",
+      "date": "2026-11-23",
+      "title": "Redstone arreglada, aldeas con aldeanos y aparición de criaturas como en Minecraft",
+      "notes": [
+        "Comparador arreglado: se actualiza solo, lee contenedores a través de un bloque, cofres sin abrir, compostador, caldero, atril...",
+        "Repetidores que se bloquean, antorchas visibles en comparador y repetidor, tolvas y detectores de luz que ya no se paran",
+        "Bloque diana, sensor de sculk y campana funcionan con redstone",
+        "Las aldeas se llenan de aldeanos, un gólem de hierro y gatos",
+        "Monstruos y animales aparecen según luz, suelo, bioma, grupos y límites de la wiki"
+      ],
+      "size": 389180,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.27.0.zip"
+    },
     {
       "id": "1.26.0",
       "date": "2026-11-22",

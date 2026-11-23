@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.26.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.27.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2665,12 +2665,12 @@ const SHAPES = {
     return out;
   },
   repeater(d, m) {
-    const f = m & 3, delay = (m >> 2) & 3, on = m & 16, t = on ? 'redstone_torch' : 'redstone_torch_off';
+    const f = m & 3, delay = (m >> 2) & 3, on = m & 16, t = on ? 'rs_torch_on' : 'rs_torch_off';
     return [[0, 0, 0, 16, 2, 16], rotBoxH([7, 2, 2, 9, 7, 4, t], f), rotBoxH([7, 2, 6 + delay * 2, 9, 7, 8 + delay * 2, t], f)];
   },
   comparator(d, m) {
     const f = m & 3, sub = m & 4, out = (m >> 3) & 15;
-    return [[0, 0, 0, 16, 2, 16], rotBoxH([7, 2, 2, 9, sub ? 6 : 5, 4, sub ? 'redstone_torch' : 'redstone_torch_off'], f), rotBoxH([4, 2, 11, 6, 7, 13, out ? 'redstone_torch' : 'redstone_torch_off'], f), rotBoxH([10, 2, 11, 12, 7, 13, out ? 'redstone_torch' : 'redstone_torch_off'], f)];
+    return [[0, 0, 0, 16, 2, 16], rotBoxH([7, 2, 2, 9, sub ? 6 : 5, 4, sub ? 'rs_torch_on' : 'rs_torch_off'], f), rotBoxH([4, 2, 11, 6, 7, 13, out ? 'rs_torch_on' : 'rs_torch_off'], f), rotBoxH([10, 2, 11, 12, 7, 13, out ? 'rs_torch_on' : 'rs_torch_off'], f)];
   },
   piston(d, m) { return (m & 8) ? [rotBox6([0, 0, 0, 16, 12, 16], m & 7)] : [[0, 0, 0, 16, 16, 16]]; },
   piston_head(d, m) { return [rotBox6([0, 12, 0, 16, 16, 16], m & 7), rotBox6([6, -4, 6, 10, 12, 10, 'piston_side'], m & 7)]; },
@@ -4694,6 +4694,9 @@ if (!TEX.brewing_stand_base) addTex('brewing_stand_base', (c) => { c.fillStyle =
   for (const [col, , hex] of WOOL) if (!TEX[col + '_banner']) addTex(col + '_banner', (c) => { c.fillStyle = '#8a6a3e'; c.fillRect(7, 1, 2, 15); c.fillRect(3, 1, 10, 1); c.fillStyle = hex; c.fillRect(4, 2, 8, 11); c.fillStyle = 'rgba(0,0,0,0.25)'; c.fillRect(4, 12, 8, 1); }, 'item');
 }
 
+// antorchitas del repetidor y del comparador: textura llena (la de la antorcha normal es casi toda transparente)
+for (const [n, top, glow] of [['rs_torch_on', '#ff2a10', '#ffb090'], ['rs_torch_off', '#5a1a10', '#7a2a20']]) addTex(n, (c) => { c.fillStyle = '#7a5a34'; c.fillRect(0, 0, 16, 16); c.fillStyle = '#5e4426'; for (let x = 0; x < 16; x += 2) c.fillRect(x, 11, 1, 5); c.fillStyle = top; c.fillRect(0, 0, 16, 11); c.fillStyle = glow; c.fillRect(0, 0, 16, 2); for (let x = 1; x < 16; x += 4) c.fillRect(x, 4, 2, 2); });
+
 // ---- 04_world.js ----
 // ============================================================
 //  Mundo: chunks, luz, actualizaciones de bloques, fluidos
@@ -5290,6 +5293,7 @@ const Mesher = {
       if (bedCEM && d.bedPart) { beds.push([c.cx * 16 + x, y, c.cz * 16 + z, d.bedPart === 'head' ? 1 : 0, pm[p] & 3]); continue; }
       if (Kinetic.ids[id]) Kinetic.note(c, x, y, z, id, pm[p]);
       if (CRS.ids[id] && c._crs) c._crs.push([c.cx * 16 + x, y, c.cz * 16 + z]);
+      { const rr = RS.ROLE[id]; if ((rr === 7 || rr === 11 || rr === 14 || rr === 23) && c._rsn) c._rsn.push([c.cx * 16 + x, y, c.cz * 16 + z]); }
       if (Kinetic.dynamicOnly[id]) continue;
       const jb0 = JM.block[id]; const jm = jb0 && jb0.tank ? ((pb[p + 324] === id ? 0 : 1) | (pb[p - 324] === id ? 0 : 2)) : pm[p]; let jb = jb0 && jb0.byMeta ? (jb0.byMeta[jm & jb0.mask] || jb0) : jb0;
       if (jb0 && jb0.mp) { let mk = 0, mp = 0; for (let f = 0; f < 6; f++) { const nb = pb[p + this.NOFF[f]]; if (JM.connects(id, nb)) { mk |= 1 << f; if (nb === id || (BLOCKS[nb] && /fluid_pipe/.test(BLOCKS[nb].key))) mp |= 1 << f; } } jb = JM.mpParts(jb0, mk, mp); } if (jb && this.jmodel(O, T, p, id, d, x, y, z, jb, fancy, pm[p])) continue;
@@ -7284,7 +7288,7 @@ class Mob extends Entity {
     if (d.boss) { BossAI.tick(this, P, dist); return; }
     if (MobsExtra.tick(this, d, P, dist)) return;
     // desaparecer lejos
-    if (!this.persistent && dist > 128) { this.remove = true; return; }
+    if (!this.persistent && dist > (d.aquatic && this.kind !== 'dolphin' ? 64 : 128)) { this.remove = true; return; }
     if (!this.persistent && dist > 32 && Math.random() < 1 / 800) { this.remove = true; return; }
     if (d.hostile && Game.difficulty === 0) { this.remove = true; return; }
     // quemarse al sol
@@ -8454,7 +8458,7 @@ class Arrow extends Entity {
       if (NetSync.arrowHits(this, nx, ny, nz, Math.ceil(Math.hypot(this.vx, this.vy, this.vz) * this.dmgK))) { Sound.play('arrow_hit'); this.remove = true; return; }
       const bx = Math.floor(nx), by = Math.floor(ny), bz = Math.floor(nz);
       const id = World.get(bx, by, bz);
-      if (SOLID[id] && !REPLACE[id]) { this.stuck = true; this.sx = bx; this.sy = by; this.sz = bz; Sound.play('arrow_hit'); if (id === B.tnt) {} break; }
+      if (SOLID[id] && !REPLACE[id]) { this.stuck = true; this.sx = bx; this.sy = by; this.sz = bz; Sound.play('arrow_hit'); if (id === B.target) RS.targetHit(bx, by, bz, nx, ny, nz); if (id === B.tnt) {} break; }
       this.x = nx; this.y = ny; this.z = nz;
     }
     if (this.stuck) return;
@@ -15740,9 +15744,10 @@ const NameTags = {
 // ============================================================
 const RS = {
   ROLE: new Uint8Array(4096), pending: new Set(), burn: new Map(),
-  R: { wire: 1, torch: 2, lever: 3, button: 4, plate: 5, repeater: 6, comparator: 7, lamp: 8, piston: 9, observer: 10, daylight: 11, dispenser: 12, dropper: 13, hopper: 14, note: 15, door: 16, trapdoor: 17, gate: 18, tnt: 19, block: 20 },
+  R: { wire: 1, torch: 2, lever: 3, button: 4, plate: 5, repeater: 6, comparator: 7, lamp: 8, piston: 9, observer: 10, daylight: 11, dispenser: 12, dropper: 13, hopper: 14, note: 15, door: 16, trapdoor: 17, gate: 18, tnt: 19, block: 20, target: 22, sculk: 23, bell: 24 },
   init() {
     BLOCKS[B.tnt].rs = 'tnt'; BLOCKS[B.redstone_block].rs = 'block';
+    if (B.target !== undefined) BLOCKS[B.target].rs = 'target'; if (B.sculk_sensor !== undefined) BLOCKS[B.sculk_sensor].rs = 'sculk'; if (B.bell !== undefined) BLOCKS[B.bell].rs = 'bell';
     for (const d of BLOCKS) if (d.rs) this.ROLE[d.id] = this.R[d.rs] || 0;
   },
   get: (x, y, z) => World.get(x, y, z), meta: (x, y, z) => World.getMeta(x, y, z),
@@ -15768,6 +15773,8 @@ const RS = {
       case 7: return f === HFACE[m & 3] ? (m >> 3) & 15 : 0;
       case 10: return (m & 8) && f === ((m & 7) ^ 1) ? 15 : 0;
       case 11: return strong ? 0 : (m >> 1) & 15;
+      case 22: return m & 15; // diana: fuerte y débil
+      case 23: return strong ? 0 : m & 15; // sensor de sculk
     }
     return 0;
   },
@@ -15776,7 +15783,7 @@ const RS = {
     const r = this.ROLE[id]; if (!r) return false;
     if (r === 6) return (m & 3) === h || ((m & 3) ^ 2) === h; // repetidor: solo por delante o por detrás
     if (r === 10) return ((m & 7) ^ 1) === (HFACE[h] ^ 1); // observador: solo por su salida
-    return r === 1 || r === 2 || r === 3 || r === 4 || r === 5 || r === 7 || r === 11 || r === 20;
+    return r === 1 || r === 2 || r === 3 || r === 4 || r === 5 || r === 7 || r === 11 || r === 20 || r === 22 || r === 23;
   },
   // uniones del polvo: 0 nada, 1 al lado (o bajando), 2 subiendo por el bloque
   wireLinks(nb) {
@@ -15893,18 +15900,18 @@ const RS = {
     const m = this.meta(x, y, z); const d = BLOCKS[id];
     switch (this.ROLE[id]) {
       case 2: { const att = this.torchAtt(m); const D = FDIR[att]; const off = this.blockWeak(x + D[0], y + D[1], z + D[2]) > 0; if (off !== !!d.off) World.schedule(x, y, z, 2); break; }
-      case 6: { const want = this.repeaterIn(x, y, z, m) > 0; if (want !== !!(m & 16)) World.schedule(x, y, z, 2 * (((m >> 2) & 3) + 1)); break; }
+      case 6: { if (this.repeaterLocked(x, y, z, m)) break; const want = this.repeaterIn(x, y, z, m) > 0; if (want !== !!(m & 16)) World.schedule(x, y, z, 2 * (((m >> 2) & 3) + 1)); break; }
       case 7: { if (this.comparatorOut(x, y, z, m) !== ((m >> 3) & 15)) World.schedule(x, y, z, 2); break; }
       case 8: { const p = this.powered(x, y, z); if (p && !d.on) World.set(x, y, z, B.redstone_lamp_on, 0); else if (!p && d.on) World.schedule(x, y, z, 4); break; }
       case 9: { const p = this.powered(x, y, z, m & 7); if (p !== !!(m & 8)) World.schedule(x, y, z, 1); break; }
       case 12: case 13: { const p = this.powered(x, y, z); if (p && !(m & 8)) { World.set(x, y, z, id, m | 8, 1); World.schedule(x, y, z, 4); } else if (!p && (m & 8)) World.set(x, y, z, id, m & ~8, 1); break; }
-      case 14: { const p = this.powered(x, y, z); if (p !== !!(m & 8)) World.set(x, y, z, id, p ? m | 8 : m & ~8, 1); if (!p) World.schedule(x, y, z, 8); break; }
+      case 14: { const p = this.powered(x, y, z); if (p !== !!(m & 8)) World.set(x, y, z, id, p ? m | 8 : m & ~8, 1); break; }
       case 15: { const p = this.powered(x, y, z); if (p && !(m & 32)) { World.set(x, y, z, id, m | 32, 1); Sound.note(m & 31, this.instrument(x, y - 1, z), x, y, z); } else if (!p && (m & 32)) World.set(x, y, z, id, m & 31, 1); break; }
       case 16: this.doorPower(x, y, z, id, m); break;
       case 17: { const p = this.powered(x, y, z); if (p !== !!(m & 16)) { World.set(x, y, z, id, p ? (m | 16 | 4) : (m & ~16 & ~4), 1); Sound.play((BLOCKS[id].iron ? 'iron_' : '') + (p ? 'trapdoor_open' : 'trapdoor_close'), x, y, z); } break; }
       case 18: { const p = this.powered(x, y, z); if (p !== !!(m & 8)) { World.set(x, y, z, id, p ? (m | 8 | 4) : (m & ~8 & ~4), 1); Sound.play(p ? 'gate_open' : 'gate_close', x, y, z); } break; }
       case 19: if (this.powered(x, y, z)) { World.set(x, y, z, 0); Entities.add(new PrimedTNT(x, y, z, 80)); Sound.play('fuse', x, y, z); } break;
-      case 11: World.schedule(x, y, z, 20); break;
+      case 24: { const p = this.powered(x, y, z); if (p && !(m & 16)) { World.set(x, y, z, id, m | 16, 1); Sound.play('bell', x, y, z); } else if (!p && (m & 16)) World.set(x, y, z, id, m & ~16, 1); break; }
     }
   },
   doorPower(x, y, z, id, m) {
@@ -15913,16 +15920,24 @@ const RS = {
     if (p !== !!(bm & 32)) { this.setDoor(x, by, z, id, p ? (bm | 32 | 4) : (bm & ~32 & ~4)); Sound.play((BLOCKS[id].iron ? 'iron_' : '') + (p ? 'door_open' : 'door_close'), x, y, z); }
   },
   setDoor(x, y, z, id, m) { World.set(x, y, z, id, m & ~8, 1); if (this.get(x, y + 1, z) === id) World.set(x, y + 1, z, id, (m & ~8) | 8, 1); },
+  // un repetidor (o comparador) encendido que apunta a un lado lo bloquea
+  repeaterLocked(x, y, z, m) { const h = m & 3; for (const s of [HFACE[(h + 1) & 3], HFACE[(h + 3) & 3]]) { const D = FDIR[s]; const nx = x + D[0], nz = z + D[2]; const id = this.get(nx, y, nz); const r = this.ROLE[id]; if ((r === 6 || r === 7) && this.emit(nx, y, nz, id, this.meta(nx, y, nz), s ^ 1, false) > 0) return true; } return false; },
   repeaterIn(x, y, z, m) { const back = HFACE[((m & 3) + 2) & 3]; return this.inputFrom(x, y, z, back); },
   sideIn(x, y, z, f) { const D = FDIR[f]; const nx = x + D[0], nz = z + D[2]; const id = this.get(nx, y, nz); const r = this.ROLE[id]; if (r === 1) return this.meta(nx, y, nz) & 15; if (r === 20) return 15; if (r === 6 || r === 7) return this.emit(nx, y, nz, id, this.meta(nx, y, nz), f ^ 1, false); return 0; },
   comparatorOut(x, y, z, m) {
     const h = m & 3; const back = HFACE[(h + 2) & 3]; const D = FDIR[back];
-    let a = this.containerSignal(x + D[0], y, z + D[2]); if (a < 0) a = this.inputFrom(x, y, z, back);
+    let a = this.containerSignal(x + D[0], y, z + D[2]);
+    if (a < 0) { a = this.inputFrom(x, y, z, back); if (this.conductor(this.get(x + D[0], y, z + D[2])) && a < 15) { const c2 = this.containerSignal(x + D[0] * 2, y, z + D[2] * 2); if (c2 > a) a = c2; } }
     const s = Math.max(this.sideIn(x, y, z, HFACE[(h + 1) & 3]), this.sideIn(x, y, z, HFACE[(h + 3) & 3]));
     return (m & 4) ? Math.max(0, a - s) : (a >= s ? a : 0);
   },
   containerSignal(x, y, z) {
-    const id = this.get(x, y, z); const d = BLOCKS[id]; if (!d.interact || (d.interact !== 'chest' && d.interact !== 'furnace')) return -1;
+    const id = this.get(x, y, z); const d = BLOCKS[id]; if (!d) return -1; const mm = this.meta(x, y, z);
+    if (d.interact === 'composter') return Math.min(8, mm & 15);
+    if (id === B.cauldron) return mm & 3;
+    if (d.interact === 'jukebox') { const be = World.blockEnts.get(x + ',' + y + ',' + z); const disc = be && (be.disc || (be.slots && be.slots[0] && be.slots[0].id)); return disc ? 1 + (String(disc).length * 7 % 15) : 0; }
+    if (d.interact === 'lectern') { const be = World.blockEnts.get(x + ',' + y + ',' + z); return be && be.slots && be.slots[0] ? 15 : 0; }
+    if (!d.interact || (d.interact !== 'chest' && d.interact !== 'furnace' && d.interact !== 'brewing')) return -1;
     const be = World.blockEnts.get(x + ',' + y + ',' + z); const slots = be ? be.slots : null; if (!slots) return 0;
     let sum = 0, any = false; for (const s of slots) if (s) { any = true; sum += s.n / ((ITEMS[s.id] && ITEMS[s.id].stack) || 64); }
     return any ? Math.floor(1 + sum / slots.length * 14) : 0;
@@ -15943,12 +15958,13 @@ const RS = {
       case 3: break;
       case 4: if (m & 8) { World.set(x, y, z, id, m & ~8); Sound.play('click', x, y, z); } break;
       case 5: { const p = this.plateCount(x, y, z, d); if (p !== (m & 15)) World.set(x, y, z, id, p); if (p) World.schedule(x, y, z, 10); break; }
-      case 6: { const want = this.repeaterIn(x, y, z, m) > 0; if (want !== !!(m & 16)) World.set(x, y, z, id, want ? m | 16 : m & ~16); break; }
+      case 6: { if (this.repeaterLocked(x, y, z, m)) break; const want = this.repeaterIn(x, y, z, m) > 0; if (want !== !!(m & 16)) World.set(x, y, z, id, want ? m | 16 : m & ~16); break; }
+      case 22: if (m & 15) World.set(x, y, z, id, 0); break;
       case 7: { const o = this.comparatorOut(x, y, z, m); if (o !== ((m >> 3) & 15)) World.set(x, y, z, id, (m & 7) | (o << 3)); break; }
       case 8: if (d.on && !this.powered(x, y, z)) World.set(x, y, z, B.redstone_lamp, 0); break;
       case 9: { const p = this.powered(x, y, z, m & 7); if (p && !(m & 8)) this.extend(x, y, z, id, m); else if (!p && (m & 8)) this.retract(x, y, z, id, m); break; }
       case 10: if (m & 8) World.set(x, y, z, id, m & ~8); else { World.set(x, y, z, id, m | 8); World.schedule(x, y, z, 2); } break;
-      case 11: { const lv = this.daylight(x, y, z, m); if (lv !== ((m >> 1) & 15)) World.set(x, y, z, id, (m & 1) | (lv << 1)); World.schedule(x, y, z, 20); break; }
+      case 11: { const lv = this.daylight(x, y, z, m); if (lv !== ((m >> 1) & 15)) World.set(x, y, z, id, (m & 1) | (lv << 1)); break; }
       case 12: case 13: if (m & 8) this.fire(x, y, z, id, m); break;
       case 14: this.hopperTick(x, y, z, id, m); break;
     }
@@ -16100,14 +16116,47 @@ const RS = {
     for (let k = 0; k < slots.length; k++) { if (only !== undefined && k !== only) continue; if (!slots[k]) { slots[k] = { id: it.id, n: 1, d: it.d }; return true; } }
     return false;
   },
+  // ---------- diana: más fuerte cuanto más al centro ----------
+  targetHit(bx, by, bz, hx, hy, hz, short) {
+    if (this.get(bx, by, bz) !== B.target) return;
+    const fx = hx - bx, fy = hy - by, fz = hz - bz; const cx = Math.abs(fx - 0.5), cy = Math.abs(fy - 0.5), cz = Math.abs(fz - 0.5);
+    const ax = [cx, cy, cz]; const out = ax.indexOf(Math.max(...ax)); const o = ax.filter((_, i) => i !== out); // la cara golpeada es la del eje más «fuera»
+    const p = Math.max(1, Math.min(15, Math.round(15 * (1 - Math.max(...o) * 2) + 0.5)));
+    World.set(bx, by, bz, B.target, p); World.schedule(bx, by, bz, short ? 8 : 20);
+  },
+  // ---------- tolvas, sensores y comparadores: se revisan solos (también tras cargar la partida) ----------
+  sculkT: new Map(),
+  periodic() {
+    const T = World.tickCount; const L = this.rsNodes(); if (!L.length) return;
+    for (const [x, y, z] of L) {
+      const id = this.get(x, y, z); const r = this.ROLE[id]; const m = this.meta(x, y, z);
+      if (r === 14 && T % 8 === 0) this.hopperTick(x, y, z, id, m);
+      else if (r === 11 && T % 20 === 0) { const lv = this.daylight(x, y, z, m); if (lv !== ((m >> 1) & 15)) World.set(x, y, z, id, (m & 1) | (lv << 1)); }
+      else if (r === 7 && T % 2 === 0) { const o = this.comparatorOut(x, y, z, m); if (o !== ((m >> 3) & 15)) World.set(x, y, z, id, (m & 7) | (o << 3)); }
+      else if (r === 23 && T % 4 === 0) {
+        const k = x + ',' + y + ',' + z; const until = this.sculkT.get(k) || 0;
+        if (m & 15) { if (T > until) { World.set(x, y, z, id, 0); this.sculkT.set(k, T + 20); } continue; } if (T < until) continue;
+        let best = 0; for (const e of [Game.player, ...Entities.list]) { if (!e || e.dead || e.remove || e.type === 'item') continue; if (e === Game.player && (e.sneaking || e.mode === 3)) continue; const last = e._sk; e._sk = [e.x, e.y, e.z, T]; if (!last || T - last[3] > 8 || Math.hypot(e.x - last[0], e.y - last[1], e.z - last[2]) < 0.05) continue; const d = Math.hypot(e.x - x - 0.5, e.y - y, e.z - z - 0.5); if (d <= 8) best = Math.max(best, Math.max(1, Math.round(15 - d * 1.7))); }
+        if (best) { World.set(x, y, z, id, best); this.sculkT.set(k, T + 30); Sound.play('sculk_click', x, y, z); }
+      }
+    }
+  },
+  rsNodes() { const T = World.tickCount; if (this._rn && T - this._rt < 40) return this._rn; this._rt = T; const L = []; const P = Game.player; if (!P) return (this._rn = L); const cx = Math.floor(P.x) >> 4, cz = Math.floor(P.z) >> 4; const R = Math.min(8, Settings.renderDist || 6); for (let i = -R; i <= R; i++) for (let j = -R; j <= R; j++) { const c = World.chunk(cx + i, cz + j); if (c && c.rsn) for (const p of c.rsn) L.push(p); } return (this._rn = L); },
   // ---------- tolva ----------
+  // inventario de un contenedor aunque nunca se haya abierto
+  containerBE(x, y, z, id) {
+    const k = x + ',' + y + ',' + z; let be = World.blockEnts.get(k); if (be) return be; const d = BLOCKS[id]; if (!d) return null;
+    if (d.interact === 'chest') { be = { type: 'chest', slots: new Array(d.slots || (d.shape === 'hopper' ? 5 : d.key === 'dispenser' || d.key === 'dropper' ? 9 : 27)).fill(null) }; World.blockEnts.set(k, be); return be; }
+    if (d.interact === 'furnace') { be = { type: 'furnace', slots: [null, null, null], burn: 0, burnMax: 0, cook: 0 }; World.blockEnts.set(k, be); return be; }
+    return null;
+  },
   ensureBE(x, y, z, n) { const k = x + ',' + y + ',' + z; let be = World.blockEnts.get(k); if (!be) { be = { type: 'chest', slots: new Array(n).fill(null) }; World.blockEnts.set(k, be); } return be; },
   hopperTick(x, y, z, id, m) {
-    World.schedule(x, y, z, 8); if (m & 8) return;
+    if (m & 8) return;
     const be = this.ensureBE(x, y, z, 5);
     // sacar un objeto del contenedor que tiene detrás (salida) — la salida es la cara guardada en meta (3 = abajo)
     const f = m & 7; const D = FDIR[f]; const tx = x + D[0], ty = y + D[1], tz = z + D[2];
-    const tid = this.get(tx, ty, tz); const tbe = World.blockEnts.get(tx + ',' + ty + ',' + tz);
+    const tid = this.get(tx, ty, tz); const tbe = this.containerBE(tx, ty, tz, tid);
     const k = be.slots.findIndex(Boolean);
     if (k >= 0 && tbe && tbe.slots) {
       const s = be.slots[k]; let ok = false;
@@ -16189,10 +16238,260 @@ const CRS = {
   const e0 = RS.emit.bind(RS); RS.emit = function (x, y, z, id, m, f, strong) { if (this.ROLE[id] === 21) return (m & CRS.ON) && !strong ? 15 : 0; return e0(x, y, z, id, m, f, strong); };
   const c0 = RS.connectsTo.bind(RS); RS.connectsTo = function (id, m, h) { if (this.ROLE[id] === 21) return true; return c0(id, m, h); };
   // el mallador apunta dónde hay componentes en cada trozo
-  const b0 = Kinetic.begin.bind(Kinetic); Kinetic.begin = function (c) { b0(c); CRS.setup(); c._crs = []; };
-  const d0 = Kinetic.done.bind(Kinetic); Kinetic.done = function (c) { d0(c); c.crs = c._crs; c._crs = null; CRS._n = null; };
+  const b0 = Kinetic.begin.bind(Kinetic); Kinetic.begin = function (c) { b0(c); CRS.setup(); c._crs = []; c._rsn = []; };
+  const d0 = Kinetic.done.bind(Kinetic); Kinetic.done = function (c) { d0(c); c.crs = c._crs; c._crs = null; c.rsn = c._rsn; c._rsn = null; CRS._n = null; RS._rn = null; };
+  const th0 = Thrown.prototype.hit; Thrown.prototype.hit = function () { try { const bx = Math.floor(this.x + this.vx), by = Math.floor(this.y + this.vy), bz = Math.floor(this.z + this.vz); if (World.get(bx, by, bz) === B.target) RS.targetHit(bx, by, bz, this.x + this.vx, this.y + this.vy, this.z + this.vz, true); } catch (e) { } return th0.apply(this, arguments); };
   const u0 = Funcs.use; Funcs.use = function (P, T, held) { if (T && CRS.use(P, T, held)) return true; return u0.call(this, P, T, held); };
-  const t0 = Funcs.tick; Funcs.tick = function () { t0.call(this); try { CRS.tick(); } catch (e) { console.warn('crs', e); } };
+  const t0 = Funcs.tick; Funcs.tick = function () { t0.call(this); try { CRS.tick(); RS.periodic(); } catch (e) { console.warn('crs', e); } };
+}
+
+
+// ---- extra/spawn127.js ----
+// ===== Aparición de criaturas como en Minecraft (v1.27) =====
+// Reglas sacadas de la wiki: luz, bloque del suelo, bioma, tamaño de grupo, límites (caps) y distancias.
+// Y las aldeas se pueblan con aldeanos, un gólem de hierro y gatos la primera vez que te acercas.
+const Spawn127 = {
+  T: 0,
+  // límites (la wiki usa 70/10/5/20 para 17×17 chunks; aquí el mundo cargado es menor)
+  CAP: { monster: 40, creature: 10, water: 5, ambientWater: 20, axolotl: 5, underWater: 5 },
+  // tamaño de grupo de cada animal (wiki)
+  GROUP: { pig: [4, 4], cow: [4, 4], sheep: [4, 4], chicken: [4, 4], wolf: [4, 8], horse: [2, 6], donkey: [1, 3], llama: [4, 6], rabbit: [2, 3], fox: [2, 4], goat: [1, 3], polar_bear: [1, 3], panda: [1, 2], parrot: [1, 2], ocelot: [1, 3], turtle: [2, 5], mooshroom: [4, 8], frog: [2, 5] },
+  // animales que solo salen de otra forma (nidos, aldeas, cabañas…) y no aparecen solos en el bioma
+  NOT_NATURAL: { bee: 1, cat: 1, villager: 1, iron_golem: 1, mule: 1 },
+  ground(kind) {
+    const S = (...ks) => new Set(ks.map(k => B[k]).filter(v => v !== undefined));
+    if (!this._g) {
+      const grass = S('grass_block');
+      this._g = {
+        def: grass,
+        goat: S('snow', 'snow_block', 'stone', 'packed_ice', 'gravel', 'powder_snow', 'grass_block'),
+        rabbit: S('grass_block', 'snow', 'snow_block', 'sand'),
+        wolf: S('grass_block', 'snow', 'snow_block', 'podzol', 'coarse_dirt'),
+        fox: S('grass_block', 'snow', 'snow_block', 'podzol', 'coarse_dirt'),
+        mooshroom: S('mycelium'),
+        turtle: S('sand'),
+        polar_bear: S('grass_block', 'snow', 'snow_block', 'ice', 'packed_ice'),
+        parrot: new Set([...grass, ...Object.keys(BLOCKS).filter(i => BLOCKS[i] && (BLOCKS[i].leaves || /_log$/.test(BLOCKS[i].key || ''))).map(Number)]),
+        ocelot: new Set([...grass, ...Object.keys(BLOCKS).filter(i => BLOCKS[i] && BLOCKS[i].leaves).map(Number)]),
+        frog: S('grass_block', 'mud'),
+      };
+    }
+    return this._g[kind] || this._g.def;
+  },
+  near(P, f, r) { let n = 0; for (const e of Entities.list) if (e.mob && !e.dead && f(e) && Math.abs(e.x - P.x) < r && Math.abs(e.z - P.z) < r) n++; return n; },
+  free(x, y, z) { const a = World.get(x, y, z), b = World.get(x, y + 1, z); return (!a || REPLACE[a]) && !LIQUID[a] && (!b || REPLACE[b]) && !LIQUID[b]; },
+  floorOk(x, y, z) { const g = World.get(x, y - 1, z); return SOLID[g] && OPAQUE[g] && !LIQUID[g] && g !== B.bedrock; },
+  biome(x, z) { return World.flat ? Gen.local.BI.PLAINS : Gen.local.column(World.seed, x, z).sb; },
+  slimeChunk(cx, cz) { let h = (World.seed | 0) ^ Math.imul(cx, 0x4c1906) ^ Math.imul(cx * cx, 0x5ac0db) ^ Math.imul(cz, 0x5f24f) ^ Math.imul(cz * cz, 0x4307a7); h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d); h ^= h >>> 12; return ((h >>> 0) % 10) === 0; },
+  moon() { return [1, 0.75, 0.5, 0.25, 0, 0.25, 0.5, 0.75][((World.day || 0) % 8 + 8) % 8]; },
+  pick(L) { let t = 0; for (const e of L) t += e[1]; let r = Math.random() * t; for (const e of L) { r -= e[1]; if (r <= 0) return e[0]; } return L[0][0]; },
+  add(kind, x, y, z, persist) { if (!MOBS[kind]) return null; const m = new Mob(kind, x, y, z); if (persist !== undefined) m.persistent = persist; if (!boxFree(m.bb())) return null; Entities.add(m); return m; },
+
+  // ---------- monstruos ----------
+  monsters(P) {
+    if (Game.difficulty === 0) return;
+    if (this.near(P, e => e.def.hostile, 128) >= this.CAP.monster) return;
+    const BI = Gen.local.BI;
+    for (let pack = 0; pack < 3; pack++) {
+      const sp = Entities.spot(P, 24, 64, false); if (!sp) continue;
+      const { x, y, z } = sp;
+      if (World.blk(x, y, z) > 0) continue; // luz de bloques 0
+      const skyRaw = World.sky(x, y, z), sky = Math.round(skyRaw * Sky.skyFactor);
+      if (sky > (Math.random() * 8 | 0)) continue; // luz del cielo ≤ aleatorio 0–7
+      const sb = this.biome(x, z), under = skyRaw === 0 && y < 56;
+      let cave = -1; try { if (under && Gen.local.caveBiome) cave = Gen.local.caveBiome(World.seed, x, y, z); } catch (e) { }
+      if (cave === BI.DEEP_DARK) continue; // en la oscuridad profunda no aparece nada
+      if (sb === BI.MUSHROOM && !under) continue; // campos de champiñones: sin monstruos
+      const open = skyRaw >= 15 || World.sky(x, y + 2, z) >= 15;
+      let L;
+      if (sb === BI.DESERT && !under) L = [['zombie', 19], ['zombie_villager', 1], ['husk', 80], ['skeleton', 100], ['spider', 100], ['slime', 100], ['witch', 5]];
+      else if ((sb === BI.SNOWY || sb === BI.ICE_SPIKES || sb === BI.SNOWY_SLOPES || sb === BI.FROZEN_PEAKS) && !under) L = [['zombie', 95], ['zombie_villager', 5], ['skeleton', 20], ['stray', 80], ['spider', 100], ['slime', 100], ['witch', 5]];
+      else if ((sb === BI.SWAMP || sb === BI.MANGROVE) && !under) L = [['zombie', 95], ['zombie_villager', 5], ['skeleton', 70], ['bogged', 50], ['spider', 100], ['slime', 100], ['witch', 5]];
+      else L = [['zombie', 95], ['zombie_villager', 5], ['skeleton', 100], ['spider', 100], ['slime', 100], ['witch', 5]];
+      let kind = this.pick(L);
+      if ((kind === 'husk' || kind === 'stray') && !open) kind = kind === 'husk' ? 'zombie' : 'skeleton'; // necesitan cielo abierto
+      if (kind === 'slime') {
+        const inChunk = y < 40 && this.slimeChunk(x >> 4, z >> 4);
+        const inSwamp = (sb === BI.SWAMP || sb === BI.MANGROVE) && y >= 51 && y <= 69 && Math.random() < this.moon() && World.blk(x, y, z) <= (Math.random() * 8 | 0);
+        if (!inChunk && !inSwamp) continue;
+      }
+      const max = kind === 'witch' || kind === 'zombie_villager' ? 1 : 4, n = 1 + (Math.random() * max | 0);
+      for (let k = 0; k < n; k++) {
+        const ax = x + (k ? Math.round((Math.random() - 0.5) * 6) : 0), az = z + (k ? Math.round((Math.random() - 0.5) * 6) : 0);
+        let ay = y; for (let t = 0; t < 3 && !this.floorOk(ax, ay, az); t++) ay--;
+        if (!this.floorOk(ax, ay, az) || !this.free(ax, ay, az) || World.blk(ax, ay, az) > 0) continue;
+        if (Math.hypot(ax - P.x, ay - P.y, az - P.z) < 24) continue;
+        this.add(kind, ax + 0.5, ay, az + 0.5, false);
+      }
+    }
+    // ahogados: en ríos (más) y océanos, en agua oscura
+    if (Math.random() < 0.3) {
+      const a = Math.random() * Math.PI * 2, r = 24 + Math.random() * 40, x = Math.floor(P.x + Math.cos(a) * r), z = Math.floor(P.z + Math.sin(a) * r);
+      if (!World.loaded(x, z)) return;
+      const sb = this.biome(x, z), river = sb === BI.RIVER || sb === BI.FROZEN_RIVER;
+      const ocean = [BI.OCEAN, BI.DEEP_OCEAN, BI.COLD_OCEAN, BI.DEEP_COLD_OCEAN, BI.LUKEWARM_OCEAN, BI.DEEP_LUKEWARM_OCEAN, BI.WARM_OCEAN, BI.FROZEN_OCEAN, BI.DEEP_FROZEN_OCEAN].includes(sb);
+      if (!river && !(ocean && Math.random() < 0.25)) return;
+      let y = 62; while (y > 20 && LIQUID[World.get(x, y, z)] !== 1) y--;
+      if (LIQUID[World.get(x, y, z)] !== 1) return;
+      while (y > 20 && LIQUID[World.get(x, y - 1, z)] === 1) y--; // fondo
+      if (y > 58 && !river) return; // en el mar, por debajo de Y 58
+      if (World.blk(x, y, z) > 0 || Math.round(World.sky(x, y, z) * Sky.skyFactor) > (Math.random() * 8 | 0)) return;
+      this.add('drowned', x + 0.5, y, z + 0.5, false);
+    }
+  },
+
+  // ---------- animales (cada 400 ticks, como en el juego) ----------
+  animals(P) {
+    if (this.near(P, e => !e.def.hostile && !e.def.aquatic && !this.NOT_NATURAL[e.kind] && e.kind !== 'axolotl', 128) >= this.CAP.creature) return;
+    for (let tries = 0; tries < 4; tries++) {
+      const a = Math.random() * Math.PI * 2, r = 24 + Math.random() * 40, x = Math.floor(P.x + Math.cos(a) * r), z = Math.floor(P.z + Math.sin(a) * r);
+      if (!World.loaded(x, z)) continue;
+      let y = WH - 2; while (y > 1 && (!World.get(x, y - 1, z) || REPLACE[World.get(x, y - 1, z)])) y--;
+      const g = World.get(x, y - 1, z); if (!g || LIQUID[g]) continue;
+      if (!this.free(x, y, z)) continue;
+      if (Math.max(World.sky(x, y, z), World.blk(x, y, z)) < 9) continue; // luz ≥ 9
+      const sb = this.biome(x, z);
+      const L = BIOME_ANIMALS(sb).filter(e => !this.NOT_NATURAL[e.k] && this.ground(e.k).has(g));
+      if (!L.length) continue;
+      let tot = L.reduce((s, e) => s + e.w, 0), q = Math.random() * tot, pick = L[0];
+      for (const e of L) { q -= e.w; if (q <= 0) { pick = e; break; } }
+      const kind = pick.k; if (kind === 'ocelot' && y < 63) continue;
+      const gs = this.GROUP[kind] || pick.n || [2, 4], n = gs[0] + (Math.random() * (gs[1] - gs[0] + 1) | 0);
+      const variant = pick.v !== undefined && pick.v !== null ? pick.v : MOB_VARIANTS[kind] && (kind === 'pig' || kind === 'cow' || kind === 'chicken') ? Entities.variantFor(kind, x, z) : randVariant(kind);
+      let made = 0;
+      for (let k = 0; k < n * 2 && made < n; k++) {
+        const ax = x + (k ? Math.round((Math.random() - 0.5) * 8) : 0), az = z + (k ? Math.round((Math.random() - 0.5) * 8) : 0);
+        let ay = y + 2; while (ay > y - 4 && (!World.get(ax, ay - 1, az) || REPLACE[World.get(ax, ay - 1, az)])) ay--;
+        if (!this.ground(kind).has(World.get(ax, ay - 1, az)) || !this.free(ax, ay, az)) continue;
+        const m = this.add(kind, ax + 0.5, ay + (MOBS[kind].flies ? 1 : 0), az + 0.5);
+        if (m) { m.variant = variant; made++; }
+      }
+      if (made) return;
+    }
+  },
+
+  // ---------- agua ----------
+  water(P) {
+    const BI = Gen.local.BI;
+    const a = Math.random() * Math.PI * 2, r = 24 + Math.random() * 40, x = Math.floor(P.x + Math.cos(a) * r), z = Math.floor(P.z + Math.sin(a) * r);
+    if (!World.loaded(x, z)) return;
+    const sb = this.biome(x, z);
+    const isOcean = [BI.OCEAN, BI.DEEP_OCEAN, BI.COLD_OCEAN, BI.DEEP_COLD_OCEAN, BI.LUKEWARM_OCEAN, BI.DEEP_LUKEWARM_OCEAN, BI.WARM_OCEAN, BI.FROZEN_OCEAN, BI.DEEP_FROZEN_OCEAN].includes(sb);
+    const isRiver = sb === BI.RIVER || sb === BI.FROZEN_RIVER;
+    const water = (y) => LIQUID[World.get(x, y, z)] === 1;
+    // superficie: peces y calamares entre Y 50 y 63
+    if ((isOcean || isRiver) && water(62)) {
+      const y = 50 + (Math.random() * 13 | 0); if (!water(y) || !water(y + 1)) return;
+      const r2 = Math.random();
+      if (r2 < 0.3) { // criatura acuática (calamar / delfín), límite 5
+        if (this.near(P, e => e.kind === 'squid' || e.kind === 'dolphin', 128) >= this.CAP.water) return;
+        const warm = [BI.OCEAN, BI.DEEP_OCEAN, BI.WARM_OCEAN, BI.LUKEWARM_OCEAN, BI.DEEP_LUKEWARM_OCEAN].includes(sb);
+        const kind = warm && Math.random() < 0.4 ? 'dolphin' : 'squid';
+        const n = kind === 'dolphin' ? 1 + (Math.random() * 2 | 0) : 2 + (Math.random() * 3 | 0);
+        for (let k = 0; k < n; k++) this.add(kind, x + 0.5 + (Math.random() - 0.5) * 4, y, z + 0.5 + (Math.random() - 0.5) * 4, false);
+      } else { // peces, límite 20
+        if (this.near(P, e => e.kind === 'cod' || e.kind === 'salmon', 64) >= this.CAP.ambientWater) return;
+        const cold = isRiver || sb === BI.COLD_OCEAN || sb === BI.DEEP_COLD_OCEAN || sb === BI.FROZEN_OCEAN || sb === BI.DEEP_FROZEN_OCEAN;
+        if (sb === BI.WARM_OCEAN) return; // allí van los peces tropicales
+        const kind = cold ? 'salmon' : 'cod', n = kind === 'salmon' ? 1 + (Math.random() * 5 | 0) : 3 + (Math.random() * 5 | 0);
+        for (let k = 0; k < n; k++) this.add(kind, x + 0.5 + (Math.random() - 0.5) * 3, y, z + 0.5 + (Math.random() - 0.5) * 3, false);
+      }
+      return;
+    }
+    // bajo tierra: calamar brillante (Y ≤ 30, oscuridad total) y ajolotes (cuevas frondosas, sobre arcilla)
+    for (let y = Math.min(48, Math.floor(P.y) + 16); y > 4; y--) {
+      if (!water(y) || !water(y + 1) || World.sky(x, y, z) > 0) continue;
+      let floor = y; while (floor > 2 && water(floor - 1)) floor--;
+      const below = World.get(x, floor - 1, z);
+      let cave = -1; try { cave = Gen.local.caveBiome ? Gen.local.caveBiome(World.seed, x, y, z) : -1; } catch (e) { }
+      if ((cave === BI.LUSH_CAVES || below === B.clay) && below === B.clay) {
+        if (this.near(P, e => e.kind === 'axolotl', 128) >= this.CAP.axolotl) return;
+        const v = Math.random() < 1 / 1200 ? 'blue' : [null, 'wild', 'gold', 'cyan'][Math.random() * 4 | 0];
+        for (let k = 0; k < 1 + (Math.random() * 3 | 0); k++) { const m = this.add('axolotl', x + 0.5, floor, z + 0.5, false); if (m) m.variant = v; }
+        return;
+      }
+      if (y <= 30 && World.blk(x, y, z) === 0) {
+        if (this.near(P, e => e.kind === 'glow_squid', 128) >= this.CAP.underWater) return;
+        for (let k = 0; k < 2 + (Math.random() * 3 | 0); k++) this.add('glow_squid', x + 0.5, y, z + 0.5, false);
+      }
+      return;
+    }
+  },
+
+  // ---------- aldeas ----------
+  villages(P) {
+    if (World.flat || (World.dim && World.dim !== 'o')) return;
+    const W = Game.world; if (!W) return; W.villages = W.villages || [];
+    const s = Gen.local.findStruct(World.seed, 'village', Math.floor(P.x), Math.floor(P.z)); if (!s) return;
+    if (Math.hypot(s.wx - P.x, s.wz - P.z) > 96) return;
+    const key = s.wx + ',' + s.wz; if (W.villages.includes(key)) return;
+    for (const [dx, dz] of [[0, 0], [-32, -32], [32, -32], [-32, 32], [32, 32]]) if (!World.loaded(s.wx + dx, s.wz + dz)) return;
+    W.villages.push(key);
+    const spot = (rMin, rMax) => {
+      for (let t = 0; t < 30; t++) {
+        const a = Math.random() * Math.PI * 2, r = rMin + Math.random() * (rMax - rMin), x = Math.floor(s.wx + Math.cos(a) * r), z = Math.floor(s.wz + Math.sin(a) * r);
+        for (let y = (s.h | 0) + 14; y > (s.h | 0) - 10; y--) {
+          const g = World.get(x, y - 1, z);
+          if (!g || REPLACE[g]) continue;
+          if (LIQUID[g] || BLOCKS[g].leaves || !SOLID[g]) break;
+          if (this.free(x, y, z)) return { x: x + 0.5, y, z: z + 0.5 };
+          break;
+        }
+      }
+      return null;
+    };
+    const home = [s.wx, s.wz];
+    const nV = 4 + (Math.random() * 5 | 0);
+    for (let i = 0; i < nV; i++) { const p = spot(4, 30); if (!p) continue; const m = this.add('villager', p.x, p.y, p.z, true); if (m) { m.home = home; if (i >= nV - 2 && Math.random() < 0.5 && m.setBaby) m.setBaby(true, 24000); } }
+    for (let t = 0; t < 12; t++) { const p = spot(3, 10 + t * 2); if (!p) continue; const g = this.add('iron_golem', p.x, p.y, p.z, true) || this.add('iron_golem', Math.floor(p.x) + 1, p.y, Math.floor(p.z) + 1, true); if (g) { g.home = home; break; } }
+    const nC = 1 + (Math.random() * 3 | 0);
+    for (let i = 0; i < nC; i++) { const p = spot(4, 28); if (!p) continue; const c = this.add('cat', p.x, p.y, p.z, true); if (c) { c.home = home; c.variant = randVariant('cat'); } }
+  },
+  // aldeanos, gólems y gatos de aldea no se alejan mucho del pueblo
+  homeTick(m) {
+    if (m.kind !== 'villager' && m.kind !== 'iron_golem') return;
+    if (m.kind === 'iron_golem') m.persistent = true; // los gólems no desaparecen
+    if (m.home === undefined) {
+      m.home = null;
+      try { if (!World.flat && (!World.dim || World.dim === 'o')) { const s = Gen.local.findStruct(World.seed, 'village', Math.floor(m.x), Math.floor(m.z)); if (s && Math.hypot(s.wx - m.x, s.wz - m.z) < 70) m.home = [s.wx, s.wz]; } } catch (e) { }
+    }
+    if (!m.home || m.panic > 0 || m.target) return;
+    const dx = m.home[0] - m.x, dz = m.home[1] - m.z;
+    if (dx * dx + dz * dz > 34 * 34 && Math.random() < 0.06) { m.goalYaw = -Math.atan2(dx, dz); m.walkFor = 60; m.wanderT = 80; }
+  },
+  tick() {
+    const P = Game.player; if (!P) return;
+    if (World.dim === 'n') { Entities.netherSpawn(P); return; }
+    if (World.dim === 'e') return;
+    this.T++;
+    try { this.monsters(P); } catch (e) { }
+    if (this.T % 20 === 0) try { this.animals(P); } catch (e) { }
+    if (Math.random() < 0.3) try { this.water(P); } catch (e) { }
+    if (this.T % 2 === 0) try { this.villages(P); } catch (e) { }
+  },
+};
+{
+  const t0 = MobsExtra.tick.bind(MobsExtra);
+  MobsExtra.tick = function (m, d, P, dist) { try { Spawn127.homeTick(m); } catch (e) { } return t0(m, d, P, dist); };
+  // al generarse un chunk (10 % de probabilidad, wiki): un grupo de los animales del bioma
+  Entities.spawnAnimalsInChunk = function (c) {
+    if (World.dim && World.dim !== 'o') return;
+    if (Math.random() > 0.1) return;
+    const x = c.cx * 16 + 3 + (Math.random() * 10 | 0), z = c.cz * 16 + 3 + (Math.random() * 10 | 0);
+    let y = WH - 2; while (y > 1 && (!World.get(x, y - 1, z) || REPLACE[World.get(x, y - 1, z)])) y--;
+    const g = World.get(x, y - 1, z); if (!g || LIQUID[g] || !Spawn127.free(x, y, z)) return;
+    const S = Spawn127, L = BIOME_ANIMALS(S.biome(x, z)).filter(e => !S.NOT_NATURAL[e.k] && S.ground(e.k).has(g)); if (!L.length) return;
+    let q = Math.random() * L.reduce((a, e) => a + e.w, 0), pick = L[0]; for (const e of L) { q -= e.w; if (q <= 0) { pick = e; break; } }
+    const kind = pick.k, gs = S.GROUP[kind] || pick.n || [2, 4], n = gs[0] + (Math.random() * (gs[1] - gs[0] + 1) | 0);
+    const variant = pick.v != null ? pick.v : MOB_VARIANTS[kind] && (kind === 'pig' || kind === 'cow' || kind === 'chicken') ? this.variantFor(kind, x, z) : randVariant(kind);
+    for (let k = 0; k < n; k++) {
+      const ax = c.cx * 16 + clamp(x - c.cx * 16 + (Math.random() * 7 | 0) - 3, 0, 15), az = c.cz * 16 + clamp(z - c.cz * 16 + (Math.random() * 7 | 0) - 3, 0, 15);
+      let ay = WH - 2; while (ay > 1 && (!World.get(ax, ay - 1, az) || REPLACE[World.get(ax, ay - 1, az)])) ay--;
+      if (!S.ground(kind).has(World.get(ax, ay - 1, az)) || !S.free(ax, ay, az)) continue;
+      const m = new Mob(kind, ax + 0.5, ay + (MOBS[kind].flies ? 1 : 0), az + 0.5); m.variant = variant; this.add(m);
+    }
+  };
+  setTimeout(() => { Entities.spawnTick = function () { return Spawn127.tick(); }; }, 0);
 }
 
 // ---- 13d_enchant.js ----
