@@ -59,9 +59,9 @@ public class MainActivity extends Activity {
     static final int PICK_FILES = 7, PICK_INPUT = 8;
 
     WebView web;
-    File vers, music, texs, cache;
+    File vers, music, texs, cache, pend;
     String current = null;
-    boolean inGame = false;
+    boolean inGame = false, crashed = false;
     long lastBack = 0;
     String pickTarget = null;
     ValueCallback<Uri[]> fileCb = null;
@@ -78,8 +78,8 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 28) getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
         prefs = getSharedPreferences("launcher", MODE_PRIVATE);
         File data = getFilesDir();
-        vers = new File(data, "versiones"); music = new File(data, "musica"); texs = new File(data, "texturas"); cache = new File(data, "versiones.json");
-        vers.mkdirs(); music.mkdirs(); texs.mkdirs();
+        vers = new File(data, "versiones"); music = new File(data, "musica"); texs = new File(data, "texturas"); cache = new File(data, "versiones.json"); pend = new File(data, "pendientes");
+        vers.mkdirs(); music.mkdirs(); texs.mkdirs(); pend.mkdirs();
 
         web = new WebView(this);
         web.setBackgroundColor(0xff14161c);
@@ -109,7 +109,13 @@ public class MainActivity extends Activity {
                 return true;
             }
             @Override
-            public void onPageFinished(WebView v, String url) { inGame = url != null && !url.contains("/__launcher/"); }
+            public void onPageFinished(WebView v, String url) { inGame = url != null && !url.contains("/__launcher/"); prefs.edit().putBoolean("wasInGame", inGame).apply(); }
+            @Override
+            public boolean onRenderProcessGone(WebView v, android.webkit.RenderProcessGoneDetail d) {
+                // el sistema cerró la página por falta de memoria: se crea otra en vez de cerrar la app
+                crashed = true; ui.post(MainActivity.this::recreate);
+                return true;
+            }
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -124,10 +130,10 @@ public class MainActivity extends Activity {
             }
         });
         immersive();
-        if (b != null) web.restoreState(b); else web.loadUrl(BASE + "__launcher/index.html");
+        if (b != null && !b.getBoolean("crashed", false) && web.restoreState(b) != null) { } else web.loadUrl(BASE + (b != null && b.getBoolean("crashed", false) && prefs.getString("last", null) != null && prefs.getBoolean("wasInGame", false) ? "index.html" : "__launcher/index.html"));
     }
 
-    @Override protected void onSaveInstanceState(Bundle b) { super.onSaveInstanceState(b); web.saveState(b); }
+    @Override protected void onSaveInstanceState(Bundle b) { super.onSaveInstanceState(b); if (crashed) b.putBoolean("crashed", true); else web.saveState(b); }
     @Override public void onWindowFocusChanged(boolean f) { super.onWindowFocusChanged(f); if (f) immersive(); }
     @Override protected void onPause() { super.onPause(); if (inGame) saveGame(null); web.onPause(); }
     @Override protected void onResume() { super.onResume(); web.onResume(); }
@@ -169,6 +175,9 @@ public class MainActivity extends Activity {
         if (p.equals("/__texturas/lista.json")) { JSONArray a = new JSONArray(); for (String f : list(texs, "(?i).*\\.(zip|png)$")) { File ff = new File(texs, f); JSONObject o = new JSONObject(); o.put("file", f); o.put("size", ff.length()); o.put("mtime", ff.lastModified()); a.put(o); } return json(a.toString()); }
         if (p.equals("/__texturas/abrir")) { ui.post(() -> pick("texturas")); return text(204, ""); }
         if (p.startsWith("/__texturas/")) return file(new File(texs, p.substring(12)));
+        if (p.equals("/__pendientes/lista.json")) { JSONArray a = new JSONArray(); for (String f : list(pend, ".*")) { JSONObject o = new JSONObject(); o.put("file", f); o.put("size", new File(pend, f).length()); a.put(o); } return json(a.toString()); }
+        if (p.startsWith("/__pendientes/borrar/")) { new File(pend, p.substring(21)).delete(); return text(204, ""); }
+        if (p.startsWith("/__pendientes/")) return file(new File(pend, p.substring(14)));
         if (current == null) current = prefs.getString("last", null);
         if (current == null) return text(404, "Abre el juego desde el launcher");
         return file(new File(new File(vers, current), p.substring(1)));
@@ -204,7 +213,10 @@ public class MainActivity extends Activity {
                 if (data.getClipData() != null) { int n = data.getClipData().getItemCount(); out = new Uri[n]; for (int k = 0; k < n; k++) out[k] = data.getClipData().getItemAt(k).getUri(); }
                 else if (data.getData() != null) out = new Uri[]{data.getData()};
             }
-            if (fileCb != null) fileCb.onReceiveValue(out); fileCb = null; return;
+            if (fileCb != null) { fileCb.onReceiveValue(out); fileCb = null; prefs.edit().putBoolean("picking", false).apply(); return; }
+            // la página se recargó mientras elegías: los archivos se guardan y el juego los añade solo
+            if (out != null) { final Uri[] us = out; pool.execute(() -> { int n = 0; for (Uri u : us) if (copyTo(u, pend)) n++; final int k = n; ui.post(() -> { Toast.makeText(this, k + (k == 1 ? " archivo recibido: " : " archivos recibidos: ") + "se añaden al abrir el juego", Toast.LENGTH_LONG).show(); web.evaluateJavascript("window.AndroidInbox&&AndroidInbox.check()", null); }); }); }
+            return;
         }
         if (req != PICK_FILES || res != RESULT_OK || data == null || pickTarget == null) return;
         final File dir = pickTarget.equals("musica") ? music : texs;
@@ -214,15 +226,20 @@ public class MainActivity extends Activity {
         pool.execute(() -> {
             int ok = 0;
             for (Uri u : us) {
-                String name = "archivo"; try (Cursor c = getContentResolver().query(u, null, null, null, null)) { if (c != null && c.moveToFirst()) { int ix = c.getColumnIndex(OpenableColumns.DISPLAY_NAME); if (ix >= 0) name = c.getString(ix); } } catch (Exception e) { }
-                name = name.replaceAll("[\\\\/:*?\"<>|]", "_");
-                try (InputStream in = getContentResolver().openInputStream(u); OutputStream out = new FileOutputStream(new File(dir, name))) { copy(in, out, null); ok++; } catch (Exception e) { }
+                if (copyTo(u, dir)) ok++;
             }
             final int n = ok;
             ui.post(() -> Toast.makeText(this, n + (n == 1 ? " archivo añadido" : " archivos añadidos") + (inGame ? ". Recarga el juego para usarlos." : "."), Toast.LENGTH_LONG).show());
         });
     }
 
+    // copia un archivo elegido en el móvil a una carpeta de la app (con su nombre)
+    boolean copyTo(Uri u, File dir) {
+        String name = "archivo";
+        try (Cursor c = getContentResolver().query(u, null, null, null, null)) { if (c != null && c.moveToFirst()) { int ix = c.getColumnIndex(OpenableColumns.DISPLAY_NAME); if (ix >= 0) name = c.getString(ix); } } catch (Exception e) { }
+        name = name.replaceAll("[\\\\/:*?\"<>|]", "_");
+        try (InputStream in = getContentResolver().openInputStream(u); OutputStream out = new FileOutputStream(new File(dir, name))) { copy(in, out, null); return true; } catch (Exception e) { return false; }
+    }
     static void copy(InputStream in, OutputStream out, long[] count) throws Exception { byte[] buf = new byte[65536]; int r; while ((r = in.read(buf)) > 0) { out.write(buf, 0, r); if (count != null) count[0] += r; } }
     static void rm(File f) { if (f.isDirectory()) { File[] fs = f.listFiles(); if (fs != null) for (File c : fs) rm(c); } f.delete(); }
     static boolean safeId(String id) { return id != null && id.matches("[0-9A-Za-z._-]{1,40}") && !id.contains(".."); }
