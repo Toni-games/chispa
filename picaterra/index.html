@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.29.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.30.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -7379,8 +7379,9 @@ class Mob extends Entity {
     if (d.boss) { BossAI.tick(this, P, dist); return; }
     if (MobsExtra.tick(this, d, P, dist)) return;
     // desaparecer lejos
-    if (!this.persistent && dist > (d.aquatic && this.kind !== 'dolphin' ? 64 : 128)) { this.remove = true; return; }
-    if (!this.persistent && dist > 32 && Math.random() < 1 / 800) { this.remove = true; return; }
+    const dF = Game.focus ? (() => { const F = Game.focus(); return F === P ? dist : Math.min(dist, Math.hypot(F.x - this.x, F.z - this.z, F.y - this.y)); })() : dist;
+    if (!this.persistent && dF > (d.aquatic && this.kind !== 'dolphin' ? 64 : 128)) { this.remove = true; return; }
+    if (!this.persistent && dF > 32 && Math.random() < 1 / 800) { this.remove = true; return; }
     if (d.hostile && Game.difficulty === 0) { this.remove = true; return; }
     // quemarse al sol
     if (d.undead && !d.noBurn && Sky.skyFactor > 0.85 && !this.inWater && World.sky(Math.floor(this.x), Math.floor(this.y + this.h), Math.floor(this.z)) >= 15 && Math.random() < 0.05) this.fire = Math.max(this.fire, 160);
@@ -12255,7 +12256,7 @@ function frame(now) {
       Input.dx = Input.dy = 0;
       acc += dt; let n = 0; while (acc >= 50 && n < 5) { Game.tick(); acc -= 50; n++; } if (n >= 5) acc = 0;
       Game.partial = clamp(acc / 50, 0, 1);
-      Chunks.update(P.x, P.z, Perf.dist());
+      { const F = Game.focus ? Game.focus() : P; Chunks.update(F.x, F.z, Perf.dist()); }
       if (Game.state === 'loading') {
         const cx = Math.floor(P.x) >> 4, cz = Math.floor(P.z) >> 4; let ready = 0, need = 0;
         for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) { need++; const c = World.chunk(cx + dx, cz + dz); if (c && c.mesh && !c.dirty) ready++; }
@@ -16553,7 +16554,7 @@ const Spawn127 = {
     if (dx * dx + dz * dz > 34 * 34 && Math.random() < 0.06) { m.goalYaw = -Math.atan2(dx, dz); m.walkFor = 60; m.wanderT = 80; }
   },
   tick() {
-    const P = Game.player; if (!P) return;
+    const P = Game.player && Game.focus ? Game.focus() : Game.player; if (!P) return;
     if (World.dim === 'n') { Entities.netherSpawn(P); return; }
     if (World.dim === 'e') return;
     this.T++;
@@ -16851,7 +16852,7 @@ document.addEventListener('wheel', (e) => { if (GUI.open !== 'trade' || !GUI.vil
 {
   const t0 = MobsExtra.tick.bind(MobsExtra);
   MobsExtra.tick = function (m, d, P, dist) {
-    if (m.kind === 'bat') { Bats.tick(m, P, dist); return true; }
+    if (m.kind === 'bat') { const F = Game.focus ? Game.focus() : P; Bats.tick(m, P, F === P ? dist : Math.min(dist, Math.hypot(F.x - m.x, F.z - m.z))); return true; }
     if (m.kind === 'villager') { try { Trade.tick(m); } catch (e) { } if (m.trading) { if (GUI.open !== 'trade' || GUI.villager !== m) m.trading = null; else { m.vx *= 0.5; m.vz *= 0.5; m.move(0, m.vy, 0); m.vy = (m.vy - 0.08) * 0.98; m.headYaw = m.bodyYaw = Math.atan2(-(P.x - m.x), -(P.z - m.z)); return true; } } }
     return t0(m, d, P, dist);
   };
@@ -16865,7 +16866,7 @@ document.addEventListener('wheel', (e) => { if (GUI.open !== 'trade' || !GUI.vil
     for (const e of Entities.list) if (!before.has(e) && e.kind === 'villager' && !e.baby && Math.random() < 0.85) Trade.setProf(e, keys[Math.random() * keys.length | 0]);
   };
   const t1 = Spawn127.tick.bind(Spawn127);
-  Spawn127.tick = function () { t1(); const P = Game.player; if (P && (!World.dim || World.dim === 'o')) try { Bats.spawn(P); Bats.spawn(P); } catch (e) { } };
+  Spawn127.tick = function () { t1(); const P = Game.player && Game.focus ? Game.focus() : Game.player; if (P && (!World.dim || World.dim === 'o')) try { Bats.spawn(P); Bats.spawn(P); } catch (e) { } };
   Spawn127.NOT_NATURAL.bat = 1;
 }
 // guardar oficio, nivel y ofertas con la partida (y lo que otros módulos pongan en e.keep)
@@ -17702,22 +17703,25 @@ const RC = {
   tick(e) {
     const V = RCV[e.kind.slice(3)]; if (!V) return;
     for (const k of ['Pit', 'Rol', 'Spin', 'Prop']) e['prev' + k] = e[k.toLowerCase()] || 0;
-    e.persistent = V.kind !== 'missile'; e.step = V.kind === 'ground' ? 0.55 : 0.1;
+    e.persistent = V.kind !== 'missile'; e.step = V.kind === 'ground' ? 1.05 : V.kind === 'boat' || V.kind === 'plane' ? 0.6 : 0.1;
+    if (e.onGround) e.air = 0; else e.air = (e.air || 0) + 1;
     if (V.kind === 'missile') return this.missileTick(e, V);
     const ctl = this.ctl && this.ctl.e === e ? this.keys : null; const K = (c) => !!(ctl && ctl[c]);
     const on = !e.motorOff && this.bat(e) > 0;
     const wet = e.inWater;
     if (V.kind === 'ground' || V.kind === 'boat') {
       if (e.spd === undefined) e.spd = 0; const f = K('KeyW') ? 1 : K('KeyS') ? -1 : 0, s = K('KeyA') ? 1 : K('KeyD') ? -1 : 0;
-      const ok = V.kind === 'boat' ? wet : (e.onGround && !wet);
+      const ok = V.kind === 'boat' ? wet : ((e.onGround || e.air < 6) && !wet);
       if (on && ok && f > 0) e.spd = Math.min(V.max, e.spd + V.acc); else if (on && ok && f < 0) e.spd = Math.max(-V.max * 0.4, e.spd - V.acc * 1.5); else e.spd *= ok ? 0.96 : 0.995;
       if (V.kind === 'boat' && !wet) e.spd *= 0.8;
       e.steer = s * 0.5; e.rud = s * 0.5; if (ok || V.kind === 'boat') e.yaw += s * (V.kind === 'boat' ? 0.06 : 0.09) * clamp(Math.abs(e.spd) / 0.2, 0, 1) * Math.sign(e.spd || 1);
-      if (V.jump && on && K('Space') && e.onGround && !(e.jcd > 0)) { e.vy = 0.65; e.jcd = 20; Guns.sounds['thercmod:prophit'] && Guns.play('thercmod:prophit', e.x, e.y, e.z); } if (e.jcd > 0) e.jcd--;
+      if (V.kind === 'ground' && on && K('Space') && (e.onGround || e.air < 5) && !(e.jcd > 0)) { e.vy = 0.7; e.jcd = 10; e.air = 9; Guns.sounds['thercmod:prophit'] && Guns.play('thercmod:prophit', e.x, e.y, e.z); } if (e.jcd > 0) e.jcd--;
       const vx = -Math.sin(e.yaw) * e.spd, vz = -Math.cos(e.yaw) * e.spd;
       if (V.kind === 'boat' && wet) { e.vy = (e.vy + 0.02) * 0.7; const top = World.get(Math.floor(e.x), Math.floor(e.y + 0.25), Math.floor(e.z)); if (!LIQUID[top]) e.vy = Math.min(e.vy, 0); }
       else e.vy = (e.vy - 0.08) * 0.98;
-      e.move(vx, e.vy, vz); if (e.horizCol) e.spd *= -0.3;
+      e.move(vx, e.vy, vz);
+      if (e.horizCol && V.kind === 'ground' && f > 0 && on && (e.onGround || e.air < 5) && !(e.jcd > 0)) { e.vy = 0.7; e.jcd = 16; e.air = 9; e.spd = Math.max(e.spd, 0.2); } // salta solo los muros bajos
+      else if (e.horizCol && !(e.jcd > 0) && e.onGround) e.spd *= -0.3;
       e.pit = e.onGround ? 0 : clamp((e.pit || 0) * 0.9 + (-e.vy) * -0.3, -0.5, 0.5); e.rol = -s * clamp(Math.abs(e.spd), 0, 0.5) * 0.25;
       e.spin = (e.spin || 0) + e.spd / 0.08; e.prop = (e.prop || 0) + (on ? Math.abs(e.spd) * 4 : 0);
       if (on) this.drain(e, Math.abs(f) * 0.00012 + 0.00002);
@@ -17732,32 +17736,41 @@ const RC = {
     } else if (V.kind === 'plane') this.planeTick(e, V, K, on);
     else if (V.kind === 'rotor') this.rotorTick(e, V, K, on);
   },
+  // avión fácil: va hacia donde miras con el ratón (W/S/A/D también mueven el punto de mira)
   planeTick(e, V, K, on) {
     if (e.th === undefined) { e.th = 0; e.spd = 0; e.sink = 0; e.pit = 0; e.rol = 0; }
-    if (K('Space')) e.th = Math.min(1, e.th + 0.03); if (K('ShiftLeft') || K('ShiftRight')) e.th = Math.max(0, e.th - 0.03);
-    const ip = (K('KeyS') ? 1 : 0) - (K('KeyW') ? 1 : 0), ir = (K('KeyD') ? 1 : 0) - (K('KeyA') ? 1 : 0), iy = (K('KeyQ') ? 1 : 0) - (K('KeyE') ? 1 : 0);
-    const auth = clamp(e.spd / (V.vstall * 1.2), 0.1, 1.2);
-    const ground = e.onGround;
-    e.elev = ip * 0.4; e.ail = ir * 0.4; e.rud = iy * 0.4;
-    if (!ground) {
-      e.pit += ip * V.rate * auth; e.rol += ir * V.rate * 1.3 * auth; e.yaw += iy * V.rate * 0.4 * auth;
-      e.yaw += -Math.sin(e.rol) * Math.cos(e.pit) * 0.05 * auth; // virar al inclinarse
-      if (V.stable && !ir) e.rol *= 0.95;
-      if (V.stable && !ip) e.pit *= 0.985;
-      if (e.spd < V.vstall * 0.8) e.pit -= 0.04 * (1 - e.spd / (V.vstall * 0.8)) + 0.01; // entrada en pérdida: el morro cae
-    } else {
-      e.rol *= 0.6; e.pit = Math.max(0, e.pit + ip * 0.04 * auth); if (e.spd < V.vstall) e.pit *= 0.9; e.yaw += iy * 0.05 * clamp(e.spd / 0.1, 0, 1) + ir * 0.02 * clamp(e.spd / 0.1, 0, 1);
+    const P = Game.player, mine = this.ctl && this.ctl.e === e;
+    if (K('Space')) e.th = Math.min(1, e.th + 0.04); if (K('ShiftLeft') || K('ShiftRight')) e.th = Math.max(0, e.th - 0.04);
+    if (mine) { if (K('KeyW')) P.pitch -= 0.03; if (K('KeyS')) P.pitch += 0.03; if (K('KeyA')) P.yaw += 0.045; if (K('KeyD')) P.yaw -= 0.045; P.pitch = clamp(P.pitch, -1.2, 1.2); }
+    const tyaw = mine ? P.yaw : e.yaw; let tpit = mine ? clamp(P.pitch, -0.9, 0.9) : 0;
+    // ayuda: sube solo al despegar, cerca del suelo y si hay una montaña delante
+    if (on && e.th > 0.2 && !e.onGround) {
+      let clear = 9; for (let d = 1; d <= 4; d++) if (SOLID[World.get(Math.floor(e.x), Math.floor(e.y - d), Math.floor(e.z))]) { clear = d; break; }
+      if (clear <= 3) tpit = Math.max(tpit, 0.2);
+      const f0 = this.fwd(e); for (let d = 2; d <= 8; d += 2) if (SOLID[World.get(Math.floor(e.x + f0[0] * d * 1.5), Math.floor(e.y + 0.2), Math.floor(e.z + f0[2] * d * 1.5))]) { tpit = Math.max(tpit, 0.5); break; }
     }
-    e.pit = clamp(e.pit, -1.5, 1.5); if (e.rol > Math.PI) e.rol -= Math.PI * 2; if (e.rol < -Math.PI) e.rol += Math.PI * 2;
+    const auth = clamp(e.spd / V.vstall, 0.2, 1.2); const ground = e.onGround;
+    const dy = Math.atan2(Math.sin(tyaw - e.yaw), Math.cos(tyaw - e.yaw));
+    if (ground) {
+      e.yaw += clamp(dy, -0.06, 0.06) * clamp(e.spd / 0.08, 0.3, 1); e.rol *= 0.6;
+      if (e.spd > V.vstall * 0.9 && on && e.th > 0.2) e.pit = Math.max(tpit, 0.25); // despega solo al coger velocidad
+      else e.pit *= 0.8;
+    } else {
+      e.yaw += clamp(dy, -V.rate, V.rate) * auth;
+      e.rol += (clamp(-dy * 1.6, -1.1, 1.1) - e.rol) * 0.12;
+      e.pit += clamp(tpit - e.pit, -V.rate * 0.8, V.rate * 0.8) * auth;
+    }
+    e.elev = (e.pit - tpit) * 0.6; e.ail = -e.rol * 0.4; e.rud = clamp(dy, -0.4, 0.4);
+    e.pit = clamp(e.pit, -1.3, 1.3);
     const thrust = on ? V.thrust * e.th : 0;
-    e.spd += thrust - 0.35 * e.spd * e.spd * 0.3 - 0.06 * Math.sin(e.pit) * 0.5 - (ground ? 0.004 : 0); e.spd = Math.max(0, e.spd);
-    const lift = Math.min(1.25, (e.spd / V.vstall) ** 2) * Math.cos(e.rol);
-    e.sink = ground ? 0 : clamp(e.sink + 0.04 * (1 - lift), -0.25, 1.2) * 0.92;
-    const f = this.fwd(e); const oy = e.y, sp = e.spd;
-    e.move(f[0] * sp, f[1] * sp - e.sink - (ground && sp < V.vstall ? 0.05 : 0), f[2] * sp);
-    if ((e.horizCol || (e.onGround && !ground && (e.sink > 0.35 || e.pit < -0.5))) && sp > 0.15) this.crash(e);
-    if (e.onGround) { e.sink = 0; if (e.pit < 0) e.pit = 0; }
-    void oy;
+    e.spd += thrust - 0.1 * e.spd * e.spd - 0.025 * Math.sin(e.pit) - (ground ? 0.003 : 0); e.spd = Math.max(0, e.spd);
+    if (!ground && on && e.th > 0.15) e.spd = Math.max(e.spd, V.vstall); // con motor no entra en pérdida
+    const lift = Math.min(1.2, (e.spd / V.vstall) ** 2);
+    e.sink = ground ? 0 : clamp(e.sink + 0.03 * (1 - lift), 0, 0.6) * 0.9;
+    const f = this.fwd(e); const sp = e.spd;
+    e.move(f[0] * sp, f[1] * sp - e.sink - (ground ? 0.05 : 0), f[2] * sp);
+    if (e.horizCol && sp > 0.6) this.crash(e); else if (e.horizCol) e.spd *= 0.7;
+    if (e.onGround) { e.sink = 0; if (e.pit < 0) e.pit = 0; e.rol *= 0.5; }
     e.prop = (e.prop || 0) + (on ? e.th * 1.8 + 0.05 * (e.th > 0) : e.spd * 0.5); e.spin = (e.spin || 0) + (e.onGround ? sp / 0.03 : 0);
     if (on) this.drain(e, e.th * 0.00018 + 0.00001); this.sound(e, on ? e.th : 0);
   },
@@ -17828,12 +17841,12 @@ const RC = {
   start(e) {
     const P = Game.player; this.ctl = { e, yaw0: P.yaw, pitch0: P.pitch }; this.keys = {}; this.camMode = 0; e._noBat = false;
     if (Guns.sounds['thercmod:remoteon']) Guns.play('thercmod:remoteon', P.x, P.y, P.z);
-    const V = RCV[e.kind.slice(3)];
-    const help = { ground: 'W/S acelerar y frenar · A/D girar' + (V.jump ? ' · Espacio salto potente' : ''), boat: 'W/S acelerar y frenar · A/D girar', sub: 'W/S avanzar · A/D girar · Espacio/Mayús subir y bajar · F torpedo',
-      plane: 'Espacio/Mayús potencia · W/S cabeceo · A/D alabeo · Q/E timón' + (V.weapon ? ' · F misil (apunta solo)' : ''), rotor: 'Espacio/Mayús subir y bajar · W/S adelante y atrás · A/D lados · Q/E girar' };
+    const V = RCV[e.kind.slice(3)]; if (V.kind === 'plane') { P.yaw = e.yaw; P.pitch = 0; this.ctl.yaw0 = P.yaw; this.ctl.pitch0 = 0; }
+    const help = { ground: 'W/S acelerar y frenar · A/D girar · Espacio saltar (sube escalones solo)', boat: 'W/S acelerar y frenar · A/D girar', sub: 'W/S avanzar · A/D girar · Espacio/Mayús subir y bajar · F torpedo',
+      plane: 'Espacio/Mayús potencia (despega solo al coger velocidad) · el avión va hacia donde miras con el ratón · W/S/A/D también lo guían' + (V.weapon ? ' · F misil (apunta solo)' : ''), rotor: 'Espacio/Mayús subir y bajar · W/S adelante y atrás · A/D lados · Q/E girar' };
     Chat.add('§eControlando: ' + MOBS[e.kind].name + '§7 — ' + help[V.kind] + ' · X motor · C cámara · G recoger · Esc o clic derecho: soltar el mando');
   },
-  stop() { const P = Game.player; this.ctl = null; this.keys = {}; this.stopSound(); Cam.rcf = null; if (P && Guns.sounds['thercmod:remoteoff']) Guns.play('thercmod:remoteoff', P.x, P.y, P.z); },
+  stop() { const P = Game.player; if (this.ctl) this.waitHome = true; this.ctl = null; this.keys = {}; this.stopSound(); Cam.rcf = null; if (P && Guns.sounds['thercmod:remoteoff']) Guns.play('thercmod:remoteoff', P.x, P.y, P.z); },
   retrieve(e) {
     const type = e.kind.slice(3); const st = { id: 'thercmod_item_' + type, n: 1 }; if (e.keep && e.keep.bat < 1) st.bike = { bat: e.keep.bat };
     if (this.ctl && this.ctl.e === e) this.stop();
@@ -17846,6 +17859,7 @@ const RC = {
     const yawO = (P.yaw - c.yaw0), pitO = (P.pitch - c.pitch0);
     if (this.camMode === 1) { const f = this.fwd(e); return { x: x + f[0] * 0.3, y: y + V.h * 0.8, z: z + f[2] * 0.3, yaw: e.yaw + yawO, pitch: clamp((e.pit || 0) + pitO, -1.5, 1.5), roll: V.kind === 'plane' || V.kind === 'rotor' ? -(e.rol || 0) : 0 }; }
     const big = V.kind === 'plane' || e.kind === 'rc_octocopter' ? 3.2 : 2.2;
+    if (V.kind === 'plane') { const yaw = P.yaw, pitch = clamp(P.pitch * 0.6 - 0.18, -1.2, 1.2); const d = lookDir(yaw, pitch); let dist = 3.2; const r = Game.raycast(x, y + 0.3, z, -d[0], -d[1], -d[2], 3.2, false, true); if (r) dist = Math.max(0.4, r.t - 0.2); return { x: x - d[0] * dist, y: y + 0.3 - d[1] * dist, z: z - d[2] * dist, yaw, pitch }; }
     const yaw = (c.cyaw === undefined ? (c.cyaw = e.yaw) : (c.cyaw = lerpAngle(c.cyaw, e.yaw, 0.12))) + yawO, pitch = clamp(-0.25 + pitO, -1.3, 1.3);
     const d = lookDir(yaw, pitch); let dist = big; const r = Game.raycast(x, y + 0.3, z, -d[0], -d[1], -d[2], big, false, true); if (r) dist = Math.max(0.4, r.t - 0.2);
     return { x: x - d[0] * dist, y: y + 0.3 - d[1] * dist, z: z - d[2] * dist, yaw, pitch };
@@ -17885,7 +17899,8 @@ if (MODS127.rc) {
   // el jugador se queda quieto mientras usa el mando
   const rt0 = Riding.tick.bind(Riding);
   Riding.tick = function (P, input) {
-    if (RC.ctl) { const e = RC.ctl.e; if (!e || e.remove || e.dead || !P.held || !ITEMS[P.held.id] || !ITEMS[P.held.id].rcRemote) { RC.stop(); return rt0(P, input); } P.vx = 0; P.vz = 0; if (!P.flying) { P.vy = (P.vy - 0.08) * 0.98; P.move(0, P.vy, 0); } if (Math.hypot(e.x - P.x, e.z - P.z) > 120 && !RC._far) { RC._far = true; Chat.add('§c¡Te alejas demasiado: se pierde la señal!'); } if (Math.hypot(e.x - P.x, e.z - P.z) > 140) { e.motorOff = true; } return true; }
+    if (RC.ctl) { const e = RC.ctl.e; if (!e || e.remove || e.dead || !P.held || !ITEMS[P.held.id] || !ITEMS[P.held.id].rcRemote) { RC.stop(); return rt0(P, input); } P.vx = 0; P.vz = 0; if (!P.flying) { P.vy = (P.vy - 0.08) * 0.98; P.move(0, P.vy, 0); } return true; }
+    if (RC.waitHome) { if (World.loaded(P.x, P.z) && World.chunk(Math.floor(P.x) >> 4, Math.floor(P.z) >> 4)) RC.waitHome = false; else { P.vx = P.vy = P.vz = 0; return true; } }
     return rt0(P, input);
   };
   // poner el vehículo y usar el mando
@@ -17946,6 +17961,9 @@ window.addEventListener('mousedown', (e) => {
     lines.forEach((t, i) => this.text(t, W - 166 * s, (9 + i * 10) * s, '#ffffff', s));
   };
 }
+
+Game.focus = function () { const e = RC.ctl && RC.ctl.e; return e && !e.remove && !e.dead ? e : this.player; };
+{ const an0 = NetSync.anchors.bind(NetSync); NetSync.anchors = function () { const a = an0() || []; const P = Game.player; if (P && (RC.ctl || RC.waitHome)) a.push([Math.floor(P.x) >> 4, Math.floor(P.z) >> 4]); return a.length ? a : null; }; }
 
 // ---- 13d_enchant.js ----
 // ============================================================

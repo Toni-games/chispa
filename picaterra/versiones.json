@@ -1,8 +1,20 @@
 {
-  "latest": "1.29.0",
+  "latest": "1.30.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.30.0",
+      "date": "2026-11-23",
+      "title": "Vehículos RC más fáciles y sin límite de distancia",
+      "notes": [
+        "El avión va hacia donde miras con el ratón, despega solo, no entra en pérdida con motor y esquiva montañas",
+        "Coches: suben escalones solos y saltan solos los muros bajos",
+        "El mundo se genera alrededor del vehículo: puedes ir tan lejos como quieras"
+      ],
+      "size": 429431,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.30.0.zip"
+    },
     {
       "id": "1.29.0",
       "date": "2026-11-23",
