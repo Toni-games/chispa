@@ -1,8 +1,21 @@
 {
-  "latest": "1.28.0",
+  "latest": "1.29.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.29.0",
+      "date": "2026-11-23",
+      "title": "Mod The RC Mod: vehículos teledirigidos",
+      "notes": [
+        "Coche, coche de carreras, lancha, submarino, avión entrenador, avión acrobático, F-22, helicóptero, dron y octocóptero con sus modelos del mod",
+        "Mando a distancia con cámara de persecución, a bordo o desde el jugador",
+        "Batería que se gasta, misiles del F-22 que apuntan solos y torpedos del submarino",
+        "Todas las recetas del mod (con horno para fibra de carbono, goma y metal ligero)"
+      ],
+      "size": 428752,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.29.0.zip"
+    },
     {
       "id": "1.28.0",
       "date": "2026-11-23",

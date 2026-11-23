@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.28.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.29.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -3471,6 +3471,30 @@ if (MODS127.eb) {
   if (!ITEMS.effortlessbuilding_randomizer_tool) defItem('effortlessbuilding_randomizer_tool', 'Herramienta aleatorizadora', { cat: 'mods', icon: 'mod_eb_randomizer' });
   Object.assign(ITEMS.effortlessbuilding_randomizer_tool, { stack: 1, randomizer: true, cat: 'tools' });
   for (const f of ['poppy', 'dandelion', 'cornflower', 'allium', 'azure_bluet', 'oxeye_daisy', 'blue_orchid', 'lily_of_the_valley']) if (ITEMS[f]) shaped([' L ', 'LCL', ' R '], { L: 'iron_ingot', C: f, R: 'redstone' }, 'effortlessbuilding_randomizer_tool');
+}
+// ---- 1.29: The RC Mod (vehículos teledirigidos) ----
+MODS127.rc = MODS127.has('thercmod');
+if (MODS127.rc) {
+  const N = {
+    item_remotecontrol: 'Mando a distancia', item_trainerplane: 'Avión entrenador RC', item_car: 'Coche RC', item_boat: 'Lancha RC', item_heli: 'Helicóptero RC', item_drone: 'Dron RC',
+    item_f22: 'F-22 Raptor RC', item_submarine: 'Submarino RC', item_stuntplane: 'Avión acrobático RC', item_octocopter: 'Octocóptero RC', item_racer: 'Coche de carreras RC',
+    item_widewheel: 'Rueda ancha', item_narrowwheel: 'Rueda estrecha', item_battery: 'Batería', item_electricmotor: 'Motor eléctrico', item_circuitboard: 'Placa de circuito',
+    item_receivermodule: 'Módulo receptor', item_servo: 'Servo eléctrico', item_speed_controller: 'Controlador de velocidad', item_flight_controller: 'Controlador de vuelo',
+    item_rotorblades: 'Palas de rotor', item_propeller_high: 'Hélice de paso alto', item_propeller_low: 'Hélice de paso bajo',
+    item_trainerplane_body: 'Fuselaje de avión entrenador', item_drone_body: 'Cuerpo de dron', item_car_body: 'Carrocería de coche', item_f22_body: 'Fuselaje de F-22',
+    item_heli_body: 'Fuselaje de helicóptero', item_boat_body: 'Casco de lancha', item_submarine_body: 'Casco de submarino', item_stuntplane_body: 'Fuselaje de avión acrobático',
+    item_octocopter_body: 'Cuerpo de octocóptero', item_racer_body: 'Carrocería de carreras', item_missile: 'Misil RC',
+    material_stickycarbon: 'Carbono pegajoso', material_carbonfiber: 'Fibra de carbono', material_plywood: 'Contrachapado ligero', material_softrubber: 'Goma blanda',
+    material_hardenedrubber: 'Goma endurecida', material_lightironpowder: 'Polvo de hierro ligero', material_lightmetal: 'Metal ligero', material_plastic: 'Plástico',
+  };
+  if (!ITEMS.thercmod_item_remotecontrol) { const ref = ITEMS.thercmod_item_car; defItem('thercmod_item_remotecontrol', 'Mando a distancia', { cat: 'tools', icon: ref && typeof ref.icon === 'string' ? ref.icon.replace('item_car', 'item_remotecontrolon') : 'stick' }); }
+  if (ITEMS.thercmod_item_remotecontrol && !RECIPES.some(r => r.out === 'thercmod_item_remotecontrol') && ITEMS.thercmod_material_plastic) shaped([' A ', 'PTP', 'ABA'], { T: 'thercmod_item_circuitboard', P: 'thercmod_material_hardenedrubber', A: 'thercmod_material_plastic', B: 'thercmod_item_battery' }, 'thercmod_item_remotecontrol');
+  for (const k in N) { const it = ITEMS['thercmod_' + k]; if (it) it.name = N[k]; }
+  for (const k of ['car', 'racer', 'boat', 'submarine', 'trainerplane', 'stuntplane', 'f22', 'heli', 'drone', 'octocopter']) { const it = ITEMS['thercmod_item_' + k]; if (it) { it.stack = 1; it.rcVehicle = k; it.cat = 'tools'; } }
+  if (ITEMS.thercmod_item_remotecontrol) Object.assign(ITEMS.thercmod_item_remotecontrol, { stack: 1, rcRemote: true, cat: 'tools' });
+  if (ITEMS.thercmod_item_battery) ITEMS.thercmod_item_battery.stack = 16;
+  const S = (a, b) => { if (ITEMS['thercmod_' + a] && ITEMS['thercmod_' + b]) SMELT['thercmod_' + a] = ['thercmod_' + b, 0.2]; };
+  S('material_stickycarbon', 'material_carbonfiber'); S('material_softrubber', 'material_hardenedrubber'); S('material_lightironpowder', 'material_lightmetal');
 }
 
 // ---- 03_textures.js ----
@@ -11794,6 +11818,7 @@ function setupCamera() {
   const R = Renderer; const P = Game.player; const pt = Game.partial;
   let x, y, z, yaw, pitch, roll = 0;
   if (Cam.override) { x = Title.cx + 0.5; y = Title.cy; z = Title.cz + 0.5; yaw = Cam.override.yaw; pitch = Cam.override.pitch; }
+  else if (Cam.rcf && P && Game.state === 'play') { const c = Cam.rcf(pt); x = c.x; y = c.y; z = c.z; yaw = c.yaw; pitch = c.pitch; roll = c.roll || 0; }
   else if (Game.state === 'title' || !P) {
     Title.t += 0.0015; x = Title.cx + 0.5; y = Title.cy; z = Title.cz + 0.5; yaw = Title.t; pitch = -0.18;
   } else {
@@ -11807,7 +11832,7 @@ function setupCamera() {
   const far = Math.max(260, Perf.dist() * 16 * 1.6);
   M4.persp(R.proj, fov, R.W / R.H, 0.05, far);
   // tercera persona
-  if (P && Game.state === 'play' && Game.cam > 0) {
+  if (P && Game.state === 'play' && Game.cam > 0 && !Cam.rcf) {
     const back = Game.cam === 1 ? 1 : -1; const [dx, dy, dz] = lookDir(yaw, pitch);
     let dist = 4; const r = Game.raycast(x, y, z, -dx * back, -dy * back, -dz * back, 4, false, true);
     if (r) dist = Math.max(0.3, r.t - 0.2);
@@ -11817,7 +11842,7 @@ function setupCamera() {
   Cam.x = x; Cam.y = y; Cam.z = z; Cam.yaw = yaw; Cam.pitch = pitch;
   const V = M4.identity(R.view);
   // balanceo y daño (solo 1ª persona)
-  if (P && Game.state === 'play' && Game.cam === 0) {
+  if (P && Game.state === 'play' && Game.cam === 0 && !Cam.rcf) {
     if (P.dmgTilt > 0) M4.rotZ(V, Math.sin(P.dmgTilt * P.dmgTilt * Math.PI) * 0.25 * (P.hurtDir || 1));
     if (Settings.bobbing && !P.flying) {
       const wd = lerp(P.prevWalkDist, P.walkDist, pt), b = lerp(P.prevBob, P.bob, pt);
@@ -11877,7 +11902,7 @@ function renderFrame() {
   drawParticles(cam);
   drawNameTags(cam);
   if (Game.chunkBorders && P) drawChunkBorders();
-  if (P && Game.state === 'play' && Game.cam === 0 && !Game.hideHud && !P.dead && P.mode !== 3) { Shaders.hand = true; try { drawHand(); } finally { Shaders.hand = false; } }
+  if (P && Game.state === 'play' && Game.cam === 0 && !Cam.rcf && !Game.hideHud && !P.dead && P.mode !== 3) { Shaders.hand = true; try { drawHand(); } finally { Shaders.hand = false; } }
   if (SX) Shaders.end(R);
 }
 
@@ -11967,7 +11992,7 @@ function drawEntities(Pw, cam) {
     }
   }
   // jugador en 3ª persona
-  if (P && Game.state === 'play' && (Game.cam > 0) && P.mode !== 3) drawPlayerModel(Pw, P);
+  if (P && Game.state === 'play' && (Game.cam > 0 || Cam.rcf) && P.mode !== 3) drawPlayerModel(Pw, P);
   // otros jugadores
   if (Net.active) for (const r of Net.remote.values()) if (r.placed) drawRemote(Pw, r);
   gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0); gl.uniform2f(Pw.u.uLightMul, 1, 1); gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex);
@@ -13621,7 +13646,7 @@ const Addons = {
         if (low.endsWith('.jar')) {
           onMsg && onMsg('Leyendo «' + f.name + '»…'); const buf = await f.arrayBuffer(); const z = await readZip(buf);
           if (!z.names.some(p => /^assets\/[^/]+\/(blockstates|models|textures|geo)\//.test(p))) { out.push('«' + f.name + '» es un mod de Java sin bloques ni objetos que se puedan sacar: su código no puede funcionar en un navegador.'); continue; }
-          const r = await this.addPack(f.name.replace(/\.jar$/i, ''), buf, true); const known = z.names.some(p => /^assets\/(create|bicycle|effortlessbuilding)\//.test(p)); out.push('«' + f.name + '»: ' + (r || 'nada aprovechable.') + (known ? ' Este mod está rehecho para el navegador: funciona al recargar la partida.' : ' Su código Java no funciona en un navegador: solo se usan sus bloques, objetos y texturas.')); continue;
+          const r = await this.addPack(f.name.replace(/\.jar$/i, ''), buf, true); const known = z.names.some(p => /^assets\/(create|bicycle|effortlessbuilding|thercmod)\//.test(p)); out.push('«' + f.name + '»: ' + (r || 'nada aprovechable.') + (known ? ' Este mod está rehecho para el navegador: funciona al recargar la partida.' : ' Su código Java no funciona en un navegador: solo se usan sus bloques, objetos y texturas.')); continue;
         }
         if (!/\.(zip|mrpack|rpo)$/.test(low)) { out.push('«' + f.name + '»: solo se admiten .zip, .mrpack o .jar.'); continue; }
         onMsg && onMsg('Leyendo «' + f.name + '»…');
@@ -17520,6 +17545,406 @@ if (MODS127.eb) setTimeout(() => { const t0 = Game.start || null; void t0; }, 0)
 {
   let told = null;
   setInterval(() => { if (!MODS127.eb || Game.state !== 'play' || !Game.world) return; const id = Game.world.id; if (told === id) return; told = id; const W = Game.world; if (W.ebWelcome) return; W.ebWelcome = true; Chat.add('§e¡Gracias por usar Effortless Building! §7Para empezar, pulsa Alt para abrir el menú de construcción (K: modificadores).'); }, 3000);
+}
+
+
+// ---- extra/rc128.js ----
+// ============================================================
+//  1.29: «The RC Mod» — vehículos teledirigidos (coche, coche de carreras, lancha, submarino,
+//  avión entrenador, avión acrobático, F-22, helicóptero, dron y octocóptero) con su mando.
+//  Los modelos (.rcm), texturas, propiedades y sonidos se leen del .jar del jugador.
+// ============================================================
+const RCV = {
+  car: { file: 'car', skin: 'carskin', cfg: 'carproperties', kind: 'ground', w: 0.32, h: 0.25, max: 0.55, acc: 0.03, jump: true },
+  racer: { file: 'racer', skin: 'racerskin', cfg: 'racerproperties', kind: 'ground', w: 0.32, h: 0.2, max: 0.8, acc: 0.04 },
+  boat: { file: 'boat', skin: 'boatskin', cfg: 'boatproperties', kind: 'boat', w: 0.4, h: 0.25, max: 0.5, acc: 0.02 },
+  submarine: { file: 'submarine', skin: 'submarineskin', cfg: 'submarineproperties', kind: 'sub', w: 0.3, h: 0.3, max: 0.3, acc: 0.012, weapon: 'torpedo' },
+  trainerplane: { file: 'trainerplane', skin: 'trainerplaneskin', cfg: 'planeproperties', kind: 'plane', w: 0.6, h: 0.3, thrust: 0.03, vstall: 0.32, rate: 0.045, stable: true },
+  stuntplane: { file: 'stuntplane', skin: 'stuntplaneskin', cfg: 'stuntplaneproperties', kind: 'plane', w: 0.6, h: 0.35, thrust: 0.045, vstall: 0.3, rate: 0.09 },
+  f22: { file: 'f22raptor', skin: 'f22skin', cfg: 'f22properties', kind: 'plane', w: 0.6, h: 0.3, thrust: 0.065, vstall: 0.45, rate: 0.07, weapon: 'missile' },
+  heli: { file: 'heli', skin: 'heliskin', cfg: 'heliproperties', kind: 'rotor', w: 0.4, h: 0.35, spd: 0.4, climb: 0.22 },
+  drone: { file: 'drone', skin: 'droneskin', cfg: 'droneproperties', kind: 'rotor', w: 0.5, h: 0.22, spd: 0.55, climb: 0.3 },
+  octocopter: { file: 'octocopter', skin: 'octocopterskin', cfg: 'octocopterproperties', kind: 'rotor', w: 0.9, h: 0.4, spd: 0.45, climb: 0.25 },
+  missile: { file: 'missle', skin: 'missileskin', kind: 'missile', w: 0.15, h: 0.15 },
+  torpedo: { file: 'submissle', skin: 'submissileskin', kind: 'missile', w: 0.15, h: 0.15 },
+};
+// piezas que se mueven: dónde van y cómo giran (sacado de los «render» del mod)
+// T: [x,y,z] fijo, 'W:nombre' rueda, 'G:nombre' superficie de control, 'H:n' motor n · R: [ángulo o clave, ax, ay, az]
+const RCP = {
+  car: [['Suspension', [['T', 0.03, -0.00616, 0.1771], ['R', 180, 0, 1, 0]]], ['LeftWheel', [['T', 0.03, -0.00616, 0.1771], ['R', 180, 0, 1, 0], ['T', -0.1094, -0.02765, 0], ['R', 'steer', 0, 1, 0], ['R', 'spin', -1, 0, 0]]],
+    ['Suspension', [['T', -0.03, -0.00616, 0.1771]]], ['RightWheel', [['T', -0.03, -0.00616, 0.1771], ['T', -0.1094, -0.02765, 0], ['R', 'steer', 0, 1, 0], ['R', 'spin', 1, 0, 0]]],
+    ['Suspension', [['T', 0.03, -0.00616, -0.16], ['R', 180, 0, 1, 0]]], ['LeftWheel', [['T', 0.03, -0.00616, -0.16], ['R', 180, 0, 1, 0], ['T', -0.1094, -0.02765, 0], ['R', 'spin', -1, 0, 0]]],
+    ['Suspension', [['T', -0.03, -0.00616, -0.16]]], ['RightWheel', [['T', -0.03, -0.00616, -0.16], ['T', -0.1094, -0.02765, 0], ['R', 'spin', 1, 0, 0]]]],
+  racer: [['LeftSuspension', [['T', 0.04286, 0.000244, 0.1857]]], ['LeftFrontWheel', [['T', 0.04286, 0.000244, 0.1857], ['T', 0.08049, 0, 0], ['R', 'steer', 0, 1, 0], ['R', 'spin', 1, 0, 0]]],
+    ['RightSuspension', [['T', -0.04286, 0.000244, 0.1857]]], ['RightFrontWheel', [['T', -0.04286, 0.000244, 0.1857], ['T', -0.08049, 0, 0], ['R', 'steer', 0, 1, 0], ['R', 'spin', 1, 0, 0]]],
+    ['LeftSuspension', [['T', 0.04286, 0.000244, -0.1908]]], ['LeftRearWheel', [['T', 0.04286, 0.000244, -0.1908], ['T', 0.07536, 0, 0], ['R', 'spin', 1, 0, 0]]],
+    ['RightSuspension', [['T', -0.04286, 0.000244, -0.1908]]], ['RightRearWheel', [['T', -0.04286, 0.000244, -0.1908], ['T', -0.07536, 0, 0], ['R', 'spin', 1, 0, 0]]]],
+  boat: [['Rudder', [['T', -0.08112, -0.04529, -0.3224], ['R', 'rud', 0, -1, 0]]], ['Rudder', [['T', 0.08112, -0.04529, -0.3224], ['R', 'rud', 0, -1, 0]]]],
+  submarine: [['HorizontalRudder', [['T', 0, 0, -1.055], ['R', 'elev', 1, 0, 0]]], ['VerticalRudder', [['T', 0, 0, -1.055], ['R', 'rud', 0, 1, 0]]], ['Rotor', [['R', 'prop', 0, 0, 1]]]],
+  heli: [['MainRotor', [['R', 'prop', 0, 1, 0]]], ['MainBlade', [['R', 'prop', 0, 1, 0], ['T', 0, 0.185, 0]]], ['MainBlade', [['R', 'prop', 0, 1, 0], ['R', 180, 0, 1, 0], ['T', 0, 0.185, 0]]],
+    ['TailRotor', [['T', 0, 0, -0.7902], ['R', 'prop2', 1, 0, 0]]], ['TailBlade', [['T', 0, 0, -0.7902], ['R', 'prop2', 1, 0, 0], ['T', -0.02358, 0, 0]]], ['TailBlade', [['T', 0, 0, -0.7902], ['R', 'prop2', 1, 0, 0], ['R', 180, 1, 0, 0], ['T', -0.02358, 0, 0]]]],
+  trainerplane: [['MainGear', [['T', -0.043, -0.09252, -0.1061]]], ['Wheel', [['T', -0.043, -0.09252, -0.1061], ['T', -0.1851, -0.0917, -0.03213], ['R', 'spin', 1, 0, 0]]],
+    ['MainGearLeft', [['T', 0.043, -0.09252, -0.1061]]], ['Wheel', [['T', 0.043, -0.09252, -0.1061], ['T', 0.1851, -0.0917, -0.03213], ['R', 'spin', 1, 0, 0]]],
+    ['FrontGear', [['T', 'W:Front']]], ['Wheel', [['T', 'W:Front'], ['T', 0, -0.03135, 0.005838], ['R', 'spin', 1, 0, 0]]],
+    ['Propeller', [['T', 'H:1'], ['R', 'prop', 0, 0, 1]]], ['RightAileron', [['T', 'G:Aileron.Right'], ['R', 'ailR', 1, 0, 0]]], ['LeftAileron', [['T', 'G:Aileron.Left'], ['R', 'ailL', 1, 0, 0]]],
+    ['Rudder', [['T', 'G:Rudder'], ['R', 'rud', 0, 1, 0]]], ['Elevator', [['T', 'G:Elevator'], ['R', 'elev', 1, 0, 0]]]],
+  stuntplane: [['MainGearRight', [['T', -0.06886, -0.06886, 0]]], ['Wheel', [['T', -0.06886, -0.06886, 0], ['T', -0.1175, -0.1417, 0.09809], ['R', 'spin', 1, 0, 0]]],
+    ['MainGearLeft', [['T', 0.06886, -0.06886, 0]]], ['Wheel', [['T', 0.06886, -0.06886, 0], ['T', 0.1175, -0.1417, 0.09809], ['R', 'spin', 1, 0, 0]]],
+    ['RightAileron', [['T', 'G:Aileron.Right'], ['R', 'ailR', 1, 0, 0]]], ['LeftAileron', [['T', 'G:Aileron.Left'], ['R', 'ailL', 1, 0, 0]]],
+    ['Rudder', [['T', 'G:Rudder'], ['R', 'rud', 0, 1, 0]]], ['SmallWheel', [['T', 'G:Rudder'], ['R', 'rud', 0, 1, 0], ['T', 0, -0.186, -0.03945], ['R', 'spin', 1, 0, 0]]],
+    ['Elevator', [['T', 'G:Elevator'], ['R', 'elev', 1, 0, 0]]], ['Canopy', []], ['Propeller', [['T', 'H:1'], ['R', 'prop', 0, 0, 1]]]],
+  f22: [['Canopy', []], ['FrontGear', [['T', 'W:Front']]], ['FrontWheel', [['T', 'W:Front'], ['T', 0, -0.07894, 0], ['R', 'spin', 1, 0, 0]]],
+    ['RearLeftGear', [['T', 'W:Rear Left']]], ['RearWheel', [['T', 'W:Rear Left'], ['T', 0.048, -0.08244, -0.01638], ['R', 'spin', 1, 0, 0]]],
+    ['RearRightGear', [['T', 'W:Rear Right']]], ['RearWheel', [['T', 'W:Rear Right'], ['T', -0.048, -0.08244, -0.01638], ['R', 'spin', 1, 0, 0]]],
+    ['RightAileron', [['T', 'G:Aileron.Right'], ['R', 'ailR', 1, 0, 0]]], ['LeftAileron', [['T', 'G:Aileron.Left'], ['R', 'ailL', 1, 0, 0]]],
+    ['LeftRudder', [['T', 'G:Rudder.Left'], ['R', 'rud', 0, 1, 0]]], ['RightRudder', [['T', 'G:Rudder.Right'], ['R', 'rud', 0, 1, 0]]],
+    ['ElevatorLeft', [['T', 'G:Elevator.Left'], ['R', 'elev', 1, 0, 0]]], ['ElevatorRight', [['T', 'G:Elevator.Right'], ['R', 'elev', 1, 0, 0]]]],
+  drone: [1, 2, 3, 4].map(i => [i === 2 || i === 3 ? 'PropellerCW' : 'PropellerCCW', [['T', 'H:' + i], ['R', i === 2 || i === 3 ? 'prop' : 'propN', 0, 1, 0]]]),
+  octocopter: [['Canopy', []]].concat([1, 2, 3, 4, 5, 6, 7, 8].map(i => [i % 2 ? 'PropellerCW' : 'PropellerCCW', [['T', 'H:' + i], ['R', i % 2 ? 'prop' : 'propN', 0, 1, 0]]])),
+};
+const RC = {
+  data: null, meshes: {}, ctl: null, keys: {}, camMode: 0,
+  // ---------- leer el .jar ----------
+  async absorb(z) {
+    if (!z.names.some(p => p.startsWith('assets/thercmod/models/'))) return;
+    const dec = new TextDecoder(); const D = { obj: {}, cfg: {}, skin: {} };
+    for (const p of z.names) {
+      let m = p.match(/^assets\/thercmod\/models\/([^/]+)\.rcm$/); if (m) { D.obj[m[1]] = dec.decode(await z.get(p)); continue; }
+      m = p.match(/^assets\/thercmod\/properties\/([^/]+)\.cfg$/); if (m) { D.cfg[m[1]] = dec.decode(await z.get(p)); continue; }
+      m = p.match(/^assets\/thercmod\/textures\/models\/([^/]+)\.png$/); if (m) { const im = await ModAssets.img(z, p); if (im) D.skin[m[1]] = im; }
+    }
+    this.data = D; this.meshes = {};
+  },
+  parseObj(txt) {
+    const objs = {}; let cur = null;
+    for (const line of txt.split(/\r?\n/)) {
+      const s = line.trim().split(/\s+/); const t = s[0];
+      if (t === 'o') { cur = objs[s[1]] = { v: [], t: [], n: [], f: [] }; }
+      else if (!cur) continue;
+      else if (t === 'v') cur.v.push([+s[1], +s[2], +s[3]]);
+      else if (t === 't' || t === 'vt') cur.t.push([+s[1], +s[2]]);
+      else if (t === 'n' || t === 'vn') cur.n.push([+s[1], +s[2], +s[3]]);
+      else if (t === 'f') cur.f.push(s.slice(1).map(x => x.split('/').map(k => (+k || 0) - 1)));
+    }
+    return objs;
+  },
+  parseCfg(txt) {
+    const out = { W: {}, G: {}, H: {} }; let name = '';
+    for (const line of (txt || '').split(/\r?\n/)) {
+      const m = line.match(/^(\w+?)_?(\d*)\s*:\s*(.*)$/); if (!m) continue;
+      if (/^Name/.test(line)) { name = line.replace(/^Name:\s*/, '').trim(); continue; }
+      const v = line.split(':')[1].trim().split(/\s+/).map(Number);
+      if (/^Wheel_position/.test(line)) out.W[name] = v;
+      if (/^Wing_position/.test(line)) out.G[name] = v;
+      if (/^Prop_position/.test(line)) { const mm = name.match(/Motor_(\d+)/); if (mm) out.H[mm[1]] = v; }
+    }
+    return out;
+  },
+  // ---------- mallas ----------
+  model(type) {
+    if (this.meshes[type] !== undefined) return this.meshes[type];
+    const V = RCV[type], D = this.data; if (!D || !D.obj[V.file] || !D.skin[V.skin]) return null;
+    const objs = this.parseObj(D.obj[V.file]); const cfg = this.parseCfg(D.cfg[V.cfg]);
+    const L = Math.hypot(0.3, 1, 0.5);
+    const mk = (o) => {
+      const vb = new VB(o.f.length + 4);
+      for (const f of o.f) {
+        const q = f.length >= 4 ? [f[0], f[1], f[2], f[3]] : [f[0], f[1], f[2], f[2]];
+        const nv = o.n[q[0][2]] || [0, 1, 0]; const sh = 0.55 + 0.45 * Math.max(0, (nv[0] * 0.3 + nv[1] + nv[2] * 0.5) / L);
+        for (let k = 0; k < 4; k++) { const [vi, ti] = q[k]; const p = o.v[vi] || [0, 0, 0], t = o.t[ti] || [0, 0]; vb.v(k, Math.round(p[0] * 1024), Math.round(p[1] * 1024), Math.round(p[2] * 1024), Math.round(t[0] * 4096), Math.round((1 - t[1]) * 4096), 255, 255, 255, Math.round(255 * sh), 240, 240, 0); }
+        vb.end();
+        for (let k = 4; k + 1 < f.length; k++) { const tri = [f[0], f[k], f[k + 1], f[k + 1]]; for (let j = 0; j < 4; j++) { const [vi, ti] = tri[j]; const p = o.v[vi] || [0, 0, 0], t = o.t[ti] || [0, 0]; vb.v(j, Math.round(p[0] * 1024), Math.round(p[1] * 1024), Math.round(p[2] * 1024), Math.round(t[0] * 4096), Math.round((1 - t[1]) * 4096), 255, 255, 255, Math.round(255 * sh), 240, 240, 0); } vb.end(); }
+      }
+      return vb.q ? Renderer.meshFromVB(vb) : null;
+    };
+    const cent = (o) => { if (!o || !o.v.length) return [0, 0, 0]; const c = [0, 0, 0]; for (const p of o.v) for (let i = 0; i < 3; i++) c[i] += p[i]; return c.map(v => v / o.v.length); };
+    const parts = [];
+    const res = (op, pn) => {
+      if (op[0] !== 'T' || typeof op[1] !== 'string') return op;
+      const [k, nm] = op[1].split(':'); let p = null;
+      if (k === 'H') p = cfg.H[nm];
+      else { const tab = cfg[k]; const key = Object.keys(tab).find(n => n.toLowerCase().includes(nm.toLowerCase())) || Object.keys(tab).find(n => n.toLowerCase().includes(nm.split('.')[0].toLowerCase())); p = key ? tab[key].slice() : null; }
+      if (!p) return ['T', 0, 0, 0];
+      // el lado (izquierda/derecha) lo marca la propia pieza
+      const cx = cent(objs[pn])[0]; if (/Left|Right/.test(pn) && Math.abs(p[0]) > 0.001 && Math.abs(cx) > 0.005 && Math.sign(cx) !== Math.sign(p[0])) p[0] = -p[0];
+      return ['T', p[0], p[1], p[2]];
+    };
+    for (const [pn, ops] of (RCP[type] || [])) { if (!objs[pn]) continue; parts.push({ n: pn, ops: ops.map(o => res(o, pn)) }); }
+    const meshes = {}; for (const n in objs) if (n === 'MainBody' || parts.some(p => p.n === n) || n === 'RemoteControl') meshes[n] = mk(objs[n]);
+    // altura de reposo: el punto más bajo con las piezas en su sitio
+    let lo = Infinity; const tr = (p, ops) => { let q = p.slice(); for (let i = ops.length - 1; i >= 0; i--) { const o = ops[i]; if (o[0] === 'T') q = [q[0] + o[1], q[1] + o[2], q[2] + o[3]]; else if (o[0] === 'R' && typeof o[1] === 'number') { const a = o[1] * Math.PI / 180; if (o[3]) { const c = Math.cos(a), s = Math.sin(a); q = [q[0] * c + q[2] * s, q[1], -q[0] * s + q[2] * c]; } } } return q; };
+    if (objs.MainBody) for (const p of objs.MainBody.v) lo = Math.min(lo, p[1]);
+    for (const pt of parts) for (const p of objs[pt.n].v) lo = Math.min(lo, tr(p, pt.ops)[1]);
+    const canvas = document.createElement('canvas'); const im = D.skin[V.skin]; canvas.width = im.width; canvas.height = im.height; canvas.getContext('2d').drawImage(im, 0, 0);
+    return (this.meshes[type] = { meshes, parts, rest: isFinite(lo) ? -lo : 0, canvas });
+  },
+  draw(e, base, Pw, light, tint) {
+    const type = e.kind.slice(3); const M = this.model(type); if (!M) return;
+    const R = Renderer, gl = R.gl, pt = Game.partial || 0;
+    gl.uniform2f(Pw.u.uAtlas, 4096, 4096); gl.bindTexture(gl.TEXTURE_2D, R.skinTexture('rc_' + type, M.canvas));
+    gl.uniform2f(Pw.u.uLightMul, light[0], light[1]); if (tint) gl.uniform4fv(Pw.u.uTint, tint); else gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
+    const B0 = this._b || (this._b = M4.create()), Mm = this._m || (this._m = M4.create());
+    M4.copy(B0, base); M4.translate(B0, 0, M.rest, 0); M4.rotY(B0, Math.PI);
+    M4.rotX(B0, -lerp(e.prevPit || 0, e.pit || 0, pt)); M4.rotZ(B0, lerp(e.prevRol || 0, e.rol || 0, pt));
+    const S = (m) => { M4.scale(m, 0.125, 0.125, 0.125); return m; };
+    const body = M.meshes.MainBody; if (body) { M4.copy(Mm, B0); R.drawMesh(body, S(Mm), Pw); }
+    const A = { spin: lerp(e.prevSpin || 0, e.spin || 0, pt), steer: e.steer || 0, prop: lerp(e.prevProp || 0, e.prop || 0, pt), rud: e.rud || 0, elev: e.elev || 0, ailL: e.ail || 0, ailR: -(e.ail || 0) };
+    A.propN = -A.prop; A.prop2 = A.prop * 1.6;
+    for (const p of M.parts) {
+      const mesh = M.meshes[p.n]; if (!mesh) continue; M4.copy(Mm, B0);
+      for (const o of p.ops) { if (o[0] === 'T') M4.translate(Mm, o[1], o[2], o[3]); else if (o[0] === 'R') { const a = (typeof o[1] === 'number' ? o[1] * Math.PI / 180 : (A[o[1]] || 0)); if (o[2]) M4.rotX(Mm, a * o[2]); if (o[3]) M4.rotY(Mm, a * o[3]); if (o[4]) M4.rotZ(Mm, a * o[4]); } }
+      R.drawMesh(mesh, S(Mm), Pw);
+    }
+  },
+  // ---------- física ----------
+  fwd(e) { const cp = Math.cos(e.pit || 0); return [-Math.sin(e.yaw) * cp, Math.sin(e.pit || 0), -Math.cos(e.yaw) * cp]; },
+  bat(e) { if (!e.keep) e.keep = {}; if (e.keep.bat === undefined) e.keep.bat = 1; return e.keep.bat; },
+  tick(e) {
+    const V = RCV[e.kind.slice(3)]; if (!V) return;
+    for (const k of ['Pit', 'Rol', 'Spin', 'Prop']) e['prev' + k] = e[k.toLowerCase()] || 0;
+    e.persistent = V.kind !== 'missile'; e.step = V.kind === 'ground' ? 0.55 : 0.1;
+    if (V.kind === 'missile') return this.missileTick(e, V);
+    const ctl = this.ctl && this.ctl.e === e ? this.keys : null; const K = (c) => !!(ctl && ctl[c]);
+    const on = !e.motorOff && this.bat(e) > 0;
+    const wet = e.inWater;
+    if (V.kind === 'ground' || V.kind === 'boat') {
+      if (e.spd === undefined) e.spd = 0; const f = K('KeyW') ? 1 : K('KeyS') ? -1 : 0, s = K('KeyA') ? 1 : K('KeyD') ? -1 : 0;
+      const ok = V.kind === 'boat' ? wet : (e.onGround && !wet);
+      if (on && ok && f > 0) e.spd = Math.min(V.max, e.spd + V.acc); else if (on && ok && f < 0) e.spd = Math.max(-V.max * 0.4, e.spd - V.acc * 1.5); else e.spd *= ok ? 0.96 : 0.995;
+      if (V.kind === 'boat' && !wet) e.spd *= 0.8;
+      e.steer = s * 0.5; e.rud = s * 0.5; if (ok || V.kind === 'boat') e.yaw += s * (V.kind === 'boat' ? 0.06 : 0.09) * clamp(Math.abs(e.spd) / 0.2, 0, 1) * Math.sign(e.spd || 1);
+      if (V.jump && on && K('Space') && e.onGround && !(e.jcd > 0)) { e.vy = 0.65; e.jcd = 20; Guns.sounds['thercmod:prophit'] && Guns.play('thercmod:prophit', e.x, e.y, e.z); } if (e.jcd > 0) e.jcd--;
+      const vx = -Math.sin(e.yaw) * e.spd, vz = -Math.cos(e.yaw) * e.spd;
+      if (V.kind === 'boat' && wet) { e.vy = (e.vy + 0.02) * 0.7; const top = World.get(Math.floor(e.x), Math.floor(e.y + 0.25), Math.floor(e.z)); if (!LIQUID[top]) e.vy = Math.min(e.vy, 0); }
+      else e.vy = (e.vy - 0.08) * 0.98;
+      e.move(vx, e.vy, vz); if (e.horizCol) e.spd *= -0.3;
+      e.pit = e.onGround ? 0 : clamp((e.pit || 0) * 0.9 + (-e.vy) * -0.3, -0.5, 0.5); e.rol = -s * clamp(Math.abs(e.spd), 0, 0.5) * 0.25;
+      e.spin = (e.spin || 0) + e.spd / 0.08; e.prop = (e.prop || 0) + (on ? Math.abs(e.spd) * 4 : 0);
+      if (on) this.drain(e, Math.abs(f) * 0.00012 + 0.00002);
+      this.sound(e, Math.abs(e.spd) / V.max);
+    } else if (V.kind === 'sub') {
+      if (e.spd === undefined) e.spd = 0; const f = K('KeyW') ? 1 : K('KeyS') ? -1 : 0, s = K('KeyA') ? 1 : K('KeyD') ? -1 : 0, u = K('Space') ? 1 : K('ShiftLeft') || K('ShiftRight') ? -1 : 0;
+      if (on && wet && f) e.spd = clamp(e.spd + f * V.acc, -V.max * 0.5, V.max); else e.spd *= 0.97;
+      e.yaw += s * 0.05; e.rud = s * 0.5; e.elev = -u * 0.4;
+      if (wet) { e.vy = (e.vy + (on ? u * 0.012 : 0.004)) * 0.85; e.pit = (e.pit || 0) * 0.9 + u * 0.03; } else { e.vy = (e.vy - 0.08) * 0.98; e.spd *= 0.9; e.pit *= 0.9; }
+      const fw = [-Math.sin(e.yaw) * e.spd, 0, -Math.cos(e.yaw) * e.spd]; e.move(fw[0], e.vy, fw[2]); if (e.horizCol) e.spd = 0;
+      e.prop = (e.prop || 0) + e.spd * 6; if (on) this.drain(e, Math.abs(f) * 0.0001 + 0.00002); this.sound(e, Math.abs(e.spd) / V.max);
+    } else if (V.kind === 'plane') this.planeTick(e, V, K, on);
+    else if (V.kind === 'rotor') this.rotorTick(e, V, K, on);
+  },
+  planeTick(e, V, K, on) {
+    if (e.th === undefined) { e.th = 0; e.spd = 0; e.sink = 0; e.pit = 0; e.rol = 0; }
+    if (K('Space')) e.th = Math.min(1, e.th + 0.03); if (K('ShiftLeft') || K('ShiftRight')) e.th = Math.max(0, e.th - 0.03);
+    const ip = (K('KeyS') ? 1 : 0) - (K('KeyW') ? 1 : 0), ir = (K('KeyD') ? 1 : 0) - (K('KeyA') ? 1 : 0), iy = (K('KeyQ') ? 1 : 0) - (K('KeyE') ? 1 : 0);
+    const auth = clamp(e.spd / (V.vstall * 1.2), 0.1, 1.2);
+    const ground = e.onGround;
+    e.elev = ip * 0.4; e.ail = ir * 0.4; e.rud = iy * 0.4;
+    if (!ground) {
+      e.pit += ip * V.rate * auth; e.rol += ir * V.rate * 1.3 * auth; e.yaw += iy * V.rate * 0.4 * auth;
+      e.yaw += -Math.sin(e.rol) * Math.cos(e.pit) * 0.05 * auth; // virar al inclinarse
+      if (V.stable && !ir) e.rol *= 0.95;
+      if (V.stable && !ip) e.pit *= 0.985;
+      if (e.spd < V.vstall * 0.8) e.pit -= 0.04 * (1 - e.spd / (V.vstall * 0.8)) + 0.01; // entrada en pérdida: el morro cae
+    } else {
+      e.rol *= 0.6; e.pit = Math.max(0, e.pit + ip * 0.04 * auth); if (e.spd < V.vstall) e.pit *= 0.9; e.yaw += iy * 0.05 * clamp(e.spd / 0.1, 0, 1) + ir * 0.02 * clamp(e.spd / 0.1, 0, 1);
+    }
+    e.pit = clamp(e.pit, -1.5, 1.5); if (e.rol > Math.PI) e.rol -= Math.PI * 2; if (e.rol < -Math.PI) e.rol += Math.PI * 2;
+    const thrust = on ? V.thrust * e.th : 0;
+    e.spd += thrust - 0.35 * e.spd * e.spd * 0.3 - 0.06 * Math.sin(e.pit) * 0.5 - (ground ? 0.004 : 0); e.spd = Math.max(0, e.spd);
+    const lift = Math.min(1.25, (e.spd / V.vstall) ** 2) * Math.cos(e.rol);
+    e.sink = ground ? 0 : clamp(e.sink + 0.04 * (1 - lift), -0.25, 1.2) * 0.92;
+    const f = this.fwd(e); const oy = e.y, sp = e.spd;
+    e.move(f[0] * sp, f[1] * sp - e.sink - (ground && sp < V.vstall ? 0.05 : 0), f[2] * sp);
+    if ((e.horizCol || (e.onGround && !ground && (e.sink > 0.35 || e.pit < -0.5))) && sp > 0.15) this.crash(e);
+    if (e.onGround) { e.sink = 0; if (e.pit < 0) e.pit = 0; }
+    void oy;
+    e.prop = (e.prop || 0) + (on ? e.th * 1.8 + 0.05 * (e.th > 0) : e.spd * 0.5); e.spin = (e.spin || 0) + (e.onGround ? sp / 0.03 : 0);
+    if (on) this.drain(e, e.th * 0.00018 + 0.00001); this.sound(e, on ? e.th : 0);
+  },
+  rotorTick(e, V, K, on) {
+    if (e.hv === undefined) { e.hv = [0, 0]; e.pit = 0; e.rol = 0; e.spool = 0; }
+    const u = K('Space') ? 1 : (K('ShiftLeft') || K('ShiftRight')) ? -1 : 0, fw = (K('KeyW') ? 1 : 0) - (K('KeyS') ? 1 : 0), st = (K('KeyD') ? 1 : 0) - (K('KeyA') ? 1 : 0), yw = (K('KeyQ') ? 1 : 0) - (K('KeyE') ? 1 : 0);
+    const flying = on && (!e.onGround || u > 0 || e.spool > 0.5);
+    e.spool = clamp(e.spool + (on && (u > 0 || !e.onGround) ? 0.05 : -0.02), 0, 1);
+    const air = !e.onGround;
+    e.pit += ((air ? -fw * 0.35 : 0) - e.pit) * 0.15; e.rol += ((air ? st * 0.35 : 0) - e.rol) * 0.15;
+    if (air || u > 0) e.yaw += yw * 0.06;
+    const sn = Math.sin(e.yaw), cs = Math.cos(e.yaw);
+    if (flying && air) { e.hv[0] += (-sn * fw + cs * st) * 0.035 * V.spd; e.hv[1] += (-cs * fw - sn * st) * 0.035 * V.spd; }
+    e.hv[0] *= 0.93; e.hv[1] *= 0.93;
+    const target = flying && e.spool > 0.6 ? u * V.climb : null;
+    if (target !== null) e.vy += (target - e.vy) * 0.2; else e.vy = (e.vy - 0.06) * 0.98;
+    const vy0 = e.vy;
+    e.move(e.hv[0], e.vy, e.hv[1]); if (e.onGround) { e.hv[0] *= 0.5; e.hv[1] *= 0.5; }
+    if ((e.horizCol && Math.hypot(e.hv[0], e.hv[1]) > 0.3) || (e.onGround && vy0 < -0.45)) this.crash(e);
+    e.prop = (e.prop || 0) + e.spool * 1.6;
+    if (on) this.drain(e, e.spool * 0.00016 + Math.abs(u) * 0.00005); this.sound(e, e.spool * (0.6 + Math.abs(u) * 0.4));
+  },
+  crash(e) {
+    if (e._crashT > 0) return; e._crashT = 20; e.spd = (e.spd || 0) * 0.2; if (e.hv) { e.hv[0] = -e.hv[0] * 0.3; e.hv[1] = -e.hv[1] * 0.3; } if (e.th !== undefined) e.th = 0;
+    Sound.play('land', e.x, e.y, e.z); if (Guns.sounds['thercmod:prophit']) Guns.play('thercmod:prophit', e.x, e.y, e.z); Particles.color(e.x, e.y + 0.2, e.z, 0.6, 0.6, 0.6, 10, 0.12, 16, -0.003, 0.12);
+    if (this.ctl && this.ctl.e === e) Chat.add('§c¡Choque! §7(Espacio para volver a dar potencia)');
+  },
+  drain(e, k) { e.keep.bat = Math.max(0, this.bat(e) - k); if (e.keep.bat === 0 && !e._noBat) { e._noBat = true; if (this.ctl && this.ctl.e === e) Chat.add('§c¡Batería agotada! Cámbiala: clic derecho al vehículo con una batería.'); } },
+  // ---------- misiles y torpedos ----------
+  fire(e) {
+    const V = RCV[e.kind.slice(3)]; if (!V || !V.weapon) return; const P = Game.player;
+    if ((e.fireCD || 0) > 0) return; e.fireCD = 20;
+    if (P.mode !== 1) { const i = P.inv.findIndex(s => s && s.id === 'thercmod_item_missile'); if (i < 0) { Chat.add('§7No tienes misiles RC en el inventario.'); return; } P.inv[i].n--; if (!P.inv[i].n) P.inv[i] = null; }
+    const f = this.fwd(e); const m = new Mob('rc_' + V.weapon, e.x + f[0] * 0.8, e.y + 0.05, e.z + f[2] * 0.8); m.yaw = e.yaw; m.pit = e.pit || 0; m.persistent = false; m.life = 120;
+    m.tgt = this.lockTarget(e); m.from = e; Entities.add(m); if (Guns.sounds['thercmod:missile']) Guns.play('thercmod:missile', e.x, e.y, e.z);
+    if (m.tgt) Chat.add('§7Objetivo fijado: ' + (m.tgt.def ? m.tgt.def.name : ''));
+  },
+  lockTarget(e) {
+    const f = this.fwd(e); let best = null, bs = 0.9;
+    for (const t of Entities.list) { if (!t.mob || t.dead || t === e || t.kind.startsWith('rc_')) continue; const d = [t.x - e.x, t.y + t.h / 2 - e.y, t.z - e.z]; const L = Math.hypot(...d); if (L > 64 || L < 1) continue; const c = (d[0] * f[0] + d[1] * f[1] + d[2] * f[2]) / L; if (c > bs) { bs = c; best = t; } }
+    return best;
+  },
+  missileTick(m, V) {
+    if (--m.life <= 0) { this.boom(m); return; }
+    if (V.file === 'submissle' && !m.inWater && m.life < 110) { m.vy = (m.vy || 0) - 0.05; }
+    const t = m.tgt; if (t && !t.dead) { const dx = t.x - m.x, dy = t.y + t.h / 2 - m.y, dz = t.z - m.z; const ty = Math.atan2(-dx, -dz), tp = Math.atan2(dy, Math.hypot(dx, dz)); m.yaw = lerpAngle(m.yaw, ty, 0.15); m.pit += (tp - m.pit) * 0.15; }
+    const sp = V.file === 'submissle' ? 0.6 : 1.3; const f = this.fwd(m); m.move(f[0] * sp, f[1] * sp + (m.vy || 0), f[2] * sp); m.rol = (m.rol || 0) + 0.3;
+    if (Settings.particles) Particles.color(m.x - f[0] * 0.3, m.y, m.z - f[2] * 0.3, 0.85, 0.85, 0.85, 1, 0.02, 14, -0.002, 0.1);
+    if (m.horizCol || m.onGround || (m.vy && m.vy < 0 && World.get(Math.floor(m.x), Math.floor(m.y - 0.1), Math.floor(m.z)) && SOLID[World.get(Math.floor(m.x), Math.floor(m.y - 0.1), Math.floor(m.z))])) { this.boom(m); return; }
+    for (const e of Entities.list) if (e.mob && !e.dead && e !== m && e !== m.from && !e.kind.startsWith('rc_') && Math.abs(e.x - m.x) < e.w / 2 + 0.3 && Math.abs(e.z - m.z) < e.w / 2 + 0.3 && m.y > e.y - 0.2 && m.y < e.y + e.h + 0.2) { this.boom(m); return; }
+  },
+  boom(m) { if (m.remove) return; m.remove = true; Game.explode(m.x, m.y, m.z, 1.6); },
+  // ---------- sonido del motor (en bucle, con el tono según la potencia) ----------
+  sound(e, k) {
+    if (!this.ctl || this.ctl.e !== e) return;
+    try {
+      const ctx = Sound.ctx; if (!ctx) return; const kind = RCV[e.kind.slice(3)].kind; const key = kind === 'rotor' && e.kind === 'rc_heli' ? 'thercmod:motorhelihigh' : kind === 'ground' ? 'thercmod:motorcar' : 'thercmod:motorhigh';
+      const s = Guns.sounds[key]; if (!s) return;
+      if (!this.loop || this.loop.key !== key) {
+        this.stopSound(); const L = this.loop = { key, src: null, g: null };
+        (async () => { if (!Guns.buffers[key]) { const d = await s.z.get(s.p); Guns.buffers[key] = await ctx.decodeAudioData(d.buffer.slice(d.byteOffset, d.byteOffset + d.byteLength)); } if (this.loop !== L) return; L.src = ctx.createBufferSource(); L.src.buffer = Guns.buffers[key]; L.src.loop = true; L.g = ctx.createGain(); L.g.gain.value = 0; L.src.connect(L.g); L.g.connect(Sound.master || ctx.destination); L.src.start(); })();
+      }
+      const L = this.loop; if (L.src) { L.src.playbackRate.value = 0.6 + k * 1.1; L.g.gain.value = k > 0.02 ? 0.25 + k * 0.35 : 0; }
+    } catch (x) { }
+  },
+  stopSound() { if (this.loop) { try { this.loop.src && this.loop.src.stop(); } catch (x) { } this.loop = null; } },
+  // ---------- mando ----------
+  start(e) {
+    const P = Game.player; this.ctl = { e, yaw0: P.yaw, pitch0: P.pitch }; this.keys = {}; this.camMode = 0; e._noBat = false;
+    if (Guns.sounds['thercmod:remoteon']) Guns.play('thercmod:remoteon', P.x, P.y, P.z);
+    const V = RCV[e.kind.slice(3)];
+    const help = { ground: 'W/S acelerar y frenar · A/D girar' + (V.jump ? ' · Espacio salto potente' : ''), boat: 'W/S acelerar y frenar · A/D girar', sub: 'W/S avanzar · A/D girar · Espacio/Mayús subir y bajar · F torpedo',
+      plane: 'Espacio/Mayús potencia · W/S cabeceo · A/D alabeo · Q/E timón' + (V.weapon ? ' · F misil (apunta solo)' : ''), rotor: 'Espacio/Mayús subir y bajar · W/S adelante y atrás · A/D lados · Q/E girar' };
+    Chat.add('§eControlando: ' + MOBS[e.kind].name + '§7 — ' + help[V.kind] + ' · X motor · C cámara · G recoger · Esc o clic derecho: soltar el mando');
+  },
+  stop() { const P = Game.player; this.ctl = null; this.keys = {}; this.stopSound(); Cam.rcf = null; if (P && Guns.sounds['thercmod:remoteoff']) Guns.play('thercmod:remoteoff', P.x, P.y, P.z); },
+  retrieve(e) {
+    const type = e.kind.slice(3); const st = { id: 'thercmod_item_' + type, n: 1 }; if (e.keep && e.keep.bat < 1) st.bike = { bat: e.keep.bat };
+    if (this.ctl && this.ctl.e === e) this.stop();
+    e.remove = true; const P = Game.player; const left = P.give(st.id, 1, 0, null, st.bike ? { bike: st.bike } : null); if (left) Entities.dropItem(e.x, e.y + 0.3, e.z, st); Sound.play('pop');
+  },
+  cam(pt) {
+    const c = this.ctl; const e = c && c.e; const P = Game.player; if (!e) return null;
+    const x = lerp(e.px, e.x, pt), y = lerp(e.py, e.y, pt), z = lerp(e.pz, e.z, pt); const V = RCV[e.kind.slice(3)];
+    if (this.camMode === 2) { const [ex, ey, ez] = Game.eyePos(pt); const dx = x - ex, dy = y - ey, dz = z - ez; return { x: ex, y: ey, z: ez, yaw: Math.atan2(-dx, -dz), pitch: Math.atan2(dy, Math.hypot(dx, dz)) }; }
+    const yawO = (P.yaw - c.yaw0), pitO = (P.pitch - c.pitch0);
+    if (this.camMode === 1) { const f = this.fwd(e); return { x: x + f[0] * 0.3, y: y + V.h * 0.8, z: z + f[2] * 0.3, yaw: e.yaw + yawO, pitch: clamp((e.pit || 0) + pitO, -1.5, 1.5), roll: V.kind === 'plane' || V.kind === 'rotor' ? -(e.rol || 0) : 0 }; }
+    const big = V.kind === 'plane' || e.kind === 'rc_octocopter' ? 3.2 : 2.2;
+    const yaw = (c.cyaw === undefined ? (c.cyaw = e.yaw) : (c.cyaw = lerpAngle(c.cyaw, e.yaw, 0.12))) + yawO, pitch = clamp(-0.25 + pitO, -1.3, 1.3);
+    const d = lookDir(yaw, pitch); let dist = big; const r = Game.raycast(x, y + 0.3, z, -d[0], -d[1], -d[2], big, false, true); if (r) dist = Math.max(0.4, r.t - 0.2);
+    return { x: x - d[0] * dist, y: y + 0.3 - d[1] * dist, z: z - d[2] * dist, yaw, pitch };
+  },
+};
+// vehículos como criaturas especiales (se guardan con la partida y se pueden golpear para recogerlos)
+if (MODS127.rc) {
+  const NM = { car: 'Coche RC', racer: 'Coche de carreras RC', boat: 'Lancha RC', submarine: 'Submarino RC', trainerplane: 'Avión entrenador RC', stuntplane: 'Avión acrobático RC', f22: 'F-22 Raptor RC', heli: 'Helicóptero RC', drone: 'Dron RC', octocopter: 'Octocóptero RC', missile: 'Misil', torpedo: 'Torpedo' };
+  for (const t in RCV) { MOBS['rc_' + t] = { name: NM[t], hp: 10, w: RCV[t].w, h: RCV[t].h, speed: 0.3, passive: t !== 'missile' && t !== 'torpedo', vehicle: true, drops: () => [], xp: [0, 0], sound: 'rc' }; MODELS['rc_' + t] = []; MOB_COLORS['rc_' + t] = '#888888'; Spawn127.NOT_NATURAL['rc_' + t] = 1; }
+}
+{ const a0 = JM.absorb.bind(JM); JM.absorb = async function (z) { const r = await a0(z); try { await RC.absorb(z); } catch (e) { console.warn('rc', e); } return r; }; }
+{
+  const dm0 = drawModel;
+  drawModel = function (kind, e, skinTex, base, Pw, light, tint, animKind) {
+    if (kind && kind.startsWith('rc_')) { try { RC.draw(e, base, Pw, light, tint); } catch (x) { console.warn(x); } return { parts: [], by: {} }; }
+    return dm0(kind, e, skinTex, base, Pw, light, tint, animKind);
+  };
+  const t0 = MobsExtra.tick.bind(MobsExtra);
+  MobsExtra.tick = function (m, d, P, dist) {
+    if (m.kind.startsWith('rc_')) { if (m.fireCD > 0) m.fireCD--; if (m._crashT > 0) m._crashT--; if (!World.loaded(m.x, m.z)) return true; RC.tick(m); m.bodyYaw = m.headYaw = m.yaw; if (m.kind === 'rc_missile' || m.kind === 'rc_torpedo') { if (dist > 160) m.remove = true; } return true; }
+    return t0(m, d, P, dist);
+  };
+  const dmg0 = Mob.prototype.damage;
+  Mob.prototype.damage = function (amt, src) {
+    if (this.kind && this.kind.startsWith('rc_')) { if (this.kind === 'rc_missile' || this.kind === 'rc_torpedo') return false; if (src && src.x !== undefined && !(RC.ctl && RC.ctl.e === this)) { this.hits = (this.hits || 0) + 1; this.hurt = 6; if (this.hits >= 2 || Game.player.mode === 1) RC.retrieve(this); return true; } return false; }
+    return dmg0.call(this, amt, src);
+  };
+  const in0 = Mob.prototype.interact;
+  Mob.prototype.interact = function (P, held) {
+    if (this.kind && this.kind.startsWith('rc_') && !this.dead) {
+      if (held && held.id === 'thercmod_item_battery') { if (!this.keep) this.keep = {}; this.keep.bat = 1; this._noBat = false; if (P.mode !== 1) { held.n--; if (held.n <= 0) P.inv[P.sel] = null; } Chat.add('§7Batería nueva puesta (100 %).'); Sound.play('click'); return true; }
+      if (held && ITEMS[held.id] && ITEMS[held.id].rcRemote) { RC.start(this); return true; }
+      Chat.add('§7Coge el mando a distancia y haz clic derecho para controlarlo. Golpéalo para recogerlo.'); return true;
+    }
+    return in0.call(this, P, held);
+  };
+  // el jugador se queda quieto mientras usa el mando
+  const rt0 = Riding.tick.bind(Riding);
+  Riding.tick = function (P, input) {
+    if (RC.ctl) { const e = RC.ctl.e; if (!e || e.remove || e.dead || !P.held || !ITEMS[P.held.id] || !ITEMS[P.held.id].rcRemote) { RC.stop(); return rt0(P, input); } P.vx = 0; P.vz = 0; if (!P.flying) { P.vy = (P.vy - 0.08) * 0.98; P.move(0, P.vy, 0); } if (Math.hypot(e.x - P.x, e.z - P.z) > 120 && !RC._far) { RC._far = true; Chat.add('§c¡Te alejas demasiado: se pierde la señal!'); } if (Math.hypot(e.x - P.x, e.z - P.z) > 140) { e.motorOff = true; } return true; }
+    return rt0(P, input);
+  };
+  // poner el vehículo y usar el mando
+  const u0 = Game.use.bind(Game);
+  Game.use = function () {
+    const P = this.player, held = P && P.held, it = held && ITEMS[held.id], T = this.target;
+    if (it && it.rcVehicle && MOBS['rc_' + it.rcVehicle] && !this.targetEnt) {
+      let x, y, z; if (T) [x, y, z] = this.placePos(T); else { const d = lookDir(P.yaw, P.pitch); x = Math.floor(P.x + d[0] * 2); y = Math.floor(P.y + 1); z = Math.floor(P.z + d[2] * 2); }
+      const m = new Mob('rc_' + it.rcVehicle, x + 0.5, y, z + 0.5); m.yaw = m.bodyYaw = P.yaw; m.persistent = true; m.keep = { bat: held.bike && held.bike.bat !== undefined ? held.bike.bat : 1 };
+      if (!boxFree(m.bb())) { Chat.add('§7No cabe ahí.'); return; }
+      Entities.add(m); Sound.play('place'); RC.last = m; if (P.mode !== 1) { held.n--; if (held.n <= 0) P.inv[P.sel] = null; }
+      if (!RC._told) { RC._told = true; Chat.add('§7Ahora coge el §fmando a distancia§7 y haz clic derecho para controlarlo.'); }
+      this.useCD = 8; return;
+    }
+    if (it && it.rcRemote && !this.targetEnt) {
+      if (RC.ctl) { RC.stop(); this.useCD = 8; return; }
+      let best = RC.last && !RC.last.remove && !RC.last.dead ? RC.last : null, bd = best ? Math.hypot(best.x - P.x, best.z - P.z) : 1e9;
+      if (!best || bd > 96) { best = null; bd = 96; for (const e of Entities.list) if (e.mob && e.kind.startsWith('rc_') && e.kind !== 'rc_missile' && e.kind !== 'rc_torpedo' && !e.dead) { const d = Math.hypot(e.x - P.x, e.z - P.z); if (d < bd) { bd = d; best = e; } } }
+      if (best) RC.start(best); else Chat.add('§7No hay ningún vehículo RC cerca. Pon uno en el suelo primero.');
+      this.useCD = 8; return;
+    }
+    return u0();
+  };
+}
+Cam.rcf = null;
+setInterval(() => { Cam.rcf = RC.ctl && RC.camMode !== 3 ? (pt) => RC.cam(pt) : null; if (!RC.ctl) RC.stopSound(); }, 50);
+// teclas mientras se controla un vehículo (no mueven al jugador)
+window.addEventListener('keydown', (e) => {
+  if (!RC.ctl || Game.state !== 'play' || GUI.open || UI.cur || Chat.open) return;
+  const c = e.code; if (c === 'KeyT' || c === 'Slash' || c.startsWith('F') && c.length <= 3) return;
+  e.stopImmediatePropagation(); e.preventDefault();
+  if (c === 'Escape') { RC.stop(); return; }
+  if (RC.keys[c]) return; RC.keys[c] = true;
+  const v = RC.ctl.e;
+  if (c === 'KeyC') { RC.camMode = (RC.camMode + 1) % 3; Chat.add('§7Cámara: ' + ['persecución', 'a bordo', 'desde el jugador'][RC.camMode]); }
+  if (c === 'KeyX') { v.motorOff = !v.motorOff; if (v.th !== undefined) v.th = 0; Chat.add('§7Motor ' + (v.motorOff ? 'parado' : 'en marcha')); }
+  if (c === 'KeyG') RC.retrieve(v);
+  if (c === 'KeyF') RC.fire(v);
+}, true);
+window.addEventListener('keyup', (e) => { if (!RC.ctl) return; RC.keys[e.code] = false; }, true);
+window.addEventListener('blur', () => { RC.keys = {}; });
+window.addEventListener('mousedown', (e) => {
+  if (!RC.ctl || Game.state !== 'play' || GUI.open || UI.cur || Chat.open) return; if (!Input.locked && !Input.freeLook) return;
+  e.stopImmediatePropagation(); e.preventDefault();
+  if (e.button === 2) RC.stop(); else if (e.button === 0) RC.fire(RC.ctl.e);
+}, true);
+// pantalla del mando: batería, velocidad, altura, potencia
+{
+  const hd0 = HUD.draw.bind(HUD);
+  HUD.draw = function () {
+    hd0(); if (!RC.ctl || Game.state !== 'play' || GUI.open || Game.hideHud) return;
+    const g = this.g, W = this.cv.width, s = this.scale(); const e = RC.ctl.e; const V = RCV[e.kind.slice(3)];
+    const b = Math.round(RC.bat(e) * 100); const spd = Math.round(Math.hypot(e.x - e.px, e.y - e.py, e.z - e.pz) * 72);
+    const lines = ['§e' + MOBS[e.kind].name, '§fBatería: ' + (b > 25 ? '§a' : '§c') + b + ' %', '§fVelocidad: ' + spd + ' km/h', '§fAltura: ' + Math.round(e.y) + '  · Distancia: ' + Math.round(Math.hypot(e.x - Game.player.x, e.z - Game.player.z)) + ' m'];
+    if (V.kind === 'plane') lines.push('§fPotencia: ' + Math.round((e.th || 0) * 100) + ' %');
+    if (e.motorOff) lines.push('§cMotor parado (X)');
+    g.fillStyle = 'rgba(0,0,0,0.45)'; g.fillRect(W - 170 * s, 6 * s, 164 * s, (lines.length * 10 + 6) * s);
+    lines.forEach((t, i) => this.text(t, W - 166 * s, (9 + i * 10) * s, '#ffffff', s));
+  };
 }
 
 // ---- 13d_enchant.js ----
