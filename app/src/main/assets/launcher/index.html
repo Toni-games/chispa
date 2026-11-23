@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Picaterra Launcher</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' picaterra:; img-src 'self' picaterra: data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<style>
+  /* ============================================================
+     Picaterra Launcher — pantalla principal
+     Está hecho muy básico a propósito: cambia los colores aquí arriba
+     y el resto de la página los usa.
+     ============================================================ */
+  :root {
+    --fondo: #14161c;
+    --panel: #1d2029;
+    --panel2: #262a35;
+    --texto: #e8eaf0;
+    --suave: #9aa1b3;
+    --verde: #4caf50;
+    --verde2: #3b8e3f;
+    --rojo: #e05a4f;
+    --amarillo: #ffd75e;
+    --radio: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--fondo); color: var(--texto); height: 100vh; display: flex; flex-direction: column; user-select: none; }
+  header { display: flex; align-items: center; gap: 14px; padding: 18px 24px; background: var(--panel); }
+  header img { width: 44px; height: 44px; image-rendering: pixelated; }
+  header h1 { font-size: 22px; margin: 0; letter-spacing: 1px; }
+  header small { color: var(--suave); }
+  main { flex: 1; display: grid; grid-template-columns: 1fr 340px; gap: 18px; padding: 18px 24px; overflow: hidden; }
+  .card { background: var(--panel); border-radius: var(--radio); padding: 16px 18px; overflow: auto; }
+  h2 { font-size: 15px; margin: 0 0 10px; color: var(--suave); text-transform: uppercase; letter-spacing: 1px; }
+  .nov h3 { margin: 4px 0 6px; font-size: 18px; }
+  .nov ul { margin: 6px 0 14px; padding-left: 20px; line-height: 1.5; }
+  .nov .fecha { color: var(--suave); font-size: 13px; }
+  .ver { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: var(--panel2); margin-bottom: 6px; }
+  .ver b { flex: 1; }
+  .ver .tag { font-size: 12px; color: var(--verde); }
+  button { font: inherit; border: 0; border-radius: 8px; padding: 8px 12px; background: var(--panel2); color: var(--texto); cursor: pointer; }
+  button:hover { filter: brightness(1.2); }
+  button:disabled { opacity: .45; cursor: default; filter: none; }
+  .mini { padding: 4px 9px; font-size: 13px; }
+  footer { display: flex; align-items: center; gap: 14px; padding: 16px 24px; background: var(--panel); }
+  #jugar { background: var(--verde); font-size: 22px; font-weight: 700; padding: 14px 48px; letter-spacing: 1px; }
+  #jugar:hover { background: var(--verde2); }
+  select { font: inherit; background: var(--panel2); color: var(--texto); border: 0; border-radius: 8px; padding: 9px 10px; }
+  #estado { flex: 1; color: var(--suave); }
+  #barra { height: 6px; background: var(--panel2); border-radius: 3px; overflow: hidden; margin-top: 6px; display: none; }
+  #barra div { height: 100%; width: 0; background: var(--verde); transition: width .15s; }
+  #aviso { display: none; background: #3b3220; color: var(--amarillo); padding: 10px 24px; }
+  #aviso a { color: var(--amarillo); }
+  label { display: flex; gap: 8px; align-items: center; margin: 8px 0; color: var(--suave); }
+  .fila { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <img src="icon.png" alt="" onerror="this.style.display='none'">
+  <div><h1>PICATERRA</h1><small id="sub">Launcher</small></div>
+</header>
+<div id="aviso"></div>
+<main>
+  <section class="card nov" id="novedades"><h2>Novedades</h2><div id="notas">Cargando…</div></section>
+  <aside class="card">
+    <h2>Versiones</h2>
+    <div id="versiones"></div>
+    <h2 style="margin-top:18px">Ajustes</h2>
+    <label><input type="checkbox" id="auto"> Descargar solo las versiones nuevas</label>
+    <label style="display:none"><input type="checkbox" id="keep"> Dejar el launcher abierto al jugar</label>
+    <label><input type="checkbox" id="full"> Abrir el juego en pantalla completa</label>
+    <h2 style="margin-top:18px">Añadir archivos</h2>
+    <div class="fila">
+      <button class="mini" data-dir="musica">🎵 Música</button>
+      <button class="mini" data-dir="texturas">🧱 Texturas</button>
+      
+    </div>
+    <p style="color:var(--suave);font-size:13px;line-height:1.4">Toca <b>Música</b> para añadir canciones del móvil y <b>Texturas</b> para añadir un paquete de texturas (.zip): el juego los usa solo. En el juego, el botón Atrás del móvil vuelve al launcher (púlsalo dos veces).</p>
+  </aside>
+</main>
+<footer>
+  <select id="sel"></select>
+  <div style="flex:1"><div id="estado">Preparando…</div><div id="barra"><div></div></div></div>
+  <button id="jugar">JUGAR</button>
+</footer>
+
+<script src="android-shim.js"></script>
+<script>
+// ============================================================
+//  Lógica del launcher (habla con main.js a través de window.Launcher)
+// ============================================================
+const L = window.Launcher; const $ = (id) => document.getElementById(id);
+let manifest = null, state = null, busy = false;
+const cmp = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
+const status = (t) => { $('estado').textContent = t; };
+const versions = () => (manifest && manifest.versions || []).slice().sort((a, b) => cmp(b.id, a.id));
+const latest = () => manifest && (manifest.latest || (versions()[0] || {}).id);
+const mb = (n) => (n / 1048576).toFixed(1) + ' MB';
+function esc(t) { const d = document.createElement('div'); d.textContent = String(t ?? ''); return d.innerHTML; }
+
+function render() {
+  const inst = state ? state.installed : [];
+  $('sub').textContent = 'Launcher ' + (state ? state.app : '') + (manifest ? ' · última versión del juego: ' + latest() : '');
+  // novedades de las versiones (las 5 más nuevas)
+  const vs = versions();
+  $('notas').innerHTML = vs.length ? vs.slice(0, 5).map(v => `<h3>Picaterra ${esc(v.id)} — ${esc(v.title || '')}</h3><div class="fecha">${esc(v.date || '')}</div><ul>${(v.notes || []).map(n => '<li>' + esc(n) + '</li>').join('')}</ul>`).join('') : 'No hay información de versiones (¿sin internet?). Puedes jugar a las que ya tengas.';
+  // lista de versiones
+  const all = [...new Set([...vs.map(v => v.id), ...inst])].sort((a, b) => cmp(b, a));
+  $('versiones').innerHTML = '';
+  for (const id of all) {
+    const v = vs.find(x => x.id === id); const ok = inst.includes(id);
+    const d = document.createElement('div'); d.className = 'ver';
+    d.innerHTML = `<b>${esc(id)}</b>${id === latest() ? '<span class="tag">última</span>' : ''}${ok ? '<span class="tag">✓ instalada</span>' : ''}`;
+    if (!ok && v) { const b = document.createElement('button'); b.className = 'mini'; b.textContent = 'Descargar' + (v.size ? ' (' + mb(v.size) + ')' : ''); b.onclick = () => install(id); d.appendChild(b); }
+    if (ok) { const b = document.createElement('button'); b.className = 'mini'; b.textContent = 'Borrar'; b.onclick = async () => { try { state.installed = await L.uninstall(id); render(); } catch (e) { status(e.message); } }; d.appendChild(b); }
+    $('versiones').appendChild(d);
+  }
+  // selector junto al botón Jugar
+  const prev = $('sel').value;
+  $('sel').innerHTML = `<option value="latest">Última versión${latest() ? ' (' + esc(latest()) + ')' : ''}</option>` + all.map(id => `<option value="${esc(id)}">Picaterra ${esc(id)}${inst.includes(id) ? '' : ' (sin descargar)'}</option>`).join('');
+  $('sel').value = prev && [...$('sel').options].some(o => o.value === prev) ? prev : (state && state.conf.pick) || 'latest';
+  if (state) { $('auto').checked = state.conf.auto !== false; $('keep').checked = !!state.conf.keepOpen; $('full').checked = !!state.conf.full; }
+  $('jugar').disabled = busy || !all.length;
+  $('jugar').textContent = state && state.playing ? 'EN JUEGO' : 'JUGAR';
+}
+
+async function install(id) {
+  const v = versions().find(x => x.id === id); if (!v || busy) return false;
+  busy = true; render(); status('Descargando Picaterra ' + id + '…'); $('barra').style.display = 'block';
+  try { state.installed = await L.install(id, v.url); status('Picaterra ' + id + ' instalada.'); return true; }
+  catch (e) { status('No se pudo descargar ' + id + ': ' + e.message); return false; }
+  finally { busy = false; $('barra').style.display = 'none'; render(); }
+}
+
+async function play() {
+  if (busy) return;
+  let id = $('sel').value; if (id === 'latest') id = latest() || (state.installed.slice().sort((a, b) => cmp(b, a))[0]);
+  if (!id) return;
+  if (!state.installed.includes(id) && !(await install(id))) return;
+  try { await L.play(id); status('Jugando a Picaterra ' + id + '. ¡Que te diviertas!'); } catch (e) { status(e.message); }
+  state = await L.state(); render();
+}
+
+L.on('progress', (p) => { const f = p.total ? p.got / p.total : 0; $('barra').firstChild.style.width = (f * 100).toFixed(1) + '%'; status('Descargando Picaterra ' + p.id + '… ' + (p.total ? Math.round(f * 100) + '%' : mb(p.got))); });
+L.on('game-closed', async () => { state = await L.state(); status('Listo para jugar.'); render(); });
+L.on('game-started', async () => { state = await L.state(); render(); });
+$('jugar').onclick = play;
+$('sel').onchange = () => L.setConf({ pick: $('sel').value });
+$('auto').onchange = () => L.setConf({ auto: $('auto').checked });
+$('keep').onchange = () => L.setConf({ keepOpen: $('keep').checked });
+$('full').onchange = () => L.setConf({ full: $('full').checked });
+document.querySelectorAll('[data-dir]').forEach(b => b.onclick = () => L.openFolder(b.dataset.dir));
+
+(async function arrancar() {
+  state = await L.state(); render();
+  status('Buscando versiones nuevas…');
+  const m = await L.manifest(); manifest = m.data; render();
+  if (!manifest) { status(state.installed.length ? 'Sin conexión: puedes jugar a las versiones que ya tienes.' : 'Sin conexión y sin versiones descargadas. Conéctate a internet y vuelve a abrir el launcher.'); return; }
+  // ¿hay un launcher más nuevo?
+  if (manifest.launcher && cmp(manifest.launcher, state.app) > 0) {
+    const a = $('aviso'); a.style.display = 'block';
+    a.innerHTML = `Hay un launcher nuevo (${esc(manifest.launcher)}). <a href="#" id="bajar">Descárgalo aquí</a>.`;
+    $('bajar').onclick = (e) => { e.preventDefault(); L.open(manifest.launcherUrl || 'https://github.com/Toni-games/chispa/releases'); };
+  }
+  // actualización automática: si la última versión no está, se descarga sola
+  const last = latest();
+  if (state.conf.auto !== false && last && !state.installed.includes(last)) await install(last);
+  status(m.offline ? 'Sin conexión: usando la lista guardada.' : 'Tienes la última versión (' + last + '). ¡A jugar!');
+})();
+</script>
+</body>
+</html>

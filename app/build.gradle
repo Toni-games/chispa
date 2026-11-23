@@ -1,0 +1,24 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.tonigames.picaterra'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'com.tonigames.picaterra'
+        minSdk 24
+        targetSdk 34
+        versionCode (System.getenv('GITHUB_RUN_NUMBER') ? System.getenv('GITHUB_RUN_NUMBER').toInteger() : 1)
+        versionName '1.0.' + (System.getenv('GITHUB_RUN_NUMBER') ?: '0')
+    }
+    signingConfigs {
+        // La firma la prepara GitHub Actions (desde el secreto ANDROID_KEYSTORE si existe); no se guarda en el repositorio.
+        release {
+            storeFile file('firma.jks')
+            storePassword System.getenv('ANDROID_KEY_PASS') ?: 'android'
+            keyAlias 'picaterra'
+            keyPassword System.getenv('ANDROID_KEY_PASS') ?: 'android'
+        }
+    }
+    buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
+    buildFeatures { buildConfig true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
