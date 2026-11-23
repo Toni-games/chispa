@@ -1,8 +1,21 @@
 {
-  "latest": "1.27.0",
+  "latest": "1.28.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.28.0",
+      "date": "2026-11-23",
+      "title": "Mods Real Bicycles y Effortless Building, murciélagos y comercio con aldeanos",
+      "notes": [
+        "Real Bicycles: bici con inercia, derrape (X), salto, campanilla (B), luces (L), accesorios con la llave de cruz, canastas y alforjas, color con tintes",
+        "Effortless Building: 15 modos de construcción (menú con Alt), espejo, serie y espejo radial (K), deshacer/rehacer, herramienta aleatorizadora",
+        "Murciélagos en las cuevas (duermen colgados del techo)",
+        "Aldeanos con oficio, 5 niveles y ofertas de comercio que se reponen"
+      ],
+      "size": 416387,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.28.0.zip"
+    },
     {
       "id": "1.27.0",
       "date": "2026-11-23",

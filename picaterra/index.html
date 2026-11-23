@@ -347,7 +347,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.27.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.28.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -2558,6 +2558,7 @@ if (DYN_SPEC && DYN_SPEC.blocks && DYN_SPEC.blocks.length) {
     if (/^create_.*_wall$/.test(b.k)) Object.assign(o, { render: 'box', shape: 'wall', tall: true, wall: true, box: undefined, hardness: 1.5, tool: 'pickaxe', sound: 'stone' });
     // 1.25.1: piezas internas del mod que no se consiguen en el juego normal
     if (/^create_(chocolate|honey|crushing_wheel_controller|fake_track|lectern_controller|powered_shaft|steam_whistle_extension|water_wheel_structure|pulley_magnet|mechanical_piston_head)$/.test(b.k)) o.noItem = true;
+    if (b.k === 'bicycle_bicycle_block') Object.assign(o, { noItem: true, render: 'none', solid: false });
     if (b.k === 'create_belt') Object.assign(o, { render: 'box', box: [[0, 0, 0, 16, 13, 16]] });
     if (b.k === 'create_copycat_panel') Object.assign(o, { render: 'box', box: [[0, 0, 0, 16, 3, 16]] });
     if (b.k === 'create_copycat_step') Object.assign(o, { render: 'box', box: [[0, 0, 0, 16, 8, 16]] });
@@ -3427,6 +3428,49 @@ if (DYN_SPEC) {
   for (const r of DYN_SPEC.recipes || []) {
     try { const need = r.s ? Object.values(r.k) : r.l; if (!ITEMS[r.o] || need.some(k => !ITEMS[k])) continue; if (r.s) shaped(r.s, r.k, r.o, r.c); else shapeless(r.l, r.o, r.c); } catch (e) { }
   }
+}
+
+
+// ---- extra/modsreg127.js ----
+// ---- 1.27: objetos de los mods «Real Bicycles» y «Effortless Building» (si están puestos) ----
+const MODS127 = {
+  has(ns) {
+    const S = DYN_SPEC; if (!S) return false;
+    if ((S.mods || []).includes(ns)) return true;
+    const p = ns + '_'; return (S.blocks || []).some(b => b.k.startsWith(p)) || (S.items || []).some(i => i.k.startsWith(p));
+  },
+};
+MODS127.bike = MODS127.has('bicycle');
+MODS127.eb = MODS127.has('effortlessbuilding');
+if (MODS127.bike) {
+  for (const [k, n, o] of [
+    ['bicycle_bicycle', 'Bicicleta', { stack: 1, icon: 'mod_bike' }],
+    ['bicycle_wrench', 'Llave de cruz', { stack: 1, icon: 'mod_bike_wrench', cat: 'tools' }],
+    ['bicycle_bell', 'Campanilla', { icon: 'mod_bike_bell', bikePart: 'bell' }],
+    ['bicycle_bell_gold', 'Campanilla de oro', { icon: 'mod_bike_bell_gold', bikePart: 'bell' }],
+    ['bicycle_headlight', 'Faro delantero', { icon: 'mod_bike_headlight', bikePart: 'headlight' }],
+    ['bicycle_taillight', 'Faro trasero', { icon: 'mod_bike_taillight', bikePart: 'taillight' }],
+    ['bicycle_basket', 'Canasta', { icon: 'mod_bike_basket', bikePart: 'basket' }],
+    ['bicycle_pannier', 'Alforja', { icon: 'mod_bike_pannier', bikePart: 'pannier' }],
+    ['bicycle_rack', 'Parrilla trasera', { icon: 'mod_bike_rack', bikePart: 'rack' }],
+    ['bicycle_pegs', 'Diablitos', { icon: 'mod_bike_pegs', bikePart: 'pegs' }],
+  ]) if (!ITEMS[k]) defItem(k, n, Object.assign({ cat: 'mods', stack: 16 }, o));
+  shaped(['  S', 'LII', 'WIW'], { S: 'stick', L: 'leather', I: 'iron_ingot', W: 'black_wool' }, 'bicycle_bicycle');
+  shaped(['I I', ' S ', ' I '], { I: 'iron_ingot', S: 'stick' }, 'bicycle_wrench');
+  shaped(['N', 'I'], { N: 'iron_nugget', I: 'iron_ingot' }, 'bicycle_bell');
+  shaped(['N', 'I'], { N: 'gold_nugget', I: 'gold_ingot' }, 'bicycle_bell_gold');
+  shaped(['IG', 'IL'], { I: 'iron_ingot', G: 'glass_pane', L: 'glowstone_dust' }, 'bicycle_headlight');
+  if (ITEMS.red_stained_glass_pane) shaped(['IL', 'IP'], { I: 'iron_ingot', L: 'glowstone_dust', P: 'red_stained_glass_pane' }, 'bicycle_taillight');
+  else shaped(['IL', 'IP'], { I: 'iron_ingot', L: 'glowstone_dust', P: 'redstone' }, 'bicycle_taillight');
+  shaped(['W W', 'WWW'], { W: 'wheat' }, 'bicycle_basket');
+  shaped(['NNN', 'NCN', 'NNN'], { N: 'iron_nugget', C: 'chest' }, 'bicycle_pannier');
+  shaped(['NNN'], { N: 'iron_nugget' }, 'bicycle_pegs');
+  shaped(['BBB', 'B B'], { B: 'iron_bars' }, 'bicycle_rack');
+}
+if (MODS127.eb) {
+  if (!ITEMS.effortlessbuilding_randomizer_tool) defItem('effortlessbuilding_randomizer_tool', 'Herramienta aleatorizadora', { cat: 'mods', icon: 'mod_eb_randomizer' });
+  Object.assign(ITEMS.effortlessbuilding_randomizer_tool, { stack: 1, randomizer: true, cat: 'tools' });
+  for (const f of ['poppy', 'dandelion', 'cornflower', 'allium', 'azure_bluet', 'oxeye_daisy', 'blue_orchid', 'lily_of_the_valley']) if (ITEMS[f]) shaped([' L ', 'LCL', ' R '], { L: 'iron_ingot', C: f, R: 'redstone' }, 'effortlessbuilding_randomizer_tool');
 }
 
 // ---- 03_textures.js ----
@@ -4696,6 +4740,29 @@ if (!TEX.brewing_stand_base) addTex('brewing_stand_base', (c) => { c.fillStyle =
 
 // antorchitas del repetidor y del comparador: textura llena (la de la antorcha normal es casi toda transparente)
 for (const [n, top, glow] of [['rs_torch_on', '#ff2a10', '#ffb090'], ['rs_torch_off', '#5a1a10', '#7a2a20']]) addTex(n, (c) => { c.fillStyle = '#7a5a34'; c.fillRect(0, 0, 16, 16); c.fillStyle = '#5e4426'; for (let x = 0; x < 16; x += 2) c.fillRect(x, 11, 1, 5); c.fillStyle = top; c.fillRect(0, 0, 16, 11); c.fillStyle = glow; c.fillRect(0, 0, 16, 2); for (let x = 1; x < 16; x += 4) c.fillRect(x, 4, 2, 2); });
+
+
+// ---- extra/modstex127.js ----
+// ---- 1.27: iconos propios (dibujados aquí) de los objetos de los mods de bicicletas y construcción ----
+{
+  const P = (c, col, pts) => { c.fillStyle = col; for (const [x, y, w, h] of pts) c.fillRect(x, y, w || 1, h || 1); };
+  const ring = (c, cx, cy, r, col) => { c.fillStyle = col; for (let a = 0; a < 40; a++) { const t = a / 40 * Math.PI * 2; c.fillRect(Math.round(cx + Math.cos(t) * r), Math.round(cy + Math.sin(t) * r), 1, 1); } };
+  addTex('mod_bike', (c) => {
+    ring(c, 4, 11, 3.2, '#1c1c1e'); ring(c, 12, 11, 3.2, '#1c1c1e'); P(c, '#9a9a9a', [[4, 11], [12, 11]]);
+    P(c, '#c42424', [[5, 10, 1, 1], [6, 9, 1, 1], [7, 8, 1, 1], [8, 9, 1, 1], [9, 10, 1, 1], [10, 9, 1, 1], [11, 8, 1, 1], [7, 7, 1, 1], [7, 6, 1, 1], [6, 7, 5, 1], [11, 7, 1, 2], [12, 10, 1, 1]]);
+    P(c, '#3a2a1a', [[6, 5, 3, 1]]); P(c, '#555', [[10, 5, 3, 1], [11, 6, 1, 1]]);
+  }, 'item');
+  addTex('mod_bike_wrench', (c) => { P(c, '#b8b8b8', [[3, 3, 3, 1], [3, 4, 1, 2], [5, 4, 1, 2], [4, 6, 1, 1], [5, 7, 1, 1], [6, 8, 1, 1], [7, 9, 1, 1], [8, 10, 1, 1], [9, 11, 1, 1], [10, 12, 1, 1], [9, 12, 2, 2]]); P(c, '#6a6a6a', [[11, 13, 2, 1], [12, 12, 1, 1]]); }, 'item');
+  const bell = (top) => (c) => { P(c, '#2a2a2a', [[7, 12, 2, 2], [5, 13, 6, 1]]); P(c, top, [[5, 7, 6, 5], [6, 6, 4, 1], [7, 5, 2, 1]]); P(c, '#ffffff', [[6, 7, 1, 2]]); };
+  addTex('mod_bike_bell', bell('#c8c8c8'), 'item'); addTex('mod_bike_bell_gold', bell('#f0c832'), 'item');
+  addTex('mod_bike_headlight', (c) => { P(c, '#8a8a8a', [[3, 5, 8, 7]]); P(c, '#ffe26a', [[11, 5, 2, 7], [13, 6, 1, 5]]); P(c, '#fff6b0', [[11, 7, 2, 3]]); P(c, '#5a5a5a', [[5, 12, 2, 2]]); }, 'item');
+  addTex('mod_bike_taillight', (c) => { P(c, '#2a2a2e', [[5, 4, 6, 9]]); P(c, '#d42020', [[6, 5, 4, 7]]); P(c, '#ff7a7a', [[7, 6, 2, 2]]); }, 'item');
+  addTex('mod_bike_basket', (c) => { P(c, '#a8823e', [[2, 6, 12, 8]]); for (let x = 2; x < 14; x += 2) P(c, '#7a5a26', [[x, 6, 1, 8]]); for (let y = 7; y < 14; y += 2) P(c, '#c8a256', [[2, y, 12, 1]]); P(c, '#5a3e1a', [[2, 5, 12, 1]]); }, 'item');
+  addTex('mod_bike_pannier', (c) => { P(c, '#6a4a2a', [[3, 4, 10, 10]]); P(c, '#8a6a3e', [[4, 5, 8, 8]]); P(c, '#3a2614', [[3, 7, 10, 1]]); P(c, '#c0c0c0', [[7, 8, 2, 2]]); P(c, '#3a2614', [[6, 2, 4, 2]]); }, 'item');
+  addTex('mod_bike_rack', (c) => { P(c, '#9a9a9a', [[2, 6, 12, 1], [2, 9, 12, 1], [3, 6, 1, 6], [12, 6, 1, 6], [7, 6, 1, 4]]); P(c, '#5a5a5a', [[3, 12, 1, 2], [12, 12, 1, 2]]); }, 'item');
+  addTex('mod_bike_pegs', (c) => { P(c, '#6a6a6a', [[2, 7, 4, 3], [10, 7, 4, 3]]); P(c, '#9a9a9a', [[3, 8, 2, 1], [11, 8, 2, 1]]); P(c, '#3a3a3a', [[6, 8, 4, 1]]); }, 'item');
+  addTex('mod_eb_randomizer', (c) => { P(c, '#8a8a8a', [[7, 8, 2, 7]]); P(c, '#c42424', [[3, 2, 4, 4]]); P(c, '#3a8a2a', [[9, 2, 4, 4]]); P(c, '#2a4ac4', [[6, 5, 4, 4]]); P(c, '#ffffff', [[4, 3], [10, 3], [7, 6]]); }, 'item');
+}
 
 // ---- 04_world.js ----
 // ============================================================
@@ -6830,7 +6897,7 @@ const CEM = {
         age: (e.age || 0) + pt, head_yaw: -wrapPI(headYaw) * D, head_pitch: -lerp(e.prevPitch ?? e.pitch, e.pitch, pt) * D,
         pos_x: e.x, pos_y: e.y, pos_z: e.z, rot_x: -(e.pitch || 0), rot_y: this.unwrapYaw(S, Math.PI - lerpAngle(e.prevBodyYaw ?? e.bodyYaw, e.bodyYaw, pt)),
         is_on_ground: !!e.onGround, is_in_water: !!e.inWater, is_in_lava: !!e.inLava, is_burning: e.fire > 0, is_hurt: e.hurt > 0, hurt_time: Math.max(0, e.hurt || 0),
-        death_time: e.deathTime || 0, is_alive: !e.dead, is_child: !!e.baby, is_riding: false, is_ridden: false, is_sitting: !!e.sitting, is_tamed: !!e.tame,
+        death_time: e.deathTime || 0, is_alive: !e.dead, is_child: !!e.baby, is_riding: !!e.riding, is_ridden: false, is_sitting: !!e.sitting, is_tamed: !!e.tame,
         is_aggressive: !!(e.target || e.angry), is_sneaking: !!e.sneaking, is_sprinting: !!e.sprinting, is_on_shoulder: false, is_in_ground: false, is_wet: !!e.inWater, is_glowing: false, is_invisible: false,
         health: e.health || 0, max_health: e.maxHealth || 20, id: e.id || 0, swing_progress: e.swinging ? clamp(((e.swingTime || 0) + pt) / 6, 0, 1) : 0,
         frame_time: this.ft, frame_counter: this.frame, time: (World.time || 0) + pt, day_time: World.time % 24000, day_count: Math.floor((World.time || 0) / 24000), dimension: World.dim === 'n' ? -1 : World.dim === 'e' ? 1 : 0,
@@ -7227,7 +7294,7 @@ class Player extends Entity {
       if (e.type !== 'item' || e.pickupDelay > 0 || e.dead) continue;
       if (e.mirror) { if (Math.abs(e.x - this.x) < 1.3 && Math.abs(e.z - this.z) < 1.3 && e.y > this.y - 0.8 && e.y < this.y + 2.2 && performance.now() - (e.pickReq || 0) > 700) { e.pickReq = performance.now(); NetSync.toHost({ t: 'pick', id: e.nid }); } continue; }
       if (Math.abs(e.x - this.x) < 1.3 && Math.abs(e.z - this.z) < 1.3 && e.y > this.y - 0.8 && e.y < this.y + 2.2) {
-        const left = this.give(e.item.id, e.item.n, e.item.d, e.item.e, e.item.pat ? { pat: e.item.pat } : null);
+        const left = this.give(e.item.id, e.item.n, e.item.d, e.item.e, e.item.pat ? { pat: e.item.pat } : e.item.bike ? { bike: e.item.bike } : null);
         if (left < e.item.n) { Sound.play('pop'); e.pickedBy = this; e.pickT = 0; if (left > 0) { e.item.n = left; e.pickedBy = null; } else e.dead = true; if (!e.pickedBy) Particles.pickup(e, this); else Particles.pickup(e, this); }
       }
     }
@@ -13348,6 +13415,7 @@ const DYN = {
   // a partir de los paquetes activos: qué bloques, objetos y recetas trae cada mod
   async spec(zips) {
     const out = { v: 5, blocks: [], items: [], recipes: [], machine: {} }; const dec = new TextDecoder();
+    out.mods = [...new Set(zips.flatMap(z => z.names.map(p => (p.match(/^assets\/([^/]+)\//) || [])[1]).filter(n => n && n !== 'minecraft')))];
     const lang = {}; const models = {}; const states = {}; const itemModels = {}; const recipes = [];
     for (const z of zips) {
       for (const p of z.names) {
@@ -13553,7 +13621,7 @@ const Addons = {
         if (low.endsWith('.jar')) {
           onMsg && onMsg('Leyendo «' + f.name + '»…'); const buf = await f.arrayBuffer(); const z = await readZip(buf);
           if (!z.names.some(p => /^assets\/[^/]+\/(blockstates|models|textures|geo)\//.test(p))) { out.push('«' + f.name + '» es un mod de Java sin bloques ni objetos que se puedan sacar: su código no puede funcionar en un navegador.'); continue; }
-          const r = await this.addPack(f.name.replace(/\.jar$/i, ''), buf, true); out.push('«' + f.name + '»: ' + (r || 'nada aprovechable.') + ' Su código Java no funciona en un navegador: las máquinas todavía no se mueven ni hacen su trabajo.'); continue;
+          const r = await this.addPack(f.name.replace(/\.jar$/i, ''), buf, true); const known = z.names.some(p => /^assets\/(create|bicycle|effortlessbuilding)\//.test(p)); out.push('«' + f.name + '»: ' + (r || 'nada aprovechable.') + (known ? ' Este mod está rehecho para el navegador: funciona al recargar la partida.' : ' Su código Java no funciona en un navegador: solo se usan sus bloques, objetos y texturas.')); continue;
         }
         if (!/\.(zip|mrpack|rpo)$/.test(low)) { out.push('«' + f.name + '»: solo se admiten .zip, .mrpack o .jar.'); continue; }
         onMsg && onMsg('Leyendo «' + f.name + '»…');
@@ -16492,6 +16560,966 @@ const Spawn127 = {
     }
   };
   setTimeout(() => { Entities.spawnTick = function () { return Spawn127.tick(); }; }, 0);
+}
+
+
+// ---- extra/villagers127.js ----
+// ============================================================
+//  1.27: murciélagos y comercio con los aldeanos
+//  - Murciélagos: vuelan a lo loco por las cuevas y duermen colgados del techo (wiki: luz ≤ 0–3, bajo Y 63).
+//  - Aldeanos: tienen oficio (por su bloque de trabajo), 5 niveles y ofertas que se gastan y se reponen.
+// ============================================================
+// ---------- murciélago ----------
+Object.assign(MODELS, {
+  bat: [
+    MCB('body', [0, 0], [-1.5, 0, -1, 3, 5, 2], [0, 17, 0]),
+    MCB('head', [0, 7], [-2, -3, -1, 4, 3, 2], [0, 17, 0]),
+    MCB('rear', [1, 15], [-2.5, -4, 0, 3, 5, 0], [-1.5, 15, 0], { follow: 'head' }),
+    MCB('lear', [8, 15], [-0.1, -3, 0, 3, 5, 0], [1.1, 14, 0], { follow: 'head' }),
+    MCB('rwing', [12, 0], [-2, -2, 0, 2, 7, 0], [-1.5, 17, 0]), MCB('rtip', [16, 0], [-8, -2, 0, 6, 8, 0], [-1.5, 17, 0], { follow: 'rwing' }),
+    MCB('lwing', [12, 7], [0, -2, 0, 2, 7, 0], [1.5, 17, 0]), MCB('ltip', [16, 8], [2, -2, 0, 6, 8, 0], [1.5, 17, 0], { follow: 'lwing' }),
+    MCB('feet', [16, 16], [-1.5, 0, 0, 3, 2, 0], [0, 22, 0]),
+  ],
+});
+Object.assign(MODEL_TEXW, { bat: 32 });
+Object.assign(MOB_COLORS, { bat: '#4c3e30' });
+if (typeof EGG_COLORS !== 'undefined') EGG_COLORS.bat = ['#4c3e30', '#0f0f0f'];
+TexturePack.ENT.push(['bat', /(^|\/)entity\/bat\.png$/]);
+MOBS.bat = { name: 'Murciélago', hp: 6, w: 0.5, h: 0.9, speed: 0.3, passive: true, ambient: true, flies: true, drops: () => [], xp: [0, 0], sound: 'bat' };
+if (!ITEMS.bat_spawn_egg) defItem('bat_spawn_egg', 'Huevo generador de murciélago', { cat: 'misc', egg: 'bat' });
+setTimeout(() => { try { SoundPack.MOB.bat = 'murcielago'; } catch (e) { } }, 0);
+Object.assign(ANIM_EXTRA, {
+  bat(P, sw, age, e) {
+    if (e.roost) { P.rwing.ry = -0.2; P.lwing.ry = 0.2; P.rwing.rz = P.lwing.rz = 0; P.head.rx = 0; return; }
+    const f = Math.cos(age * 1.3) * Math.PI * 0.25; P.rwing.ry = f; P.lwing.ry = -f; P.body.rx = Math.PI / 4 + Math.cos(age * 0.1) * 0.15; P.feet.rx = P.body.rx;
+  },
+});
+const Bats = {
+  tick(m, P, dist) {
+    if (!m.persistent && dist > 128) { m.remove = true; return; }
+    if (!m.persistent && dist > 32 && Math.random() < 1 / 800) { m.remove = true; return; }
+    const x = Math.floor(m.x), y = Math.floor(m.y), z = Math.floor(m.z);
+    if (m.roost) {
+      m.vx = m.vy = m.vz = 0;
+      const up = World.get(x, Math.floor(m.y + m.h + 0.1), z);
+      if (!SOLID[up] || (P && !P.dead && P.mode !== 3 && dist < 4) || Math.random() < 1 / 1200 || m.hurt > 0) { m.roost = false; m.vy = 0.05; }
+      return;
+    }
+    // vuela hacia un punto al azar cerca, como en el juego
+    if (!m.goalP || Math.random() < 1 / 30 || Math.hypot(m.goalP[0] - m.x, m.goalP[1] - m.y, m.goalP[2] - m.z) < 2) {
+      for (let t = 0; t < 4; t++) { const g = [m.x + Math.random() * 14 - 7, m.y + Math.random() * 6 - 2, m.z + Math.random() * 14 - 7]; if (!SOLID[World.get(Math.floor(g[0]), Math.floor(g[1]), Math.floor(g[2]))]) { m.goalP = g; break; } }
+    }
+    if (m.goalP) {
+      const dx = m.goalP[0] + 0.5 - m.x, dy = m.goalP[1] + 0.1 - m.y, dz = m.goalP[2] + 0.5 - m.z;
+      m.vx += (Math.sign(dx) * 0.5 - m.vx) * 0.1; m.vy += (Math.sign(dy) * 0.7 - m.vy) * 0.1; m.vz += (Math.sign(dz) * 0.5 - m.vz) * 0.1;
+      m.yaw = m.bodyYaw = m.headYaw = Math.atan2(-m.vx, -m.vz);
+    }
+    m.move(m.vx * 0.3, m.vy * 0.3, m.vz * 0.3); m.vy *= 0.6;
+    // a veces se cuelga del techo
+    if (Math.random() < 0.01 && SOLID[World.get(x, Math.floor(m.y + m.h + 0.15), z)] && OPAQUE[World.get(x, Math.floor(m.y + m.h + 0.15), z)]) { m.roost = true; m.x = x + 0.5; m.z = z + 0.5; m.y = Math.floor(m.y + m.h + 0.15) - m.h; }
+  },
+  // aparición: cuevas oscuras por debajo de Y 63 (límite de ambiente: 15)
+  spawn(P) {
+    if (Spawn127.near(P, e => e.kind === 'bat', 128) >= 15) return;
+    const sp = Entities.spot(P, 24, 56, false); if (!sp) return;
+    const { x, y, z } = sp; if (y >= 63 || World.sky(x, y, z) > 0) return;
+    if (Math.max(World.blk(x, y, z), 0) > (Math.random() * 4 | 0)) return;
+    const n = 1 + (Math.random() * 2 | 0);
+    for (let k = 0; k < n; k++) Spawn127.add('bat', x + 0.5, y + 0.5, z + 0.5, false);
+  },
+};
+// colgado: el modelo boca abajo
+{
+  const dm0 = drawModel;
+  drawModel = function (kind, e, skinTex, base, Pw, light, tint, animKind) {
+    if (kind === 'bat' && e && e.roost) { const b = M4.copy(_m3, base); M4.translate(b, 0, e.h, 0); M4.rotZ(b, Math.PI); return dm0(kind, e, skinTex, b, Pw, light, tint, animKind); }
+    return dm0(kind, e, skinTex, base, Pw, light, tint, animKind);
+  };
+}
+
+// ---------- oficios y ofertas ----------
+const PROFS = {
+  farmer: { n: 'Granjero', job: 'composter' }, librarian: { n: 'Bibliotecario', job: 'lectern' }, armorer: { n: 'Armero', job: 'blast_furnace' },
+  toolsmith: { n: 'Herrero de herramientas', job: 'smithing_table' }, weaponsmith: { n: 'Herrero de armas', job: 'grindstone' }, butcher: { n: 'Carnicero', job: 'smoker' },
+  fisherman: { n: 'Pescador', job: 'barrel' }, cleric: { n: 'Clérigo', job: 'brewing_stand' }, cartographer: { n: 'Cartógrafo', job: 'cartography_table' },
+  shepherd: { n: 'Pastor', job: 'loom' }, fletcher: { n: 'Flechero', job: 'fletching_table' }, leatherworker: { n: 'Peletero', job: 'cauldron' }, mason: { n: 'Albañil', job: 'stonecutter' },
+};
+const VLEVELS = ['Novato', 'Aprendiz', 'Oficial', 'Experto', 'Maestro'], VXP = [0, 10, 70, 150, 250];
+// [compra (lo que das), [opcional 2º], venta (lo que te da), usos máx.]  · 'E' = esmeralda · '*' = encantado al azar
+const T = (a, n, o, on, max, b, bn) => ({ a: { id: a, n }, b: b ? { id: b, n: bn } : null, out: { id: o, n: on }, max: max || 12 });
+const TRADES = {
+  farmer: [[T('wheat', 20, 'emerald', 1, 16), T('potato', 26, 'emerald', 1, 16), T('carrot', 22, 'emerald', 1, 16), T('beetroot', 15, 'emerald', 1, 16), T('emerald', 1, 'bread', 6, 16)],
+    [T('pumpkin', 6, 'emerald', 1), T('emerald', 1, 'pumpkin_pie', 4), T('emerald', 1, 'apple', 4, 16)], [T('melon', 4, 'emerald', 1), T('emerald', 3, 'cookie', 18)],
+    [T('emerald', 1, 'cake', 1), T('emerald', 1, 'suspicious_stew', 1)], [T('emerald', 3, 'golden_carrot', 3), T('emerald', 4, 'glistering_melon_slice', 3)]],
+  librarian: [[T('paper', 24, 'emerald', 1, 16), T('emerald', 9, 'enchanted_book*', 1, 12, 'book', 1), T('emerald', 9, 'bookshelf', 1)],
+    [T('book', 4, 'emerald', 1), T('emerald', 1, 'lantern', 1), T('emerald', 12, 'enchanted_book*', 1, 12, 'book', 1)], [T('ink_sac', 5, 'emerald', 1), T('emerald', 1, 'glass', 4)],
+    [T('writable_book', 2, 'emerald', 1), T('emerald', 5, 'clock', 1), T('emerald', 4, 'compass', 1)], [T('emerald', 20, 'name_tag', 1)]],
+  armorer: [[T('coal', 15, 'emerald', 1, 16), T('emerald', 7, 'iron_leggings', 1), T('emerald', 4, 'iron_boots', 1), T('emerald', 5, 'iron_helmet', 1), T('emerald', 9, 'iron_chestplate', 1)],
+    [T('iron_ingot', 4, 'emerald', 1), T('emerald', 36, 'bell', 1), T('emerald', 3, 'chainmail_leggings', 1), T('emerald', 1, 'chainmail_boots', 1)],
+    [T('lava_bucket', 1, 'emerald', 1), T('diamond', 1, 'emerald', 1), T('emerald', 1, 'chainmail_helmet', 1), T('emerald', 4, 'chainmail_chestplate', 1), T('emerald', 5, 'shield', 1)],
+    [T('emerald', 19, 'diamond_leggings*', 1, 3), T('emerald', 13, 'diamond_boots*', 1, 3)], [T('emerald', 13, 'diamond_helmet*', 1, 3), T('emerald', 21, 'diamond_chestplate*', 1, 3)]],
+  weaponsmith: [[T('coal', 15, 'emerald', 1, 16), T('emerald', 3, 'iron_axe', 1), T('emerald', 2, 'iron_sword*', 1)], [T('iron_ingot', 4, 'emerald', 1), T('emerald', 36, 'bell', 1)],
+    [T('flint', 24, 'emerald', 1)], [T('diamond', 1, 'emerald', 1), T('emerald', 12, 'diamond_axe*', 1, 3)], [T('emerald', 8, 'diamond_sword*', 1, 3)]],
+  toolsmith: [[T('coal', 15, 'emerald', 1, 16), T('emerald', 1, 'stone_axe', 1), T('emerald', 1, 'stone_shovel', 1), T('emerald', 1, 'stone_pickaxe', 1), T('emerald', 1, 'stone_hoe', 1)],
+    [T('iron_ingot', 4, 'emerald', 1), T('emerald', 36, 'bell', 1)], [T('flint', 30, 'emerald', 1), T('emerald', 1, 'iron_axe*', 1, 3), T('emerald', 2, 'iron_shovel*', 1, 3), T('emerald', 3, 'iron_pickaxe*', 1, 3), T('emerald', 4, 'diamond_hoe', 1, 3)],
+    [T('diamond', 1, 'emerald', 1), T('emerald', 12, 'diamond_axe*', 1, 3), T('emerald', 5, 'diamond_shovel*', 1, 3)], [T('emerald', 13, 'diamond_pickaxe*', 1, 3)]],
+  butcher: [[T('chicken', 14, 'emerald', 1, 16), T('porkchop', 7, 'emerald', 1, 16), T('rabbit', 4, 'emerald', 1, 16), T('emerald', 1, 'rabbit_stew', 1)],
+    [T('coal', 15, 'emerald', 1, 16), T('emerald', 1, 'cooked_porkchop', 5, 16), T('emerald', 1, 'cooked_chicken', 8, 16)], [T('mutton', 7, 'emerald', 1, 16), T('beef', 10, 'emerald', 1, 16)],
+    [T('dried_kelp_block', 10, 'emerald', 1)], [T('sweet_berries', 10, 'emerald', 1)]],
+  fisherman: [[T('string', 20, 'emerald', 1, 16), T('coal', 10, 'emerald', 1, 16), T('emerald', 1, 'cooked_cod', 6, 16, 'cod', 6), T('emerald', 3, 'cod_bucket', 1, 16)],
+    [T('cod', 15, 'emerald', 1, 16), T('emerald', 1, 'cooked_salmon', 6, 16, 'salmon', 6), T('emerald', 2, 'campfire', 1)], [T('salmon', 13, 'emerald', 1, 16), T('emerald', 8, 'fishing_rod*', 1, 3)],
+    [T('tropical_fish', 6, 'emerald', 1)], [T('pufferfish', 4, 'emerald', 1), T('oak_boat', 1, 'emerald', 1)]],
+  cleric: [[T('rotten_flesh', 32, 'emerald', 1, 16), T('emerald', 1, 'redstone', 2)], [T('gold_ingot', 3, 'emerald', 1), T('emerald', 1, 'lapis_lazuli', 1)],
+    [T('rabbit_foot', 2, 'emerald', 1), T('emerald', 4, 'glowstone', 1)], [T('glass_bottle', 9, 'emerald', 1), T('emerald', 5, 'ender_pearl', 1)], [T('nether_wart', 22, 'emerald', 1), T('emerald', 3, 'experience_bottle', 1)]],
+  cartographer: [[T('paper', 24, 'emerald', 1, 16), T('emerald', 7, 'map', 1)], [T('glass_pane', 11, 'emerald', 1, 16), T('emerald', 1, 'compass', 1)],
+    [T('compass', 1, 'emerald', 1)], [T('emerald', 7, 'item_frame', 1), T('emerald', 3, 'white_banner', 1)], [T('emerald', 8, 'globe_banner_pattern', 1)]],
+  shepherd: [[T('white_wool', 18, 'emerald', 1, 16), T('brown_wool', 18, 'emerald', 1, 16), T('black_wool', 18, 'emerald', 1, 16), T('gray_wool', 18, 'emerald', 1, 16), T('emerald', 2, 'shears', 1)],
+    [T('white_dye', 12, 'emerald', 1, 16), T('gray_dye', 12, 'emerald', 1, 16), T('black_dye', 12, 'emerald', 1, 16), T('emerald', 1, 'white_wool', 1, 16), T('emerald', 1, 'white_carpet', 4, 16)],
+    [T('yellow_dye', 12, 'emerald', 1, 16), T('red_dye', 12, 'emerald', 1, 16), T('emerald', 3, 'white_bed', 1)], [T('blue_dye', 12, 'emerald', 1, 16), T('emerald', 3, 'white_banner', 1)], [T('emerald', 2, 'painting', 3)]],
+  fletcher: [[T('stick', 32, 'emerald', 1, 16), T('emerald', 1, 'arrow', 16), T('emerald', 1, 'flint', 10, 12, 'gravel', 10)], [T('flint', 26, 'emerald', 1), T('emerald', 2, 'bow', 1)],
+    [T('string', 14, 'emerald', 1, 16), T('emerald', 3, 'crossbow', 1)], [T('feather', 24, 'emerald', 1, 16), T('emerald', 7, 'bow*', 1, 3)], [T('tripwire_hook', 8, 'emerald', 1), T('emerald', 8, 'crossbow*', 1, 3)]],
+  leatherworker: [[T('leather', 6, 'emerald', 1, 16), T('emerald', 3, 'leather_leggings', 1), T('emerald', 7, 'leather_chestplate', 1)], [T('flint', 26, 'emerald', 1), T('emerald', 5, 'leather_helmet', 1), T('emerald', 4, 'leather_boots', 1)],
+    [T('rabbit_hide', 9, 'emerald', 1), T('emerald', 7, 'leather_chestplate*', 1, 3)], [T('turtle_scute', 4, 'emerald', 1), T('emerald', 6, 'leather_horse_armor', 1)], [T('emerald', 6, 'saddle', 1), T('emerald', 5, 'leather_helmet*', 1, 3)]],
+  mason: [[T('clay_ball', 10, 'emerald', 1, 16), T('emerald', 1, 'bricks', 10, 16)], [T('stone', 20, 'emerald', 1, 16), T('emerald', 1, 'chiseled_stone_bricks', 4, 16)],
+    [T('granite', 16, 'emerald', 1, 16), T('andesite', 16, 'emerald', 1, 16), T('diorite', 16, 'emerald', 1, 16), T('emerald', 1, 'polished_andesite', 4, 16), T('emerald', 1, 'polished_granite', 4, 16)],
+    [T('quartz', 12, 'emerald', 1), T('emerald', 1, 'terracotta', 1)], [T('emerald', 1, 'quartz_pillar', 1), T('emerald', 1, 'quartz_block', 1)]],
+};
+const Trade = {
+  XP_LV: [[1, 2], [5, 10], [10, 20], [15, 30], [30, 30]],
+  ok(st) { return st && ITEMS[st.id.replace('*', '')]; },
+  // dos ofertas nuevas de un nivel (si hay)
+  unlock(m, lv) {
+    const pool = (TRADES[m.prof] || [])[lv] || []; const avail = pool.filter(t => this.ok(t.a) && this.ok(t.out) && (!t.b || this.ok(t.b)));
+    const pick = []; const left = avail.slice(); for (let i = 0; i < 2 && left.length; i++) pick.push(left.splice(Math.random() * left.length | 0, 1)[0]);
+    for (const t of pick) {
+      let out = { id: t.out.id.replace('*', ''), n: t.out.n };
+      if (t.out.id.endsWith('*')) {
+        if (out.id === 'enchanted_book') { const ks = Object.keys(ENCH).filter(k => !ENCH[k].curse); const k = ks[Math.random() * ks.length | 0]; if (k) out.e = { [k]: 1 + (Math.random() * ENCH[k].max | 0) }; }
+        else { try { const e = Ench.pick(out.id, 5 + lv * 5 + (Math.random() * 10 | 0), Math.random); if (e && Object.keys(e).length) out.e = e; } catch (e) { } }
+      }
+      const [x0, x1] = this.XP_LV[lv];
+      m.offers.push({ a: Object.assign({}, t.a), b: t.b ? Object.assign({}, t.b) : null, out, uses: 0, max: t.max, xp: x0 + (Math.random() * (x1 - x0 + 1) | 0) });
+    }
+  },
+  setProf(m, p) { m.prof = p; m.vlv = m.vlv || 0; m.vxp = m.vxp || 0; m.offers = []; this.unlock(m, 0); m.restockT = 0; },
+  ensure(m) { if (m.offers === undefined) { m.offers = null; m.vlv = 0; m.vxp = 0; } },
+  // aldeano sin oficio: busca un bloque de trabajo cerca
+  findJob(m) {
+    const x0 = Math.floor(m.x), y0 = Math.floor(m.y), z0 = Math.floor(m.z);
+    const byJob = {}; for (const p in PROFS) if (B[PROFS[p].job] !== undefined) byJob[B[PROFS[p].job]] = p;
+    for (let dy = -2; dy <= 3; dy++) for (let dz = -8; dz <= 8; dz++) for (let dx = -8; dx <= 8; dx++) { const p = byJob[World.get(x0 + dx, y0 + dy, z0 + dz)]; if (p) return p; }
+    return null;
+  },
+  tick(m) {
+    if (m.kind !== 'villager' || m.baby) return;
+    this.ensure(m);
+    if (!m.prof && m.age % 100 === 37) { const p = this.findJob(m); if (p) { this.setProf(m, p); Particles.color(m.x, m.y + 2, m.z, 0.3, 1, 0.3, 8, 0.05, 20, 0, 0.12); } }
+    // reponer existencias (dos veces al día, en el juego)
+    if (m.offers && m.offers.some(o => o.uses > 0) && (m.restockT = (m.restockT || 0) + 1) > 6000) { m.restockT = 0; for (const o of m.offers) o.uses = 0; }
+  },
+  title(m) { return (PROFS[m.prof] ? PROFS[m.prof].n : 'Aldeano') + ' · ' + VLEVELS[m.vlv || 0]; },
+  open(P, m) {
+    GUI.openFor('trade', null); GUI.villager = m; GUI.tradeSel = 0; GUI.tradeScroll = 0; GUI.craft = [null, null]; m.trading = P;
+    Sound.play(MOBS.villager.sound || 'villager', m.x, m.y, m.z);
+  },
+  sel() { const m = GUI.villager; return m && m.offers ? m.offers[GUI.tradeSel] : null; },
+  matches(slot, need) { return need ? (slot && slot.id === need.id && slot.n >= need.n && !slot.e) : !slot; },
+  canPay(o) { const c = GUI.craft; return o && o.uses < o.max && ((this.matches(c[0], o.a) && (o.b ? this.matches(c[1], o.b) : true)) || (o.b && this.matches(c[1], o.a) && this.matches(c[0], o.b))); },
+  pay(o) { const c = GUI.craft; const take = (need) => { for (let i = 0; i < 2; i++) if (c[i] && c[i].id === need.id && c[i].n >= need.n) { c[i].n -= need.n; if (c[i].n <= 0) c[i] = null; return; } }; take(o.a); if (o.b) take(o.b); },
+  // al elegir una oferta: pone en las casillas lo que pide, sacándolo del inventario
+  autofill(o) {
+    const P = Game.player; const c = GUI.craft;
+    for (let i = 0; i < 2; i++) if (c[i]) { const left = P.give(c[i].id, c[i].n, c[i].d, c[i].e); if (left) Game.throwStack(Object.assign({}, c[i], { n: left })); c[i] = null; }
+    const grab = (need, i) => { if (!need) return; let got = 0; for (let k = 0; k < P.inv.length && got < need.n; k++) { const s = P.inv[k]; if (!s || s.id !== need.id || s.e) continue; const t = Math.min(s.n, need.n - got); s.n -= t; got += t; if (s.n <= 0) P.inv[k] = null; } if (got) c[i] = { id: need.id, n: got }; };
+    grab(o.a, 0); grab(o.b, 1);
+  },
+  take(shift) {
+    const P = Game.player, m = GUI.villager, o = this.sel(); if (!o || !this.canPay(o)) return;
+    let n = 0;
+    do {
+      const out = Object.assign({}, o.out); if (out.e) out.e = Object.assign({}, out.e);
+      if (shift) { const left = P.give(out.id, out.n, out.d, out.e); if (left) { Game.throwStack(Object.assign({}, out, { n: left })); } }
+      else { if (GUI.cursor && (GUI.cursor.id !== out.id || out.e || GUI.cursor.n + out.n > maxStack(out.id))) return; if (GUI.cursor) GUI.cursor.n += out.n; else GUI.cursor = out; }
+      this.pay(o); o.uses++; n++; if (shift && o.uses < o.max) this.autofill(o);
+      m.vxp = (m.vxp || 0) + o.xp; P.addXP(3 + (Math.random() * 4 | 0));
+      while ((m.vlv || 0) < 4 && m.vxp >= VXP[(m.vlv || 0) + 1]) { m.vlv = (m.vlv || 0) + 1; this.unlock(m, m.vlv); Particles.color(m.x, m.y + 2, m.z, 0.4, 1, 0.4, 14, 0.06, 30, -0.002, 0.14); Sound.play('levelup', m.x, m.y, m.z); }
+    } while (shift && n < 64 && this.canPay(o));
+    Sound.play(MOBS.villager.sound || 'villager', m.x, m.y, m.z);
+  },
+  rowsAt(mx, my) {
+    const s = GUI.s, x0 = GUI.ox + 5 * s, y0 = GUI.oy + 18 * s; if (mx < x0 || mx > x0 + 88 * s || my < y0) return -1;
+    const i = Math.floor((my - y0) / (20 * s)); if (i < 0 || i > 6) return -1; return i + (GUI.tradeScroll || 0);
+  },
+};
+// ---------- pantalla de comercio ----------
+{
+  const lay0 = GUI.layout.bind(GUI);
+  GUI.layout = function () {
+    if (this.open !== 'trade') return lay0();
+    const P = Game.player; const sl = []; const add = (arr, i, x, y, kind) => sl.push({ arr, i, x, y, kind: kind || 'n' });
+    add(this.craft, 0, 136, 37, 'pay'); add(this.craft, 1, 162, 37, 'pay'); add(null, 0, 220, 37, 'result');
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 9; c++) add(P.inv, 9 + r * 9 + c, 108 + c * 18, 84 + r * 18);
+    for (let c = 0; c < 9; c++) add(P.inv, c, 108 + c * 18, 142);
+    this.w = 276; this.h = 166; this.slots = sl;
+  };
+  const ur0 = GUI.updateResult.bind(GUI);
+  GUI.updateResult = function () {
+    if (this.open !== 'trade') return ur0();
+    const o = Trade.sel(); this.result = o && Trade.canPay(o) ? Object.assign({}, o.out) : null;
+  };
+  const cl0 = GUI.click.bind(GUI);
+  GUI.click = function (btn, shift) {
+    if (this.open !== 'trade') return cl0(btn, shift);
+    const m = this.villager; const i = Trade.rowsAt(this.mx, this.my);
+    if (i >= 0 && m && m.offers && i < m.offers.length && !this.cursor) { this.tradeSel = i; Trade.autofill(m.offers[i]); this.updateResult(); Sound.play('click'); return; }
+    if (this.hover && this.hover.kind === 'result') { Trade.take(shift); this.updateResult(); return; }
+    cl0(btn, shift); this.updateResult();
+  };
+  const cls0 = GUI.close.bind(GUI);
+  GUI.close = function () { if (this.villager) { this.villager.trading = null; this.villager = null; } return cls0(); };
+  const sc0 = GUI.scrollBy ? GUI.scrollBy.bind(GUI) : null;
+  const dr0 = GUI.draw.bind(GUI);
+  GUI.draw = function () {
+    dr0();
+    if (this.open !== 'trade') return;
+    const g = HUD.g, s = this.s, ox = this.ox, oy = this.oy, m = this.villager; if (!m || !m.offers) return;
+    const T = (t, x, y, c) => HUD.text(t, ox + x * s, oy + y * s, c || '#404040', s, false);
+    // cabecera, barra de experiencia y flecha
+    g.fillStyle = '#c6c6c6'; g.fillRect(ox + 4 * s, oy + (this.h - 95) * s, 90 * s, 12 * s);
+    T(Trade.title(m), 108, 6); T('Ofertas', 8, 6); T('Inventario', 108, this.h - 93);
+    const lv = m.vlv || 0; if (lv < 4) { const a = VXP[lv], b = VXP[lv + 1], f = clamp(((m.vxp || 0) - a) / (b - a), 0, 1); g.fillStyle = '#2a2a2a'; g.fillRect(ox + 108 * s, oy + 17 * s, 102 * s, 5 * s); g.fillStyle = '#7ad84a'; g.fillRect(ox + 109 * s, oy + 18 * s, 100 * f * s, 3 * s); }
+    HUD.text('+', ox + 152 * s, oy + 40 * s, '#404040', s * 1.2, false); this.arrow(ox + 186 * s, oy + 36 * s, s, 1);
+    const o = Trade.sel(); if (o && o.uses >= o.max) T('¡Agotado! Vuelve más tarde', 108, 62, '#c03030');
+    // lista de ofertas
+    const N = Math.min(7, m.offers.length);
+    for (let r = 0; r < N; r++) {
+      const k = r + (this.tradeScroll || 0); const of = m.offers[k]; if (!of) break;
+      const x = ox + 5 * s, y = oy + (18 + r * 20) * s; const sel = k === this.tradeSel, hov = Trade.rowsAt(this.mx, this.my) === k;
+      g.fillStyle = sel ? '#e0e0e0' : hov ? '#d4d4ff' : '#b0b0b0'; g.fillRect(x, y, 88 * s, 19 * s); g.fillStyle = '#555'; g.fillRect(x, y + 18 * s, 88 * s, s);
+      if (of.uses >= of.max) { g.fillStyle = 'rgba(160,0,0,0.35)'; g.fillRect(x, y, 88 * s, 18 * s); }
+      HUD.drawItem(of.a, x + 2 * s, y + s, s); if (of.b) HUD.drawItem(of.b, x + 22 * s, y + s, s);
+      HUD.text('→', x + 44 * s, y + 5 * s, '#404040', s, false); HUD.drawItem(of.out, x + 64 * s, y + s, s);
+    }
+    if (this.cursor) HUD.drawItem(this.cursor, this.mx - 8 * s, this.my - 8 * s, s);
+    else { const i = Trade.rowsAt(this.mx, this.my); const of = i >= 0 && m.offers[i]; if (of) this.tooltip(of.out, this.mx, this.my, s); }
+  };
+  const sc1 = GUI.scroll;
+  void sc0; void sc1;
+}
+// rueda del ratón sobre la lista
+document.addEventListener('wheel', (e) => { if (GUI.open !== 'trade' || !GUI.villager || !GUI.villager.offers) return; const n = GUI.villager.offers.length; GUI.tradeScroll = clamp((GUI.tradeScroll || 0) + Math.sign(e.deltaY), 0, Math.max(0, n - 7)); }, { passive: true });
+// clic derecho sobre el aldeano
+{
+  const in0 = Mob.prototype.interact;
+  Mob.prototype.interact = function (P, held) {
+    if (this.kind === 'villager' && !this.dead) {
+      if (held && held.id === 'name_tag') return in0.call(this, P, held);
+      if (this.baby) return false;
+      Trade.ensure(this);
+      if (!this.prof || !this.offers || !this.offers.length) { Sound.play('villager_no', this.x, this.y, this.z); Chat.add('§7Este aldeano no tiene oficio. Ponle cerca un bloque de trabajo (compostador, atril, alto horno, mesa de herrería…).'); return true; }
+      this.yaw = this.bodyYaw = this.headYaw = Math.atan2(-(P.x - this.x), -(P.z - this.z)); Trade.open(P, this); return true;
+    }
+    return in0.call(this, P, held);
+  };
+}
+// IA: los murciélagos vuelan; los aldeanos se quedan quietos mientras comercias
+{
+  const t0 = MobsExtra.tick.bind(MobsExtra);
+  MobsExtra.tick = function (m, d, P, dist) {
+    if (m.kind === 'bat') { Bats.tick(m, P, dist); return true; }
+    if (m.kind === 'villager') { try { Trade.tick(m); } catch (e) { } if (m.trading) { if (GUI.open !== 'trade' || GUI.villager !== m) m.trading = null; else { m.vx *= 0.5; m.vz *= 0.5; m.move(0, m.vy, 0); m.vy = (m.vy - 0.08) * 0.98; m.headYaw = m.bodyYaw = Math.atan2(-(P.x - m.x), -(P.z - m.z)); return true; } } }
+    return t0(m, d, P, dist);
+  };
+}
+// los aldeanos de las aldeas nacen con oficio (las aldeas tienen sus bloques de trabajo)
+{
+  const v0 = Spawn127.villages.bind(Spawn127);
+  Spawn127.villages = function (P) {
+    const before = new Set(Entities.list); v0(P);
+    const keys = Object.keys(PROFS);
+    for (const e of Entities.list) if (!before.has(e) && e.kind === 'villager' && !e.baby && Math.random() < 0.85) Trade.setProf(e, keys[Math.random() * keys.length | 0]);
+  };
+  const t1 = Spawn127.tick.bind(Spawn127);
+  Spawn127.tick = function () { t1(); const P = Game.player; if (P && (!World.dim || World.dim === 'o')) try { Bats.spawn(P); Bats.spawn(P); } catch (e) { } };
+  Spawn127.NOT_NATURAL.bat = 1;
+}
+// guardar oficio, nivel y ofertas con la partida (y lo que otros módulos pongan en e.keep)
+{
+  const lm0 = Dims.liveMobs.bind(Dims);
+  Dims.liveMobs = function () {
+    const out = lm0(); const ents = Entities.list.filter(e => e.mob && e.persistent && !e.dead).slice(0, 300);
+    for (let i = 0; i < out.length; i++) { const e = ents[i]; if (!e) continue; const x = {};
+      if (e.prof) { x.pf = e.prof; x.lv = e.vlv || 0; x.xp = e.vxp || 0; x.of = e.offers; }
+      if (e.home) x.hm = e.home; if (e.keep) x.kp = e.keep;
+      if (Object.keys(x).length) out[i].x2 = x; }
+    return out;
+  };
+  const sm0 = Dims.spawnMobs.bind(Dims);
+  Dims.spawnMobs = function (list) {
+    const q = (list || []).filter(m => MOBS[m.k]); let i = 0; const add0 = Entities.add;
+    Entities.add = function (e) { const m = q[i++]; const x = m && m.x2; if (x && e && e.mob) { if (x.pf) { e.prof = x.pf; e.vlv = x.lv || 0; e.vxp = x.xp || 0; e.offers = x.of || []; } if (x.hm) e.home = x.hm; if (x.kp) e.keep = x.kp; } return add0.apply(this, arguments); };
+    try { return sm0(list); } finally { Entities.add = add0; }
+  };
+}
+
+
+// ---- extra/mods127.js ----
+// ============================================================
+//  1.27: mods «Real Bicycles» y «Effortless Building» funcionando en el navegador
+//  (su código Java no puede ejecutarse aquí: se rehace en JavaScript; modelos, texturas
+//   y sonidos se leen del .jar que pone el jugador, no van dentro del juego)
+// ============================================================
+const ModAssets = {
+  bike: null, eb: null,
+  async img(z, p) { if (!z.names.includes(p)) return null; return loadImg(await blobToURL(new Blob([await z.get(p)], { type: 'image/png' }))); },
+  async absorb(z) {
+    try {
+      if (z.names.includes('assets/bicycle/models/entity/bicycle.bbmodel')) {
+        const dec = new TextDecoder(); const bb = JSON.parse(dec.decode(await z.get('assets/bicycle/models/entity/bicycle.bbmodel')));
+        const acc = {}; for (const p of z.names) { const m = p.match(/^assets\/bicycle\/models\/accessory\/([^/]+)\.json$/); if (m) try { acc[m[1]] = JSON.parse(dec.decode(await z.get(p))); } catch (e) { } }
+        const ent = await this.img(z, 'assets/bicycle/textures/entity/bicycle.png');
+        const texNames = new Set(); for (const k in acc) for (const t of Object.values(acc[k].textures || {})) texNames.add(String(t).replace('bicycle:', ''));
+        const texs = {}; for (const t of texNames) { const im = await this.img(z, 'assets/bicycle/textures/' + t + '.png'); if (im) texs[t] = im; }
+        this.bike = { bb, acc, ent, texs }; Bike.ready = false;
+      }
+      if (z.names.includes('assets/effortlessbuilding/textures/gui/icons.png')) this.eb = { icons: await this.img(z, 'assets/effortlessbuilding/textures/gui/icons.png') };
+    } catch (e) { console.warn('mods127', e); }
+  },
+};
+{ const a0 = JM.absorb.bind(JM); JM.absorb = async function (z) { const r = await a0(z); await ModAssets.absorb(z); return r; }; }
+
+// ---------- caras de un cubo (como los modelos de bloque de Java) ----------
+const CubeFaces = {
+  corners(f, x0, y0, z0, x1, y1, z1) {
+    switch (f) {
+      case 'north': return [[x1, y1, z0], [x0, y1, z0], [x0, y0, z0], [x1, y0, z0]];
+      case 'south': return [[x0, y1, z1], [x1, y1, z1], [x1, y0, z1], [x0, y0, z1]];
+      case 'east': return [[x1, y1, z1], [x1, y1, z0], [x1, y0, z0], [x1, y0, z1]];
+      case 'west': return [[x0, y1, z0], [x0, y1, z1], [x0, y0, z1], [x0, y0, z0]];
+      case 'up': return [[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]];
+      default: return [[x0, y0, z1], [x1, y0, z1], [x1, y0, z0], [x0, y0, z0]];
+    }
+  },
+  SH: { up: 1, down: 0.5, north: 0.8, south: 0.8, east: 0.6, west: 0.6 },
+  rot(p, o, R) { const x = p[0] - o[0], y = p[1] - o[1], z = p[2] - o[2]; return [o[0] + R[0] * x + R[1] * y + R[2] * z, o[1] + R[3] * x + R[4] * y + R[5] * z, o[2] + R[6] * x + R[7] * y + R[8] * z]; },
+  mat(rx, ry, rz) { // Rz·Ry·Rx (grados)
+    const a = rx * Math.PI / 180, b = ry * Math.PI / 180, c = rz * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b), cc = Math.cos(c), sc = Math.sin(c);
+    const X = [1, 0, 0, 0, ca, -sa, 0, sa, ca], Y = [cb, 0, sb, 0, 1, 0, -sb, 0, cb], Z = [cc, -sc, 0, sc, cc, 0, 0, 0, 1];
+    const m = (A, B) => { const o = []; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) o.push(A[i * 3] * B[j] + A[i * 3 + 1] * B[3 + j] + A[i * 3 + 2] * B[6 + j]); return o; };
+    return m(Z, m(Y, X));
+  },
+  // escribe un cubo; uvOf(face) -> [u1,v1,u2,v2] en píxeles del atlas; xf(p) transforma el punto
+  put(vb, from, to, faces, uvOf, R, origin, col, xf) {
+    for (const f in faces) {
+      const uv = uvOf(f, faces[f]); if (!uv) continue;
+      let C = this.corners(f, from[0], from[1], from[2], to[0], to[1], to[2]);
+      if (R) C = C.map(p => this.rot(p, origin, R)); if (xf) C = C.map(xf);
+      const U = [[uv[0], uv[1]], [uv[2], uv[1]], [uv[2], uv[3]], [uv[0], uv[3]]]; const k = ((faces[f].rotation || 0) / 90 | 0) & 3;
+      const sh = this.SH[f] || 0.8;
+      for (let i = 0; i < 4; i++) { const p = C[i], t = U[(i + 4 - k) & 3]; vb.v(i, Math.round(p[0] * 8), Math.round(p[1] * 8), Math.round(p[2] * 8), Math.round(t[0] * 8), Math.round(t[1] * 8), col[0], col[1], col[2], Math.round(255 * sh), 240, 240, 0); }
+      vb.end();
+    }
+  },
+};
+
+// ============================================================
+//  REAL BICYCLES
+// ============================================================
+const BIKE_SLOTS = [['bell', 'Campanilla'], ['headlight', 'Faro delantero'], ['basket_f', 'Canasta delantera'], ['rack', 'Parrilla trasera'], ['basket_r', 'Canasta trasera (con parrilla)'], ['taillight', 'Faro trasero (con parrilla)'], ['pannier_l', 'Alforja izquierda'], ['pannier_r', 'Alforja derecha'], ['pegs', 'Diablitos']];
+const BIKE_PART_OF = { bicycle_bell: ['bell'], bicycle_bell_gold: ['bell'], bicycle_headlight: ['headlight'], bicycle_basket: ['basket_f', 'basket_r'], bicycle_rack: ['rack'], bicycle_taillight: ['taillight'], bicycle_pannier: ['pannier_l', 'pannier_r'], bicycle_pegs: ['pegs'] };
+const Bike = {
+  ready: false, meshes: {}, groups: null,
+  keep(e) { if (!e.keep) e.keep = {}; const k = e.keep; if (!k.parts || k.parts.length !== 9) k.parts = new Array(9).fill(null); if (!k.inv) k.inv = []; return k; },
+  part(e, name) { const i = BIKE_SLOTS.findIndex(s => s[0] === name); return this.keep(e).parts[i]; },
+  boxSize(e) { let n = 0; for (const s of ['basket_f', 'basket_r', 'pannier_l', 'pannier_r']) if (this.part(e, s)) n += 9; return n; },
+  syncInv(e) { const k = this.keep(e), n = this.boxSize(e); while (k.inv.length < n) k.inv.push(null); while (k.inv.length > n) { const s = k.inv.pop(); if (s) Entities.dropItem(e.x, e.y + 0.6, e.z, s); } },
+  // ---------- malla a partir del .bbmodel del mod ----------
+  build() {
+    const A = ModAssets.bike; if (!A || !A.ent) return false;
+    // atlas: la textura de la bici arriba y las de los accesorios (16×16) debajo
+    const names = Object.keys(A.texs); const rows = Math.ceil(names.length / 8);
+    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 128 + rows * 16; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+    g.drawImage(A.ent, 0, 0, 128, 128); const tpos = {};
+    names.forEach((n, i) => { const x = (i % 8) * 16, y = 128 + (i >> 3) * 16; g.drawImage(A.texs[n], 0, 0, A.texs[n].width, Math.min(A.texs[n].height, A.texs[n].width), x, y, 16, 16); tpos[n] = [x, y]; });
+    this.atlas = cv; this.AW = cv.width; this.AH = cv.height;
+    // grupos y piezas
+    const bb = A.bb; const G = {}; for (const gr of bb.groups || []) G[gr.uuid] = gr; const E = {}; for (const el of bb.elements || []) E[el.uuid] = el;
+    const groups = {}; const walk = (list, gname) => { for (const c of list) { if (typeof c === 'string') { const el = E[c]; if (el) (groups[gname] = groups[gname] || { els: [], origin: [0, 0, 0] }).els.push(el); } else { const gr = G[c.uuid] || c; const nm = gr.name || 'g'; groups[nm] = groups[nm] || { els: [], origin: gr.origin || [0, 0, 0] }; groups[nm].origin = gr.origin || [0, 0, 0]; walk(c.children || [], nm); } } };
+    walk(bb.outliner || [], 'frame');
+    this.groups = groups;
+    this.bbUV = (f, fc) => fc && fc.uv ? fc.uv : null;
+    // accesorios: modelos de bloque Java en coordenadas de bloque (girados media vuelta)
+    this.acc = {};
+    for (const k in A.acc) {
+      const md = A.acc[k]; const T = md.textures || {}; const vb = new VB(64), vbG = new VB(16);
+      for (const el of md.elements || []) {
+        const r = el.rotation; const R = r ? CubeFaces.mat(r.axis === 'x' ? r.angle : 0, r.axis === 'y' ? r.angle : 0, r.axis === 'z' ? r.angle : 0) : null;
+        for (const f in el.faces || {}) {
+          const fc = el.faces[f]; const tn = String(T[(fc.texture || '').replace('#', '')] || '').replace('bicycle:', ''); const tp = tpos[tn]; if (!tp) continue;
+          const uv = fc.uv || [0, 0, 16, 16]; const glow = (k === 'headlight' || k === 'headlight_basket') && /amarillo/.test(tn) || (k === 'rear_light' && /rojo/.test(tn));
+          CubeFaces.put(glow ? vbG : vb, el.from, el.to, { [f]: fc }, () => [tp[0] + uv[0], tp[1] + uv[1], tp[0] + uv[2], tp[1] + uv[3]], R, r ? r.origin : null, [255, 255, 255], (p) => [8 - p[0], p[1], 8 - p[2]]);
+        }
+      }
+      this.acc[k] = { m: vb.q ? Renderer.meshFromVB(vb) : null, g: vbG.q ? Renderer.meshFromVB(vbG) : null };
+    }
+    this.ready = true; this.meshes = {}; return true;
+  },
+  groupMesh(name, col) {
+    const key = name + ':' + (col ? col.join(',') : ''); if (this.meshes[key] !== undefined) return this.meshes[key];
+    const gr = this.groups[name]; if (!gr) return (this.meshes[key] = null);
+    const vb = new VB(256); const c255 = col ? col.map(v => Math.round(v * 255)) : [255, 255, 255];
+    for (const el of gr.els) {
+      if (el.visibility === false) continue; const r = el.rotation; const R = r && (r[0] || r[1] || r[2]) ? CubeFaces.mat(r[0], r[1], r[2]) : null;
+      const paint = /paint/.test(el.name || '');
+      CubeFaces.put(vb, el.from, el.to, el.faces || {}, this.bbUV, R, el.origin || [0, 0, 0], paint ? c255 : [255, 255, 255]);
+    }
+    return (this.meshes[key] = vb.q ? Renderer.meshFromVB(vb) : null);
+  },
+  draw(e, base, Pw, light, tint) {
+    if (!this.ready && !this.build()) return;
+    const R = Renderer, gl = R.gl, pt = Game.partial || 0, k = this.keep(e);
+    gl.uniform2f(Pw.u.uAtlas, this.AW * 8, this.AH * 8); gl.bindTexture(gl.TEXTURE_2D, R.skinTexture('mod_bike_atlas', this.atlas));
+    gl.uniform2f(Pw.u.uLightMul, light[0], light[1]); if (tint) gl.uniform4fv(Pw.u.uTint, tint); else gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0);
+    const col = k.col ? (DYE_RGB[k.col] || null) : null;
+    const lean = lerp(e.prevLean || 0, e.lean || 0, pt), steer = lerp(e.prevSteer || 0, e.steer || 0, pt);
+    const wa = lerp(e.prevWheel || 0, e.wheel || 0, pt), ca = lerp(e.prevCrank || 0, e.crank || 0, pt);
+    const B0 = this._b || (this._b = M4.create()), M = this._mm || (this._mm = M4.create()), F = this._f || (this._f = M4.create());
+    M4.copy(B0, base); M4.rotZ(B0, lean);
+    const piv = (out, src, o, fn) => { M4.copy(out, src); M4.translate(out, o[0] / 16, o[1] / 16, o[2] / 16); fn(out); M4.translate(out, -o[0] / 16, -o[1] / 16, -o[2] / 16); return out; };
+    const dm = (mesh, m) => { if (mesh) R.drawMesh(mesh, m, Pw); };
+    const G = this.groups, o = (n) => (G[n] && G[n].origin) || [0, 0, 0];
+    dm(this.groupMesh('frame', col), B0);
+    dm(this.groupMesh('rear_wheel'), piv(M, B0, o('rear_wheel'), m => M4.rotX(m, -wa)));
+    for (const sd of ['r', 'l']) {
+      const C = piv(this._c || (this._c = M4.create()), B0, o('crank_' + sd), m => M4.rotX(m, -ca));
+      dm(this.groupMesh('crank_' + sd), C);
+      dm(this.groupMesh('pedal_' + sd), piv(M, C, o('pedal_' + sd), m => M4.rotX(m, ca)));
+    }
+    dm(this.groupMesh('axle'), piv(M, B0, o('axle'), m => M4.rotX(m, -ca)));
+    // dirección: gira sobre el tubo de dirección (inclinado)
+    const H = [0, 12.15, -7.2], th = 0.25; M4.copy(F, B0); M4.translate(F, H[0] / 16, H[1] / 16, H[2] / 16); M4.rotX(F, th); M4.rotY(F, steer); M4.rotX(F, -th); M4.translate(F, -H[0] / 16, -H[1] / 16, -H[2] / 16);
+    dm(this.groupMesh('front'), F);
+    dm(this.groupMesh('front_wheel'), piv(M, F, o('front_wheel'), m => M4.rotX(m, -wa)));
+    // accesorios
+    const A = this.acc || {}; const has = (s) => !!this.part(e, s); const lit = !!k.lights;
+    const acc = (name, m) => { const a = A[name]; if (!a) return; dm(a.m, m); if (a.g) { if (lit) gl.uniform2f(Pw.u.uLightMul, 1, 1); dm(a.g, m); if (lit) gl.uniform2f(Pw.u.uLightMul, light[0], light[1]); } };
+    const bell = this.part(e, 'bell'); if (bell) acc(bell.id === 'bicycle_bell_gold' ? 'bell_gold' : 'bell', F);
+    if (has('basket_f')) acc('front_basket', F);
+    if (has('headlight')) acc(has('basket_f') ? 'headlight_basket' : 'headlight', F);
+    if (has('rack')) acc('rear_rack', B0);
+    if (has('rack') && has('basket_r')) acc('rear_basket', B0);
+    if (has('rack') && has('taillight')) acc('rear_light', B0);
+    if (has('pannier_l')) acc('pannier_left', B0);
+    if (has('pannier_r')) acc('pannier_right', B0);
+    if (has('pegs')) acc('pegs', B0);
+  },
+  // ---------- física ----------
+  snd(e, n) { try { if (typeof Guns !== 'undefined' && Guns.sounds['bicycle:' + n]) Guns.play('bicycle:' + n, e.x, e.y, e.z); } catch (x) { } },
+  tick(m) {
+    m.prevLean = m.lean || 0; m.prevSteer = m.steer || 0; m.prevWheel = m.wheel || 0; m.prevCrank = m.crank || 0;
+    m.step = 0.6; m.persistent = true; if (m.spd === undefined) m.spd = 0;
+    const P = m.rider; const r = P && m._ride ? m._ride : null;
+    const wet = m.inWater || m.inLava; let drift = false, pedal = false;
+    if (r) {
+      const oldYaw = m.yaw;
+      const slow = Math.abs(m.spd) < 0.03;
+      // dirección: la bici sigue a la cámara poco a poco (y con A/D)
+      let target = r.yaw + (r.s || 0) * -0.6;
+      drift = P === Game.player && !!Input.keys.KeyX && m.onGround && Math.abs(m.spd) > 0.08;
+      const turn = drift ? 0.22 : slow ? 0.3 : clamp(0.2 - Math.abs(m.spd) * 0.25, 0.06, 0.2);
+      m.yaw = lerpAngle(m.yaw, target, turn);
+      if ((r.f || 0) > 0) { pedal = true; const max = r.sprint ? 0.44 : 0.32; if (m.spd < max) m.spd = Math.min(max, m.spd + (r.sprint ? 0.014 : 0.01)); }
+      else if ((r.f || 0) < 0) { m.spd = m.spd > 0 ? Math.max(0, m.spd - 0.035) : Math.max(-0.07, m.spd - 0.006); if (m.spd > 0.12 && m.age % 10 === 0) this.snd(m, 'bike_brake'); }
+      if (r.j && m.onGround && !wet) { m.vy = 0.45; }
+      const dy = Math.atan2(Math.sin(m.yaw - oldYaw), Math.cos(m.yaw - oldYaw));
+      m.steer = clamp((m.steer || 0) * 0.6 + dy * 6, -0.7, 0.7); m.lean = clamp((m.lean || 0) * 0.85 + dy * Math.min(1, Math.abs(m.spd) * 4) * 2.2, -0.45, 0.45);
+      if (drift) { m.spd *= 0.955; m.lean = clamp(m.lean * 1.3, -0.5, 0.5); if (!m._drifting) this.snd(m, 'bike_brake'); if (Settings.particles && m.age % 2 === 0) Particles.color(m.x + Math.sin(m.yaw) * 0.7, m.y + 0.1, m.z + Math.cos(m.yaw) * 0.7, 0.75, 0.72, 0.68, 3, 0.04, 14, -0.002, 0.14); }
+      m._drifting = drift;
+    } else { m.steer = (m.steer || 0) * 0.8; m.lean = (m.lean || 0) * 0.8; }
+    // inercia: rueda sola y frena poco a poco (más en cuesta arriba, en el agua o sin jinete)
+    if (!pedal) m.spd *= m.onGround ? (r ? 0.985 : 0.9) : 0.995;
+    if (wet) m.spd *= 0.8;
+    if (Math.abs(m.spd) < 0.002) m.spd = 0;
+    const sn = Math.sin(m.yaw), cs = Math.cos(m.yaw);
+    let vx = -sn * m.spd, vz = -cs * m.spd;
+    if (drift) { vx += cs * m.spd * (m.lean > 0 ? 0.35 : -0.35); vz -= sn * m.spd * (m.lean > 0 ? 0.35 : -0.35); }
+    const ox = m.x, oz = m.z, oy = m.y;
+    m.move(vx, m.vy, vz);
+    if (m.horizCol && Math.abs(m.spd) > 0.2) { m.spd *= -0.2; Sound.play('land', m.x, m.y, m.z); if (P && P.mode !== 1 && Math.abs(m.spd) > 0.05) P.hurtBy && P.hurtBy(1, null); } else if (m.horizCol) m.spd *= 0.5;
+    if (m.y > oy + 0.01 && pedal) m.spd *= 0.94; // cuesta arriba
+    m.vy = wet ? Math.max(-0.05, (m.vy - 0.02) * 0.8) : (m.vy - 0.08) * 0.98;
+    if (m.onGround && m.vy < 0) m.vy = 0;
+    m.fallCheck && 0;
+    const moved = Math.hypot(m.x - ox, m.z - oz) * Math.sign(m.spd || 1);
+    m.wheel = (m.wheel || 0) + moved / 0.375; if (pedal) m.crank = (m.crank || 0) + Math.abs(moved) / 0.375 * 0.55;
+    m.bodyYaw = m.headYaw = m.yaw;
+    if (P && Math.abs(m.spd) > 0.05) { if (pedal && m.age % 14 === 0) this.snd(m, 'bike_chain'); else if (m.age % 22 === 0) this.snd(m, 'bike_roll'); }
+  },
+  // ---------- usar ----------
+  place(P, T, held) {
+    const [x, y0, z] = Game.placePos(T); let y = y0;
+    for (let i = 0; i < 3 && !SOLID[World.get(x, y - 1, z)]; i++) y--;
+    const m = new Mob('bicycle', x + 0.5, y, z + 0.5); m.yaw = m.bodyYaw = m.headYaw = P.yaw; m.persistent = true;
+    if (held.bike) m.keep = JSON.parse(JSON.stringify(held.bike)); this.keep(m); this.syncInv(m);
+    if (!boxFree(m.bb())) { Chat.add('§7No cabe la bicicleta ahí.'); return; }
+    Entities.add(m); Sound.play('place', x, y, z);
+    if (P.mode !== 1) { held.n--; if (held.n <= 0) P.inv[P.sel] = null; }
+  },
+  pickUp(m) {
+    const k = this.keep(m); for (const s of k.inv) if (s) Entities.dropItem(m.x, m.y + 0.5, m.z, s);
+    const keep = { col: k.col, parts: k.parts, lights: k.lights };
+    const st = { id: 'bicycle_bicycle', n: 1 }; if (k.col || k.parts.some(Boolean)) st.bike = keep;
+    if (m.rider) Riding.dismount(m.rider);
+    m.remove = true; Entities.dropItem(m.x, m.y + 0.5, m.z, st); Sound.play('pop', m.x, m.y, m.z);
+  },
+  interact(m, P, held) {
+    const id = held && held.id; const k = this.keep(m); const use1 = () => { if (P.mode !== 1) { held.n--; if (held.n <= 0) P.inv[P.sel] = null; } };
+    if (id === 'bicycle_wrench') { if (P.sneaking) { this.pickUp(m); return true; } GUI.openFor('bikeparts', null); GUI.bike = m; return true; }
+    if (id && id.endsWith('_dye') && DYE_RGB[id.slice(0, -4)]) { k.col = id.slice(0, -4); use1(); Sound.play('click', m.x, m.y, m.z); Particles.color(m.x, m.y + 0.6, m.z, ...DYE_RGB[k.col], 10, 0.08, 16, 0, 0.12); return true; }
+    if (id && BIKE_PART_OF[id]) {
+      for (const sl of BIKE_PART_OF[id]) { const i = BIKE_SLOTS.findIndex(s => s[0] === sl); if (k.parts[i]) continue; if ((sl === 'basket_r' || sl === 'taillight') && !this.part(m, 'rack')) continue; k.parts[i] = { id, n: 1 }; use1(); this.syncInv(m); Sound.play('click', m.x, m.y, m.z); Chat.add('§7Accesorio puesto: ' + ITEMS[id].name); return true; }
+      Chat.add('§7Ya tiene ese accesorio' + ((id === 'bicycle_taillight' || id === 'bicycle_basket') && !this.part(m, 'rack') ? ' (o le falta la parrilla trasera)' : '') + '. Usa la llave de cruz para cambiarlos.'); return true;
+    }
+    if (P.sneaking) { this.syncInv(m); if (!k.inv.length) { Chat.add('§7Esta bici no tiene canastas ni alforjas.'); return true; } GUI.openFor('bikebox', null); GUI.bike = m; return true; }
+    if (!P.riding) { Riding.mount(P, m); m.spd = 0; if (!Bike._told) { Bike._told = true; Chat.add('§7W pedalear · S frenar · ratón o A/D girar · Espacio saltar · X derrapar · B campanilla · L luces · Mayús bajarse'); } }
+    return true;
+  },
+};
+if (MODS127.bike) {
+  MOBS.bicycle = { name: 'Bicicleta', hp: 6, w: 0.7, h: 1.1, speed: 0.3, passive: true, vehicle: true, drops: () => [], xp: [0, 0], sound: 'bike' };
+  MODELS.bicycle = []; MOB_COLORS.bicycle = '#aa2a2a'; Spawn127.NOT_NATURAL.bicycle = 1;
+}
+// dibujar: el modelo del mod en vez de un modelo de cajas
+{
+  const dm0 = drawModel;
+  drawModel = function (kind, e, skinTex, base, Pw, light, tint, animKind) {
+    if (kind === 'bicycle') { try { Bike.draw(e, base, Pw, light, tint); } catch (x) { console.warn(x); } return { parts: [], by: {} }; }
+    return dm0(kind, e, skinTex, base, Pw, light, tint, animKind);
+  };
+}
+// IA / física, montar, golpes
+{
+  const t0 = MobsExtra.tick.bind(MobsExtra);
+  MobsExtra.tick = function (m, d, P, dist) { if (m.kind === 'bicycle') { Bike.tick(m); return true; } return t0(m, d, P, dist); };
+  const in0 = Mob.prototype.interact;
+  Mob.prototype.interact = function (P, held) { if (this.kind === 'bicycle' && !this.dead) return Bike.interact(this, P, held); return in0.call(this, P, held); };
+  const dmg0 = Mob.prototype.damage;
+  Mob.prototype.damage = function (amt, src) {
+    if (this.kind === 'bicycle') { if (src && src.x !== undefined && !this.rider) { this.hits = (this.hits || 0) + 1; this.hurt = 6; Sound.play('hit', this.x, this.y, this.z); if (this.hits >= 2 || (Game.player && Game.player.mode === 1)) Bike.pickUp(this); return true; } return false; }
+    return dmg0.call(this, amt, src);
+  };
+  const rt0 = Riding.tick.bind(Riding);
+  Riding.tick = function (P, input) {
+    const m = P.riding; const r = rt0(P, input);
+    if (r && m && m.kind === 'bicycle') { const sn = Math.sin(m.yaw), cs = Math.cos(m.yaw); P.x = m.x + sn * 0.22; P.z = m.z + cs * 0.22; P.y = m.y + 0.3; P.bodyYaw = m.yaw; }
+    return r;
+  };
+  // pose de ciclista (y piernas abiertas al ir a caballo)
+  const ap0 = ANIM_EXTRA.player;
+  ANIM_EXTRA.player = function (Pm, sw, age, e, la) {
+    if (ap0) ap0(Pm, sw, age, e, la);
+    const v = e && e.riding; if (!v || !Pm.rleg) return;
+    if (v.kind === 'bicycle') {
+      const c = lerp(v.prevCrank || 0, v.crank || 0, Game.partial || 0);
+      Pm.rleg.rx = 1.0 + Math.sin(c) * 0.45; Pm.lleg.rx = 1.0 - Math.sin(c) * 0.45; Pm.rleg.ry = Pm.lleg.ry = 0;
+      Pm.rarm.rx = Pm.larm.rx = 0.95; Pm.rarm.rz = -0.08; Pm.larm.rz = 0.08; if (Pm.body) Pm.body.rx = 0.12;
+    } else { Pm.rleg.rx = Pm.lleg.rx = 1.4; Pm.rleg.ry = 0.31; Pm.lleg.ry = -0.31; }
+    for (const p of Object.values(Pm)) if (p && p.follow && Pm[p.follow]) { const f = Pm[p.follow]; p.rx = f.rx; p.ry = f.ry; p.rz = f.rz; }
+  };
+}
+// poner la bici en el suelo
+{
+  const u0 = Game.use.bind(Game);
+  Game.use = function () {
+    const P = this.player, held = P && P.held, T = this.target;
+    if (held && held.id === 'bicycle_bicycle' && T && !this.targetEnt && MOBS.bicycle) { Bike.place(P, T, held); P.swinging = true; P.swingTime = 0; this.useCD = 8; return; }
+    return u0();
+  };
+}
+// pantallas: accesorios (con la llave de cruz) y contenedores (canastas y alforjas)
+{
+  const lay0 = GUI.layout.bind(GUI);
+  GUI.layout = function () {
+    if (this.open !== 'bikeparts' && this.open !== 'bikebox') return lay0();
+    const P = Game.player, m = this.bike; const sl = []; const add = (arr, i, x, y, kind) => sl.push({ arr, i, x, y, kind: kind || 'n' });
+    let y0 = 84;
+    if (this.open === 'bikeparts') { const k = Bike.keep(m); for (let i = 0; i < 9; i++) add(k.parts, i, i < 5 ? 8 : 92, 18 + (i % 5) * 20 - (i < 5 ? 0 : 0), 'bp' + i); y0 = 126; }
+    else { Bike.syncInv(m); const k = Bike.keep(m); const n = k.inv.length; for (let i = 0; i < n; i++) add(k.inv, i, 8 + (i % 9) * 18, 18 + Math.floor(i / 9) * 18); y0 = 18 + Math.ceil(n / 9) * 18 + 14; }
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 9; c++) add(P.inv, 9 + r * 9 + c, 8 + c * 18, y0 + r * 18);
+    for (let c = 0; c < 9; c++) add(P.inv, c, 8 + c * 18, y0 + 58);
+    this.w = 176; this.h = y0 + 82; this.invY = y0; this.slots = sl;
+  };
+  const ac0 = GUI.accepts.bind(GUI);
+  GUI.accepts = function (sl, st) {
+    if (st && sl.kind && /^bp\d$/.test(sl.kind)) {
+      const want = BIKE_SLOTS[+sl.kind.slice(2)][0]; const ok = (BIKE_PART_OF[st.id] || []).includes(want);
+      if (!ok || st.n > 1) return false; if ((want === 'basket_r' || want === 'taillight') && !Bike.part(this.bike, 'rack')) return false; return true;
+    }
+    if (st && this.open === 'bikebox' && st.id === 'bicycle_bicycle') return false;
+    return ac0(sl, st);
+  };
+  const cl0 = GUI.click.bind(GUI);
+  GUI.click = function (btn, shift) {
+    if (this.open === 'bikeparts' && this.hover && /^bp\d$/.test(this.hover.kind || '') && shift) { const k = Bike.keep(this.bike); const i = +this.hover.kind.slice(2); const s = k.parts[i]; if (s) { const left = Game.player.give(s.id, s.n); if (!left) k.parts[i] = null; } Bike.syncInv(this.bike); return; }
+    const r = cl0(btn, shift);
+    if (this.open === 'bikeparts' && this.bike) { const k = Bike.keep(this.bike); if (!Bike.part(this.bike, 'rack')) for (const n of ['basket_r', 'taillight']) { const i = BIKE_SLOTS.findIndex(s => s[0] === n); if (k.parts[i]) { Game.player.give(k.parts[i].id, 1) && Game.throwStack(k.parts[i]); k.parts[i] = null; } } Bike.syncInv(this.bike); }
+    return r;
+  };
+  const cls0 = GUI.close.bind(GUI);
+  GUI.close = function () { this.bike = null; return cls0(); };
+  const dr0 = GUI.draw.bind(GUI);
+  GUI.draw = function () {
+    dr0(); if (this.open !== 'bikeparts' && this.open !== 'bikebox') return;
+    const s = this.s, ox = this.ox, oy = this.oy; const g = HUD.g; const T = (t, x, y, c) => HUD.text(t, ox + x * s, oy + y * s, c || '#404040', s * 0.85, false);
+    g.fillStyle = '#c6c6c6'; g.fillRect(ox + 4 * s, oy + (this.h - 95) * s, 120 * s, 11 * s);
+    T(this.open === 'bikeparts' ? 'Accesorios de la bicicleta' : 'Contenedores de la bicicleta', 8, 5); T('Inventario', 8, this.invY - 11);
+    if (this.open === 'bikeparts') {
+      for (let i = 0; i < 9; i++) { const x = i < 5 ? 28 : 112, y = 22 + (i % 5) * 20; const nm = BIKE_SLOTS[i][1].replace(/ \(.*\)/, ''); T(nm.length > 13 ? nm.slice(0, 12) + '.' : nm, x, y, (i === 4 || i === 5) && !Bike.part(this.bike, 'rack') ? '#909090' : '#404040'); }
+      if (this.cursor) HUD.drawItem(this.cursor, this.mx - 8 * s, this.my - 8 * s, s);
+    }
+  };
+}
+// teclas: B campanilla, L luces
+document.addEventListener('keydown', (e) => {
+  if (Game.state !== 'play' || GUI.open || UI.cur || Chat.open) return; const P = Game.player; const m = P && P.riding; if (!m || m.kind !== 'bicycle') return;
+  if (e.code === 'KeyB' && !Input.keys.F3) { if (Bike.part(m, 'bell')) Bike.snd(m, 'bike_bell'); else if (!Bike._tb) { Bike._tb = true; Chat.add('§7Ponle una campanilla a la bici (clic derecho con ella) para tocarla con B.'); } }
+  if (e.code === 'KeyL') { const k = Bike.keep(m); if (Bike.part(m, 'headlight') || Bike.part(m, 'taillight')) { k.lights = !k.lights; Sound.play('click'); Chat.add('§7Luces ' + (k.lights ? 'encendidas' : 'apagadas')); } else Chat.add('§7La bici no tiene faros.'); }
+});
+
+// ============================================================
+//  EFFORTLESS BUILDING
+// ============================================================
+const EB_MODES = [
+  ['normal', 'Desactivado', 0, 0], ['normal_plus', 'Individual', 1, 1], ['line', 'Línea', 2, 2], ['wall', 'Pared', 3, 2], ['floor', 'Suelo', 4, 2],
+  ['cube', 'Cubo', 5, 3], ['diagonal_line', 'Línea diagonal', 6, 3], ['diagonal_wall', 'Pared diagonal', 7, 3], ['slope_floor', 'Suelo inclinado', 8, 3],
+  ['circle', 'Círculo', 9, 2], ['cylinder', 'Cilindro', 10, 3], ['sphere', 'Esfera', 11, 3], ['pyramid', 'Pirámide', 12, 3], ['cone', 'Cono', 13, 3], ['dome', 'Domo', 14, 3],
+];
+const EB = {
+  mode: 'normal', fill: 'full', thick: 1, start: 'corner', replace: 'air',
+  mods: { mirror: { on: false, x: 0.5, y: 64.5, z: 0.5, ax: [true, false, false], r: 32 }, array: { on: false, dx: 1, dy: 0, dz: 0, n: 3 }, radial: { on: false, x: 0.5, y: 64.5, z: 0.5, n: 4, alt: false, r: 32 } },
+  st: null, undoL: [], redoL: [],
+  load() { try { const j = JSON.parse(localStorage.getItem('picaterra_eb') || 'null'); if (j) Object.assign(this, { mode: j.mode || 'normal', fill: j.fill || 'full', thick: j.thick || 1, start: j.start || 'corner', replace: j.replace || 'air' }), j.mods && Object.assign(this.mods, j.mods); } catch (e) { } },
+  save() { try { localStorage.setItem('picaterra_eb', JSON.stringify({ mode: this.mode, fill: this.fill, thick: this.thick, start: this.start, replace: this.replace, mods: this.mods })); } catch (e) { } },
+  def() { return EB_MODES.find(m => m[0] === this.mode) || EB_MODES[0]; },
+  active() { return MODS127.eb && this.mode !== 'normal'; },
+  reach() { const P = Game.player; return P && P.mode === 1 ? 48 : 12; },
+  max() { const P = Game.player; return P && P.mode === 1 ? 10000 : 1024; },
+  ray() { const P = Game.player; const o = Game.eyePos(1), d = lookDir(P.yaw, P.pitch); return { o, d }; },
+  target() { const { o, d } = this.ray(); return Game.raycast(o[0], o[1], o[2], d[0], d[1], d[2], this.reach(), false); },
+  // punto de una recta (q + s·u) más cercano al rayo de la vista
+  closestOnLine(q, u) {
+    const { o, d } = this.ray(); const w = [q[0] - o[0], q[1] - o[1], q[2] - o[2]];
+    const a = d[0] * d[0] + d[1] * d[1] + d[2] * d[2], b = d[0] * u[0] + d[1] * u[1] + d[2] * u[2], c = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
+    const dd = d[0] * w[0] + d[1] * w[1] + d[2] * w[2], e = u[0] * w[0] + u[1] * w[1] + u[2] * w[2]; const den = a * c - b * b; if (Math.abs(den) < 1e-6) return null;
+    const s = (b * dd - a * e) / den;
+    const tt = (dd * c - b * e) / den; if (tt < 0 || tt > this.reach() * 1.5) return null;
+    const p = [q[0] + u[0] * s, q[1] + u[1] * s, q[2] + u[2] * s]; const r = [o[0] + d[0] * tt, o[1] + d[1] * tt, o[2] + d[2] * tt];
+    return { p, dist: Math.hypot(p[0] - r[0], p[1] - r[1], p[2] - r[2]) };
+  },
+  plane(axis, v) { const { o, d } = this.ray(); if (Math.abs(d[axis]) < 1e-4) return null; const t = (v - o[axis]) / d[axis]; if (t < 0 || t > this.reach() * 1.5) return null; return [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t]; },
+  fl(p) { return p.map(Math.floor); },
+  lim(a, b) { const L = 128; return b.map((v, i) => clamp(v, a[i] - L, a[i] + L)); },
+  // segundo/tercer punto según el modo y la fase
+  nextPoint() {
+    const S = this.st; const s = S.s, md = this.mode; const c = s.map(v => v + 0.5);
+    if (S.phase === 1) {
+      if (md === 'line') { let best = null; for (const u of [[1, 0, 0], [0, 1, 0], [0, 0, 1]]) { const r = this.closestOnLine(c, u); if (r && (!best || r.dist < best.dist)) best = r; } return best ? this.lim(s, this.fl(best.p)) : s; }
+      if (md === 'wall') { const { d } = this.ray(); const p = Math.abs(d[0]) > Math.abs(d[2]) ? this.plane(0, c[0]) : this.plane(2, c[2]); return p ? this.lim(s, this.fl(p)) : s; }
+      const p = this.plane(1, c[1]); if (p) return this.lim(s, this.fl(p));
+      const T = this.target(); return T ? this.lim(s, [T.x, s[1], T.z]) : s;
+    }
+    // fase 2: altura sobre la vertical del segundo punto
+    const p1 = S.p1; const r = this.closestOnLine([p1[0] + 0.5, p1[1] + 0.5, p1[2] + 0.5], [0, 1, 0]);
+    return r ? [p1[0], clamp(Math.floor(r.p[1]), s[1] - 128, s[1] + 128), p1[2]] : p1;
+  },
+  // ---------- formas ----------
+  shape(s, p1, p2) {
+    const out = []; const md = this.mode; const add = (x, y, z) => out.push([x, y, z]);
+    const box = (a, b, test) => { const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]), z0 = Math.min(a[2], b[2]), z1 = Math.max(a[2], b[2]); for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) if (!test || test(x, y, z, x0, y0, z0, x1, y1, z1)) { add(x, y, z); if (out.length > 60000) return; } };
+    const line3 = (a, b, f) => { const n = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]), Math.abs(b[2] - a[2])) || 0; for (let i = 0; i <= n; i++) { const t = n ? i / n : 0; f(Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t), Math.round(a[2] + (b[2] - a[2]) * t)); } };
+    if (!p1) { add(...s); return out; }
+    const hollow = this.fill === 'hollow', skel = this.fill === 'skeleton';
+    if (md === 'normal_plus') add(...s);
+    else if (md === 'line') {
+      const h = (this.thick - 1) >> 1; const ax = [0, 1, 2].find(i => p1[i] !== s[i]) ?? 0; const o = [0, 1, 2].filter(i => i !== ax);
+      box(s, p1); if (h) { const base = out.splice(0); for (const q of base) for (let a = -h; a <= h; a++) for (let b = -h; b <= h; b++) { const r = q.slice(); r[o[0]] += a; r[o[1]] += b; add(...r); } }
+    }
+    else if (md === 'wall' || md === 'floor') box(s, p1);
+    else if (md === 'cube') { const e = [p1[0], p2 ? p2[1] : s[1], p1[2]]; box(s, e, hollow || skel ? (x, y, z, x0, y0, z0, x1, y1, z1) => { const n = (x === x0 || x === x1) + (y === y0 || y === y1) + (z === z0 || z === z1); return skel ? n >= 2 : n >= 1; } : null); }
+    else if (md === 'diagonal_line') line3(s, [p1[0], p2 ? p2[1] : s[1], p1[2]], add);
+    else if (md === 'diagonal_wall') { const yy = p2 ? p2[1] : s[1]; line3([s[0], 0, s[2]], [p1[0], 0, p1[2]], (x, _, z) => { for (let y = Math.min(s[1], yy); y <= Math.max(s[1], yy); y++) add(x, y, z); }); }
+    else if (md === 'slope_floor') {
+      const yy = p2 ? p2[1] : s[1]; const alongX = Math.abs(p1[0] - s[0]) >= Math.abs(p1[2] - s[2]); const L = alongX ? p1[0] - s[0] : p1[2] - s[2];
+      box(s, [p1[0], s[1], p1[2]]); for (const q of out) { const t = L ? ((alongX ? q[0] - s[0] : q[2] - s[2]) / L) : 0; q[1] = Math.round(s[1] + (yy - s[1]) * t); }
+    }
+    else if (md === 'circle' || md === 'cylinder' || md === 'cone') {
+      let cx, cz, rx, rz; if (this.start === 'center') { cx = s[0]; cz = s[2]; rx = rz = Math.max(Math.abs(p1[0] - s[0]), Math.abs(p1[2] - s[2])) + 0.5; } else { cx = (s[0] + p1[0]) / 2; cz = (s[2] + p1[2]) / 2; rx = Math.abs(p1[0] - s[0]) / 2 + 0.5; rz = Math.abs(p1[2] - s[2]) / 2 + 0.5; }
+      const y0 = s[1], y1 = md === 'circle' || !p2 ? s[1] : p2[1]; const H = Math.abs(y1 - y0), dir = Math.sign(y1 - y0) || 1;
+      for (let k = 0; k <= H; k++) {
+        const f = md === 'cone' ? 1 - k / (H + 1) : 1; const ax = rx * f, az = rz * f; if (ax < 0.5 && az < 0.5) break;
+        for (let z = Math.floor(cz - az); z <= Math.ceil(cz + az); z++) for (let x = Math.floor(cx - ax); x <= Math.ceil(cx + ax); x++) {
+          const dx = (x - cx) / ax, dz = (z - cz) / az, d = dx * dx + dz * dz; if (d > 1) continue;
+          if (hollow || skel) { const ix = (x - cx) / Math.max(0.01, ax - 1), iz = (z - cz) / Math.max(0.01, az - 1); if (ix * ix + iz * iz <= 1 && !((md === 'cone') && (k === 0)) && !(md === 'cylinder' && false)) continue; }
+          add(x, y0 + k * dir, z);
+        }
+      }
+    }
+    else if (md === 'sphere' || md === 'dome') {
+      const yy = p2 ? p2[1] : s[1]; let c, r;
+      if (this.start === 'center') { c = [s[0], s[1], s[2]]; const R0 = Math.max(Math.abs(p1[0] - s[0]), Math.abs(p1[2] - s[2])); r = [R0 + 0.5, Math.abs(yy - s[1]) + 0.5, R0 + 0.5]; }
+      else { c = [(s[0] + p1[0]) / 2, md === 'dome' ? s[1] : (s[1] + yy) / 2, (s[2] + p1[2]) / 2]; r = [Math.abs(p1[0] - s[0]) / 2 + 0.5, (md === 'dome' ? Math.abs(yy - s[1]) : Math.abs(yy - s[1]) / 2) + 0.5, Math.abs(p1[2] - s[2]) / 2 + 0.5]; }
+      const up = md === 'dome' ? (Math.sign(yy - s[1]) || 1) : 0;
+      for (let y = Math.floor(c[1] - r[1]); y <= Math.ceil(c[1] + r[1]); y++) { if (up && (y - c[1]) * up < 0) continue; for (let z = Math.floor(c[2] - r[2]); z <= Math.ceil(c[2] + r[2]); z++) for (let x = Math.floor(c[0] - r[0]); x <= Math.ceil(c[0] + r[0]); x++) {
+        const d = ((x - c[0]) / r[0]) ** 2 + ((y - c[1]) / r[1]) ** 2 + ((z - c[2]) / r[2]) ** 2; if (d > 1) continue;
+        if (hollow || skel) { const di = ((x - c[0]) / Math.max(0.01, r[0] - 1)) ** 2 + ((y - c[1]) / Math.max(0.01, r[1] - 1)) ** 2 + ((z - c[2]) / Math.max(0.01, r[2] - 1)) ** 2; if (di <= 1) continue; }
+        add(x, y, z); if (out.length > 60000) return out;
+      } }
+    }
+    else if (md === 'pyramid') {
+      const yy = p2 ? p2[1] : s[1]; const x0 = Math.min(s[0], p1[0]), x1 = Math.max(s[0], p1[0]), z0 = Math.min(s[2], p1[2]), z1 = Math.max(s[2], p1[2]); const H = Math.abs(yy - s[1]), dir = Math.sign(yy - s[1]) || 1;
+      const half = Math.min(x1 - x0, z1 - z0) / 2;
+      for (let k = 0; k <= H; k++) { const sh = H ? Math.round(half * k / H) : 0; const a0 = x0 + sh, a1 = x1 - sh, b0 = z0 + sh, b1 = z1 - sh; if (a0 > a1 || b0 > b1) break;
+        for (let z = b0; z <= b1; z++) for (let x = a0; x <= a1; x++) { if ((hollow || skel) && k > 0 && x > a0 && x < a1 && z > b0 && z < b1) continue; add(x, s[1] + k * dir, z); } }
+    }
+    return out;
+  },
+  // modificadores: serie, espejo y espejo radial (en ese orden, como en el mod)
+  applyMods(list) {
+    const M = this.mods; let L = list; const P = Game.player;
+    if (M.array.on && M.array.n > 0) { const o = []; for (const q of L) for (let i = 0; i <= Math.min(64, M.array.n); i++) o.push([q[0] + M.array.dx * i, q[1] + M.array.dy * i, q[2] + M.array.dz * i]); L = o; }
+    if (M.mirror.on) { const m = M.mirror; for (let a = 0; a < 3; a++) { if (!m.ax[a]) continue; const c = [m.x, m.y, m.z][a]; const o = []; for (const q of L) { o.push(q); if (Math.hypot(q[0] + 0.5 - m.x, q[2] + 0.5 - m.z) > m.r) continue; const r = q.slice(); r[a] = Math.floor(2 * c - (q[a] + 0.5)); o.push(r); } L = o; } }
+    if (M.radial.on && M.radial.n > 1) { const m = M.radial; const o = []; for (const q of L) { o.push(q); const dx = q[0] + 0.5 - m.x, dz = q[2] + 0.5 - m.z; if (Math.hypot(dx, dz) > m.r) continue; for (let i = 1; i < m.n; i++) { const a = i * Math.PI * 2 / m.n; let x = dx, z = dz; if (m.alt && i % 2 === 1) { const b = Math.PI / m.n * i; const ang = Math.atan2(z, x); const rr = Math.hypot(x, z); const na = 2 * b - ang; x = Math.cos(na) * rr; z = Math.sin(na) * rr; } else { const ca = Math.cos(a), sa = Math.sin(a); const nx = x * ca - z * sa, nz = x * sa + z * ca; x = nx; z = nz; } o.push([Math.floor(m.x + x), q[1], Math.floor(m.z + z)]); } } L = o; }
+    const seen = new Set(), out = []; for (const q of L) { if (q[1] < 0 || q[1] >= WH) continue; const k = q.join(','); if (seen.has(k)) continue; seen.add(k); out.push(q); if (out.length >= this.max()) break; }
+    void P; return out;
+  },
+  current() {
+    const S = this.st; if (!S) return [];
+    const p = S.phase === 0 ? null : this.nextPoint(); const p1 = S.phase === 1 ? p : S.p1, p2 = S.phase === 2 ? p : null;
+    return this.applyMods(this.shape(S.s, p1, p2));
+  },
+  // ---------- bloque que se va a poner ----------
+  heldBlock() { const P = Game.player, h = P.held; if (!h) return null; const it = ITEMS[h.id]; if (it && it.block && B[it.block] !== undefined) return h.id; if (it && it.randomizer) return 'rand'; return null; },
+  randPick(st) {
+    const P = Game.player; const L = (st.rz || []).filter(x => x && ITEMS[x.id]); const have = P.mode === 1 ? L : L.filter(x => P.inv.some(s => s && s.id === x.id));
+    if (!have.length) return null; let t = have.reduce((a, x) => a + (x.w || 1), 0) * Math.random(); for (const x of have) { t -= x.w || 1; if (t <= 0) return x.id; } return have[0].id;
+  },
+  placeOne(x, y, z, face, key) {
+    const P = Game.player; const it = ITEMS[key]; if (!it || !it.block) return false;
+    const cur = World.get(x, y, z);
+    if (this.replace === 'air' && cur && !REPLACE[cur]) return false;
+    if (this.replace === 'blocks' && (!cur || REPLACE[cur])) return false;
+    if (cur && !REPLACE[cur]) { if (P.mode !== 1 || BLOCKS[cur].hardness < 0 || (BLOCKS[cur].interact && World.blockEnts.has(x + ',' + y + ',' + z))) return false; World.set(x, y, z, 0, 0); }
+    // usar un montón del inventario con ese bloque
+    const sel0 = P.sel, keep0 = P.inv[sel0]; let k = P.inv.findIndex(s => s && s.id === key);
+    if (k < 0) { if (P.mode !== 1) return false; P.inv[sel0] = { id: key, n: 1 }; k = sel0; }
+    P.sel = k;
+    const before = World.get(x, y, z), bm = World.getMeta(x, y, z);
+    const T = { x, y, z, id: World.get(x, y, z), face, hx: x + 0.5, hy: y + (face === 3 ? 0.9 : 0.1), hz: z + 0.5 };
+    try { Game.placeBlock(T, P.inv[k]); } catch (e) { }
+    P.sel = sel0; if (P.mode === 1 && k === sel0) P.inv[sel0] = keep0;
+    const after = World.get(x, y, z); return after !== before || World.getMeta(x, y, z) !== bm;
+  },
+  run(list, breaking) {
+    const P = Game.player; const rec = []; const face = this.st ? this.st.face : 2; const held = P.held;
+    const dig0 = Sound.dig; let n = 0; Sound.dig = function () { if (n++ < 3) return dig0.apply(Sound, arguments); };
+    try {
+      for (const [x, y, z] of list) {
+        const oid = World.get(x, y, z), om = World.getMeta(x, y, z);
+        if (breaking) {
+          if (!oid || LIQUID[oid]) continue; const d = BLOCKS[oid]; if (d.hardness < 0 && P.mode !== 1) continue;
+          if (P.mode !== 1 && (d.hardness > 50 || !Game.canHarvest(d, P.held))) continue;
+          Game.breakBlock(x, y, z, P.mode !== 1, P.held); if (World.get(x, y, z) !== oid) rec.push([x, y, z, oid, om, World.get(x, y, z), World.getMeta(x, y, z)]);
+        } else {
+          const key = held && ITEMS[held.id] && ITEMS[held.id].randomizer ? this.randPick(held) : held && held.id; if (!key) break;
+          if (this.placeOne(x, y, z, face, key)) rec.push([x, y, z, oid, om, World.get(x, y, z), World.getMeta(x, y, z)]);
+          else if (P.mode !== 1 && !P.inv.some(s => s && s.id === key) && !(held && ITEMS[held.id] && ITEMS[held.id].randomizer)) { Chat.add('§7Te has quedado sin bloques.'); break; }
+        }
+      }
+    } finally { Sound.dig = dig0; }
+    if (P.mode !== 1 && held && held.n <= 0) P.inv[P.sel] = null;
+    if (rec.length) { this.undoL.push(rec); if (this.undoL.length > 30) this.undoL.shift(); this.redoL = []; }
+    P.swinging = true; P.swingTime = 0;
+  },
+  restore(rec, back) {
+    const P = Game.player; let n = 0;
+    for (const r of (back ? rec.slice().reverse() : rec)) {
+      const [x, y, z, oid, om, nid, nm] = r; const wantId = back ? oid : nid, wantM = back ? om : nm, curId = back ? nid : oid;
+      if (World.get(x, y, z) !== curId) continue;
+      if (P.mode !== 1) { // en supervivencia: lo puesto se devuelve y lo que se repone se paga
+        const gives = BLOCKS[curId] && !BLOCKS[curId].noItem && ITEMS[BLOCKS[curId].key] ? BLOCKS[curId].key : null, needs = wantId && BLOCKS[wantId] && ITEMS[BLOCKS[wantId].key] ? BLOCKS[wantId].key : null;
+        if (needs) { const i = P.inv.findIndex(s => s && s.id === needs); if (i < 0) continue; P.inv[i].n--; if (!P.inv[i].n) P.inv[i] = null; }
+        if (gives && curId) { const left = P.give(gives, 1); if (left) Entities.dropItem(x + 0.5, y + 0.5, z + 0.5, { id: gives, n: 1 }); }
+      }
+      World.set(x, y, z, wantId, wantM); n++;
+    }
+    return n;
+  },
+  undo() { const r = this.undoL.pop(); if (!r) { Chat.add('§7Nada que deshacer'); return; } const n = this.restore(r, true); this.redoL.push(r); Chat.add('§7Deshecho: ' + n + ' bloques restaurados'); Sound.play('click'); },
+  redo() { const r = this.redoL.pop(); if (!r) { Chat.add('§7Nada que rehacer'); return; } const n = this.restore(r, false); this.undoL.push(r); Chat.add('§7Rehecho: ' + n + ' bloques reaplicados'); Sound.play('click'); },
+  // ---------- clics ----------
+  click(btn) {
+    const P = Game.player; const D = this.def(); const steps = D[3];
+    if (this.st) {
+      const brk = this.st.breaking; if ((btn === 0) !== brk) { this.st = null; Sound.play('click'); return true; } // el otro botón cancela
+      const p = this.nextPoint();
+      if (this.st.phase < steps - 1) { if (this.st.phase === 1) this.st.p1 = p; this.st.phase++; Sound.play('click'); return true; }
+      const list = this.current(); this.st = null; this.run(list, brk); return true;
+    }
+    const T = this.target(); if (!T) return false;
+    const breaking = btn === 0; if (!breaking && !this.heldBlock()) return false;
+    const s = breaking ? [T.x, T.y, T.z] : Game.placePos(T);
+    this.st = { s, phase: 0, face: T.face, breaking, p1: null };
+    if (steps <= 1) { const list = this.current(); this.st = null; this.run(list, breaking); return true; }
+    this.st.phase = 1; Sound.play('click'); return true;
+  },
+};
+EB.load();
+// ratón: los modos de construcción toman el clic antes que el juego
+window.addEventListener('mousedown', (e) => {
+  if (!MODS127.eb || Game.state !== 'play' || GUI.open || UI.cur || Chat.open || EBUI.open) return;
+  const P = Game.player; if (!P || P.dead || P.mode === 3 || P.riding) return; if (!Input.locked && !Input.freeLook) return;
+  if (e.button !== 0 && e.button !== 2) return;
+  const held = P.held, it = held && ITEMS[held.id];
+  // herramienta aleatorizadora: Mayús + clic derecho = configurar; clic derecho = bloque al azar
+  if (e.button === 2 && it && it.randomizer) {
+    if (P.sneaking) { GUI.openFor('ebrand', null); GUI.rtool = held; e.stopImmediatePropagation(); e.preventDefault(); return; }
+    if (!EB.active()) { const T = Game.target; if (T) { const s = Game.placePos(T); EB.st = { s, face: T.face }; EB.run([s], false); EB.st = null; } e.stopImmediatePropagation(); e.preventDefault(); return; }
+  }
+  if (!EB.active()) return;
+  if (!EB.st) { // interactuar con bloques (cofres, puertas…) sigue igual si no estás agachado
+    const T = Game.target; if (e.button === 2 && T && BLOCKS[T.id].interact && !P.sneaking) return; if (e.button === 2 && Game.targetEnt) return; if (e.button === 0 && Game.targetEnt) return;
+  }
+  if (EB.click(e.button)) { e.stopImmediatePropagation(); e.preventDefault(); Input.mouse[0] = false; Input.mouse[2] = false; }
+}, true);
+// vista previa
+{
+  const ds0 = drawSelection;
+  drawSelection = function () {
+    ds0(); if (!MODS127.eb || !EB.st || Game.state !== 'play') return;
+    const R = Renderer, gl = R.gl; let list; try { list = EB.current(); } catch (e) { return; }
+    EB._n = list.length; const brk = EB.st.breaking; const e = 0.01;
+    R.dBegin(); const N = Math.min(list.length, 3000);
+    for (let i = 0; i < N; i++) { const [x, y, z] = list[i]; lineBox(x + e, y + e, z + e, x + 1 - e, y + 1 - e, z + 1 - e, brk ? 1 : 0.6, brk ? 0.25 : 0.85, brk ? 0.25 : 1, 0.8); }
+    gl.enable(gl.BLEND); R.dFlush('lines', R.whiteTex, R.pv, R.view, 0, 0); gl.disable(gl.BLEND);
+  };
+}
+// textos en pantalla (velocidad de la bici, modo de construcción)
+{
+  const hd0 = HUD.draw.bind(HUD);
+  HUD.draw = function () {
+    hd0(); if (Game.state !== 'play' || GUI.open || Game.hideHud || !Game.player) return;
+    const g = this.g, W = this.cv.width, H = this.cv.height, s = this.scale(); const P = Game.player;
+    const line = (t) => { g.font = `${8 * s}px ${FONT}`; const w = g.measureText(t.replace(/§./g, '')).width * 0.75; this.text(t, W / 2 - w / 2, H - 72 * s, '#ffffff', s); };
+    if (P.riding && P.riding.kind === 'bicycle') line('§e' + Math.round(Math.abs(P.riding.spd || 0) * 72) + ' km/h' + (Bike.keep(P.riding).lights ? '  §f💡' : ''));
+    else if (MODS127.eb && EB.st) { const D = EB.def(); line((EB.st.breaking ? '§cRomper' : '§b' + D[1]) + '§f: ' + (EB._n || 0) + ' bloques · ' + (EB.st.phase < D[3] - 1 ? 'clic para el siguiente punto' : 'clic para terminar') + ' · el otro botón cancela'); }
+  };
+}
+// ---------- herramienta aleatorizadora: pantalla con 9 casillas y sus proporciones ----------
+{
+  const lay0 = GUI.layout.bind(GUI);
+  GUI.layout = function () {
+    if (this.open !== 'ebrand') return lay0();
+    const P = Game.player; const sl = []; const add = (arr, i, x, y, kind) => sl.push({ arr, i, x, y, kind: kind || 'n' });
+    const t = this.rtool; if (!t.rz) t.rz = new Array(9).fill(null);
+    for (let i = 0; i < 9; i++) add(t.rz, i, 8 + i * 18, 22, 'ghost');
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 9; c++) add(P.inv, 9 + r * 9 + c, 8 + c * 18, 84 + r * 18);
+    for (let c = 0; c < 9; c++) add(P.inv, c, 8 + c * 18, 142);
+    this.w = 176; this.h = 166; this.slots = sl;
+  };
+  const cl0 = GUI.click.bind(GUI);
+  GUI.click = function (btn, shift) {
+    if (this.open === 'ebrand' && this.hover && this.hover.kind === 'ghost') {
+      const t = this.rtool, i = this.hover.i, C = this.cursor;
+      if (C && ITEMS[C.id] && ITEMS[C.id].block) t.rz[i] = { id: C.id, n: 1, w: (t.rz[i] && t.rz[i].w) || 1 };
+      else if (!C) { if (t.rz[i] && btn === 2) t.rz[i].w = (t.rz[i].w % 16) + 1; else t.rz[i] = null; }
+      Sound.play('click'); return;
+    }
+    return cl0(btn, shift);
+  };
+  const cls0 = GUI.close.bind(GUI); GUI.close = function () { this.rtool = null; return cls0(); };
+  const dr0 = GUI.draw.bind(GUI);
+  GUI.draw = function () {
+    dr0(); if (this.open !== 'ebrand') return;
+    const s = this.s, ox = this.ox, oy = this.oy; const T = (t, x, y, c, k) => HUD.text(t, ox + x * s, oy + y * s, c || '#404040', s * (k || 1), false);
+    T('Herramienta aleatorizadora', 8, 6); T('Pon bloques aquí (no se gastan)', 8, 44, '#505050', 0.6); T('Clic dcho. o rueda: proporción', 8, 52, '#505050', 0.6); T('Mayús + clic dcho.: volver aquí', 8, 60, '#505050', 0.6);
+    const t = this.rtool; const tot = (t.rz || []).reduce((a, x) => a + (x ? x.w || 1 : 0), 0);
+    for (let i = 0; i < 9; i++) { const x = t.rz[i]; if (!x) continue; T(Math.round((x.w || 1) / tot * 100) + '%', 9 + i * 18, 13, '#2a6a2a', 0.6); }
+  };
+  document.addEventListener('wheel', (e) => { if (GUI.open !== 'ebrand' || !GUI.hover || GUI.hover.kind !== 'ghost') return; const x = GUI.rtool.rz[GUI.hover.i]; if (x) x.w = clamp((x.w || 1) + (e.deltaY < 0 ? 1 : -1), 1, 16); }, { passive: true });
+}
+// ---------- menú de construcción (Alt) y modificadores (K) ----------
+const EBUI = {
+  open: null,
+  icon(col, row) {
+    const im = ModAssets.eb && ModAssets.eb.icons; if (!im) return '';
+    const k = im.width / 256; const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(im, col * 16 * k, row * 16 * k, 16 * k, 16 * k, 0, 0, 32, 32); return c.toDataURL();
+  },
+  close() { const el = document.getElementById('ebOverlay'); if (el) el.remove(); this.open = null; },
+  shell(title) {
+    this.close(); Input.unlock(true);
+    const el = document.createElement('div'); el.id = 'ebOverlay';
+    el.style.cssText = 'position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(10,10,14,0.55);font-family:' + FONT + ';color:#eee;user-select:none';
+    el.innerHTML = '<div id="ebBox" style="background:#1d1f24ee;border:2px solid #555;border-radius:10px;padding:14px 18px;min-width:320px;max-width:92vw;max-height:90vh;overflow:auto"><div style="font-size:18px;margin-bottom:10px;color:#ffd24a">' + title + '</div><div id="ebBody"></div><div style="margin-top:10px;font-size:12px;color:#aaa">Esc o clic fuera para cerrar</div></div>';
+    el.addEventListener('mousedown', (e) => { if (e.target === el) { this.close(); Input.lock(); } });
+    document.body.appendChild(el); return el.querySelector('#ebBody');
+  },
+  btn(label, on, act, img, title) { const b = document.createElement('button'); b.style.cssText = 'margin:3px;padding:6px 9px;border-radius:7px;border:2px solid ' + (on ? '#ffd24a' : '#555') + ';background:' + (on ? '#3a3420' : '#2a2c32') + ';color:#eee;cursor:pointer;font:inherit;font-size:13px;display:inline-flex;align-items:center;gap:6px'; if (img) { const i = document.createElement('img'); i.src = img; i.style.cssText = 'width:24px;height:24px;image-rendering:pixelated'; b.appendChild(i); } b.appendChild(document.createTextNode(label)); if (title) b.title = title; b.onclick = act; return b; },
+  radial() {
+    const body = this.shell('Modos de construcción'); this.open = 'radial';
+    const wrap = document.createElement('div'); wrap.style.cssText = 'position:relative;width:520px;height:520px;margin:auto';
+    EB_MODES.forEach((m, i) => {
+      const a = -Math.PI / 2 + i / EB_MODES.length * Math.PI * 2, r = 222; const b = this.btn('', EB.mode === m[0], () => { EB.mode = m[0]; EB.st = null; EB.save(); this.close(); Input.lock(); Chat.add('§7Modo de construcción: ' + m[1]); if (m[0] !== 'normal' && !localStorage.getItem('picaterra_eb_hint')) { localStorage.setItem('picaterra_eb_hint', '1'); Chat.add('§7¡Has activado un modo de construcción! Con un bloque en la mano, haz clic derecho para elegir la posición inicial (clic izquierdo para romper).'); } }, this.icon(m[2], 1), m[1]);
+      b.style.position = 'absolute'; b.style.left = (260 + Math.cos(a) * r - 34) + 'px'; b.style.top = (260 + Math.sin(a) * r - 30) + 'px'; b.style.flexDirection = 'column'; b.style.fontSize = '10px'; b.style.width = '64px'; b.appendChild(document.createTextNode('')); b.lastChild.textContent = '';
+      const lab = document.createElement('div'); lab.textContent = m[1]; lab.style.cssText = 'font-size:10px;line-height:1.1'; b.appendChild(lab); wrap.appendChild(b);
+    });
+    const mid = document.createElement('div'); mid.style.cssText = 'position:absolute;left:120px;top:50%;transform:translateY(-50%);width:280px;text-align:center';
+    const row = (lbl, opts, cur, set) => { const d = document.createElement('div'); d.style.margin = '3px 0'; const t = document.createElement('div'); t.textContent = lbl; t.style.cssText = 'font-size:11px;color:#bbb'; d.appendChild(t); for (const [v, n, ic] of opts) d.appendChild(this.btn(n, cur === v, () => { set(v); EB.save(); this.radial(); }, ic)); mid.appendChild(d); };
+    const md = EB.mode;
+    if (['cube', 'circle', 'cylinder', 'sphere', 'pyramid', 'cone', 'dome'].includes(md)) row('Relleno', [['full', 'Relleno', this.icon(2, 2)], ['hollow', 'Hueco', this.icon(3, 2)]].concat(md === 'cube' ? [['skeleton', 'Esqueleto', this.icon(4, 2)]] : []), EB.fill, v => EB.fill = v);
+    if (md === 'line') row('Grosor de línea', [[1, '1'], [3, '3'], [5, '5']], EB.thick, v => EB.thick = v);
+    if (['circle', 'cylinder', 'sphere', 'cone'].includes(md)) row('Punto de inicio', [['center', 'Centro'], ['corner', 'Esquina']], EB.start, v => EB.start = v);
+    row('Modo de reemplazo', [['air', 'Solo aire'], ['all', 'Bloques y aire'], ['blocks', 'Solo bloques']], EB.replace, v => EB.replace = v);
+    const acts = document.createElement('div'); acts.style.marginTop = '6px';
+    acts.appendChild(this.btn('Deshacer', false, () => { EB.undo(); }, this.icon(1, 0))); acts.appendChild(this.btn('Rehacer', false, () => { EB.redo(); }, this.icon(2, 0)));
+    acts.appendChild(this.btn('Modificadores', false, () => this.modifiers(), this.icon(0, 0)));
+    mid.appendChild(acts); wrap.appendChild(mid); body.appendChild(wrap);
+    const n = document.createElement('div'); n.style.cssText = 'font-size:12px;color:#bbb;text-align:center'; n.textContent = 'Ctrl+Z deshacer · Ctrl+Y rehacer · K modificadores · el reemplazo de bloques solo funciona en creativo'; body.appendChild(n);
+  },
+  modifiers() {
+    const body = this.shell('Configuración de modificadores'); this.open = 'mods'; const M = EB.mods; const P = Game.player;
+    const sec = (title, o, fields) => {
+      const box = document.createElement('div'); box.style.cssText = 'border:1px solid #444;border-radius:8px;padding:8px;margin:6px 0';
+      const h = document.createElement('label'); h.style.cssText = 'display:block;font-size:15px;margin-bottom:4px;cursor:pointer'; const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = o.on; cb.onchange = () => { o.on = cb.checked; EB.save(); }; h.appendChild(cb); h.appendChild(document.createTextNode(' ' + title)); box.appendChild(h);
+      for (const [k, lbl, kind] of fields) {
+        const l = document.createElement('label'); l.style.cssText = 'display:inline-block;margin:3px 8px 3px 0;font-size:13px'; l.appendChild(document.createTextNode(lbl + ' '));
+        if (kind === 'bool') { const c = document.createElement('input'); c.type = 'checkbox'; c.checked = !!(Array.isArray(k) ? o[k[0]][k[1]] : o[k]); c.onchange = () => { if (Array.isArray(k)) o[k[0]][k[1]] = c.checked; else o[k] = c.checked; EB.save(); }; l.appendChild(c); }
+        else { const i = document.createElement('input'); i.type = 'number'; i.step = kind === 'half' ? '0.5' : '1'; i.value = o[k]; i.style.cssText = 'width:64px;background:#111;color:#eee;border:1px solid #555;border-radius:4px;padding:2px'; i.onchange = () => { const v = parseFloat(i.value); if (!isNaN(v)) { o[k] = kind === 'half' ? Math.round(v * 2) / 2 : Math.round(v); EB.save(); } }; i.dataset.k = k; l.appendChild(i); }
+        box.appendChild(l);
+      }
+      if ('x' in o) box.appendChild(this.btn('Usar mi posición', false, () => { o.x = Math.floor(P.x) + 0.5; o.y = Math.floor(P.y) + 0.5; o.z = Math.floor(P.z) + 0.5; EB.save(); this.modifiers(); }));
+      body.appendChild(box);
+    };
+    sec('Espejo', M.mirror, [['x', 'X', 'half'], ['y', 'Y', 'half'], ['z', 'Z', 'half'], [['ax', 0], 'Eje X', 'bool'], [['ax', 1], 'Eje Y', 'bool'], [['ax', 2], 'Eje Z', 'bool'], ['r', 'Radio', 'int']]);
+    sec('Serie', M.array, [['dx', 'Despl. X', 'int'], ['dy', 'Despl. Y', 'int'], ['dz', 'Despl. Z', 'int'], ['n', 'Copias', 'int']]);
+    sec('Espejo radial', M.radial, [['x', 'X', 'half'], ['y', 'Y', 'half'], ['z', 'Z', 'half'], ['n', 'Porciones', 'int'], ['alt', 'Alternar', 'bool'], ['r', 'Radio', 'int']]);
+    body.appendChild(this.btn('Guardar', true, () => { EB.save(); this.close(); Input.lock(); }));
+  },
+};
+window.addEventListener('keydown', (e) => {
+  if (!MODS127.eb) return;
+  if (EBUI.open) { if (e.code === 'Escape' || (e.code === 'AltLeft' && EBUI.open === 'radial')) { EBUI.close(); Input.lock(); } if (!(document.activeElement && document.activeElement.tagName === 'INPUT')) { e.stopImmediatePropagation(); e.preventDefault(); } return; }
+  if (Game.state !== 'play' || GUI.open || UI.cur || Chat.open || !Game.player) return;
+  if (e.code === 'AltLeft' || e.code === 'AltRight') { e.preventDefault(); e.stopImmediatePropagation(); EB.st = null; EBUI.radial(); return; }
+  if (e.code === 'KeyK' && !e.ctrlKey) { e.preventDefault(); e.stopImmediatePropagation(); EBUI.modifiers(); return; }
+  if (e.ctrlKey && e.code === 'KeyZ') { e.preventDefault(); e.stopImmediatePropagation(); EB.undo(); return; }
+  if (e.ctrlKey && e.code === 'KeyY') { e.preventDefault(); e.stopImmediatePropagation(); EB.redo(); return; }
+}, true);
+window.addEventListener('keyup', (e) => { if (MODS127.eb && (e.code === 'AltLeft' || e.code === 'AltRight')) e.preventDefault(); }, true);
+if (MODS127.eb) setTimeout(() => { const t0 = Game.start || null; void t0; }, 0);
+// mensaje de bienvenida (una vez por mundo)
+{
+  let told = null;
+  setInterval(() => { if (!MODS127.eb || Game.state !== 'play' || !Game.world) return; const id = Game.world.id; if (told === id) return; told = id; const W = Game.world; if (W.ebWelcome) return; W.ebWelcome = true; Chat.add('§e¡Gracias por usar Effortless Building! §7Para empezar, pulsa Alt para abrir el menú de construcción (K: modificadores).'); }, 3000);
 }
 
 // ---- 13d_enchant.js ----
