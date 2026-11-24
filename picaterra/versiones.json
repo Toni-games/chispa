@@ -1,8 +1,19 @@
 {
-  "latest": "1.33.1",
+  "latest": "1.33.2",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.33.2",
+      "date": "2026-11-24",
+      "title": "Estructuras de Create",
+      "notes": [
+        "Al crear un mundo con el mod Create puedes activar sus estructuras: talleres con las construcciones del propio mod, mineral de cinc y vetas de piedras de Create",
+        "/locate taller para encontrar el más cercano"
+      ],
+      "size": 452040,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.33.2.zip"
+    },
     {
       "id": "1.33.1",
       "date": "2026-11-24",

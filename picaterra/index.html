@@ -358,7 +358,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.33.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.33.2';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -9250,7 +9250,7 @@ const Game = {
   async createWorld(opts) {
     const id = 'w' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
     let seed = opts.seed && opts.seed.trim() ? (/^-?\d+$/.test(opts.seed.trim()) ? parseInt(opts.seed.trim()) | 0 : hashStr(opts.seed.trim())) : (Math.random() * 2 ** 31 | 0);
-    const meta = { id, editFmt: 2, genV: 2, name: opts.name || 'Mundo nuevo', seed, flat: !!opts.flat, mode: opts.mode, difficulty: opts.difficulty, hardcore: !!opts.hardcore, time: 1000, day: 0, created: Date.now(), lastPlayed: Date.now(), player: null, blockEnts: [], generated: [], mobs: [] };
+    const meta = { id, editFmt: 2, genV: 2, name: opts.name || 'Mundo nuevo', seed, flat: !!opts.flat, mode: opts.mode, difficulty: opts.difficulty, hardcore: !!opts.hardcore, createGen: !!opts.createGen, time: 1000, day: 0, created: Date.now(), lastPlayed: Date.now(), player: null, blockEnts: [], generated: [], mobs: [] };
     await Store.put('worlds', id, meta).catch(() => { });
     return this.startWorld(meta, new Map());
   },
@@ -11122,7 +11122,7 @@ const UI = {
     $('btnCreate').onclick = () => { Sound.play('click'); this.show('create'); };
     $('btnCreateGo').onclick = async () => {
       Sound.play('click');
-      const mode = $('cMode').value; const opts = { name: $('cName').value.trim() || 'Mundo nuevo', seed: $('cSeed').value, mode: mode === 'creative' ? 1 : 0, hardcore: mode === 'hardcore', difficulty: mode === 'hardcore' ? 3 : +$('cDiff').value, flat: $('cType').value === 'flat' };
+      const mode = $('cMode').value; const opts = { name: $('cName').value.trim() || 'Mundo nuevo', seed: $('cSeed').value, mode: mode === 'creative' ? 1 : 0, hardcore: mode === 'hardcore', difficulty: mode === 'hardcore' ? 3 : +$('cDiff').value, flat: $('cType').value === 'flat', createGen: !!($('cCreateGen') && $('cCreateGen').parentNode.style.display !== 'none' && $('cCreateGen').value === '1') };
       Title.stop(); await Game.createWorld(opts);
     };
     $('cMode').onchange = () => { $('cDiffRow').style.display = $('cMode').value === 'hardcore' ? 'none' : ''; };
@@ -11763,6 +11763,7 @@ const Chunks = {
     while (Gen.results.length && performance.now() - t0 < 7) {
       const r = Gen.results.shift(); const k = ckey(r.cx, r.cz); Gen.pending.delete(k);
       if (r.gen !== Gen.gen || World.chunks.has(k)) continue;
+      if (typeof CreateGen !== 'undefined') CreateGen.chunk(r);
       if (Math.max(Math.abs(r.cx - pcx), Math.abs(r.cz - pcz)) > R + 3 && !(anc && anc.some(a => Math.max(Math.abs(r.cx - a[0]), Math.abs(r.cz - a[1])) <= 6))) continue;
       const c = new Chunk(r.cx, r.cz); c.blocks = r.blocks; c.meta = r.meta; c.biomes = r.biomes; c.state = 1;
       const ed = World.edits.get(k); if (ed) for (const [i, v] of ed) { const id = EID(v); c.blocks[i] = id < NB ? id : 0; c.meta[i] = EMETA(v); }
@@ -18596,6 +18597,196 @@ const ReIntro = {
 // sin la música del menú mientras suena la intro
 { const m0 = Sound.menuTick.bind(Sound); Sound.menuTick = function () { if (ReIntro.playing) { if (this.menuPerf) this.stopMenuTheme(); return; } return m0(); }; }
 ReIntro.loopTick();
+
+
+// ---- extra/creategen133.js ----
+// ============================================================
+//  1.33.2: generación del mod Create en los mundos que la tengan activada (se elige al crear el mundo)
+//  - Talleres de Create: las construcciones que trae el propio mod (.nbt de sus escenas y máquinas de prueba)
+//    repartidas por el mundo, sobre una base de piedra
+//  - Mineral de cinc y vetas de piedras de Create (asurita, crimsita, ocrum, veridio, caliza, escoria), como en el mod
+// ============================================================
+const CreateGen = {
+  list: [], ready: false,
+  on() { return !!(Game.world && Game.world.createGen && this.ready && (!World.dim || World.dim === 'o')); },
+  // ---------- lector de NBT (formato de estructuras de Minecraft) ----------
+  async readNBT(bytes) {
+    let u8 = bytes;
+    if (u8[0] === 0x1f && u8[1] === 0x8b) u8 = new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength); let p = 0; const dec = new TextDecoder();
+    const str = () => { const n = dv.getUint16(p); p += 2; const s = dec.decode(u8.subarray(p, p + n)); p += n; return s; };
+    const tag = (t) => {
+      switch (t) {
+        case 1: return dv.getInt8(p++);
+        case 2: { const v = dv.getInt16(p); p += 2; return v; }
+        case 3: { const v = dv.getInt32(p); p += 4; return v; }
+        case 4: { p += 8; return 0; }
+        case 5: { const v = dv.getFloat32(p); p += 4; return v; }
+        case 6: { const v = dv.getFloat64(p); p += 8; return v; }
+        case 7: { const n = dv.getInt32(p); p += 4 + n; return null; }
+        case 8: return str();
+        case 9: { const et = dv.getInt8(p++); const n = dv.getInt32(p); p += 4; const a = []; for (let i = 0; i < n; i++) a.push(tag(et)); return a; }
+        case 10: { const o = {}; for (;;) { const tt = dv.getInt8(p++); if (tt === 0) return o; const k = str(); o[k] = tag(tt); } }
+        case 11: { const n = dv.getInt32(p); p += 4; const a = []; for (let i = 0; i < n; i++) { a.push(dv.getInt32(p)); p += 4; } return a; }
+        case 12: { const n = dv.getInt32(p); p += 4 + n * 8; return null; }
+      }
+      throw new Error('nbt ' + t);
+    };
+    const t = dv.getInt8(p++); str(); return tag(t);
+  },
+  async absorb(z) {
+    const N = z.names.filter(p => /^assets\/create\/ponder\/(?!debug\/)[^/]+\/[^/]+\.nbt$/.test(p) || /^data\/create\/structure\/gametest\/[^/]+\/[^/]+\.nbt$/.test(p));
+    if (!N.length) return;
+    const out = []; let next = 0;
+    const work = async () => {
+      while (next < N.length) {
+        const path = N[next++];
+        try {
+          const d = await this.readNBT(await z.get(path)); const pal = d.palette || (d.palettes && d.palettes[0]); if (!pal || !d.size) continue;
+          const ponder = path.includes('/ponder/');
+          const blocks = d.blocks.map(b => { const s = pal[b.state] || {}; return [b.pos[0], b.pos[1], b.pos[2], s.Name || 'minecraft:air', s.Properties || null]; });
+          if (d.size[0] > 15 || d.size[2] > 15 || d.size[1] > 20) continue;
+          if (!blocks.some(b => /^create:/.test(b[3]))) continue;
+          out.push({ name: path.split('/').slice(-2).join('/').replace('.nbt', ''), size: d.size, blocks, ponder });
+        } catch (e) { }
+      }
+    };
+    await Promise.all(Array.from({ length: 8 }, work));
+    out.sort((a, b) => a.name < b.name ? -1 : 1);
+    this.list = out; this.ready = true;
+  },
+  // ---------- de un estado de bloque del mod (nombre + propiedades) al bloque del juego ----------
+  ROT: { north: 'east', east: 'south', south: 'west', west: 'north', up: 'up', down: 'down' },
+  F6: { east: 0, west: 1, up: 2, down: 3, south: 4, north: 5 },
+  F4: { north: 0, east: 1, south: 2, west: 3 },
+  idOf(name) {
+    if (name === 'minecraft:air' || name === 'minecraft:barrier' || name === 'minecraft:structure_void') return 0;
+    const [ns, k] = name.split(':'); let id = ns === 'minecraft' ? B[k] : B[ns + '_' + k];
+    if (id === undefined && ns === 'minecraft') { const alt = { white_concrete: 'white_wool', redstone_wire: 'redstone', piston_head: null, waxed_cut_copper: 'cut_copper', smooth_basalt: 'basalt', dripstone_block: 'stone' }[k]; if (alt) id = B[alt]; }
+    return id === undefined ? -1 : id;
+  },
+  state(name, props, rot) {
+    const id = this.idOf(name); if (id <= 0) return [id, 0];
+    const P = props ? Object.assign({}, props) : {};
+    for (let i = 0; i < rot; i++) { if (P.facing) P.facing = this.ROT[P.facing] || P.facing; if (P.horizontal_facing) P.horizontal_facing = this.ROT[P.horizontal_facing]; if (P.axis === 'x') P.axis = 'z'; else if (P.axis === 'z') P.axis = 'x'; }
+    const d = BLOCKS[id] || {}; const f = P.facing || P.horizontal_facing; let m = 0;
+    if (d.facing6) m = f ? (this.F6[f] ?? 0) : P.axis ? (P.axis === 'x' ? 0 : P.axis === 'y' ? 2 : 4) : 0;
+    else if (d.axis) m = P.axis ? (P.axis === 'x' ? 4 : P.axis === 'z' ? 8 : 0) : f ? (f === 'east' || f === 'west' ? 4 : f === 'north' || f === 'south' ? 8 : 0) : 0;
+    else if (d.slab) m = P.type === 'top' ? 1 : 0;
+    else if (d.leaves) m = 8;
+    else if (d.shape === 'lever' || d.shape === 'button') m = 3;
+    else if (d.shape === 'hopper') m = f ? (this.F6[f] ?? 3) : 3;
+    else if (d.shape === 'trapdoor') m = (f ? this.F4[f] ?? 0 : 0) | (P.half === 'top' ? 8 : 0);
+    else if (d.facing || d.stairs || d.door || d.shape === 'gate' || d.shape === 'repeater' || d.shape === 'comparator') m = f && this.F4[f] !== undefined ? this.F4[f] : 0;
+    return [id, m];
+  },
+  // ---------- dónde van los talleres: como mucho uno por región de 12×12 chunks ----------
+  REGION: 12, SALT: 7741,
+  site(rx, rz) {
+    const key = rx + ',' + rz; this.sites = this.sites || new Map(); if (this._seed !== World.seed) { this.sites.clear(); this._seed = World.seed; }
+    if (this.sites.has(key)) return this.sites.get(key);
+    const r = mulberry32((World.seed * 31 + rx * 73856093 + rz * 19349663 + this.SALT) | 0); let s = null;
+    if (r() < 0.65 && this.list.length) {
+      const span = this.REGION - 3; const wx = (rx * this.REGION + 1 + Math.floor(r() * span)) * 16 + Math.floor(r() * 16), wz = (rz * this.REGION + 1 + Math.floor(r() * span)) * 16 + Math.floor(r() * 16);
+      const T = this.list[Math.floor(r() * this.list.length)], rot = Math.floor(r() * 4);
+      const sx = rot & 1 ? T.size[2] : T.size[0], sz = rot & 1 ? T.size[0] : T.size[2];
+      const ox = wx - (sx >> 1), oz = wz - (sz >> 1);
+      const hs = [[0, 0], [sx - 1, 0], [0, sz - 1], [sx - 1, sz - 1], [sx >> 1, sz >> 1]].map(([a, b]) => columnHeight(ox + a, oz + b));
+      const h = Math.max(...hs), lo = Math.min(...hs);
+      if (World.flat || (lo > SEA && h - lo <= 4 && h + T.size[1] + 2 < WH)) s = { T, rot, ox, oz, sx, sz, y: h + 1, name: T.name };
+    }
+    this.sites.set(key, s); return s;
+  },
+  sitesNear(cx, cz) {
+    const out = [], R = this.REGION;
+    for (let rz = Math.floor((cz - 1) / R); rz <= Math.floor((cz + 1) / R); rz++) for (let rx = Math.floor((cx - 1) / R); rx <= Math.floor((cx + 1) / R); rx++) {
+      const s = this.site(rx, rz); if (s && s.ox <= cx * 16 + 15 + 2 && s.ox + s.sx >= cx * 16 - 2 && s.oz <= cz * 16 + 15 + 2 && s.oz + s.sz >= cz * 16 - 2) out.push(s);
+    }
+    return out;
+  },
+  // ---------- se aplica a cada chunk recién generado (antes de los cambios del jugador) ----------
+  chunk(r) {
+    if (!this.on() || !r.blocks) return;
+    const bl = r.blocks, me = r.meta, X0 = r.cx * 16, Z0 = r.cz * 16; const I = (x, y, z) => x + z * 16 + y * 256;
+    const set = (wx, y, wz, id, m) => { const x = wx - X0, z = wz - Z0; if (x < 0 || x > 15 || z < 0 || z > 15 || y < 1 || y >= WH) return; const i = I(x, y, z); bl[i] = id; me[i] = m || 0; };
+    const get = (wx, y, wz) => { const x = wx - X0, z = wz - Z0; if (x < 0 || x > 15 || z < 0 || z > 15 || y < 0 || y >= WH) return -1; return bl[I(x, y, z)]; };
+    if (!World.flat) this.ores(r, bl, me, I);
+    for (const s of this.sitesNear(r.cx, r.cz)) {
+      const { T, rot, ox, oz, sx, sz, y } = s; const H = T.size[1];
+      // base de piedra (y un borde de un bloque alrededor) y aire encima
+      for (let x = -1; x <= sx; x++) for (let z = -1; z <= sz; z++) {
+        const wx = ox + x, wz = oz + z; if (wx < X0 || wx > X0 + 15 || wz < Z0 || wz > Z0 + 15) continue;
+        const edge = x < 0 || z < 0 || x >= sx || z >= sz;
+        for (let yy = y - 1, n = 0; yy > 0 && n < 14; yy--, n++) { const b = get(wx, yy, wz); if (n > 0 && b > 0 && SOLID[b] && !LIQUID[b]) break; set(wx, yy, wz, n === 0 && !edge ? B.stone_bricks : B.cobblestone); }
+        if (edge) { set(wx, y - 1, wz, B.polished_andesite ?? B.stone_bricks); for (let yy = y; yy < y + 4; yy++) if (get(wx, yy, wz) > 0 && !LIQUID[get(wx, yy, wz)]) set(wx, yy, wz, 0); continue; }
+        for (let yy = y; yy < y + H + 3 && yy < WH; yy++) set(wx, yy, wz, 0);
+      }
+      // las piezas
+      for (const [bx, by, bz, name, props] of T.blocks) {
+        let n = name;
+        if (T.ponder && by === 0) n = name === 'minecraft:white_concrete' ? 'minecraft:polished_andesite' : name === 'minecraft:snow_block' ? 'minecraft:andesite' : name;
+        const [id, m] = this.state(n, props, rot); if (id < 0) continue;
+        const [x, z] = this.rotXZ(bx, bz, T.size, rot);
+        set(ox + x, y + by - (T.ponder ? 1 : 0), oz + z, id, m);
+      }
+    }
+  },
+  rotXZ(x, z, size, rot) { let sx = size[0], sz = size[2]; for (let i = 0; i < rot; i++) { const nx = sz - 1 - z; z = x; x = nx; const t = sx; sx = sz; sz = t; } return [x, z]; },
+  // ---------- minerales de Create ----------
+  ores(r, bl, me, I) {
+    const rnd = mulberry32((World.seed * 7 + r.cx * 341873128 + r.cz * 132897987 + 99) | 0);
+    const STONY = (id) => id === B.stone || id === B.deepslate || id === B.granite || id === B.diorite || id === B.andesite || id === B.tuff;
+    const zinc = B.create_zinc_ore, dzinc = B.create_deepslate_zinc_ore ?? zinc;
+    if (zinc !== undefined) for (let k = 0; k < 6; k++) { // cinc: 6 vetas por chunk, de y 2 a 70
+      let x = rnd() * 16, y = 2 + rnd() * 68, z = rnd() * 16; const n = 4 + Math.floor(rnd() * 7);
+      for (let i = 0; i < n; i++) { const xi = x | 0, yi = y | 0, zi = z | 0; if (xi >= 0 && xi < 16 && zi >= 0 && zi < 16 && yi > 0 && yi < WH) { const j = I(xi, yi, zi); if (STONY(bl[j])) { bl[j] = bl[j] === B.deepslate || bl[j] === B.tuff ? dzinc : zinc; me[j] = 0; } } x += rnd() * 2 - 1; y += rnd() * 2 - 1; z += rnd() * 2 - 1; }
+    }
+    if (rnd() < 1 / 12) { // vetas grandes de piedras de Create, por capas, como en el mod
+      const PAT = [['create_scoria', 'tuff', 'andesite', 'diorite'], ['create_crimsite', 'tuff', 'deepslate', 'create_limestone'], ['create_asurine', 'tuff', 'deepslate', 'calcite'], ['create_veridium', 'tuff', 'andesite', 'basalt'], ['create_limestone', 'calcite', 'diorite', 'stone'], ['create_ochrum', 'tuff', 'deepslate', 'dripstone_block']];
+      const pat = PAT[Math.floor(rnd() * PAT.length)].map(k => B[k]).filter(v => v !== undefined); if (!pat.length) return;
+      const cx = 3 + rnd() * 10, cy = 10 + rnd() * 50, cz = 3 + rnd() * 10, R = 5 + rnd() * 4;
+      for (let x = 0; x < 16; x++) for (let z = 0; z < 16; z++) for (let y = Math.max(1, cy - R | 0); y <= Math.min(WH - 2, cy + R); y++) {
+        const d = ((x - cx) / R) ** 2 + ((y - cy) / (R * 0.7)) ** 2 + ((z - cz) / R) ** 2; if (d > 1) continue; const j = I(x, y, z); if (!STONY(bl[j])) continue;
+        const layer = Math.floor((y + ((((Math.imul((r.cx * 16 + x) >> 2, 73856093) ^ Math.imul((r.cz * 16 + z) >> 2, 19349663) ^ World.seed) >>> 0) % 997) / 997) * 2) / 2.5);
+        bl[j] = pat[layer % pat.length]; me[j] = 0;
+      }
+    }
+  },
+  // /locate taller
+  nearest(px, pz) {
+    let best = null; const R = this.REGION * 16, rx0 = Math.floor(px / R), rz0 = Math.floor(pz / R);
+    for (let d = 0; d <= 6 && !best; d++) for (let rz = rz0 - d; rz <= rz0 + d; rz++) for (let rx = rx0 - d; rx <= rx0 + d; rx++) {
+      if (Math.max(Math.abs(rx - rx0), Math.abs(rz - rz0)) !== d) continue; const s = this.site(rx, rz); if (!s) continue;
+      const cx = s.ox + (s.sx >> 1), cz = s.oz + (s.sz >> 1), dist = Math.hypot(cx - px, cz - pz); if (!best || dist < best.d) best = { x: cx, y: s.y, z: cz, d: dist };
+    }
+    return best;
+  },
+};
+{ const a0 = JM.absorb.bind(JM); JM.absorb = async function (z) { const r = await a0(z); try { await CreateGen.absorb(z); } catch (e) { console.warn('creategen', e); } return r; }; }
+// /locate taller (de Create)
+{
+  const c0 = Game.command.bind(Game);
+  Game.command = function (line) {
+    const m = String(line).trim().match(/^\/(locate|buscar)\s+(taller|taller de create|create|estructura de create|estructuras de create)\s*$/i);
+    if (m) {
+      if (!CreateGen.on()) { Chat.add('§cEste mundo no tiene activada la generación del mod Create (se elige al crear el mundo).'); return; }
+      const P = this.player, f = CreateGen.nearest(P.x, P.z);
+      Chat.add(f ? `§7Taller de Create más cerca: ${f.x}, ${f.y}, ${f.z} (a ${Math.round(f.d)} bloques) · §e/tp ${f.x} ${f.z}§7 para ir` : '§cNo hay ningún taller de Create cerca.'); return;
+    }
+    return c0(line);
+  };
+}
+// opción al crear el mundo (solo si el mod Create está puesto)
+{
+  const add = () => {
+    const seed = document.getElementById('cSeed'); if (!seed || document.getElementById('cCreateGen')) return;
+    const l = document.createElement('label'); l.className = 'field'; l.textContent = "Estructuras del mod Create";
+    const s = document.createElement('select'); s.id = 'cCreateGen'; s.innerHTML = '<option value="1">Sí (talleres, cinc y piedras)</option><option value="0">No</option>';
+    l.appendChild(s); seed.parentNode.parentNode.insertBefore(l, seed.parentNode);
+  };
+  const s0 = UI.show.bind(UI);
+  UI.show = function (n) { const r = s0.apply(this, arguments); if (n === 'create') { add(); const el = document.getElementById('cCreateGen'); if (el) { el.parentNode.style.display = CreateGen.ready && B.create_shaft !== undefined ? '' : 'none'; el.value = '1'; } } return r; };
+}
 
 // ---- 13d_enchant.js ----
 // ============================================================
