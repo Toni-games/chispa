@@ -1,8 +1,19 @@
 {
-  "latest": "1.32.0",
+  "latest": "1.32.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.32.1",
+      "date": "2026-11-24",
+      "title": "Asistente de Create: más máquinas y tecla F",
+      "notes": [
+        "El asistente se abre con F (o H) todas las veces",
+        "Nuevas máquinas: línea de prensado con cinta, trituradora, cortadora de troncos, plataforma giratoria y embrague con palanca"
+      ],
+      "size": 442918,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.32.1.zip"
+    },
     {
       "id": "1.32.0",
       "date": "2026-11-24",

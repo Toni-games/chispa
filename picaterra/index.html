@@ -358,7 +358,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.32.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.32.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -18158,7 +18158,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) setT
 
 // ---- extra/createhelp132.js ----
 // ============================================================
-//  1.32: Asistente de Create (tecla H, o el botón ⚙ en el móvil)
+//  1.32: Asistente de Create (tecla F o H, o el botón ⚙ en el móvil)
 //  - Montajes: máquinas ya pensadas que se ven como holograma y se construyen de un clic
 //  - Piezas: qué hace cada bloque de Create y cómo se conecta
 //  - Mi máquina: mira una pieza y te dice si gira, a qué velocidad y qué le falta
@@ -18193,6 +18193,26 @@ const CreateHelp = {
         parts: [[0, 4, 0, 'create_windmill_bearing', 'f5']].concat(
           [[0, 4], [0, 5], [0, 6], [0, 7], [0, 3], [0, 2], [0, 1], [1, 4], [2, 4], [3, 4], [-1, 4], [-2, 4], [-3, 4]].map(([x, y]) => [x, y, -1, 'create_white_sail', 'f5']),
           [[0, 4, 1, 'create_shaft', 'z'], [0, 4, 2, 'create_gearbox', 'z'], [0, 3, 2, 'create_shaft', 'y'], [0, 2, 2, 'create_shaft', 'y'], [0, 1, 2, 'create_shaft', 'y'], [0, 0, 2, 'create_millstone']]) },
+      { id: 'line', name: 'Línea de prensado con cinta', icon: '🏭', need: ['create_water_wheel', 'create_belt', 'create_mechanical_press', 'create_gearbox'],
+        desc: 'Una cinta lleva los lingotes por debajo de una prensa, que los aplasta al pasar. Echa lingotes al principio de la cinta y recoge las láminas al final.',
+        how: ['La rueda hidráulica mueve una caja de engranajes.', 'La caja manda el giro a la cinta y también hacia arriba.', 'Arriba, otras dos cajas llevan el giro hasta la prensa, que está encima de la cinta.', 'Tira lingotes al principio de la cinta (junto a la rueda).'],
+        parts: W.concat([[1, 1, 0, 'create_gearbox', 'x'], [1, 2, 0, 'create_shaft', 'y'], [1, 3, 0, 'create_gearbox', 'y'], [1, 3, -1, 'create_shaft', 'z'], [1, 3, -2, 'create_shaft', 'z'], [1, 3, -3, 'create_gearbox', 'z'], [2, 3, -3, 'create_mechanical_press', 'h0']]).concat([0, 1, 2, 3, 4, 5].map(i => [2, 1, -i, 'create_belt', 'h0'])) },
+      { id: 'crush', name: 'Trituradora', icon: '🪨', need: ['create_water_wheel', 'create_crushing_wheel', 'create_gearbox'],
+        desc: 'Dos ruedas trituradoras que giran a la vez: echa grava, minerales o lana por el hueco de en medio y salen triturados por debajo.',
+        how: ['La rueda hidráulica mueve la primera rueda trituradora.', 'Unas cajas de engranajes dan la vuelta al giro para mover la segunda.', 'Echa los objetos en el hueco entre las dos ruedas (desde arriba).'],
+        parts: W.concat([[1, 1, 0, 'create_shaft', 'x'], [2, 1, 0, 'create_shaft', 'x'], [3, 1, 0, 'create_crushing_wheel', 'x'], [4, 1, 0, 'create_shaft', 'x'], [5, 1, 0, 'create_gearbox', 'x'], [5, 1, -1, 'create_shaft', 'z'], [5, 1, -2, 'create_gearbox', 'x'], [4, 1, -2, 'create_shaft', 'x'], [3, 1, -2, 'create_crushing_wheel', 'x']]) },
+      { id: 'saw', name: 'Cortadora de troncos', icon: '🪚', need: ['create_water_wheel', 'create_mechanical_saw'],
+        desc: 'Una sierra mecánica que corta los troncos o plantas que tiene delante (bambú, cactus, calabazas…). Pon troncos delante de la sierra.',
+        how: ['La rueda hidráulica gira con el agua.', 'Los ejes llevan el giro a la sierra.', 'La sierra corta lo que tiene delante y lo suelta.'],
+        parts: W.concat([[1, 1, 0, 'create_shaft', 'x'], [2, 1, 0, 'create_shaft', 'x'], [3, 1, 0, 'create_mechanical_saw', 'f0']]) },
+      { id: 'turn', name: 'Plataforma giratoria', icon: '🎠', need: ['create_water_wheel', 'create_turntable', 'create_gearbox'],
+        desc: 'Una plataforma que da vueltas: súbete encima y girarás (también lo que pongas encima).',
+        how: ['La rueda hidráulica mueve una caja de engranajes.', 'La caja manda el giro hacia arriba, a la plataforma.', 'Súbete encima.'],
+        parts: W.concat([[1, 1, 0, 'create_shaft', 'x'], [2, 1, 0, 'create_gearbox', 'x'], [2, 2, 0, 'create_turntable']]) },
+      { id: 'clutch', name: 'Embrague con palanca (redstone)', icon: '🔌', need: ['create_water_wheel', 'create_clutch', 'create_mechanical_drill'],
+        desc: 'Aprende a encender y apagar máquinas con redstone: al activar la palanca, el embrague corta el giro y el taladro se para.',
+        how: ['La rueda hidráulica mueve los ejes.', 'El embrague deja pasar el giro mientras no tenga señal de redstone.', 'Haz clic en la palanca de al lado: el taladro se para. Vuelve a darle y arranca.'],
+        parts: W.concat([[1, 1, 0, 'create_shaft', 'x'], [2, 1, 0, 'create_clutch', 'x'], [2, 0, 1, 'stone'], [2, 1, 1, 'lever', 'lv'], [3, 1, 0, 'create_shaft', 'x'], [4, 1, 0, 'create_mechanical_drill', 'f0']]) },
       { id: 'motor', name: 'Motor creativo y engranajes', icon: '⚙', need: ['create_creative_motor', 'create_cogwheel', 'create_large_cogwheel'], creative: true,
         desc: 'Para aprender cómo funcionan los engranajes: un motor creativo, un engranaje grande y uno pequeño (que gira al doble de rápido).',
         how: ['El motor creativo da giro siempre (solo en creativo).', 'El engranaje grande toca en diagonal al pequeño: el pequeño va al doble de velocidad.', 'Engranajes pequeños pegados de lado giran en sentido contrario.'],
@@ -18205,6 +18225,7 @@ const CreateHelp = {
     if (!spec) return 0; const bd = BLOCKS[B[key]] || {};
     if (spec === 'x' || spec === 'y' || spec === 'z') { let a = spec; if (d & 1) a = a === 'x' ? 'z' : a === 'z' ? 'x' : 'y'; if (bd.facing6) return a === 'x' ? 0 : a === 'y' ? 2 : 4; return a === 'x' ? 4 : a === 'z' ? 8 : 0; }
     if (spec[0] === 'f') { const f = +spec[1]; if (f === 2 || f === 3) return f; const v = FDIR[f]; const [rx, rz] = this.rot(d, v[0], v[2]); return rx > 0 ? 0 : rx < 0 ? 1 : rz > 0 ? 4 : 5; }
+    if (spec === 'lv') return 3;
     if (spec[0] === 'h') { const h = (+spec[1] + d) & 3; return bd.facing ? h : h; }
     return 0;
   },
@@ -18214,7 +18235,7 @@ const CreateHelp = {
   cells() {
     const g = this.ghost; if (!g) return null; const T = Game.target; if (!T) return null;
     const [ox, oy, oz] = Game.placePos(T); const out = [];
-    for (const [dx, dy, dz, key, spec] of g.t.parts) { const [rx, rz] = this.rot(g.d, dx, dz); out.push({ x: ox + rx, y: oy + dy, z: oz + rz, key, meta: key === 'water' || key === 'stone' ? 0 : this.metaOf(key, spec, g.d) }); }
+    for (const [dx, dy, dz, key, spec] of g.t.parts) { const [rx, rz] = this.rot(g.d, dx, dz); out.push({ x: ox + rx, y: oy + dy, z: oz + rz, key, meta: key === 'water' || key === 'stone' ? 0 : key === 'lever' ? 3 : this.metaOf(key, spec, g.d) }); }
     return out;
   },
   blocked(c) { const id = World.get(c.x, c.y, c.z); return id && !REPLACE[id] && id !== B[c.key]; },
@@ -18304,11 +18325,11 @@ const CreateHelp = {
     return out;
   },
   // ---------- pantalla ----------
-  open: false,
-  close() { const el = document.getElementById('cHelp'); if (el) el.remove(); this.open = false; },
+  get open() { return !!document.getElementById('cHelp'); },
+  close() { const el = document.getElementById('cHelp'); if (el) el.remove(); },
   show(tab) {
     if (!this.has()) { Chat.add('§7El asistente de Create necesita el mod Create puesto.'); return; }
-    this.close(); this.open = true; Input.unlock(true);
+    this.close(); Input.unlock(true);
     const el = document.createElement('div'); el.id = 'cHelp';
     el.style.cssText = 'position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(10,10,14,0.6);font-family:' + FONT + ';color:#eee';
     const box = document.createElement('div'); box.style.cssText = 'background:#1f1b16f2;border:2px solid #b08a3c;border-radius:10px;padding:12px 16px;width:min(760px,94vw);max-height:90vh;overflow:auto';
@@ -18326,7 +18347,7 @@ const CreateHelp = {
     if (tab === 'montajes') {
       const intro = document.createElement('div'); intro.style.cssText = 'font-size:13px;color:#cbb;margin-bottom:6px'; intro.textContent = 'Elige una máquina: verás un holograma donde apuntas y la construyes de un clic. En supervivencia usa los bloques de tu inventario.'; body.appendChild(intro);
       for (const t of this.T()) {
-        const ok = t.need.every(k => ITEMS[k] || B[k] !== undefined) && t.parts.every(p => p[3] === 'water' || p[3] === 'stone' || B[p[3]] !== undefined);
+        const ok = t.need.every(k => ITEMS[k] || B[k] !== undefined) && t.parts.every(p => B[p[3]] !== undefined);
         const c = document.createElement('div'); c.style.cssText = 'border:1px solid #5a4a30;border-radius:8px;padding:8px 10px;margin:6px 0;background:#2a241b';
         const cnt = {}; for (const p of t.parts) { const k = this.itemFor(p[3]); cnt[k] = (cnt[k] || 0) + 1; }
         const mats = Object.keys(cnt).map(k => { const have = P.inv.reduce((a, s) => a + (s && s.id === k ? s.n : 0), 0); const okk = P.mode === 1 || have >= cnt[k]; return '<span style="color:' + (okk ? '#9e9' : '#f99') + '">' + cnt[k] + '× ' + (ITEMS[k] ? ITEMS[k].name : k) + '</span>'; }).join(' · ');
@@ -18349,10 +18370,11 @@ const CreateHelp = {
 };
 // tecla H: abrir el asistente · con holograma: R gira
 window.addEventListener('keydown', (e) => {
-  if (CreateHelp.open) { if (e.code === 'Escape' || e.code === 'KeyH') { e.preventDefault(); e.stopImmediatePropagation(); CreateHelp.close(); Input.lock(); } return; }
-  if (Game.state !== 'play' || GUI.open || UI.cur || Chat.open || !CreateHelp.has()) return;
+  // con el asistente abierto, las teclas no llegan al juego
+  if (CreateHelp.open) { if (e.code === 'Escape' || e.code === 'KeyH' || e.code === 'KeyF') { e.preventDefault(); CreateHelp.close(); Input.lock(); } e.stopImmediatePropagation(); return; }
+  if (Game.state !== 'play' || GUI.open || (UI.cur && UI.cur !== 'pause') || Chat.open || !CreateHelp.has()) return;
   if (typeof RC !== 'undefined' && RC.ctl) return;
-  if (e.code === 'KeyH') { e.preventDefault(); e.stopImmediatePropagation(); CreateHelp.show(); return; }
+  if (e.code === 'KeyH' || e.code === 'KeyF') { e.preventDefault(); e.stopImmediatePropagation(); if (UI.cur === 'pause') UI.show(null); CreateHelp.show(); return; }
   if (CreateHelp.ghost && e.code === 'KeyR') { e.preventDefault(); e.stopImmediatePropagation(); CreateHelp.ghost.d = (CreateHelp.ghost.d + 1) & 3; Sound.play('click'); }
   if (CreateHelp.ghost && e.code === 'Escape') { CreateHelp.ghost = null; }
 }, true);
