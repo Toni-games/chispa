@@ -1,8 +1,18 @@
 {
-  "latest": "1.32.1",
+  "latest": "1.33.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.33.0",
+      "date": "2026-11-24",
+      "title": "Reimagined Intro",
+      "notes": [
+        "Mod Reimagined Intro: animación de inicio con sonido (Esc/toque para saltar) y fondo animado en bucle en el menú principal"
+      ],
+      "size": 445804,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.33.0.zip"
+    },
     {
       "id": "1.32.1",
       "date": "2026-11-24",

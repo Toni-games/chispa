@@ -358,7 +358,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.32.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.33.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -13660,7 +13660,7 @@ const Addons = {
         if (low.endsWith('.jar')) {
           onMsg && onMsg('Leyendo «' + f.name + '»…'); const buf = await f.arrayBuffer(); const z = await readZip(buf);
           if (!z.names.some(p => /^assets\/[^/]+\/(blockstates|models|textures|geo)\//.test(p))) { out.push('«' + f.name + '» es un mod de Java sin bloques ni objetos que se puedan sacar: su código no puede funcionar en un navegador.'); continue; }
-          const r = await this.addPack(f.name.replace(/\.jar$/i, ''), buf, true); const known = z.names.some(p => /^assets\/(create|bicycle|effortlessbuilding|thercmod)\//.test(p)); out.push('«' + f.name + '»: ' + (r || 'nada aprovechable.') + (known ? ' Este mod está rehecho para el navegador: funciona al recargar la partida.' : ' Su código Java no funciona en un navegador: solo se usan sus bloques, objetos y texturas.')); continue;
+          const r = await this.addPack(f.name.replace(/\.jar$/i, ''), buf, true); const known = z.names.some(p => /^assets\/(create|bicycle|effortlessbuilding|thercmod|reimagined-intro)\//.test(p)); out.push('«' + f.name + '»: ' + (r || 'nada aprovechable.') + (known ? ' Este mod está rehecho para el navegador: funciona al recargar la partida.' : ' Su código Java no funciona en un navegador: solo se usan sus bloques, objetos y texturas.')); continue;
         }
         if (!/\.(zip|mrpack|rpo)$/.test(low)) { out.push('«' + f.name + '»: solo se admiten .zip, .mrpack o .jar.'); continue; }
         onMsg && onMsg('Leyendo «' + f.name + '»…');
@@ -18411,6 +18411,117 @@ window.addEventListener('touchstart', (e) => { const id = e.target && e.target.i
     g.font = `${8 * s}px ${FONT}`; const w = g.measureText(t.replace(/§./g, '')).width * 0.75; this.text(t, W / 2 - w / 2, H - 82 * s, '#ffffff', s);
   };
 }
+
+
+// ---- extra/reintro133.js ----
+// ============================================================
+//  1.33: mod «Reimagined Intro» — al abrir el juego se ve la animación de introducción con su sonido
+//  (Esc, clic o toque para saltarla) y el menú principal usa de fondo la animación en bucle del mod.
+//  Los fotogramas y el sonido se leen del .jar del jugador poco a poco (no se cargan todos a la vez).
+// ============================================================
+const ReIntro = {
+  z: null, nIntro: 0, nLoop: 0, overlay: null, audioURL: null, playing: false, done: false,
+  FRAME_MS: 40, INTRO_MS: 6440,
+  async absorb(z) {
+    const N = z.names; const pre = 'assets/reimagined-intro/textures/';
+    const cnt = (d) => N.filter(p => p.startsWith(pre + d + '/frame_') && /\.(jpe?g|png)$/i.test(p)).length;
+    if (!cnt('intro') && !cnt('loop')) return;
+    this.z = z; this.nIntro = cnt('intro'); this.nLoop = cnt('loop');
+    this.ext = (d) => N.includes(pre + d + '/frame_0001.png') ? 'png' : 'jpg';
+    const snd = N.find(p => /^assets\/reimagined-intro\/sounds\/intro\.(ogg|mp3)$/.test(p));
+    if (snd) { const b = await z.get(snd); this.audioURL = URL.createObjectURL(new Blob([b], { type: /mp3$/.test(snd) ? 'audio/mpeg' : 'audio/ogg' })); }
+    const ov = 'assets/minecraft/textures/gui/title/background/panorama_overlay.png';
+    if (N.includes(ov)) { try { this.over = await createImageBitmap(new Blob([await z.get(ov)], { type: 'image/png' })); } catch (e) { } }
+  },
+  path(dir, i) { return 'assets/reimagined-intro/textures/' + dir + '/frame_' + String(i).padStart(4, '0') + '.' + this.ext(dir); },
+  // ---------- reproductor de fotogramas (decodifica unos pocos por delante y suelta los viejos) ----------
+  player(dir, n, loop) {
+    const self = this, cache = new Map(), busy = new Set();
+    const size = () => { const k = Math.min(1, 1280 / innerWidth); return [Math.round(innerWidth * k * Math.min(2, devicePixelRatio || 1)), Math.round(innerHeight * k * Math.min(2, devicePixelRatio || 1))]; };
+    const load = async (i) => {
+      if (cache.has(i) || busy.has(i) || i < 1 || i > n) return; busy.add(i);
+      try {
+        const b = await self.z.get(self.path(dir, i)); const [w, h] = size(); const ar = 16 / 9;
+        const W = w / h > ar ? w : Math.round(h * ar), H = w / h > ar ? Math.round(w / ar) : h; // cubrir la pantalla
+        const bm = await createImageBitmap(new Blob([b], { type: self.ext(dir) === 'png' ? 'image/png' : 'image/jpeg' }), { resizeWidth: W, resizeHeight: H, resizeQuality: 'medium' });
+        cache.set(i, bm);
+      } catch (e) { } finally { busy.delete(i); }
+    };
+    return {
+      n, loop,
+      want(i) { // pide los siguientes y suelta los que ya pasaron
+        for (let k = 0; k < 8; k++) { let j = i + k; if (loop) j = ((j - 1) % n) + 1; load(j); }
+        for (const [j, bm] of cache) { const behind = loop ? ((i - j + n) % n) : (i - j); if (behind > 2 && behind < n - 8) { try { bm.close(); } catch (e) { } cache.delete(j); } }
+      },
+      get(i) { if (cache.has(i)) return cache.get(i); for (let d = 1; d < 6; d++) { const j = loop ? ((i - 1 - d + n) % n) + 1 : i - d; if (cache.has(j)) return cache.get(j); } return null; },
+      ready(k) { for (let i = 1; i <= k; i++) if (!cache.has(i)) return false; return true; },
+      free() { for (const bm of cache.values()) try { bm.close(); } catch (e) { } cache.clear(); },
+    };
+  },
+  draw(cv, bm, alpha) {
+    const g = cv.getContext('2d'); const W = cv.width = innerWidth * Math.min(2, devicePixelRatio || 1), H = cv.height = innerHeight * Math.min(2, devicePixelRatio || 1);
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H); if (!bm) return;
+    const s = Math.max(W / bm.width, H / bm.height); const w = bm.width * s, h = bm.height * s;
+    g.globalAlpha = alpha === undefined ? 1 : alpha; g.drawImage(bm, (W - w) / 2, (H - h) / 2, w, h); g.globalAlpha = 1;
+  },
+  // ---------- la introducción ----------
+  async playIntro() {
+    if (!this.z || !this.nIntro || this.playing || this.done) return; this.playing = true;
+    const ov = this.overlay = document.createElement('div'); ov.id = 'riIntro';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:200;background:#000;cursor:pointer';
+    const cv = document.createElement('canvas'); cv.style.cssText = 'width:100%;height:100%;display:block'; ov.appendChild(cv);
+    const tip = document.createElement('div'); tip.textContent = Input.touch ? 'Toca para saltar' : 'Esc para saltar';
+    tip.style.cssText = 'position:absolute;right:18px;bottom:14px;color:rgba(255,255,255,0.6);font:14px sans-serif;opacity:0;transition:opacity .4s';
+    ov.appendChild(tip); document.body.appendChild(ov);
+    let skip = false; const doSkip = (e) => { if (e) { e.preventDefault(); e.stopPropagation(); } skip = true; };
+    const key = (e) => { if (e.code === 'Escape' || e.code === 'Space' || e.code === 'Enter') doSkip(e); };
+    window.addEventListener('keydown', key, true); ov.addEventListener('mousedown', doSkip); ov.addEventListener('touchstart', doSkip, { passive: false });
+    ov.addEventListener('mousemove', () => { tip.style.opacity = 1; }); setTimeout(() => { tip.style.opacity = 1; }, 1500);
+    const P = this.player('intro', this.nIntro, false);
+    // espera a tener los primeros fotogramas listos (como mucho 2,5 s)
+    const t0w = performance.now(); P.want(1); while (!P.ready(Math.min(6, this.nIntro)) && performance.now() - t0w < 2500 && !skip) { P.want(1); await new Promise(r => setTimeout(r, 50)); }
+    let audio = null;
+    if (this.audioURL && !skip) { audio = new Audio(this.audioURL); audio.volume = clamp((Settings.music > 0 ? Settings.music : 0.6) * Settings.volume, 0, 1); try { await audio.play(); } catch (e) { } }
+    const t0 = performance.now(); const total = Math.max(this.INTRO_MS, this.nIntro * this.FRAME_MS);
+    await new Promise((res) => {
+      const step = () => {
+        const t = performance.now() - t0; if (skip || t >= total + 400) return res();
+        const i = Math.min(this.nIntro, 1 + Math.floor(t / this.FRAME_MS)); P.want(i);
+        const fade = t > total ? 1 - (t - total) / 400 : 1; this.draw(cv, P.get(i), fade);
+        requestAnimationFrame(step);
+      };
+      step();
+    });
+    window.removeEventListener('keydown', key, true);
+    if (audio) { const a = audio; let v = a.volume; const iv = setInterval(() => { v -= 0.08; if (v <= 0) { a.pause(); clearInterval(iv); } else a.volume = v; }, 40); }
+    P.free(); ov.style.transition = 'opacity .4s'; ov.style.opacity = '0'; setTimeout(() => ov.remove(), 450);
+    this.playing = false; this.done = true;
+  },
+  // ---------- fondo del menú principal en bucle ----------
+  bg: null, loopP: null, loopT0: 0, raf: 0,
+  onMenu() { return this.done && Game.state === 'title' && !this.playing; },
+  loopTick() {
+    this.raf = requestAnimationFrame(() => this.loopTick());
+    if (!this.z || !this.nLoop || Settings.riLoop === false) { if (this.bg) this.bg.style.display = 'none'; return; }
+    if (!this.onMenu()) { if (this.bg) this.bg.style.display = 'none'; if (this.loopP) { this.loopP.free(); this.loopP = null; } return; }
+    if (!this.bg) { const c = this.bg = document.createElement('canvas'); c.id = 'riBg'; c.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:3;pointer-events:none'; document.body.appendChild(c); }
+    if (!this.loopP) { this.loopP = this.player('loop', this.nLoop, true); this.loopT0 = performance.now(); }
+    const now = performance.now(); if (now - (this._last || 0) < 33) return; this._last = now;
+    const i = 1 + (Math.floor((now - this.loopT0) / this.FRAME_MS) % this.nLoop); this.loopP.want(i);
+    const bm = this.loopP.get(i); if (!bm && this.bg.style.display === 'none') return;
+    this.bg.style.display = ''; this.draw(this.bg, bm);
+    if (this.over) { const g = this.bg.getContext('2d'); g.drawImage(this.over, 0, 0, this.bg.width, this.bg.height); }
+  },
+};
+{ const a0 = JM.absorb.bind(JM); JM.absorb = async function (z) { const r = await a0(z); try { await ReIntro.absorb(z); } catch (e) { console.warn('reintro', e); } return r; }; }
+// la intro sale al llegar al menú principal la primera vez (cada vez que se abre el juego)
+{
+  const s0 = Title.start.bind(Title);
+  Title.start = function () { const r = s0(); if (ReIntro.z && !ReIntro.done && Settings.riIntro !== false) ReIntro.playIntro(); else ReIntro.done = true; return r; };
+}
+// sin la música del menú mientras suena la intro
+{ const m0 = Sound.menuTick.bind(Sound); Sound.menuTick = function () { if (ReIntro.playing) { if (this.menuPerf) this.stopMenuTheme(); return; } return m0(); }; }
+ReIntro.loopTick();
 
 // ---- 13d_enchant.js ----
 // ============================================================
