@@ -1,8 +1,21 @@
 {
-  "latest": "1.31.1",
+  "latest": "1.32.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.32.0",
+      "date": "2026-11-24",
+      "title": "Asistente de Create (tecla H)",
+      "notes": [
+        "Montajes listos: prensa automática, taladro, cinta transportadora, mezcladora, molino de viento con piedra de moler y motor con engranajes",
+        "Se ven como holograma donde apuntas, se giran con R y se construyen de un clic (en supervivencia con tus bloques)",
+        "Guía de piezas de Create y revisión de tu máquina: velocidad, fuentes de giro y qué le falta",
+        "En el móvil: botón ⚙ Create"
+      ],
+      "size": 441978,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.32.0.zip"
+    },
     {
       "id": "1.31.1",
       "date": "2026-11-23",

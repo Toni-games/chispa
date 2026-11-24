@@ -358,7 +358,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.31.1';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.32.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -18154,6 +18154,241 @@ const AndroidInbox = {
 };
 setTimeout(() => AndroidInbox.check(), 4000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => AndroidInbox.check(), 800); });
+
+
+// ---- extra/createhelp132.js ----
+// ============================================================
+//  1.32: Asistente de Create (tecla H, o el botón ⚙ en el móvil)
+//  - Montajes: máquinas ya pensadas que se ven como holograma y se construyen de un clic
+//  - Piezas: qué hace cada bloque de Create y cómo se conecta
+//  - Mi máquina: mira una pieza y te dice si gira, a qué velocidad y qué le falta
+// ============================================================
+const CreateHelp = {
+  has() { return B.create_shaft !== undefined; },
+  // ---------- montajes (mirando al norte: delante = -Z, derecha = +X; y = 0 es el suelo donde apuntas) ----------
+  // cada pieza: [dx, dy, dz, bloque, giro] · giro: 'x'/'y'/'z' (eje) · 'f0'..'f5' (cara: +x,-x,+y,-y,+z,-z) · 'h0'..'h3' (N,E,S,O)
+  water: [[0, 1, -1, 'water'], [-1, 1, -1, 'stone'], [1, 1, -1, 'stone'], [0, 1, -2, 'stone'], [0, 0, -1, 'stone'], [0, 1, 0, 'create_water_wheel', 'f0']],
+  T() {
+    const W = this.water;
+    return [
+      { id: 'press', name: 'Prensa automática', icon: '🔨', need: ['create_water_wheel', 'create_mechanical_press', 'create_depot'],
+        desc: 'Una rueda hidráulica mueve una prensa. Deja lingotes de hierro, cobre u oro encima del depósito y la prensa los aplasta en láminas.',
+        how: ['La rueda gira porque tiene agua al lado (dentro del cajón de piedra).', 'Los ejes llevan el giro hasta la prensa.', 'La prensa baja sobre el depósito, que está 2 bloques por debajo.', 'Pon un lingote en el depósito con clic derecho.'],
+        parts: W.concat([[1, 1, 0, 'create_shaft', 'x'], [2, 1, 0, 'create_shaft', 'x'], [3, 1, 0, 'create_shaft', 'x'], [4, 2, 0, 'create_shaft', 'y'], [4, 1, 0, 'create_gearbox', 'x'], [4, 3, 0, 'create_gearbox', 'y'], [5, 3, 0, 'create_mechanical_press', 'h0'], [5, 1, 0, 'create_depot']]) },
+      { id: 'drill', name: 'Taladro automático', icon: '⛏', need: ['create_water_wheel', 'create_mechanical_drill'],
+        desc: 'Un taladro que rompe solo el bloque que tiene delante. Perfecto para minar piedra sin parar (con un generador de piedra delante).',
+        how: ['La rueda hidráulica gira con el agua.', 'Tres ejes llevan el giro al taladro.', 'El taladro rompe el bloque de delante y suelta lo que da.'],
+        parts: W.concat([[1, 1, 0, 'create_shaft', 'x'], [2, 1, 0, 'create_shaft', 'x'], [3, 1, 0, 'create_shaft', 'x'], [4, 1, 0, 'create_mechanical_drill', 'f0']]) },
+      { id: 'belt', name: 'Cinta transportadora', icon: '➡', need: ['create_water_wheel', 'create_belt'],
+        desc: 'Una cinta de 6 bloques que lleva objetos (y a ti) hacia delante. Una rueda hidráulica la mueve desde un lado.',
+        how: ['La rueda gira con el agua.', 'Un eje lleva el giro hasta el principio de la cinta.', 'Tira objetos encima y verás cómo avanzan.'],
+        parts: W.concat([[1, 1, 0, 'create_shaft', 'x']]).concat([0, 1, 2, 3, 4, 5].map(i => [2, 1, -i, 'create_belt', 'h0'])) },
+      { id: 'mixer', name: 'Mezcladora a manivela', icon: '🥣', need: ['create_mechanical_mixer', 'create_basin', 'create_hand_crank', 'create_cogwheel'],
+        desc: 'Mezcla lo que echas en el recipiente (por ejemplo, para hacer aleación de andesita). Funciona mientras giras la manivela.',
+        how: ['Haz clic derecho en la manivela para darle vueltas.', 'El eje sube el giro hasta el engranaje.', 'El engranaje mueve la mezcladora, que está 2 bloques encima del recipiente.', 'Echa los ingredientes en el recipiente (tíralos encima).'],
+        parts: [[0, 0, -1, 'create_basin'], [0, 2, -1, 'create_mechanical_mixer'], [1, 2, -1, 'create_cogwheel', 'y'], [1, 1, -1, 'create_shaft', 'y'], [1, 0, -1, 'create_hand_crank', 'f2']] },
+      { id: 'windmill', name: 'Molino de viento con piedra de moler', icon: '🌬', need: ['create_windmill_bearing', 'create_white_sail', 'create_millstone'],
+        desc: 'Un molino con 13 velas que gira solo, sin agua. Abajo, una piedra de moler convierte trigo en harina, grava en pedernal, etc.',
+        how: ['El cojinete de molino necesita 8 velas o más delante.', 'El eje sale por detrás y la caja de engranajes lo manda hacia abajo.', 'La piedra de moler recibe el giro desde arriba: echa cosas encima.'],
+        parts: [[0, 4, 0, 'create_windmill_bearing', 'f5']].concat(
+          [[0, 4], [0, 5], [0, 6], [0, 7], [0, 3], [0, 2], [0, 1], [1, 4], [2, 4], [3, 4], [-1, 4], [-2, 4], [-3, 4]].map(([x, y]) => [x, y, -1, 'create_white_sail', 'f5']),
+          [[0, 4, 1, 'create_shaft', 'z'], [0, 4, 2, 'create_gearbox', 'z'], [0, 3, 2, 'create_shaft', 'y'], [0, 2, 2, 'create_shaft', 'y'], [0, 1, 2, 'create_shaft', 'y'], [0, 0, 2, 'create_millstone']]) },
+      { id: 'motor', name: 'Motor creativo y engranajes', icon: '⚙', need: ['create_creative_motor', 'create_cogwheel', 'create_large_cogwheel'], creative: true,
+        desc: 'Para aprender cómo funcionan los engranajes: un motor creativo, un engranaje grande y uno pequeño (que gira al doble de rápido).',
+        how: ['El motor creativo da giro siempre (solo en creativo).', 'El engranaje grande toca en diagonal al pequeño: el pequeño va al doble de velocidad.', 'Engranajes pequeños pegados de lado giran en sentido contrario.'],
+        parts: [[0, 1, 0, 'create_creative_motor', 'f4'], [0, 1, -1, 'create_large_cogwheel', 'z'], [1, 2, -1, 'create_cogwheel', 'z'], [2, 2, -1, 'create_cogwheel', 'z'], [2, 2, -2, 'create_shaft', 'z'], [2, 2, -3, 'create_shaft', 'z']] },
+    ];
+  },
+  // ---------- giro de las piezas según hacia dónde miras ----------
+  rot(d, x, z) { return d === 0 ? [x, z] : d === 1 ? [-z, x] : d === 2 ? [-x, -z] : [z, -x]; },
+  metaOf(key, spec, d) {
+    if (!spec) return 0; const bd = BLOCKS[B[key]] || {};
+    if (spec === 'x' || spec === 'y' || spec === 'z') { let a = spec; if (d & 1) a = a === 'x' ? 'z' : a === 'z' ? 'x' : 'y'; if (bd.facing6) return a === 'x' ? 0 : a === 'y' ? 2 : 4; return a === 'x' ? 4 : a === 'z' ? 8 : 0; }
+    if (spec[0] === 'f') { const f = +spec[1]; if (f === 2 || f === 3) return f; const v = FDIR[f]; const [rx, rz] = this.rot(d, v[0], v[2]); return rx > 0 ? 0 : rx < 0 ? 1 : rz > 0 ? 4 : 5; }
+    if (spec[0] === 'h') { const h = (+spec[1] + d) & 3; return bd.facing ? h : h; }
+    return 0;
+  },
+  // ---------- holograma ----------
+  ghost: null,
+  startGhost(t) { this.close(); const P = Game.player; this.ghost = { t, d: facingFromYaw(P.yaw) }; Chat.add('§b' + t.name + '§7: ' + (Input.touch ? 'apunta al suelo y toca ✔ para construir (✖ cancela, 🔄 gira)' : 'apunta al suelo · R gira · clic derecho construye · clic izquierdo cancela')); },
+  cells() {
+    const g = this.ghost; if (!g) return null; const T = Game.target; if (!T) return null;
+    const [ox, oy, oz] = Game.placePos(T); const out = [];
+    for (const [dx, dy, dz, key, spec] of g.t.parts) { const [rx, rz] = this.rot(g.d, dx, dz); out.push({ x: ox + rx, y: oy + dy, z: oz + rz, key, meta: key === 'water' || key === 'stone' ? 0 : this.metaOf(key, spec, g.d) }); }
+    return out;
+  },
+  blocked(c) { const id = World.get(c.x, c.y, c.z); return id && !REPLACE[id] && id !== B[c.key]; },
+  itemFor(key) { if (key === 'water') return 'water_bucket'; if (key === 'stone') return 'cobblestone'; return key; },
+  build() {
+    const P = Game.player; const cs = this.cells(); if (!cs) { Chat.add('§7Apunta a un bloque del suelo para colocar la máquina.'); return; }
+    if (cs.some(c => this.blocked(c))) { Chat.add('§cNo cabe: hay bloques en medio (los marcados en rojo).'); return; }
+    if (P.mode !== 1) {
+      const need = {}; for (const c of cs) { if (World.get(c.x, c.y, c.z) === B[c.key]) continue; const k = this.itemFor(c.key); need[k] = (need[k] || 0) + 1; }
+      const have = (k) => P.inv.reduce((a, s) => a + (s && (s.id === k || (k === 'cobblestone' && /^(cobblestone|stone|cobbled_deepslate|andesite|diorite|granite)$/.test(s.id))) ? s.n : 0), 0);
+      const miss = Object.keys(need).filter(k => have(k) < need[k]);
+      if (miss.length) { Chat.add('§cTe falta: §f' + miss.map(k => (need[k] - have(k)) + '× ' + (ITEMS[k] ? ITEMS[k].name : k)).join(', ')); return; }
+      for (const k in need) { let n = need[k]; for (let i = 0; i < P.inv.length && n > 0; i++) { const s = P.inv[i]; if (!s || !(s.id === k || (k === 'cobblestone' && /^(cobblestone|stone|cobbled_deepslate|andesite|diorite|granite)$/.test(s.id)))) continue; if (k === 'water_bucket') { P.inv[i] = { id: 'bucket', n: 1 }; n--; continue; } const t = Math.min(n, s.n); s.n -= t; n -= t; if (!s.n) P.inv[i] = null; } }
+    }
+    for (const c of cs) { if (B[c.key] === undefined) continue; World.set(c.x, c.y, c.z, B[c.key], c.meta); }
+    Sound.play('place', cs[0].x, cs[0].y, cs[0].z); Chat.add('§a¡' + this.ghost.t.name + ' construida! §7' + this.ghost.t.how[this.ghost.t.how.length - 1]);
+    this.ghost = null;
+  },
+  drawGhost() {
+    const cs = this.cells(); if (!cs) return; const R = Renderer, gl = R.gl, e = 0.02;
+    R.dBegin();
+    for (const c of cs) { const bad = this.blocked(c), done = World.get(c.x, c.y, c.z) === B[c.key]; const [r, g, b] = bad ? [1, 0.25, 0.25] : done ? [0.4, 1, 0.4] : c.key === 'water' ? [0.3, 0.5, 1] : [0.45, 0.85, 1]; lineBox(c.x + e, c.y + e, c.z + e, c.x + 1 - e, c.y + 1 - e, c.z + 1 - e, r, g, b, 0.9); }
+    gl.enable(gl.BLEND); R.dFlush('lines', R.whiteTex, R.pv, R.view, 0, 0); gl.disable(gl.BLEND);
+  },
+  // ---------- piezas ----------
+  INFO: {
+    create_shaft: ['Eje', 'Pasa el giro en línea recta. Ponlos seguidos para llevar el giro lejos.'],
+    create_cogwheel: ['Engranaje', 'Pasa el giro a los engranajes que toca de lado (en sentido contrario). Con uno grande en diagonal gira al doble.'],
+    create_large_cogwheel: ['Engranaje grande', 'Con un engranaje pequeño en diagonal cambia la velocidad: el pequeño va el doble de rápido.'],
+    create_gearbox: ['Caja de engranajes', 'Cambia la dirección del giro: entra por un lado y sale por los otros cuatro.'],
+    create_water_wheel: ['Rueda hidráulica', 'Fuente de giro: gira si tiene agua pegada a su alrededor. Da 8 RPM.'],
+    create_large_water_wheel: ['Rueda hidráulica grande', 'Como la normal pero más lenta (4 RPM) y busca el agua más lejos.'],
+    create_windmill_bearing: ['Cojinete de molino', 'Fuente de giro: con 8 velas o más delante gira solo. Cuantas más velas, más rápido.'],
+    create_white_sail: ['Vela', 'Ponlas delante del cojinete de molino (al menos 8).'],
+    create_hand_crank: ['Manivela', 'Fuente de giro a mano: haz clic derecho para darle vueltas un rato.'],
+    create_creative_motor: ['Motor creativo', 'Fuente de giro infinita (solo creativo). 32 RPM.'],
+    create_mechanical_press: ['Prensa mecánica', 'Aplasta lo que hay 2 bloques por debajo (en un depósito o en una cinta): lingotes → láminas.'],
+    create_depot: ['Depósito', 'Una mesa para dejar un objeto con clic derecho; la prensa trabaja sobre él.'],
+    create_basin: ['Recipiente', 'Aquí se echan los ingredientes para la mezcladora (que va 2 bloques encima).'],
+    create_mechanical_mixer: ['Mezcladora mecánica', 'Mezcla lo que hay en el recipiente de debajo. Recibe el giro como un engranaje.'],
+    create_blaze_burner: ['Quemador de blaze', 'Debajo del recipiente: da el calor que piden algunas mezclas.'],
+    create_millstone: ['Piedra de moler', 'Muele lo que le echas encima. Recibe el giro desde arriba o abajo.'],
+    create_crushing_wheel: ['Rueda trituradora', 'Dos juntas trituran lo que cae entre ellas.'],
+    create_mechanical_drill: ['Taladro mecánico', 'Rompe el bloque que tiene delante mientras gira.'],
+    create_mechanical_saw: ['Sierra mecánica', 'Corta troncos y plantas que tiene delante.'],
+    create_encased_fan: ['Ventilador', 'Empuja objetos y jugadores; con agua delante lava, con lava o fuego ahúma y funde.'],
+    create_belt: ['Cinta transportadora', 'Lleva objetos y criaturas. Recibe el giro por un lado de sus extremos.'],
+    create_clutch: ['Embrague', 'Con señal de redstone corta el giro.'],
+    create_gearshift: ['Cambio de marcha', 'Con señal de redstone invierte el sentido del giro.'],
+    create_encased_chain_drive: ['Transmisión por cadena', 'Pasa el giro a otras transmisiones pegadas de lado.'],
+    create_speedometer: ['Velocímetro', 'Muestra la velocidad del eje que lo atraviesa.'],
+    create_turntable: ['Plataforma giratoria', 'Hace girar lo que está encima.'],
+    create_mechanical_bearing: ['Cojinete mecánico', 'Hace girar estructuras pegadas a él.'],
+    create_flywheel: ['Volante', 'Decorativo: gira con el eje.'],
+    create_mechanical_pump: ['Bomba mecánica', 'Mueve fluidos por las tuberías.'],
+  },
+  // ---------- mi máquina ----------
+  analyze() {
+    const T = Game.target; if (!T) return ['Mira una pieza de Create (un eje, un engranaje, una máquina…) y vuelve a abrir el asistente.'];
+    const k = T.x + ',' + T.y + ',' + T.z; const nodes = Kinetic.nodes; const n = nodes && nodes.get(k);
+    if (!n) return ['«' + (BLOCKS[T.id] ? BLOCKS[T.id].name : '?') + '» no es una pieza que gire.', 'Mira un eje, un engranaje o una máquina de Create.'];
+    const sp = Kinetic.speed.get(k) || 0; const out = [];
+    out.push((this.INFO[n.def ? BLOCKS[n.id].key : ''] || [BLOCKS[n.id].name])[0] + ': ' + (sp ? '§agira a ' + Math.abs(sp) + ' RPM ' + (sp > 0 ? '(sentido horario)' : '(sentido antihorario)') : '§cestá parado'));
+    // red: piezas conectadas
+    const seen = new Set([k]), q = [n], net = [];
+    while (q.length && net.length < 600) { const a = q.shift(); net.push(a); for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) { if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > 2 || (!dx && !dy && !dz)) continue; const kk = (a.x + dx) + ',' + (a.y + dy) + ',' + (a.z + dz); const b = nodes.get(kk); if (b && !seen.has(kk)) { seen.add(kk); q.push(b); } } }
+    const src = net.filter(m => m.def.kind === 'source');
+    out.push('Piezas conectadas: ' + net.length + ' · fuentes de giro: ' + src.length);
+    if (!src.length) out.push('§e⚠ No hay ninguna fuente de giro conectada. Pon una rueda hidráulica con agua, un molino de viento, una manivela o un motor creativo.');
+    for (const s of src) {
+      const on = Kinetic.speed.get(s.x + ',' + s.y + ',' + s.z); const key = BLOCKS[s.id].key;
+      if (on) { out.push('✔ ' + this.INFO[key][0] + ' funcionando'); continue; }
+      if (key === 'create_water_wheel' || key === 'create_large_water_wheel') out.push('§e⚠ La rueda hidráulica no tiene agua pegada. Pon agua al lado (en el plano en el que gira).');
+      else if (key === 'create_windmill_bearing') out.push('§e⚠ El molino tiene ' + Kinetic.sailCount(s) + ' velas: necesita 8 o más delante del cojinete.');
+      else if (key === 'create_hand_crank') out.push('§e⚠ La manivela está quieta: haz clic derecho en ella para girarla.');
+      else out.push('§e⚠ ' + (this.INFO[key] ? this.INFO[key][0] : key) + ' no da giro.');
+    }
+    const stopped = net.filter(m => !Kinetic.speed.get(m.x + ',' + m.y + ',' + m.z));
+    if (src.some(s => Kinetic.speed.get(s.x + ',' + s.y + ',' + s.z)) && stopped.length) out.push('§e⚠ ' + stopped.length + ' piezas tocan la máquina pero no reciben giro: revisa que los ejes estén en el mismo eje o usa una caja de engranajes para girar la esquina.');
+    for (const m of net) {
+      const key = BLOCKS[m.id].key;
+      if (m.def.kind === 'press' && !SOLID[World.get(m.x, m.y - 2, m.z)]) out.push('§e⚠ La prensa no tiene nada 2 bloques debajo: pon un depósito o una cinta.');
+      if (m.def.machine === 'mixer' && World.get(m.x, m.y - 2, m.z) !== B.create_basin) out.push('§e⚠ La mezcladora necesita un recipiente 2 bloques por debajo.');
+      if (m.def.kind === 'drill' && !Kinetic.speed.get(m.x + ',' + m.y + ',' + m.z)) out.push('§e⚠ El taladro está parado.');
+      void key;
+    }
+    return out;
+  },
+  // ---------- pantalla ----------
+  open: false,
+  close() { const el = document.getElementById('cHelp'); if (el) el.remove(); this.open = false; },
+  show(tab) {
+    if (!this.has()) { Chat.add('§7El asistente de Create necesita el mod Create puesto.'); return; }
+    this.close(); this.open = true; Input.unlock(true);
+    const el = document.createElement('div'); el.id = 'cHelp';
+    el.style.cssText = 'position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(10,10,14,0.6);font-family:' + FONT + ';color:#eee';
+    const box = document.createElement('div'); box.style.cssText = 'background:#1f1b16f2;border:2px solid #b08a3c;border-radius:10px;padding:12px 16px;width:min(760px,94vw);max-height:90vh;overflow:auto';
+    el.appendChild(box); document.body.appendChild(el);
+    el.addEventListener('mousedown', (e) => { if (e.target === el) { this.close(); Input.lock(); } });
+    const tabs = [['montajes', '🛠 Montajes'], ['piezas', '⚙ Piezas'], ['maquina', '🔍 Mi máquina']]; tab = tab || this.tab || 'montajes'; this.tab = tab;
+    const bt = (t, on, f, extra) => { const b = document.createElement('button'); b.textContent = t; b.style.cssText = 'margin:3px;padding:7px 11px;border-radius:7px;border:2px solid ' + (on ? '#e0b050' : '#5a4a30') + ';background:' + (on ? '#4a3a1e' : '#2c261c') + ';color:#eee;font:inherit;font-size:14px;cursor:pointer;' + (extra || ''); b.onclick = f; return b; };
+    const head = document.createElement('div'); head.style.cssText = 'display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:8px';
+    const ttl = document.createElement('div'); ttl.textContent = 'Asistente de Create'; ttl.style.cssText = 'font-size:19px;color:#e0b050;margin-right:10px'; head.appendChild(ttl);
+    for (const [k, l] of tabs) head.appendChild(bt(l, k === tab, () => this.show(k)));
+    head.appendChild(bt('✖', false, () => { this.close(); Input.lock(); }, 'margin-left:auto'));
+    box.appendChild(head);
+    const body = document.createElement('div'); box.appendChild(body);
+    const P = Game.player;
+    if (tab === 'montajes') {
+      const intro = document.createElement('div'); intro.style.cssText = 'font-size:13px;color:#cbb;margin-bottom:6px'; intro.textContent = 'Elige una máquina: verás un holograma donde apuntas y la construyes de un clic. En supervivencia usa los bloques de tu inventario.'; body.appendChild(intro);
+      for (const t of this.T()) {
+        const ok = t.need.every(k => ITEMS[k] || B[k] !== undefined) && t.parts.every(p => p[3] === 'water' || p[3] === 'stone' || B[p[3]] !== undefined);
+        const c = document.createElement('div'); c.style.cssText = 'border:1px solid #5a4a30;border-radius:8px;padding:8px 10px;margin:6px 0;background:#2a241b';
+        const cnt = {}; for (const p of t.parts) { const k = this.itemFor(p[3]); cnt[k] = (cnt[k] || 0) + 1; }
+        const mats = Object.keys(cnt).map(k => { const have = P.inv.reduce((a, s) => a + (s && s.id === k ? s.n : 0), 0); const okk = P.mode === 1 || have >= cnt[k]; return '<span style="color:' + (okk ? '#9e9' : '#f99') + '">' + cnt[k] + '× ' + (ITEMS[k] ? ITEMS[k].name : k) + '</span>'; }).join(' · ');
+        c.innerHTML = '<div style="font-size:16px;color:#ffd890">' + t.icon + ' ' + t.name + (t.creative ? ' <span style="font-size:11px;color:#9cf">(creativo)</span>' : '') + '</div><div style="font-size:13px;margin:3px 0">' + t.desc + '</div><ol style="font-size:12px;color:#ccb;margin:4px 0 4px 18px;padding:0">' + t.how.map(h => '<li>' + h + '</li>').join('') + '</ol><div style="font-size:12px">Materiales: ' + mats + '</div>';
+        const b = bt(ok ? '👁 Ver holograma y construir' : 'Faltan bloques de Create', false, () => { if (ok) { this.startGhost(t); Input.lock(); } }); if (!ok) b.disabled = true; c.appendChild(b); body.appendChild(c);
+      }
+    } else if (tab === 'piezas') {
+      const g = document.createElement('div'); g.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px';
+      for (const k in this.INFO) { if (B[k] === undefined && !ITEMS[k]) continue; const [n, d] = this.INFO[k]; const it = document.createElement('div'); it.style.cssText = 'border:1px solid #5a4a30;border-radius:7px;padding:6px 8px;background:#2a241b;font-size:12px';
+        const r = (typeof RECIPES !== 'undefined') && RECIPES.find(x => x.out === k); const ing = r ? [...new Set((r.type === 'shaped' ? Object.values(r.keys || {}) : r.ins || []).flat().map(i => String(i)).map(i => ITEMS[i] ? ITEMS[i].name : i.replace(/^#/, 'cualquier ').replace(/_/g, ' ')))].slice(0, 5).join(', ') : '';
+        it.innerHTML = '<div style="color:#ffd890;font-size:14px">' + n + '</div>' + d + (ing ? '<div style="color:#aa9;margin-top:3px">Se fabrica con: ' + ing + '</div>' : ''); g.appendChild(it); }
+      body.appendChild(g);
+    } else {
+      const L = this.analyze(); const d = document.createElement('div'); d.style.cssText = 'font-size:15px;line-height:1.6';
+      d.innerHTML = L.map(s => '<div>' + s.replace(/§a/g, '<span style="color:#7e7">').replace(/§c/g, '<span style="color:#f77">').replace(/§e/g, '<span style="color:#fd6">') + '</div>').join('');
+      body.appendChild(d);
+      const tip = document.createElement('div'); tip.style.cssText = 'font-size:12px;color:#aa9;margin-top:8px'; tip.textContent = 'Consejo: cierra, mira otra pieza y vuelve a abrir esta pestaña para revisarla.'; body.appendChild(tip);
+    }
+  },
+};
+// tecla H: abrir el asistente · con holograma: R gira
+window.addEventListener('keydown', (e) => {
+  if (CreateHelp.open) { if (e.code === 'Escape' || e.code === 'KeyH') { e.preventDefault(); e.stopImmediatePropagation(); CreateHelp.close(); Input.lock(); } return; }
+  if (Game.state !== 'play' || GUI.open || UI.cur || Chat.open || !CreateHelp.has()) return;
+  if (typeof RC !== 'undefined' && RC.ctl) return;
+  if (e.code === 'KeyH') { e.preventDefault(); e.stopImmediatePropagation(); CreateHelp.show(); return; }
+  if (CreateHelp.ghost && e.code === 'KeyR') { e.preventDefault(); e.stopImmediatePropagation(); CreateHelp.ghost.d = (CreateHelp.ghost.d + 1) & 3; Sound.play('click'); }
+  if (CreateHelp.ghost && e.code === 'Escape') { CreateHelp.ghost = null; }
+}, true);
+// holograma: clic derecho construye, clic izquierdo cancela (también con ✋ y ⛏ en el móvil)
+const createGhostClick = (button, ev) => {
+  if (!CreateHelp.ghost || Game.state !== 'play' || GUI.open || UI.cur) return false;
+  ev.stopImmediatePropagation(); ev.preventDefault();
+  if (button === 2) CreateHelp.build(); else { CreateHelp.ghost = null; Chat.add('§7Holograma cancelado.'); }
+  Input.mouse[0] = Input.mouse[2] = false; return true;
+};
+window.addEventListener('mousedown', (e) => { if (Input.locked || Input.freeLook) createGhostClick(e.button, e); }, true);
+window.addEventListener('touchstart', (e) => { const id = e.target && e.target.id; if (id === 'tUse' || id === 'tMine') createGhostClick(id === 'tUse' ? 2 : 0, e); }, { capture: true, passive: false });
+{ const ds0 = drawSelection; drawSelection = function () { ds0(); if (CreateHelp.ghost && Game.state === 'play') try { CreateHelp.drawGhost(); } catch (e) { } }; }
+// botones del móvil
+{
+  const b0 = TouchMods.btns.bind(TouchMods);
+  TouchMods.btns = function () {
+    const out = b0(); const P = Game.player;
+    if (!P || Game.state !== 'play' || UI.cur || GUI.open || EBUI.open || CreateHelp.open || !CreateHelp.has() || (typeof RC !== 'undefined' && RC.ctl) || P.riding) return out;
+    if (CreateHelp.ghost) out.unshift({ id: 'cgr', label: '🔄 Girar máquina', down: () => { CreateHelp.ghost.d = (CreateHelp.ghost.d + 1) & 3; } });
+    out.unshift({ id: 'cre', label: '⚙ Create', down: () => CreateHelp.show() });
+    return out;
+  };
+  const l0 = TouchLabels.update.bind(TouchLabels);
+  TouchLabels.update = function () { l0(); if (CreateHelp.ghost && Input.touch) { this.set('tUse', '✔', 'Construir'); this.set('tMine', '✖', 'Cancelar'); } };
+}
+// texto en pantalla con el holograma
+{
+  const hd0 = HUD.draw.bind(HUD);
+  HUD.draw = function () {
+    hd0(); if (!CreateHelp.ghost || Game.state !== 'play' || GUI.open || Game.hideHud) return;
+    const g = this.g, W = this.cv.width, H = this.cv.height, s = this.scale();
+    const t = '§b' + CreateHelp.ghost.t.name + '§f · ' + (Input.touch ? '✔ construir · ✖ cancelar · 🔄 girar' : 'clic derecho: construir · clic izquierdo: cancelar · R: girar');
+    g.font = `${8 * s}px ${FONT}`; const w = g.measureText(t.replace(/§./g, '')).width * 0.75; this.text(t, W / 2 - w / 2, H - 82 * s, '#ffffff', s);
+  };
+}
 
 // ---- 13d_enchant.js ----
 // ============================================================
