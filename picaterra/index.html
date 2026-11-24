@@ -358,7 +358,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.33.0';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.33.1';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -4384,6 +4384,33 @@ async function readZip(buf) {
       if (e.method === 0) return data;
       if (e.method !== 8 || typeof DecompressionStream !== 'function') throw new Error('compresión no admitida');
       return new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+    },
+  };
+}
+// igual que readZip pero sin cargar el archivo entero en memoria: solo lee del disco lo que se pide (mods grandes = arranque rápido)
+async function readZipBlob(blob) {
+  if (!(blob instanceof Blob)) return readZip(blob instanceof ArrayBuffer ? blob : await new Response(blob).arrayBuffer());
+  if (blob.size < 48e6) { const z = await readZip(await blob.arrayBuffer()); z.blob = blob; return z; } // los pequeños, de una vez a memoria (más rápido con miles de archivos)
+  const size = blob.size, tailN = Math.min(size, 65557 + 22);
+  const tail = new Uint8Array(await blob.slice(size - tailN).arrayBuffer()), tv = new DataView(tail.buffer); let eocd = -1;
+  for (let i = tail.length - 22; i >= 0; i--) if (tv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('no es un archivo .zip');
+  const n = tv.getUint16(eocd + 10, true), cdSize = tv.getUint32(eocd + 12, true), cdOff = tv.getUint32(eocd + 16, true);
+  const cd = new Uint8Array(await blob.slice(cdOff, cdOff + cdSize).arrayBuffer()), dv = new DataView(cd.buffer);
+  const ents = new Map(); const dec = new TextDecoder(); let off = 0;
+  for (let k = 0; k < n && off + 46 <= cd.length; k++) {
+    if (dv.getUint32(off, true) !== 0x02014b50) break;
+    const method = dv.getUint16(off + 10, true), csize = dv.getUint32(off + 20, true), nl = dv.getUint16(off + 28, true), xl = dv.getUint16(off + 30, true), cl = dv.getUint16(off + 32, true), lho = dv.getUint32(off + 42, true);
+    ents.set(dec.decode(cd.subarray(off + 46, off + 46 + nl)), { method, csize, lho }); off += 46 + nl + xl + cl;
+  }
+  return {
+    names: [...ents.keys()], blob,
+    async get(name) {
+      const e = ents.get(name); const h = new DataView(await blob.slice(e.lho, e.lho + 30).arrayBuffer());
+      const start = e.lho + 30 + h.getUint16(26, true) + h.getUint16(28, true); const part = blob.slice(start, start + e.csize);
+      if (e.method === 0) return new Uint8Array(await part.arrayBuffer());
+      if (e.method !== 8 || typeof DecompressionStream !== 'function') throw new Error('compresión no admitida');
+      return new Uint8Array(await new Response(part.stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
     },
   };
 }
@@ -13192,14 +13219,25 @@ const JM = {
   },
   // lee del zip lo que sirve: modelos, estados de bloque, definiciones de objeto y texturas
   async absorb(z) {
-    const dec = new TextDecoder();
+    const dec = new TextDecoder(); const jobs = [];
     for (const p of z.names) {
-      const ge = p.match(/(?:^|\/)assets\/([^/]+)\/(geo\/.+\.json)$/i); if (ge) { this.geoFiles = this.geoFiles || {}; try { this.geoFiles[(ge[1] + ':' + ge[2]).toLowerCase()] = JSON.parse(dec.decode(await z.get(p))); } catch (e) { } continue; }
+      const ge = p.match(/(?:^|\/)assets\/([^/]+)\/(geo\/.+\.json)$/i); if (ge) { jobs.push([p, 'geo', ge]); continue; }
       const ob = p.match(/(?:^|\/)assets\/([^/]+)\/(models\/.+\.(obj|mtl))$/i); if (ob) { this.objFiles = this.objFiles || {}; this.objFiles[(ob[1] + ':' + ob[2]).toLowerCase()] = { z, p }; continue; }
       const m = p.match(/(?:^|\/)assets\/([^/]+)\/(models|blockstates|items|textures)\/(.+)\.(json|png)$/i); if (!m || /__MACOSX/.test(p)) continue;
       const [, ns, kind, path, ext] = m; const k = (ns + ':' + path).toLowerCase();
       if (ext.toLowerCase() === 'png') { if (kind === 'textures') this.texFiles[k] = { z, p }; continue; }
-      let j = null; try { j = JSON.parse(dec.decode(await z.get(p)).replace(/^﻿/, '')); } catch (e) { continue; }
+      if (kind === 'items' && ns !== 'minecraft') continue;
+      jobs.push([p, 'json', m]);
+    }
+    // se descomprimen muchos a la vez (antes uno detrás de otro: el arranque con mods grandes tardaba muchísimo)
+    const out = new Array(jobs.length); let next = 0;
+    const work = async () => { while (next < jobs.length) { const i = next++; try { out[i] = dec.decode(await z.get(jobs[i][0])); } catch (e) { out[i] = null; } } };
+    await Promise.all(Array.from({ length: 24 }, work));
+    for (let i = 0; i < jobs.length; i++) {
+      const [, type, m] = jobs[i]; const txt = out[i]; if (txt == null) continue;
+      if (type === 'geo') { this.geoFiles = this.geoFiles || {}; try { this.geoFiles[(m[1] + ':' + m[2]).toLowerCase()] = JSON.parse(txt); } catch (e) { } continue; }
+      const [, ns, kind, path] = m; const k = (ns + ':' + path).toLowerCase();
+      let j = null; try { j = JSON.parse(txt.replace(/^\uFEFF/, '')); } catch (e) { continue; }
       if (kind === 'models') this.models[k] = j; else if (kind === 'blockstates') this.states[ns === 'minecraft' ? path.toLowerCase() : (ns + '_' + path).toLowerCase()] = j; else if (kind === 'items' && ns === 'minecraft') this.items[path.toLowerCase()] = j;
     }
   },
@@ -13723,7 +13761,7 @@ const Addons = {
   // lista de bloques/objetos/recetas de los mods activos (se lee al arrancar, antes de crear los bloques)
   async saveSpec() {
     await this.load(); const zips = [];
-    for (const a of this.list) { if (!a.enabled || !a.mod) continue; try { const blob = await Store.get('kv', 'addon:' + a.id); if (!blob) continue; const z = await readZip(await blob.arrayBuffer()); if (z.names.some(p => /^assets\/(?!minecraft\/)[^/]+\/(blockstates|models)\//.test(p))) zips.push(z); } catch (e) { } }
+    for (const a of this.list) { if (!a.enabled || !a.mod) continue; try { const blob = await Store.get('kv', 'addon:' + a.id); if (!blob) continue; const z = await readZipBlob(blob); if (z.names.some(p => /^assets\/(?!minecraft\/)[^/]+\/(blockstates|models)\//.test(p))) zips.push(z); } catch (e) { } }
     if (!zips.length) { localStorage.removeItem(DYN.KEY); return 0; }
     const sp = await DYN.spec(zips); try { localStorage.setItem(DYN.KEY, JSON.stringify(sp)); } catch (e) { console.warn(e); } return sp.blocks.length;
   },
@@ -13735,7 +13773,7 @@ const Addons = {
       if (!a.enabled) continue;
       try {
         const blob = await Store.get('kv', 'addon:' + a.id); if (!blob) continue;
-        const z = await readZip(await blob.arrayBuffer()); const N = z.names;
+        const z = await readZipBlob(blob); const N = z.names;
         const url = async (p) => blobToURL(new Blob([await z.get(p)], { type: 'image/png' }));
         // modelos y animaciones de criaturas
         for (const p of N) if (/\/(optifine|emf)\/cem\/[^/]+\.(jem|jpm)$/i.test(p)) CEM.add(p.split('/').pop(), new TextDecoder().decode(await z.get(p)));
@@ -18420,96 +18458,132 @@ window.addEventListener('touchstart', (e) => { const id = e.target && e.target.i
 //  Los fotogramas y el sonido se leen del .jar del jugador poco a poco (no se cargan todos a la vez).
 // ============================================================
 const ReIntro = {
-  z: null, nIntro: 0, nLoop: 0, overlay: null, audioURL: null, playing: false, done: false,
-  FRAME_MS: 40, INTRO_MS: 6440,
+  z: null, nIntro: 0, nLoop: 0, overlay: null, audioURL: null, playing: false, done: false, frames: {},
+  FRAME_MS: 40, INTRO_MS: 6440, W: 960, H: 540,
   async absorb(z) {
     const N = z.names; const pre = 'assets/reimagined-intro/textures/';
-    const cnt = (d) => N.filter(p => p.startsWith(pre + d + '/frame_') && /\.(jpe?g|png)$/i.test(p)).length;
-    if (!cnt('intro') && !cnt('loop')) return;
-    this.z = z; this.nIntro = cnt('intro'); this.nLoop = cnt('loop');
-    this.ext = (d) => N.includes(pre + d + '/frame_0001.png') ? 'png' : 'jpg';
+    const list = (d) => N.filter(p => p.startsWith(pre + d + '/frame_') && /\.(jpe?g|png)$/i.test(p)).sort();
+    const li = list('intro'), ll = list('loop'); if (!li.length && !ll.length) return;
+    this.z = z; this.paths = { intro: li, loop: ll }; this.nIntro = li.length; this.nLoop = ll.length;
+    this.key = 'ri3:' + li.length + '_' + ll.length + '_' + (z.blob ? z.blob.size : 0);
     const snd = N.find(p => /^assets\/reimagined-intro\/sounds\/intro\.(ogg|mp3)$/.test(p));
     if (snd) { const b = await z.get(snd); this.audioURL = URL.createObjectURL(new Blob([b], { type: /mp3$/.test(snd) ? 'audio/mpeg' : 'audio/ogg' })); }
     const ov = 'assets/minecraft/textures/gui/title/background/panorama_overlay.png';
-    if (N.includes(ov)) { try { this.over = await createImageBitmap(new Blob([await z.get(ov)], { type: 'image/png' })); } catch (e) { } }
+    if (N.includes(ov)) this.over = await loadImg(URL.createObjectURL(new Blob([await z.get(ov)], { type: 'image/png' })));
   },
-  path(dir, i) { return 'assets/reimagined-intro/textures/' + dir + '/frame_' + String(i).padStart(4, '0') + '.' + this.ext(dir); },
-  // ---------- reproductor de fotogramas (decodifica unos pocos por delante y suelta los viejos) ----------
-  player(dir, n, loop) {
-    const self = this, cache = new Map(), busy = new Set();
-    const size = () => { const k = Math.min(1, 1280 / innerWidth); return [Math.round(innerWidth * k * Math.min(2, devicePixelRatio || 1)), Math.round(innerHeight * k * Math.min(2, devicePixelRatio || 1))]; };
-    const load = async (i) => {
-      if (cache.has(i) || busy.has(i) || i < 1 || i > n) return; busy.add(i);
-      try {
-        const b = await self.z.get(self.path(dir, i)); const [w, h] = size(); const ar = 16 / 9;
-        const W = w / h > ar ? w : Math.round(h * ar), H = w / h > ar ? Math.round(w / ar) : h; // cubrir la pantalla
-        const bm = await createImageBitmap(new Blob([b], { type: self.ext(dir) === 'png' ? 'image/png' : 'image/jpeg' }), { resizeWidth: W, resizeHeight: H, resizeQuality: 'medium' });
-        cache.set(i, bm);
-      } catch (e) { } finally { busy.delete(i); }
-    };
+  // ---------- preparación (una sola vez): los fotogramas enormes del mod se pasan a 960×540 y se guardan ----------
+  async prep(dir, onProg) {
+    if (this.frames[dir]) return this.frames[dir];
+    if (this['_p' + dir]) return this['_p' + dir];
+    return this['_p' + dir] = (async () => {
+      let arr = null; try { arr = await Store.get('kv', this.key + ':' + dir); } catch (e) { }
+      if (Array.isArray(arr) && arr.length === this.paths[dir].length && arr.every(b => b instanceof Blob)) return this.frames[dir] = arr.map(b => URL.createObjectURL(b));
+      const P = this.paths[dir], out = new Array(P.length); let done = 0;
+      const cv = document.createElement('canvas'); cv.width = this.W; cv.height = this.H; const g = cv.getContext('2d');
+      let next = 0; const work = async () => {
+        while (next < P.length) {
+          const i = next++; const bytes = await this.z.get(P[i]); const u = URL.createObjectURL(new Blob([bytes], { type: /png$/i.test(P[i]) ? 'image/png' : 'image/jpeg' }));
+          const im = await loadImg(u); URL.revokeObjectURL(u);
+          if (im) { g.fillStyle = '#000'; g.fillRect(0, 0, this.W, this.H); const s = Math.max(this.W / im.width, this.H / im.height); g.drawImage(im, (this.W - im.width * s) / 2, (this.H - im.height * s) / 2, im.width * s, im.height * s); }
+          out[i] = await new Promise(r => cv.toBlob(b => r(b || new Blob()), 'image/jpeg', 0.82));
+          done++; if (onProg) onProg(done / P.length);
+        }
+      };
+      await Promise.all([work(), work()]);
+      try { await Store.put('kv', this.key + ':' + dir, out); } catch (e) { }
+      return this.frames[dir] = out.map(b => URL.createObjectURL(b));
+    })();
+  },
+  // reproductor: decodifica unos pocos fotogramas por delante; si uno no llega a tiempo se queda el anterior (nunca negro)
+  player(urls, loop) {
+    const n = urls.length, cache = new Map();
+    const load = (i) => { if (cache.has(i)) return; const im = new Image(); const e = { im, ok: false }; cache.set(i, e); im.onload = () => { e.ok = true; }; im.src = urls[i - 1]; };
+    let last = null;
     return {
-      n, loop,
-      want(i) { // pide los siguientes y suelta los que ya pasaron
-        for (let k = 0; k < 8; k++) { let j = i + k; if (loop) j = ((j - 1) % n) + 1; load(j); }
-        for (const [j, bm] of cache) { const behind = loop ? ((i - j + n) % n) : (i - j); if (behind > 2 && behind < n - 8) { try { bm.close(); } catch (e) { } cache.delete(j); } }
+      n,
+      want(i) {
+        for (let k = 0; k < 10; k++) { let j = i + k; if (loop) j = ((j - 1) % n) + 1; else if (j > n) break; load(j); }
+        for (const j of [...cache.keys()]) { const behind = loop ? ((i - j + n) % n) : (i - j); if (behind > 1 && behind < n - 10) cache.delete(j); }
       },
-      get(i) { if (cache.has(i)) return cache.get(i); for (let d = 1; d < 6; d++) { const j = loop ? ((i - 1 - d + n) % n) + 1 : i - d; if (cache.has(j)) return cache.get(j); } return null; },
-      ready(k) { for (let i = 1; i <= k; i++) if (!cache.has(i)) return false; return true; },
-      free() { for (const bm of cache.values()) try { bm.close(); } catch (e) { } cache.clear(); },
+      get(i) { const e = cache.get(i); if (e && e.ok) last = e.im; return last; },
+      ready(k) { for (let i = 1; i <= Math.min(k, n); i++) { const e = cache.get(i); if (!e || !e.ok) return false; } return true; },
     };
   },
-  draw(cv, bm, alpha) {
-    const g = cv.getContext('2d'); const W = cv.width = innerWidth * Math.min(2, devicePixelRatio || 1), H = cv.height = innerHeight * Math.min(2, devicePixelRatio || 1);
-    g.fillStyle = '#000'; g.fillRect(0, 0, W, H); if (!bm) return;
-    const s = Math.max(W / bm.width, H / bm.height); const w = bm.width * s, h = bm.height * s;
-    g.globalAlpha = alpha === undefined ? 1 : alpha; g.drawImage(bm, (W - w) / 2, (H - h) / 2, w, h); g.globalAlpha = 1;
+  draw(cv, im, alpha) {
+    const W = innerWidth * Math.min(2, devicePixelRatio || 1), H = innerHeight * Math.min(2, devicePixelRatio || 1);
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const g = cv.getContext('2d'); g.globalAlpha = 1; g.fillStyle = '#000'; g.fillRect(0, 0, W, H); if (!im) return;
+    const s = Math.max(W / im.width, H / im.height); const w = im.width * s, h = im.height * s;
+    g.globalAlpha = alpha === undefined ? 1 : Math.max(0, alpha); g.drawImage(im, (W - w) / 2, (H - h) / 2, w, h); g.globalAlpha = 1;
   },
   // ---------- la introducción ----------
   async playIntro() {
     if (!this.z || !this.nIntro || this.playing || this.done) return; this.playing = true;
     const ov = this.overlay = document.createElement('div'); ov.id = 'riIntro';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:200;background:#000;cursor:pointer';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:200;background:#000;cursor:pointer;user-select:none';
     const cv = document.createElement('canvas'); cv.style.cssText = 'width:100%;height:100%;display:block'; ov.appendChild(cv);
+    const msg = document.createElement('div'); msg.style.cssText = 'position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:#fff;font:18px sans-serif;text-shadow:0 2px 4px #000';
+    ov.appendChild(msg);
     const tip = document.createElement('div'); tip.textContent = Input.touch ? 'Toca para saltar' : 'Esc para saltar';
-    tip.style.cssText = 'position:absolute;right:18px;bottom:14px;color:rgba(255,255,255,0.6);font:14px sans-serif;opacity:0;transition:opacity .4s';
+    tip.style.cssText = 'position:absolute;right:18px;bottom:14px;color:rgba(255,255,255,0.6);font:14px sans-serif';
     ov.appendChild(tip); document.body.appendChild(ov);
-    let skip = false; const doSkip = (e) => { if (e) { e.preventDefault(); e.stopPropagation(); } skip = true; };
-    const key = (e) => { if (e.code === 'Escape' || e.code === 'Space' || e.code === 'Enter') doSkip(e); };
-    window.addEventListener('keydown', key, true); ov.addEventListener('mousedown', doSkip); ov.addEventListener('touchstart', doSkip, { passive: false });
-    ov.addEventListener('mousemove', () => { tip.style.opacity = 1; }); setTimeout(() => { tip.style.opacity = 1; }, 1500);
-    const P = this.player('intro', this.nIntro, false);
-    // espera a tener los primeros fotogramas listos (como mucho 2,5 s)
-    const t0w = performance.now(); P.want(1); while (!P.ready(Math.min(6, this.nIntro)) && performance.now() - t0w < 2500 && !skip) { P.want(1); await new Promise(r => setTimeout(r, 50)); }
-    let audio = null;
-    if (this.audioURL && !skip) { audio = new Audio(this.audioURL); audio.volume = clamp((Settings.music > 0 ? Settings.music : 0.6) * Settings.volume, 0, 1); try { await audio.play(); } catch (e) { } }
-    const t0 = performance.now(); const total = Math.max(this.INTRO_MS, this.nIntro * this.FRAME_MS);
-    await new Promise((res) => {
-      const step = () => {
-        const t = performance.now() - t0; if (skip || t >= total + 400) return res();
-        const i = Math.min(this.nIntro, 1 + Math.floor(t / this.FRAME_MS)); P.want(i);
-        const fade = t > total ? 1 - (t - total) / 400 : 1; this.draw(cv, P.get(i), fade);
-        requestAnimationFrame(step);
-      };
-      step();
-    });
-    window.removeEventListener('keydown', key, true);
-    if (audio) { const a = audio; let v = a.volume; const iv = setInterval(() => { v -= 0.08; if (v <= 0) { a.pause(); clearInterval(iv); } else a.volume = v; }, 40); }
-    P.free(); ov.style.transition = 'opacity .4s'; ov.style.opacity = '0'; setTimeout(() => ov.remove(), 450);
-    this.playing = false; this.done = true;
+    let skip = false, tapWait = null;
+    const press = (e, isKey) => { if (e) { e.preventDefault(); e.stopPropagation(); } if (tapWait && !isKey) { const f = tapWait; tapWait = null; f(); return; } skip = true; if (tapWait) { const f = tapWait; tapWait = null; f(); } };
+    const key = (e) => { if (e.code === 'Escape') press(e, true); else if ((e.code === 'Space' || e.code === 'Enter')) press(e, !tapWait); };
+    window.addEventListener('keydown', key, true); ov.addEventListener('pointerdown', (e) => press(e, false));
+    try {
+      // 1) fotogramas preparados (la primera vez tarda unos segundos; luego ya está guardado)
+      const urls = await Promise.race([this.prep('intro', (f) => { msg.textContent = 'Preparando la intro… ' + Math.round(f * 100) + '%'; }), new Promise(r => { const iv = setInterval(() => { if (skip) { clearInterval(iv); r(null); } }, 100); })]);
+      if (skip || !urls) return;
+      msg.textContent = '';
+      const P = this.player(urls, false); const t0w = performance.now();
+      P.want(1); while (!P.ready(10) && performance.now() - t0w < 4000 && !skip) await new Promise(r => setTimeout(r, 30));
+      if (skip) return;
+      this.draw(cv, P.get(1));
+      // 2) sonido (si el navegador no deja que suene solo, se pide un toque)
+      let audio = null;
+      if (this.audioURL) {
+        audio = new Audio(this.audioURL); audio.volume = clamp((Settings.music > 0 ? Settings.music : 0.6) * (Settings.volume ?? 1), 0, 1);
+        try { await audio.play(); } catch (e) {
+          msg.textContent = Input.touch ? '▶ Toca para ver la intro' : '▶ Haz clic para ver la intro (Esc para saltar)'; tip.style.display = 'none';
+          await new Promise(r => { tapWait = r; }); msg.textContent = ''; tip.style.display = '';
+          if (skip) return; try { audio.currentTime = 0; await audio.play(); } catch (e2) { audio = null; }
+        }
+      }
+      // 3) reproducir sincronizado con el sonido
+      const t0 = performance.now(); const total = Math.max(this.INTRO_MS, this.nIntro * this.FRAME_MS);
+      await new Promise((res) => {
+        const step = () => {
+          const t = audio && !audio.paused && audio.currentTime > 0 ? Math.max(audio.currentTime * 1000, performance.now() - t0 - 300) : performance.now() - t0;
+          if (skip || t >= total + 400) return res();
+          const i = Math.min(this.nIntro, 1 + Math.floor(t / this.FRAME_MS)); P.want(i);
+          this.draw(cv, P.get(i), t > total ? 1 - (t - total) / 400 : 1);
+          requestAnimationFrame(step);
+        };
+        step();
+      });
+      if (audio) { const a = audio; let v = a.volume; const iv = setInterval(() => { v -= 0.08; if (v <= 0) { a.pause(); clearInterval(iv); } else a.volume = v; }, 40); if (skip) this._skipAudio = a; }
+    } catch (e) { console.warn('reintro', e); }
+    finally {
+      window.removeEventListener('keydown', key, true);
+      ov.style.transition = 'opacity .4s'; ov.style.opacity = '0'; ov.style.pointerEvents = 'none'; setTimeout(() => ov.remove(), 450);
+      this.playing = false; this.done = true;
+      this.prep('loop').catch(() => { }); // el fondo del menú se prepara después, sin molestar
+    }
   },
   // ---------- fondo del menú principal en bucle ----------
   bg: null, loopP: null, loopT0: 0, raf: 0,
   onMenu() { return this.done && Game.state === 'title' && !this.playing; },
   loopTick() {
     this.raf = requestAnimationFrame(() => this.loopTick());
-    if (!this.z || !this.nLoop || Settings.riLoop === false) { if (this.bg) this.bg.style.display = 'none'; return; }
-    if (!this.onMenu()) { if (this.bg) this.bg.style.display = 'none'; if (this.loopP) { this.loopP.free(); this.loopP = null; } return; }
-    if (!this.bg) { const c = this.bg = document.createElement('canvas'); c.id = 'riBg'; c.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:3;pointer-events:none'; document.body.appendChild(c); }
-    if (!this.loopP) { this.loopP = this.player('loop', this.nLoop, true); this.loopT0 = performance.now(); }
+    const urls = this.frames.loop;
+    if (!urls || !this.onMenu()) { if (this.bg) this.bg.style.display = 'none'; this.loopP = null; return; }
+    if (!this.bg) { const c = this.bg = document.createElement('canvas'); c.id = 'riBg'; c.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;display:none'; document.body.appendChild(c); }
+    if (!this.loopP) { this.loopP = this.player(urls, true); this.loopT0 = performance.now(); }
     const now = performance.now(); if (now - (this._last || 0) < 33) return; this._last = now;
     const i = 1 + (Math.floor((now - this.loopT0) / this.FRAME_MS) % this.nLoop); this.loopP.want(i);
-    const bm = this.loopP.get(i); if (!bm && this.bg.style.display === 'none') return;
-    this.bg.style.display = ''; this.draw(this.bg, bm);
+    const im = this.loopP.get(i); if (!im) return;
+    this.bg.style.display = ''; this.draw(this.bg, im);
     if (this.over) { const g = this.bg.getContext('2d'); g.drawImage(this.over, 0, 0, this.bg.width, this.bg.height); }
   },
 };
@@ -18517,7 +18591,7 @@ const ReIntro = {
 // la intro sale al llegar al menú principal la primera vez (cada vez que se abre el juego)
 {
   const s0 = Title.start.bind(Title);
-  Title.start = function () { const r = s0(); if (ReIntro.z && !ReIntro.done && Settings.riIntro !== false) ReIntro.playIntro(); else ReIntro.done = true; return r; };
+  Title.start = function () { const r = s0(); if (ReIntro.z && !ReIntro.done && Settings.riIntro !== false) ReIntro.playIntro(); else if (ReIntro.z && !ReIntro.done) { ReIntro.done = true; ReIntro.prep('loop').catch(() => { }); } return r; };
 }
 // sin la música del menú mientras suena la intro
 { const m0 = Sound.menuTick.bind(Sound); Sound.menuTick = function () { if (ReIntro.playing) { if (this.menuPerf) this.stopMenuTheme(); return; } return m0(); }; }

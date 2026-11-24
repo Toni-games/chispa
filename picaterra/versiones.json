@@ -1,8 +1,19 @@
 {
-  "latest": "1.33.0",
+  "latest": "1.33.1",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.33.1",
+      "date": "2026-11-24",
+      "title": "Intro arreglada y carga más rápida",
+      "notes": [
+        "Reimagined Intro: los fotogramas se preparan una vez y se guardan (ya no sale en negro); si el navegador no deja sonar, pide un toque",
+        "Carga de mods mucho más rápida (Create y otros grandes: unas 2 veces más rápido)"
+      ],
+      "size": 447215,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.33.1.zip"
+    },
     {
       "id": "1.33.0",
       "date": "2026-11-24",
