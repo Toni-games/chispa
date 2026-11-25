@@ -1,8 +1,19 @@
 {
-  "latest": "1.33.2",
+  "latest": "1.34.0",
   "launcher": "1.0.0",
   "launcherUrl": "https://github.com/Toni-games/chispa/releases",
   "versions": [
+    {
+      "id": "1.34.0",
+      "date": "2026-11-25",
+      "title": "Spatial GUI",
+      "notes": [
+        "Mod Spatial GUI: inventario, cofres y mesas como pantalla en 3D, con la cámara en 3ª persona viendo al personaje",
+        "Efectos del mundo de fondo y opciones en Opciones → Spatial GUI…"
+      ],
+      "size": 456641,
+      "url": "https://toni-games.github.io/chispa/picaterra-versiones/picaterra-1.34.0.zip"
+    },
     {
       "id": "1.33.2",
       "date": "2026-11-24",

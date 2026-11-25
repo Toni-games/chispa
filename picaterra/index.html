@@ -358,7 +358,7 @@
 // ============================================================
 //  Picaterra · HTML Edition — utilidades
 // ============================================================
-const GAME_VERSION = '1.33.2';  // versión del juego (el launcher la usa para actualizar)
+const GAME_VERSION = '1.34.0';  // versión del juego (el launcher la usa para actualizar)
 const CS = 16;            // tamaño de chunk
 const WH = 128;           // altura del mundo
 const SEA = 62;           // nivel del mar
@@ -11854,13 +11854,13 @@ const ItemMeshes = {
 };
 
 // ---------------- cámara y render ----------------
-const Cam = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, fovMul: 1 };
+const Cam = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, fovMul: 1, rcf: null, sgf: null, cf() { return this.rcf || this.sgf; } };
 const _m = M4.create(), _m2 = M4.create(), _m3 = M4.create();
 function setupCamera() {
   const R = Renderer; const P = Game.player; const pt = Game.partial;
   let x, y, z, yaw, pitch, roll = 0;
   if (Cam.override) { x = Title.cx + 0.5; y = Title.cy; z = Title.cz + 0.5; yaw = Cam.override.yaw; pitch = Cam.override.pitch; }
-  else if (Cam.rcf && P && Game.state === 'play') { const c = Cam.rcf(pt); x = c.x; y = c.y; z = c.z; yaw = c.yaw; pitch = c.pitch; roll = c.roll || 0; }
+  else if (Cam.cf() && P && Game.state === 'play') { const c = Cam.cf()(pt); x = c.x; y = c.y; z = c.z; yaw = c.yaw; pitch = c.pitch; roll = c.roll || 0; }
   else if (Game.state === 'title' || !P) {
     Title.t += 0.0015; x = Title.cx + 0.5; y = Title.cy; z = Title.cz + 0.5; yaw = Title.t; pitch = -0.18;
   } else {
@@ -11874,7 +11874,7 @@ function setupCamera() {
   const far = Math.max(260, Perf.dist() * 16 * 1.6);
   M4.persp(R.proj, fov, R.W / R.H, 0.05, far);
   // tercera persona
-  if (P && Game.state === 'play' && Game.cam > 0 && !Cam.rcf) {
+  if (P && Game.state === 'play' && Game.cam > 0 && !Cam.cf()) {
     const back = Game.cam === 1 ? 1 : -1; const [dx, dy, dz] = lookDir(yaw, pitch);
     let dist = 4; const r = Game.raycast(x, y, z, -dx * back, -dy * back, -dz * back, 4, false, true);
     if (r) dist = Math.max(0.3, r.t - 0.2);
@@ -11884,7 +11884,7 @@ function setupCamera() {
   Cam.x = x; Cam.y = y; Cam.z = z; Cam.yaw = yaw; Cam.pitch = pitch;
   const V = M4.identity(R.view);
   // balanceo y daño (solo 1ª persona)
-  if (P && Game.state === 'play' && Game.cam === 0 && !Cam.rcf) {
+  if (P && Game.state === 'play' && Game.cam === 0 && !Cam.cf()) {
     if (P.dmgTilt > 0) M4.rotZ(V, Math.sin(P.dmgTilt * P.dmgTilt * Math.PI) * 0.25 * (P.hurtDir || 1));
     if (Settings.bobbing && !P.flying) {
       const wd = lerp(P.prevWalkDist, P.walkDist, pt), b = lerp(P.prevBob, P.bob, pt);
@@ -11944,7 +11944,7 @@ function renderFrame() {
   drawParticles(cam);
   drawNameTags(cam);
   if (Game.chunkBorders && P) drawChunkBorders();
-  if (P && Game.state === 'play' && Game.cam === 0 && !Cam.rcf && !Game.hideHud && !P.dead && P.mode !== 3) { Shaders.hand = true; try { drawHand(); } finally { Shaders.hand = false; } }
+  if (P && Game.state === 'play' && Game.cam === 0 && !Cam.cf() && !Game.hideHud && !P.dead && P.mode !== 3) { Shaders.hand = true; try { drawHand(); } finally { Shaders.hand = false; } }
   if (SX) Shaders.end(R);
 }
 
@@ -12034,7 +12034,7 @@ function drawEntities(Pw, cam) {
     }
   }
   // jugador en 3ª persona
-  if (P && Game.state === 'play' && (Game.cam > 0 || Cam.rcf) && P.mode !== 3) drawPlayerModel(Pw, P);
+  if (P && Game.state === 'play' && (Game.cam > 0 || Cam.cf()) && P.mode !== 3) drawPlayerModel(Pw, P);
   // otros jugadores
   if (Net.active) for (const r of Net.remote.values()) if (r.placed) drawRemote(Pw, r);
   gl.uniform4f(Pw.u.uTint, 0, 0, 0, 0); gl.uniform2f(Pw.u.uLightMul, 1, 1); gl.uniform2f(Pw.u.uAtlas, R.atlasW, R.atlasH); gl.bindTexture(gl.TEXTURE_2D, R.atlasTex);
@@ -13698,8 +13698,8 @@ const Addons = {
       try {
         if (low.endsWith('.jar')) {
           onMsg && onMsg('Leyendo «' + f.name + '»…'); const buf = await f.arrayBuffer(); const z = await readZip(buf);
-          if (!z.names.some(p => /^assets\/[^/]+\/(blockstates|models|textures|geo)\//.test(p))) { out.push('«' + f.name + '» es un mod de Java sin bloques ni objetos que se puedan sacar: su código no puede funcionar en un navegador.'); continue; }
-          const r = await this.addPack(f.name.replace(/\.jar$/i, ''), buf, true); const known = z.names.some(p => /^assets\/(create|bicycle|effortlessbuilding|thercmod|reimagined-intro)\//.test(p)); out.push('«' + f.name + '»: ' + (r || 'nada aprovechable.') + (known ? ' Este mod está rehecho para el navegador: funciona al recargar la partida.' : ' Su código Java no funciona en un navegador: solo se usan sus bloques, objetos y texturas.')); continue;
+          if (!z.names.some(p => /^assets\/[^/]+\/(blockstates|models|textures|geo)\//.test(p) || /^assets\/spatial-gui\//.test(p))) { out.push('«' + f.name + '» es un mod de Java sin bloques ni objetos que se puedan sacar: su código no puede funcionar en un navegador.'); continue; }
+          const r = await this.addPack(f.name.replace(/\.jar$/i, ''), buf, true); const known = z.names.some(p => /^assets\/(create|bicycle|effortlessbuilding|thercmod|reimagined-intro|spatial-gui)\//.test(p)); out.push('«' + f.name + '»: ' + (r || 'nada aprovechable.') + (known ? ' Este mod está rehecho para el navegador: funciona al recargar la partida.' : ' Su código Java no funciona en un navegador: solo se usan sus bloques, objetos y texturas.')); continue;
         }
         if (!/\.(zip|mrpack|rpo)$/.test(low)) { out.push('«' + f.name + '»: solo se admiten .zip, .mrpack o .jar.'); continue; }
         onMsg && onMsg('Leyendo «' + f.name + '»…');
@@ -13752,6 +13752,7 @@ const Addons = {
     if (info.models) parts.push(info.models + ' modelos 3D de bloques y objetos');
     if (info.gui) parts.push('interfaz');
     if (info.spl) parts.push('frases del menú');
+    if (N.some(p => /^assets\/spatial-gui\//.test(p))) parts.push('interfaz en 3D (Spatial GUI)');
     if (!parts.length) return null;
     let desc = '';
     try { const mm = N.find(p => /(^|\/)pack\.mcmeta$/i.test(p)); if (mm) { const j = JSON.parse(new TextDecoder().decode(await z.get(mm)).replace(/^﻿/, '')); const d = j.pack && j.pack.description; desc = (typeof d === 'string' ? d : Array.isArray(d) ? d.map(x => x.text || x).join('') : (d && d.text) || '').replace(/§./g, ''); } } catch (e) { }
@@ -18786,6 +18787,207 @@ const CreateGen = {
   };
   const s0 = UI.show.bind(UI);
   UI.show = function (n) { const r = s0.apply(this, arguments); if (n === 'create') { add(); const el = document.getElementById('cCreateGen'); if (el) { el.parentNode.style.display = CreateGen.ready && B.create_shaft !== undefined ? '' : 'none'; el.value = '1'; } } return r; };
+}
+
+
+// ---- extra/spatialgui134.js ----
+// ============================================================
+//  1.34: mod «Spatial GUI» — el inventario, los cofres, hornos, mesas… se ven como una pantalla en 3D
+//  flotando delante del jugador. En 3ª persona la cámara se aparta y se ve al personaje mirando la pantalla.
+//  Efectos del mundo de fondo (atenuar, oscuro, gris, desaturar, pixelado, desenfoque), animación al abrir
+//  y opciones propias (Opciones → Spatial GUI…). Se activa solo si el .jar del mod está puesto.
+// ============================================================
+const SpatialGUI = {
+  has: false,
+  DEF: { sgOn: true, sgView: 'third', sgSide: 'right', sgEffect: 'dim', sgYaw: 18, sgPitch: 4, sgDist: 100, sgAnim: true },
+  get(k) { return Settings[k] !== undefined ? Settings[k] : this.DEF[k]; },
+  active() { return this.has && this.get('sgOn') && Game.state === 'play'; },
+  absorb(z) { if (z.names.some(p => /^assets\/spatial-gui\//.test(p) || p === 'spatial-gui.mixins.json')) this.has = true; },
+  // ---------- elementos de la página ----------
+  els() {
+    if (this.panel) return;
+    const pc = this.panel = document.createElement('canvas'); pc.id = 'sgPanel';
+    pc.style.cssText = 'position:fixed;left:0;top:0;z-index:4;pointer-events:none;display:none;image-rendering:pixelated;transform-origin:50% 50%;will-change:transform,opacity';
+    document.body.appendChild(pc);
+    const px = this.pix = document.createElement('canvas'); px.id = 'sgPix';
+    px.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;display:none;image-rendering:pixelated';
+    const gl = document.getElementById('gl'); gl.parentNode.insertBefore(px, gl.nextSibling);
+    this.off = document.createElement('canvas');
+  },
+  // ---------- estado de apertura (animación) ----------
+  t: 0, openK: 0, was: null,
+  tick(dt) {
+    const want = this.active() && !!GUI.open;
+    if (want && !this.was) { this.t0 = performance.now(); this.was = GUI.open; }
+    if (!want && this.was) { this.was = null; this.tClose = performance.now(); }
+    const k = this.openK; const sp = this.get('sgAnim') ? dt / 0.28 : 1;
+    this.openK = want ? Math.min(1, k + sp) : Math.max(0, k - sp * 1.4);
+  },
+  ease(t) { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); }, // «back», como el mod
+  // ---------- dónde se coloca la pantalla (en CSS) ----------
+  transform() {
+    const side = this.get('sgSide') === 'left' ? -1 : 1, third = this.get('sgView') === 'third';
+    const W = innerWidth, H = innerHeight; const k = this.ease(this.openK);
+    const yaw = -side * this.get('sgYaw') * (third ? 1 : 0.6), pitch = this.get('sgPitch');
+    const shift = third ? side * W * 0.16 : side * W * 0.04; const sc = (0.85 + 0.15 * k) * (this.get('sgDist') / 100);
+    return { css: `perspective(${Math.round(Math.max(W, H) * 1.1)}px) translateX(${shift.toFixed(1)}px) rotateY(${yaw}deg) rotateX(${pitch}deg) scale(${sc.toFixed(4)})`, op: Math.min(1, this.openK * 1.6) };
+  },
+  // de un punto de la pantalla (px de CSS) al punto de la pantalla 3D (px de CSS dentro del lienzo)
+  unproject(X, Y) {
+    const r = this.rect; if (!r || !this.M) return [X, Y];
+    const M = this.M, ox = r.w / 2, oy = r.h / 2; const x = X - r.x - ox, y = Y - r.y - oy;
+    const a = M.m11 - x * M.m14, b = M.m21 - x * M.m24, c = x * M.m44 - M.m41;
+    const d = M.m12 - y * M.m14, e = M.m22 - y * M.m24, f = y * M.m44 - M.m42;
+    const det = a * e - b * d; if (Math.abs(det) < 1e-9) return [-1e5, -1e5];
+    return [(c * e - b * f) / det + ox, (a * f - c * d) / det + oy];
+  },
+  // ---------- se dibuja la interfaz en un lienzo aparte y se pone en el plano 3D ----------
+  drawGUI(orig) {
+    this.els(); const H = HUD, off = this.off;
+    if (off.width !== H.cv.width || off.height !== H.cv.height) { off.width = H.cv.width; off.height = H.cv.height; }
+    const g = off.getContext('2d'); g.clearRect(0, 0, off.width, off.height); g.imageSmoothingEnabled = false;
+    // sin el velo oscuro de pantalla completa (lo pone el efecto del mundo)
+    if (!g._sgPatched) { const fr = g.fillRect.bind(g); g.fillRect = function (x, y, w, h) { if (x === 0 && y === 0 && w === off.width && h === off.height && /16,\s*16,\s*16/.test(String(this.fillStyle))) return; return fr(x, y, w, h); }; g._sgPatched = true; }
+    const hg = H.g, hc = H.cv; H.g = g; H.cv = off;
+    try { orig(); } finally { H.g = hg; H.cv = hc; }
+    // recorte alrededor del panel (con margen para pestañas, libro de recetas y descripciones)
+    const s = GUI.s || H.scale(), dpr = H.dpr || 1; const rb = typeof RecipeBook !== 'undefined' && RecipeBook.active && RecipeBook.active() ? 154 * s : 0;
+    const pad = 34 * s; let x0 = Math.max(0, Math.floor(GUI.ox - rb - pad)), y0 = Math.max(0, Math.floor(GUI.oy - pad)), x1 = Math.min(off.width, Math.ceil(GUI.ox + GUI.w * s + pad)), y1 = Math.min(off.height, Math.ceil(GUI.oy + GUI.h * s + pad));
+    const pc = this.panel; const cw = x1 - x0, ch = y1 - y0;
+    if (pc.width !== cw || pc.height !== ch) { pc.width = cw; pc.height = ch; }
+    const pg = pc.getContext('2d'); pg.clearRect(0, 0, cw, ch); pg.drawImage(off, x0, y0, cw, ch, 0, 0, cw, ch);
+    this.crop = { x0, y0, dpr };
+    const r = this.rect = { x: x0 / dpr, y: y0 / dpr, w: cw / dpr, h: ch / dpr };
+    pc.style.left = r.x + 'px'; pc.style.top = r.y + 'px'; pc.style.width = r.w + 'px'; pc.style.height = r.h + 'px';
+    const T = this.transform(); pc.style.transform = T.css; pc.style.opacity = T.op; pc.style.display = '';
+    try { this.M = new DOMMatrix(T.css); } catch (e) { this.M = new DOMMatrix(getComputedStyle(pc).transform); }
+  },
+  // GUI.mx/my (px del lienzo HUD) → coordenadas dentro del plano
+  mapMouse() {
+    if (!this.rect || !this.crop) return;
+    const dpr = this.crop.dpr, hr = HUD.cv.getBoundingClientRect();
+    const [u, v] = this.unproject(GUI.mx / dpr + hr.left, GUI.my / dpr + hr.top);
+    GUI.mx = this.crop.x0 + u * dpr; GUI.my = this.crop.y0 + v * dpr;
+  },
+  // ---------- efecto del mundo de fondo ----------
+  effect() {
+    const gl = document.getElementById('gl'); if (!gl) return; const k = this.openK; const e = this.active() ? this.get('sgEffect') : 'none';
+    let f = '';
+    if (k > 0.001) {
+      if (e === 'dim') f = `brightness(${1 - 0.4 * k})`;
+      else if (e === 'dark') f = `brightness(${1 - 0.7 * k})`;
+      else if (e === 'grayscale') f = `grayscale(${k}) brightness(${1 - 0.15 * k})`;
+      else if (e === 'desaturate') f = `saturate(${1 - 0.65 * k}) brightness(${1 - 0.1 * k})`;
+      else if (e === 'blur') f = `blur(${(3 * k).toFixed(2)}px) brightness(${1 - 0.15 * k})`;
+    }
+    if (gl.style.filter !== f && !gl.classList.contains('panoBlur')) gl.style.filter = f;
+    // pixelado: se copia el mundo en pequeño y se amplía sin suavizar
+    const px = this.pix; if (!px) return;
+    if (e === 'pixelate' && k > 0.001) {
+      const q = Math.max(2, Math.round(2 + 6 * k)); const w = Math.max(1, Math.floor(gl.width / q)), h = Math.max(1, Math.floor(gl.height / q));
+      if (px.width !== w || px.height !== h) { px.width = w; px.height = h; }
+      const g = px.getContext('2d'); g.imageSmoothingEnabled = true; try { g.drawImage(gl, 0, 0, w, h); } catch (err) { }
+      px.style.display = '';
+    } else px.style.display = 'none';
+  },
+  // ---------- cámara en 3ª persona apartada a un lado ----------
+  camK: 0,
+  cam(pt) {
+    const P = Game.player; const [ex, ey, ez] = Game.eyePos(pt); const k = this.camK, e = k * k * (3 - 2 * k);
+    const side = this.get('sgSide') === 'left' ? -1 : 1;
+    const yaw = P.yaw, pitch = clamp(P.pitch, -0.35, 0.35) * (1 - e) + (-0.12) * e;
+    const [fx, , fz] = lookDir(yaw, 0); const rx = -fz, rz = fx; // derecha
+    let tx = -fx * 2.6 + rx * side * 1.2, ty = 0.35, tz = -fz * 2.6 + rz * side * 1.2;
+    const L = Math.hypot(tx, ty, tz); const hit = Game.raycast(ex, ey, ez, tx / L, ty / L, tz / L, L, false, true);
+    const d = hit ? Math.max(0.3, hit.t - 0.25) / L : 1;
+    return { x: ex + tx * d * e, y: ey + ty * d * e, z: ez + tz * d * e, yaw: yaw + side * 0.12 * e, pitch: lerp(P.pitch, pitch, e), roll: 0 };
+  },
+};
+// ---------- enganches ----------
+{ const a0 = JM.absorb.bind(JM); JM.absorb = async function (z) { const r = await a0(z); try { SpatialGUI.absorb(z); } catch (e) { } return r; }; }
+// la interfaz se dibuja en el plano 3D
+{
+  const d0 = GUI.draw.bind(GUI);
+  GUI.draw = function () { if (!SpatialGUI.active()) return d0(); return SpatialGUI.drawGUI(d0); };
+}
+// el ratón se traslada al plano en las funciones que lo leen (solo en la llamada de fuera)
+{
+  let depth = 0;
+  const wrapAll = (obj) => {
+    for (const k of Object.keys(obj)) {
+      const f = obj[k]; if (typeof f !== 'function' || k === 'isOpen' || k === 'openFor' || k === 'close') continue;
+      if (!/\bmx\b|\bmy\b/.test(Function.prototype.toString.call(f)) && k !== 'draw') continue;
+      obj[k] = function () {
+        if (depth > 0 || !SpatialGUI.active() || !GUI.open) return f.apply(this, arguments);
+        const mx = GUI.mx, my = GUI.my; depth++;
+        try { if (k !== 'draw') SpatialGUI.mapMouse(); else { SpatialGUI._raw = [mx, my]; } return f.apply(this, arguments); }
+        finally { depth--; GUI.mx = mx; GUI.my = my; }
+      };
+    }
+  };
+  wrapAll(GUI); if (typeof RecipeBook !== 'undefined') wrapAll(RecipeBook);
+  // al dibujar: primero se coloca la pantalla (para saber dónde está) y luego se traslada el ratón
+  const d1 = SpatialGUI.drawGUI.bind(SpatialGUI);
+  SpatialGUI.drawGUI = function (orig) {
+    return d1(() => { const raw = this._raw; if (raw && this.rect) { GUI.mx = raw[0]; GUI.my = raw[1]; this.mapMouse(); } orig(); });
+  };
+}
+// cada fotograma: animación, efecto y cámara
+{
+  let last = performance.now();
+  const loop = () => {
+    requestAnimationFrame(loop); const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
+    if (!SpatialGUI.has) return;
+    SpatialGUI.tick(dt);
+    if (SpatialGUI.panel && (!GUI.open || !SpatialGUI.active())) {
+      if (SpatialGUI.openK > 0 && SpatialGUI.active()) { const T = SpatialGUI.transform(); SpatialGUI.panel.style.transform = T.css; SpatialGUI.panel.style.opacity = T.op; }
+      else SpatialGUI.panel.style.display = 'none';
+    }
+    const third = SpatialGUI.active() && SpatialGUI.get('sgView') === 'third' && Game.cam === 0 && !Cam.rcf && Game.player && !Game.player.dead && !Game.player.riding;
+    const want = third && GUI.open ? 1 : 0; SpatialGUI.camK = want ? Math.min(1, SpatialGUI.camK + dt / 0.35) : Math.max(0, SpatialGUI.camK - dt / 0.3);
+    Cam.sgf = SpatialGUI.camK > 0 && Game.player ? SpatialGUI._camFn || (SpatialGUI._camFn = (pt) => SpatialGUI.cam(pt)) : null;
+  };
+  requestAnimationFrame(loop);
+}
+// el pixelado necesita copiar la imagen del mundo justo después de dibujarla
+{ const h0 = HUD.draw.bind(HUD); HUD.draw = function () { if (SpatialGUI.has) SpatialGUI.effect(); return h0.apply(this, arguments); }; }
+// ---------- opciones (Opciones → Spatial GUI…) ----------
+{
+  const screen = () => {
+    let el = document.getElementById('s_spatial'); if (el) return el;
+    el = document.createElement('div'); el.className = 'screen dim'; el.id = 's_spatial'; el.style.display = 'none';
+    const sel = (id, label, opts) => `<label class="field">${label}<select id="${id}">${opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label>`;
+    const rng = (id, label, min, max) => `<label class="field">${label} <span id="${id}V"></span><input type="range" id="${id}" min="${min}" max="${max}" step="1" style="width:100%"></label>`;
+    el.innerHTML = '<h2>Spatial GUI</h2>' +
+      sel('sgOn', 'Interfaz en 3D', [['1', 'Activada'], ['0', 'Desactivada']]) +
+      sel('sgView', 'Vista', [['third', 'Tercera persona (se ve al personaje)'], ['first', 'Primera persona']]) +
+      sel('sgSide', 'Lado de la pantalla', [['right', 'Derecha'], ['left', 'Izquierda']]) +
+      sel('sgEffect', 'Efecto del mundo de fondo', [['none', 'Ninguno'], ['dim', 'Atenuar'], ['dark', 'Oscuro'], ['grayscale', 'Escala de grises'], ['desaturate', 'Desaturar'], ['pixelate', 'Pixelado'], ['blur', 'Desenfocar']]) +
+      rng('sgYaw', 'Giro (°)', 0, 45) + rng('sgPitch', 'Inclinación (°)', -20, 20) + rng('sgDist', 'Tamaño (%)', 60, 130) +
+      sel('sgAnim', 'Animación al abrir', [['1', 'Sí'], ['0', 'No']]) +
+      '<button class="btn" id="sgBack">Hecho</button>';
+    document.body.appendChild(el);
+    const keys = ['sgOn', 'sgView', 'sgSide', 'sgEffect', 'sgYaw', 'sgPitch', 'sgDist', 'sgAnim'];
+    for (const k of keys) {
+      const i = document.getElementById(k);
+      i.addEventListener('input', () => { const v = i.value; Settings[k] = k === 'sgOn' || k === 'sgAnim' ? v === '1' : /^(sgYaw|sgPitch|sgDist)$/.test(k) ? +v : v; const o = document.getElementById(k + 'V'); if (o) o.textContent = v; saveSettings(); });
+    }
+    document.getElementById('sgBack').onclick = () => UI.show('options');
+    return el;
+  };
+  const fill = () => { for (const k of ['sgOn', 'sgView', 'sgSide', 'sgEffect', 'sgYaw', 'sgPitch', 'sgDist', 'sgAnim']) { const i = document.getElementById(k); const v = SpatialGUI.get(k); i.value = typeof v === 'boolean' ? (v ? '1' : '0') : String(v); const o = document.getElementById(k + 'V'); if (o) o.textContent = v; } };
+  const s0 = UI.show.bind(UI);
+  UI.show = function (n) {
+    const sp = document.getElementById('s_spatial');
+    if (n === 'spatial') { const el = screen(); const r = s0(null); el.style.display = ''; this.cur = 'spatial'; fill(); return r; }
+    if (sp) sp.style.display = 'none';
+    const r = s0.apply(this, arguments);
+    if (n === 'options' && SpatialGUI.has) {
+      const back = document.getElementById('optBack');
+      if (back && !document.getElementById('optSpatial')) { const b = document.createElement('button'); b.className = 'btn'; b.id = 'optSpatial'; b.textContent = 'Spatial GUI…'; b.onclick = () => UI.show('spatial'); back.parentNode.insertBefore(b, back); }
+    }
+    return r;
+  };
 }
 
 // ---- 13d_enchant.js ----
